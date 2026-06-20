@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net (first-rule default deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Primitives & Security Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Entity 1: User Validation 
+    function isValidUser(user) {
+      return user.keys().hasAll(['uid', 'email', 'createdAt'])
+        && user.keys().size() <= 5 // Allow optional displayName
+        && user.uid is string
+        && user.uid.size() <= 128
+        && user.email is string
+        && user.email.size() <= 128
+        && user.createdAt is string
+        && user.createdAt.size() <= 64
+        && (user.get('displayName', '') is string);
+    }
+
+    // Entity 2: Track Validation
+    function isValidTrack(track) {
+      return track.keys().hasAll(['id', 'userId', 'name', 'format', 'size', 'status', 'createdAt'])
+        && track.keys().size() <= 20
+        && track.id is string
+        && track.id.size() <= 128
+        && track.userId is string
+        && track.userId == request.auth.uid
+        && track.name is string
+        && track.name.size() <= 256
+        && track.format is string
+        && track.format.size() <= 16
+        && track.size is number
+        && track.size >= 0
+        && track.size <= 2048.0 // Restrict to max 2GB to prevent denial-of-wallet payload bounds
+        && track.status is string
+        && (track.status == 'pending_analysis' || track.status == 'analyzed')
+        && track.createdAt is string
+        && track.createdAt.size() <= 64
+        && (track.get('convertedMp3Url', '') is string)
+        && (track.get('metrics', null) == null || track.metrics is map)
+        && (track.get('critique', null) == null || track.critique is map)
+        && (track.get('coverArt', '') is string)
+        && (track.get('metaTitle', '') is string)
+        && (track.get('metaArtist', '') is string)
+        && (track.get('metaGenre', '') is string);
+    }
+
+    // Collection 1: Users Match Target
+    match /users/{userId} {
+      allow create: if isSignedIn() && isValidId(userId) && userId == request.auth.uid && isValidUser(incoming());
+      allow get: if isSignedIn() && userId == request.auth.uid;
+      allow update: if isSignedIn() && isValidId(userId) && userId == request.auth.uid && isValidUser(incoming())
+                       && (incoming().diff(existing()).affectedKeys().hasOnly(['displayName']));
+      allow delete: if false; // Users aren't allowed to delete accounts client-side
+    }
+
+    // Collection 2: Tracks Match Target
+    match /tracks/{trackId} {
+      allow create: if isSignedIn() && isValidId(trackId) && trackId == incoming().id && isValidTrack(incoming());
+      
+      // Enforce list queries checking resource.data.userId == request.auth.uid securely
+      allow list, get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow update: if isSignedIn() && isValidId(trackId) && isValidTrack(incoming()) 
+                       && incoming().userId == existing().userId
+                       && incoming().createdAt == existing().createdAt;
+                       
+      allow delete: if isSignedIn() && isValidId(trackId) && (resource == null || resource.data.userId == request.auth.uid);
+    }
+  }
+}

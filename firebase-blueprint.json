@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User account profile details",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "Track": {
+      "title": "Track",
+      "description": "A musical track uploaded by a user with associated critique details and status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "format": { "type": "string" },
+        "size": { "type": "number" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "convertedMp3Url": { "type": "string" },
+        "metrics": { "type": "object" },
+        "critique": { "type": "object" },
+        "coverArt": { "type": "string" },
+        "metaTitle": { "type": "string" },
+        "metaArtist": { "type": "string" },
+        "metaGenre": { "type": "string" }
+      },
+      "required": ["id", "userId", "name", "format", "size", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User settings and details"
+    },
+    "/tracks/{trackId}": {
+      "schema": "Track",
+      "description": "Historical track records and reports for each user"
+    }
+  }
+}

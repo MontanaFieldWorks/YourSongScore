@@ -1,0 +1,6 @@
+{
+  "name": "YourSongScore | Analyze Your Music. Analyze Your Impact.",
+  "description": "Get commercial viability feedback and high-end mixing advice and from an AI trained to listen carefully. Upload a a fully polished track, a rough demo, integrate Spotify streaming clips to analyze your dynamic arc.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
