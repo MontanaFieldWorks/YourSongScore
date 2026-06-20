@@ -652,7 +652,8 @@ export default function App() {
 
       // Try actual calculation from server using the audio URL
       try {
-        const urlToAnalyze = track.convertedMp3Url || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
+        if (!track.convertedMp3Url) return;
+        const urlToAnalyze = track.convertedMp3Url;
         setLoadingStatus(threeXMode ? "Multi-pass analysis starting up..." : "Gemini is listening to your transients and harmonics...");
         
         const trackWithMeta = track as any;
