@@ -499,7 +499,8 @@ export default function Dashboard({
 
       // Try actual calculation from server using the audio URL
       try {
-        const urlToAnalyze = track.convertedMp3Url || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
+        if (!track.convertedMp3Url) return;
+        const urlToAnalyze = track.convertedMp3Url;
         const trackWithMeta = track as any;
         const res = await fetch("/api/critique-url", {
           method: "POST",
