@@ -244,7 +244,8 @@ const generateHarmonicNodes = () => {
 
     // Node 4: High-Mid — driven by calculatedHighEnergy + highEndText
     const harshSeverity = mentionsHarsh(highEndText) && high > 30 ? "critical"
-      : mentionsHarsh(highEndText) || high > 33 ? "warning"
+      : mentionsHarsh(highEndText) && high > 25 ? "warning"
+      : high > 38 && !mentionsHarsh(highEndText) ? "warning"
       : "optimized";
     const harshDb = harshSeverity === "critical" ? parseFloat((2.4 + (high - 30) * 0.15).toFixed(1))
       : harshSeverity === "warning" ? 2.0
@@ -813,7 +814,11 @@ const generateHarmonicNodes = () => {
                           <ShieldAlert className="w-4 h-4 text-rose-400" /> True Peak Headroom Compliance
                         </span>
                         <span className="font-mono font-bold uppercase text-[10px] tracking-wider px-2 py-0.5 bg-rose-500/15 rounded-md text-glow">
-                          Pass (-0.8 dBTP)
+                          {critique?.liveMetrics?.calculatedTruePeak !== undefined
+                            ? critique.liveMetrics.calculatedTruePeak > -1.0
+                              ? `Warn (${critique.liveMetrics.calculatedTruePeak} dBTP)`
+                              : `Pass (${critique.liveMetrics.calculatedTruePeak} dBTP)`
+                            : "Pass (-0.8 dBTP)"}
                         </span>
                       </div>
                     </div>
@@ -823,33 +828,59 @@ const generateHarmonicNodes = () => {
                       <div className="bg-[#0A0B0E] p-4.5 rounded-xl border border-white/5">
                         <span className="text-[9px] font-mono text-slate-500 uppercase font-bold tracking-wider">Integrated Loudness</span>
                         <div className="text-xl font-extrabold text-white mt-1.5 font-mono text-glow">
-                          -11.4 LUFS
+                          {critique?.liveMetrics?.calculatedLufs !== undefined ? `${critique.liveMetrics.calculatedLufs} LUFS` : "-11.4 LUFS"}
                         </div>
-                        <p className="text-[9.5px] text-slate-400 mt-1 leading-relaxed">Streaming norms require ~-14 LUFS; your master is nicely optimized for dense platform delivery.</p>
+                        <p className="text-[9.5px] text-slate-400 mt-1 leading-relaxed">
+                          {critique?.liveMetrics?.calculatedLufs !== undefined
+                            ? critique.liveMetrics.calculatedLufs > -9
+                              ? "Master is heavily limited. Consider backing off the limiter by 1.5dB to restore dynamic headroom."
+                              : critique.liveMetrics.calculatedLufs < -16
+                              ? "Track is mastered conservatively. May sound quiet on streaming platforms compared to competitors."
+                              : "Nicely optimized for dense platform delivery. Within competitive streaming range."
+                            : "Streaming norms require ~-14 LUFS; your master is nicely optimized for dense platform delivery."}
+                        </p>
                       </div>
 
                       <div className="bg-[#0A0B0E] p-4.5 rounded-xl border border-white/5">
                         <span className="text-[9px] font-mono text-slate-500 uppercase font-bold tracking-wider">Loudness Range (LRA)</span>
                         <div className="text-xl font-extrabold text-white mt-1.5 font-mono text-glow text-cyan-400">
-                          6.2 LU
+                          {critique?.liveMetrics?.calculatedLra !== undefined ? `${critique.liveMetrics.calculatedLra} LU` : "6.2 LU"}
                         </div>
-                        <p className="text-[9.5px] text-slate-400 mt-1 leading-relaxed">Healthy margin indicating dynamic variation between verse and chorus build-ups.</p>
+                        <p className="text-[9.5px] text-slate-400 mt-1 leading-relaxed">
+                          {critique?.liveMetrics?.calculatedLra !== undefined
+                            ? critique.liveMetrics.calculatedLra < 4
+                              ? "Narrow dynamic range — mix may feel flat. Verses and choruses are close in perceived volume."
+                              : critique.liveMetrics.calculatedLra > 12
+                              ? "Wide dynamic range — verify choruses hit hard enough on consumer playback systems."
+                              : "Healthy dynamic variation between quiet and loud sections detected."
+                            : "Healthy margin indicating dynamic variation between verse and chorus build-ups."}
+                        </p>
                       </div>
 
                       <div className="bg-[#0A0B0E] p-4.5 rounded-xl border border-white/5">
                         <span className="text-[9px] font-mono text-slate-500 uppercase font-bold tracking-wider">Crest Factor index</span>
                         <div className="text-xl font-extrabold text-white mt-1.5 font-mono text-glow text-purple-400">
-                          5.4 dB
+                          {critique?.liveMetrics?.calculatedLufs !== undefined && critique?.liveMetrics?.calculatedTruePeak !== undefined
+                            ? `${Math.abs(parseFloat((critique.liveMetrics.calculatedTruePeak - critique.liveMetrics.calculatedLufs).toFixed(1)))} dB`
+                            : "5.4 dB"}
                         </div>
-                        <p className="text-[9.5px] text-slate-400 mt-1 leading-relaxed">Ratio of target peak to RMS. Dynamic transients are well-preserved, not brickwalled.</p>
+                        <p className="text-[9.5px] text-slate-400 mt-1 leading-relaxed">Ratio of peak to integrated loudness. Higher values indicate preserved transient punch.</p>
                       </div>
 
                       <div className="bg-[#0A0B0E] p-4.5 rounded-xl border border-white/5">
                         <span className="text-[9px] font-mono text-slate-500 uppercase font-bold tracking-wider">Master Headroom</span>
                         <div className="text-xl font-extrabold text-white mt-1.5 font-mono text-glow text-emerald-400">
-                          +1.2 dB
+                          {critique?.liveMetrics?.calculatedTruePeak !== undefined
+                            ? `${parseFloat((0 - critique.liveMetrics.calculatedTruePeak).toFixed(1))} dB`
+                            : "+1.2 dB"}
                         </div>
-                        <p className="text-[9.5px] text-slate-400 mt-1 leading-relaxed">Perfect safety storage zone before the inter-sample digital ceiling, avoiding harsh clipping.</p>
+                        <p className="text-[9.5px] text-slate-400 mt-1 leading-relaxed">
+                          {critique?.liveMetrics?.calculatedTruePeak !== undefined
+                            ? critique.liveMetrics.calculatedTruePeak > -1.0
+                              ? "True peak is dangerously close to 0dBFS. Risk of inter-sample clipping on streaming encoders."
+                              : "Safe headroom margin before the digital ceiling. No clipping risk detected."
+                            : "Perfect safety storage zone before the inter-sample digital ceiling, avoiding harsh clipping."}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -869,14 +900,27 @@ const generateHarmonicNodes = () => {
                   </p>
 
                   <div className="grid grid-cols-1 md:grid-cols-6 gap-3 pt-2">
-                    {[
-                      { band: "Sub-Bass", r: "20 - 64 Hz", val: 84, status: "Nominal", color: "from-blue-600 to-blue-400" },
-                      { band: "Bass Corridor", r: "64 - 250 Hz", val: 92, status: "Slight Peak", color: "from-indigo-600 to-indigo-400" },
-                      { band: "Low-Mids", r: "250 - 1000 Hz", val: 78, status: "Clean Area", color: "from-purple-600 to-purple-400" },
-                      { band: "Core Mids", r: "1kHz - 4kHz", val: 68, status: "Nominal", color: "from-pink-600 to-pink-400" },
-                      { band: "Presence", r: "4kHz - 8kHz", val: 74, status: "Good Width", color: "from-rose-600 to-rose-400" },
-                      { band: "Air", r: "8kHz - 20kHz", val: 58, status: "Slight Deficit", color: "from-teal-600 to-teal-400" }
-                    ].map((band) => (
+                    {(() => {
+                      const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35;
+                      const mid = critique?.liveMetrics?.calculatedMidEnergy ?? 40;
+                      const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25;
+                      const subBassVal = Math.min(99, Math.round(bass * 0.6));
+                      const bassCorridorVal = Math.min(99, Math.round(bass * 1.1));
+                      const lowMidVal = Math.min(99, Math.round(mid * 0.85));
+                      const coreMidVal = Math.min(99, Math.round(mid * 0.75));
+                      const presenceVal = Math.min(99, Math.round(high * 1.2));
+                      const airVal = Math.min(99, Math.round(high * 0.9));
+                      const getStatus = (v: number, ideal: number) =>
+                        v > ideal + 12 ? "Peak" : v > ideal + 5 ? "Slight Peak" : v < ideal - 12 ? "Deficit" : v < ideal - 5 ? "Slight Deficit" : "Nominal";
+                      return [
+                        { band: "Sub-Bass", r: "20 - 64 Hz", val: subBassVal, status: getStatus(subBassVal, 52), color: "from-blue-600 to-blue-400" },
+                        { band: "Bass Corridor", r: "64 - 250 Hz", val: bassCorridorVal, status: getStatus(bassCorridorVal, 70), color: "from-indigo-600 to-indigo-400" },
+                        { band: "Low-Mids", r: "250 - 1000 Hz", val: lowMidVal, status: getStatus(lowMidVal, 65), color: "from-purple-600 to-purple-400" },
+                        { band: "Core Mids", r: "1kHz - 4kHz", val: coreMidVal, status: getStatus(coreMidVal, 60), color: "from-pink-600 to-pink-400" },
+                        { band: "Presence", r: "4kHz - 8kHz", val: presenceVal, status: getStatus(presenceVal, 55), color: "from-rose-600 to-rose-400" },
+                        { band: "Air", r: "8kHz - 20kHz", val: airVal, status: getStatus(airVal, 45), color: "from-teal-600 to-teal-400" }
+                      ];
+                    })().map((band) => (
                       <div key={band.band} className="bg-[#0A0B0E] border border-white/5 p-3.5 rounded-2xl flex flex-col items-center justify-between min-h-[190px]">
                         <span className="text-[10px] font-bold text-slate-200 tracking-wide">{band.band}</span>
                         <span className="text-[8px] font-mono text-slate-500 uppercase">{band.r}</span>
@@ -920,19 +964,19 @@ const generateHarmonicNodes = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-[#0A0B0E] p-4 rounded-xl border border-white/5 text-center">
                       <span className="text-[9.5px] font-mono text-slate-500 uppercase tracking-wider block">Peak-to-Loudness (PLR)</span>
-                      <span className="text-2xl font-black text-white mt-1.5 block font-mono text-glow">9.5 PLR</span>
+                      <span className="text-2xl font-black text-white mt-1.5 block font-mono text-glow">{critique?.liveMetrics?.calculatedTruePeak !== undefined && critique?.liveMetrics?.calculatedLufs !== undefined ? `${Math.abs(parseFloat((critique.liveMetrics.calculatedTruePeak - critique.liveMetrics.calculatedLufs).toFixed(1)))} PLR` : "9.5 PLR"}</span>
                       <span className="text-[9px] text-slate-400 mt-1 block">Ideal transient balance; no severe brickwalling detected.</span>
                     </div>
 
                     <div className="bg-[#0A0B0E] p-4 rounded-xl border border-white/5 text-center">
                       <span className="text-[9.5px] font-mono text-slate-500 uppercase tracking-wider block">Dynamic Range Score</span>
-                      <span className="text-2xl font-black text-rose-400 mt-1.5 block font-mono text-glow">DR9</span>
+                      <span className="text-2xl font-black text-rose-400 mt-1.5 block font-mono text-glow">{critique?.liveMetrics?.calculatedLra !== undefined ? `DR${Math.round(critique.liveMetrics.calculatedLra)}` : "DR9"}</span>
                       <span className="text-[9px] text-slate-400 mt-1 block">Highly safe dynamic index for commercial and digital delivery.</span>
                     </div>
 
                     <div className="bg-[#0A0B0E] p-4 rounded-xl border border-white/5 text-center">
                       <span className="text-[9.5px] font-mono text-slate-500 uppercase tracking-wider block">Compression Artifacts</span>
-                      <span className="text-2xl font-black text-emerald-400 mt-1.5 block font-mono text-glow">Clean</span>
+                      <span className="text-2xl font-black text-emerald-400 mt-1.5 block font-mono text-glow">{critique?.liveMetrics?.calculatedLufs !== undefined ? critique.liveMetrics.calculatedLufs > -8 ? "Heavy Limiting" : critique.liveMetrics.calculatedLufs > -11 ? "Moderate" : "Clean" : "Clean"}</span>
                       <span className="text-[9px] text-slate-400 mt-1 block">No aggressive compressor breathing or transient smearing.</span>
                     </div>
                   </div>
@@ -941,7 +985,7 @@ const generateHarmonicNodes = () => {
                   <div className="bg-[#0A0B0E] border border-white/5 p-5 rounded-2xl">
                     <div className="flex items-center justify-between mb-4">
                       <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider">Acoustic Gain Reduction Timeline</span>
-                      <span className="text-[9px] font-mono text-rose-400">-1.8 dB Target GR</span>
+                      <span className="text-[9px] font-mono text-rose-400">{critique?.liveMetrics?.calculatedLufs !== undefined ? `${parseFloat((critique.liveMetrics.calculatedLufs + 14).toFixed(1))} dB GR vs -14 LUFS Target` : "-1.8 dB Target GR"}</span>
                     </div>
 
                     <div className="h-28 bg-neutral-950 rounded-xl relative overflow-hidden flex items-center justify-center border border-white/5">
@@ -994,7 +1038,7 @@ const generateHarmonicNodes = () => {
                         <div className="absolute w-20 h-28 bg-pink-500/25 blur-xl rounded-full rotate-42 animate-pulse" />
                         <div className="absolute w-12 h-20 bg-blue-500/20 blur-md rounded-full -rotate-12" />
                       </div>
-                      <span className="text-[10px] font-mono text-slate-400">Total Spatial Breadth Index: wide (65°)</span>
+                      <span className="text-[10px] font-mono text-slate-400">{(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25; const width = Math.round(45 + (high * 0.8) - (bass * 0.3)); return `Total Spatial Breadth Index: ${width > 70 ? "wide" : width > 55 ? "moderate" : "narrow"} (${width}°)`; })()}</span>
                     </div>
 
                     <div className="flex flex-col gap-4">
@@ -1002,7 +1046,7 @@ const generateHarmonicNodes = () => {
                       <div className="bg-[#0A0B0E] p-4 rounded-xl border border-white/5">
                         <div className="flex items-center justify-between text-xs font-bold text-white mb-2">
                           <span>Phase Correlation Coordinate</span>
-                          <span className="text-pink-400 font-mono">+0.84</span>
+                          <span className="text-pink-400 font-mono">{(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const mid = critique?.liveMetrics?.calculatedMidEnergy ?? 40; const correlation = parseFloat(Math.min(0.99, Math.max(0.3, 1.0 - ((bass + mid) * 0.006))).toFixed(2)); return `+${correlation}`; })()}</span>
                         </div>
                         <div className="w-full h-1.5 bg-neutral-950 rounded-full border border-white/5 relative p-[1px]">
                           <div className="absolute w-3 h-3 bg-pink-500 rounded-full shadow-[0_0_8px_#ec4899] top-1/2 -mt-[5px] left-[84%]" />
@@ -1018,15 +1062,15 @@ const generateHarmonicNodes = () => {
                       <div className="bg-neutral-900 border border-white/5 p-4 rounded-xl text-xs flex flex-col gap-2.5">
                         <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
                           <span className="text-slate-400">Mid Energy (Mono core):</span>
-                          <span className="text-white font-mono font-bold">62.8%</span>
+                          <span className="text-white font-mono font-bold">{critique?.liveMetrics?.calculatedMidEnergy !== undefined ? `${Math.min(99, Math.round(50 + (critique.liveMetrics.calculatedMidEnergy * 0.3)))}%` : "62.8%"}</span>
                         </div>
                         <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
                           <span className="text-slate-400">Side Energy (Stereo cloud):</span>
-                          <span className="text-pink-400 font-mono font-bold">37.2%</span>
+                          <span className="text-pink-400 font-mono font-bold">{critique?.liveMetrics?.calculatedMidEnergy !== undefined ? `${Math.max(1, Math.round(50 - (critique.liveMetrics.calculatedMidEnergy * 0.3)))}%` : "37.2%"}</span>
                         </div>
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="text-slate-400">Low-End (<span className="text-[10px]">&lt;120Hz</span>) Mono Alignment:</span>
-                          <span className="text-emerald-400 font-bold uppercase">Locked 100% Mono</span>
+                          <span className="text-emerald-400 font-bold uppercase">{critique?.liveMetrics?.calculatedBassEnergy !== undefined ? critique.liveMetrics.calculatedBassEnergy > 40 ? "Locked 100% Mono" : critique.liveMetrics.calculatedBassEnergy > 25 ? "Mostly Mono" : "Check Mono Compatibility" : "Locked 100% Mono"}</span>
                         </div>
                       </div>
                     </div>
@@ -1075,16 +1119,16 @@ const generateHarmonicNodes = () => {
                         <div>
                           <span className="text-[9.5px] font-mono text-slate-500 uppercase tracking-wider">Acoustic Dry / Wet Ratio</span>
                           <div className="text-2xl font-black text-white mt-1.5 font-mono text-glow">
-                            65% Dry / 35% Wet
+                            {critique?.liveMetrics?.calculatedHighEnergy !== undefined && critique?.liveMetrics?.calculatedMidEnergy !== undefined ? `${Math.round(45 + (critique.liveMetrics.calculatedMidEnergy * 0.4))}% Dry / ${Math.round(55 - (critique.liveMetrics.calculatedMidEnergy * 0.4))}% Wet` : "65% Dry / 35% Wet"}
                           </div>
                           <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
-                            Excellent reverb decay profile. Main vocals sit dry and front-centered, while synths and secondary guitars occupy cohesive back-room spaces without creating frequency mud.
+                            {critique?.liveMetrics?.calculatedHighEnergy !== undefined ? critique.liveMetrics.calculatedHighEnergy > 35 ? "High ambient energy detected. Reverb tails may be washing into the mix — consider high-passing reverb returns above 200Hz." : critique.liveMetrics.calculatedHighEnergy < 18 ? "Dry, close-mic sound detected. Mix may benefit from additional room ambience on secondary instruments." : "Good reverb balance. Primary elements sit dry and forward while ambient layers occupy the rear field cleanly." : "Excellent reverb decay profile. Main vocals sit dry and front-centered, while synths and secondary guitars occupy cohesive back-room spaces without creating frequency mud."}
                           </p>
                         </div>
 
                         <div className="mt-4 pt-3.5 border-t border-white/5 text-[10.5px] text-emerald-400 font-mono leading-relaxed">
                           <span className="font-sans font-bold text-slate-200 block mb-0.5 uppercase text-[9px]">Reverb Tail Diagnostic:</span>
-                          Average decay (RT60) tracks cleanly at 1.45 seconds on high harmonic bands.
+                          {critique?.liveMetrics?.calculatedLra !== undefined ? `Estimated RT60 decay maps to ${parseFloat((critique.liveMetrics.calculatedLra * 0.18).toFixed(2))}s — ${critique.liveMetrics.calculatedLra > 10 ? "long decay tail detected, risk of wash in dense arrangements." : critique.liveMetrics.calculatedLra < 5 ? "short decay profile, mix feels tight and dry." : "healthy decay range for commercial release."}` : "Average decay (RT60) tracks cleanly at 1.45 seconds on high harmonic bands."}
                         </div>
                       </div>
                     </div>
@@ -1106,9 +1150,9 @@ const generateHarmonicNodes = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {[
-                      { type: "Linear Even-order Harmonics (Tube)", spec: "Emphasizes second-order even harmonics. Adds fatter, smooth analog bass depth.", defaultA: 78 },
-                      { type: "Odd-order Harmonics (Tape)", spec: "Emphasizes third-order odd harmonics. Enhances transient glue and high shelf air.", defaultA: 45 },
-                      { type: "Total Harmonic Distortion (THD)", spec: "Total proportion of harmonic saturation to raw carrier signal.", defaultA: 24 }
+                      { type: "Linear Even-order Harmonics (Tube)", spec: "Emphasizes second-order even harmonics. Adds fatter, smooth analog bass depth.", defaultA: Math.round(50 + ((critique?.liveMetrics?.calculatedBassEnergy ?? 35) * 0.7)) },
+                      { type: "Odd-order Harmonics (Tape)", spec: "Emphasizes third-order odd harmonics. Enhances transient glue and high shelf air.", defaultA: Math.round(20 + ((critique?.liveMetrics?.calculatedHighEnergy ?? 25) * 1.0)) },
+                      { type: "Total Harmonic Distortion (THD)", spec: "Total proportion of harmonic saturation to raw carrier signal.", defaultA: Math.round(10 + ((critique?.liveMetrics?.calculatedBassEnergy ?? 35) * 0.3) + ((critique?.liveMetrics?.calculatedHighEnergy ?? 25) * 0.2)) }
                     ].map((h, i) => (
                       <div key={i} className="bg-[#0A0B0E] p-4 rounded-xl border border-white/5 flex flex-col justify-between">
                         <div>
@@ -1125,7 +1169,7 @@ const generateHarmonicNodes = () => {
                   <div className="bg-[#0b1322] border border-amber-500/15 rounded-xl p-4 flex items-center justify-between text-xs text-amber-400">
                     <span className="font-semibold block uppercase font-mono tracking-wider text-[9px]">Analog character recommendations:</span>
                     <p className="text-[11px] text-slate-300 ml-4">
-                      Your master would benefit from a light vintage tape hardware drive (+0.5dB saturation, speed 30 ips) to seamlessly bind high-mid transient peaks.
+                      {critique?.liveMetrics?.calculatedLufs !== undefined ? critique.liveMetrics.calculatedLufs > -9 ? "Master is heavily saturated. Ease limiter gain by 1.5dB and reduce harmonic drive to preserve transient clarity." : critique.liveMetrics.calculatedHighEnergy > 32 ? "High-mid harmonic content is elevated. A gentle tape emulation (30 ips, +0.3dB) would smooth sibilant peaks without losing presence." : critique.liveMetrics.calculatedBassEnergy > 42 ? "Low-end harmonic density is high. Tube saturation on the bass bus (+0.5dB even-order drive) would add warmth without muddying the mix." : "Harmonic profile is well balanced. Light vintage tape drive (+0.5dB, 30 ips) would add cohesion across the high-mid transient peaks." : "Your master would benefit from a light vintage tape hardware drive (+0.5dB saturation, speed 30 ips) to seamlessly bind high-mid transient peaks."}
                     </p>
                   </div>
                 </div>
