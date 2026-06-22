@@ -336,6 +336,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     lufsConformity: false,
     transientStability: true,
   });
+  const [isEchoNestExpanded, setIsEchoNestExpanded] = useState(false);
+  const [isRecommenderExpanded, setIsRecommenderExpanded] = useState(false);
 
   React.useEffect(() => {
     if (critique?.liveMetrics) {
@@ -3610,10 +3612,57 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       <div className="flex flex-col gap-6 w-full animate-fadeIn" id="spotify-recommendation-panel">
         
         {/* Indented parent container representing hierarchy */}
-        <div className="border-l border-white/5 pl-4 md:pl-6 ml-0 md:ml-4 flex flex-col gap-8">
+        <div className="border-l border-white/5 pl-4 md:pl-6 ml-0 md:ml-4 flex flex-col gap-6">
 
-          {/* Combined Target-Calibration Scorecard Card */}
-          <div className="bg-[#0D0E12] border border-[#1DB954]/25 rounded-2xl p-6 text-left flex flex-col gap-6 shadow-lg relative overflow-hidden">
+          {/* Card 1 TRIGGER: The ECHO NEST SCORECARD */}
+          <div 
+            onClick={() => setIsEchoNestExpanded(!isEchoNestExpanded)}
+            className={`border rounded-2xl p-5 text-left cursor-pointer transition-all duration-300 relative overflow-hidden select-none ${
+              isEchoNestExpanded 
+                ? "bg-[#0c1811]/45 border-[#1ed760] shadow-[0_0_15px_rgba(29,185,84,0.15)] ring-1 ring-emerald-500/20" 
+                : "bg-neutral-900/60 border-white/5 hover:border-[#1ed760]/40 text-slate-400 hover:bg-[#071109]/20"
+            }`}
+          >
+            {/* Faint left highlight */}
+            <div 
+              className="absolute left-0 top-0 h-full w-[4px]"
+              style={{ backgroundColor: "#1ed760", boxShadow: "0 0 10px #1ed760" }}
+            />
+            
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className={`p-1.5 rounded-lg border flex items-center justify-center transition-colors ${
+                  isEchoNestExpanded 
+                    ? "bg-[#1DB954]/20 border-[#1DB954]/40 text-[#1ed760]" 
+                    : "bg-neutral-800 border-white/5 text-slate-500"
+                }`}>
+                  <Activity className="w-4 h-4" />
+                </span>
+                <div>
+                  <span className="text-[9px] font-mono uppercase tracking-widest text-[#1ed760] font-bold block">Dual-Filtering Target Compliance</span>
+                  <h3 className="text-base font-sans font-black text-white uppercase mt-0.5">
+                    The ECHO NEST SCORECARD
+                  </h3>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="hidden sm:inline-block text-[9px] font-mono text-slate-500">
+                  {isEchoNestExpanded ? "COLLAPSE AUDIT ▲" : "EXPAND AUDIT ▼"}
+                </span>
+                <span className={`inline-block text-[9px] font-mono tracking-widest px-2.5 py-1 rounded-full border ${
+                  isEchoNestExpanded
+                    ? "bg-[#1ed760]/10 border-[#1ed760]/20 text-[#1ed760]"
+                    : "bg-neutral-900 border-white/5 text-slate-400"
+                }`}>
+                  {isEchoNestExpanded ? "ACTIVE" : "VIEW DETAILED METRICS"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 1 Dropdown Content */}
+          {isEchoNestExpanded && (
+            <div className="bg-[#0D0E12] border border-[#1DB954]/25 rounded-2xl p-6 text-left flex flex-col gap-6 shadow-lg relative overflow-hidden">
             <div className="absolute top-0 left-0 bg-[#1DB954] h-[3px] w-full shadow-[0_0_8px_#1DB954]" />
             
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-4">
@@ -3824,12 +3873,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   {tempo} BPM
                 </strong>
               </div>
-              <div className="text-[10px] text-slate-500 italic">
+              <div className="text-[10px] text-slate-500 italic font-sans font-medium">
                 *Algorithmic triggers analyze raw BPM grid placement relative to transition indices.
               </div>
             </div>
 
           </div>
+          )}
 
           {/* The Echo Nest Rabbit Hole Redirect Button */}
           <div className="flex justify-end">
@@ -3840,6 +3890,88 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <Rabbit className="w-4 h-4 text-black" style={{ fill: "currentColor" }} />
               <span>The Echo Nest Rabbit Hole</span>
             </button>
+          </div>
+
+          {/* Card 2 TRIGGER: RECOMMENDER PERFORMANCE PREDICTION */}
+          <button 
+            type="button"
+            onClick={() => setIsRecommenderExpanded(!isRecommenderExpanded)}
+            className={`w-full text-left border rounded-2xl p-5 cursor-pointer transition-all duration-300 relative overflow-hidden select-none outline-none ${
+              isRecommenderExpanded 
+                ? "bg-[#0c1811]/45 border-[#1ed760] shadow-[0_0_15px_rgba(29,185,84,0.15)] ring-1 ring-emerald-500/20" 
+                : "bg-neutral-900/60 border-white/5 hover:border-[#1ed760]/40 text-slate-400 hover:bg-[#071109]/20"
+            }`}
+          >
+            {/* Faint left highlight */}
+            <div 
+              className="absolute left-0 top-0 h-full w-[4px]"
+              style={{ backgroundColor: "#1ed760", boxShadow: "0 0 10px #1ed760" }}
+            />
+            
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3 font-sans">
+                <span className={`p-1.5 rounded-lg border flex items-center justify-center transition-colors ${
+                  isRecommenderExpanded 
+                    ? "bg-[#1DB954]/20 border-[#1DB954]/40 text-[#1ed760]" 
+                    : "bg-neutral-800 border-white/5 text-slate-500"
+                }`}>
+                  <Compass className="w-4 h-4 text-[#1ed760]" />
+                </span>
+                <div>
+                  <span className="text-[9px] font-mono tracking-widest text-[#1ed760] font-bold uppercase block">Predicted Algorithmic Indexing</span>
+                  <p className="text-[17px] font-sans font-black text-white uppercase mt-0.5 animate-fadeIn">
+                    RECOMMENDER PERFORMANCE PREDICTION
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3 self-end md:self-auto font-sans">
+                <div className="flex items-center gap-2 bg-black/40 border border-white/5 px-3 py-1 rounded-xl">
+                  <span className="text-[8.5px] font-mono text-slate-400 uppercase tracking-wider font-bold">Index Score:</span>
+                  <span className="text-sm font-black font-mono text-[#1ed760] leading-none">{predictedScore}%</span>
+                </div>
+                <span className={`inline-block text-[9px] font-mono tracking-widest px-2.5 py-1 rounded-full border ${
+                  isRecommenderExpanded
+                    ? "bg-[#1ed760]/10 border-[#1ed760]/20 text-[#1ed760]"
+                    : "bg-neutral-900 border-white/5 text-slate-400"
+                }`}>
+                  {isRecommenderExpanded ? "ACTIVE" : "VIEW SPOTIFY RECOMMENDATION AUDIT"}
+                </span>
+              </div>
+            </div>
+          </button>
+
+          {/* Card 2 Dropdown Content */}
+          {isRecommenderExpanded && (
+            <div className="flex flex-col gap-6 w-full animate-fadeIn">
+
+              {/* Curation Conclusion Card */}
+              <div className="bg-neutral-950 border border-white/10 rounded-2xl p-5 text-left flex flex-col md:flex-row items-center justify-between gap-5 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 opacity-[0.02] pointer-events-none">
+              <Activity className="w-40 h-40 text-emerald-500 animate-[spin_20s_linear_infinite]" />
+            </div>
+            <div className="relative z-10 flex-1">
+              <span className="text-[10px] font-mono tracking-widest text-[#1DB954] font-bold uppercase block">Predicted Algorithmic Indexing</span>
+              <h2 className="text-lg font-extrabold text-white mt-1">Recommender Performance Prediction</h2>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-2xl">
+                Based on acoustic descriptors matching {critique?.vibe?.genre || "your style"}, we index this song's suitability for Spotify's discovery algorithms at **{predictedScore}%**. {
+                  predictedScore >= 85 ? "This track exhibits critical, premium retention properties to seed high-performance collaborative playlists." :
+                  predictedScore >= 70 ? "Stable performance potential. Optimize the first 30 seconds for maximum discovery loop acceleration." :
+                  "High skip-prone profile. We recommend shifting vocally focused elements earlier in the mix and compressing the transients."
+                }
+              </p>
+            </div>
+            <div className="relative z-10 bg-neutral-900 border border-white/10 p-5 rounded-2xl flex flex-col items-center justify-center min-w-[150px] shadow-lg flex-shrink-0 select-none">
+              <span className="text-[9px] font-mono font-bold tracking-wider text-slate-500 uppercase">Indexing Score</span>
+              <span className="text-3xl font-black text-[#1ed760] font-mono mt-1.5 leading-none">{predictedScore}%</span>
+              <span className={`text-[8.5px] font-mono font-bold uppercase px-2 py-0.5 rounded mt-2 text-center select-none border ${
+                predictedScore >= 85 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" :
+                predictedScore >= 70 ? "bg-blue-500/10 border-blue-500/20 text-blue-400" :
+                "bg-[#fe9a00]/10 border-[#fe9a00]/20 text-[#fe9a00]"
+              }`}>
+                {predictedScore >= 85 ? "▲ HIGH SEED CHANCE" : predictedScore >= 70 ? "■ MEDIUM RETENTION" : "▼ LOW SEED RANGE"}
+              </span>
+            </div>
           </div>
 
           {/* Sibling columns at the bottom for balanced spatial footprint */}
@@ -4032,34 +4164,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             </div>
           </div>
 
-          {/* Curation Conclusion Card */}
-          <div className="bg-neutral-950 border border-white/10 rounded-2xl p-5 text-left flex flex-col md:flex-row items-center justify-between gap-5 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-8 opacity-[0.02] pointer-events-none">
-              <Activity className="w-40 h-40 text-emerald-500 animate-[spin_20s_linear_infinite]" />
             </div>
-            <div className="relative z-10 flex-1">
-              <span className="text-[10px] font-mono tracking-widest text-[#1DB954] font-bold uppercase block">Predicted Algorithmic Indexing</span>
-              <h2 className="text-lg font-extrabold text-white mt-1">Recommender Performance Prediction</h2>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-2xl">
-                Based on acoustic descriptors matching {critique?.vibe?.genre || "your style"}, we index this song's suitability for Spotify's discovery algorithms at **{predictedScore}%**. {
-                  predictedScore >= 85 ? "This track exhibits critical, premium retention properties to seed high-performance collaborative playlists." :
-                  predictedScore >= 70 ? "Stable performance potential. Optimize the first 30 seconds for maximum discovery loop acceleration." :
-                  "High skip-prone profile. We recommend shifting vocally focused elements earlier in the mix and compressing the transients."
-                }
-              </p>
-            </div>
-            <div className="relative z-10 bg-neutral-900 border border-white/10 p-5 rounded-2xl flex flex-col items-center justify-center min-w-[150px] shadow-lg flex-shrink-0 select-none">
-              <span className="text-[9px] font-mono font-bold tracking-wider text-slate-500 uppercase">Indexing Score</span>
-              <span className="text-3xl font-black text-[#1ed760] font-mono mt-1.5 leading-none">{predictedScore}%</span>
-              <span className={`text-[8.5px] font-mono font-bold uppercase px-2 py-0.5 rounded mt-2 text-center select-none border ${
-                predictedScore >= 85 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" :
-                predictedScore >= 70 ? "bg-blue-500/10 border-blue-500/20 text-blue-400" :
-                "bg-[#fe9a00]/10 border-[#fe9a00]/20 text-[#fe9a00]"
-              }`}>
-                {predictedScore >= 85 ? "▲ HIGH SEED CHANCE" : predictedScore >= 70 ? "■ MEDIUM RETENTION" : "▼ LOW SEED RANGE"}
-              </span>
-            </div>
-          </div>
+          )}
 
         </div>
 
@@ -6465,4 +6571,3 @@ function StereoAzimuthVisualizer({ activeTab, onActiveTabChange, refMode, isPlay
     </div>
   );
 }
-
