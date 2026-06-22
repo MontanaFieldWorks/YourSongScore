@@ -167,71 +167,131 @@ export default function EngineeringStudioPage({ onBack, critique, trackInfo, loc
   };
 
   // 4. Generate Realistic Correction Nodes based on critique metrics
-  const generateHarmonicNodes = () => {
-    const defaultNodes: HarmonicNode[] = [
-      {
-        id: "sub-rumble",
-        frequency: "28 Hz",
-        band: "Sub-Bass",
-        dbOffset: 3.8,
-        problem: "Low-end DC rumble clashing with main kick drum transient spectrum.",
-        solution: "High-pass sweep with dynamic slope cornered precisely at 32Hz.",
-        detail: "Below 30Hz sits excessive acoustic floor noise that takes up precious master headroom. Clipping this range restores overall impact.",
-        xPct: 15,
-        yPct: 74,
-        status: "critical"
-      },
-      {
-        id: "muddy-mids",
-        frequency: "245 Hz",
-        band: "Low-Midrange",
-        dbOffset: 4.6,
-        problem: "Resonant accumulation causing severe muddy mix build-up.",
-        solution: "Apply a parametric dynamic EQ notch filter of -3.5dB with Q = 1.8.",
-        detail: "Instruments, vocal low-resonances, and guitar bodies fight inside this octave. Attenuating this creates a clear soundstage.",
-        xPct: 35,
-        yPct: 82,
-        status: "critical"
-      },
-      {
-        id: "boxy-color",
-        frequency: "580 Hz",
-        band: "Midrange",
-        dbOffset: 2.1,
-        problem: "Boxy/hollow instrumental coloration cluttering primary vocal pocket.",
-        solution: "Add a subtle parametric cut of -1.8dB (Q = 1.2) spread across secondary instruments.",
-        detail: "Boxiness masks vocal articulation. Carving this zone on mid-instruments (like keys/synths) lifts the voice right out of the mud.",
-        xPct: 52,
-        yPct: 65,
-        status: "warning"
-      },
-      {
-        id: "harsh-presence",
-        frequency: "4.2 kHz",
-        band: "High-Midrange",
-        dbOffset: 3.4,
-        problem: "De-essing harsh sibilant spikes causing ear fatigue on playback.",
-        solution: "Target dynamic EQ attenuation curve centered between 4.1kHz and 4.5kHz.",
-        detail: "Sibilance spikes (S/C sound consonants) create harsh transients. Dynamic compression triggered only when sibilant peaks occurs keeps are clear.",
-        xPct: 72,
-        yPct: 78,
-        status: "warning"
-      },
-      {
-        id: "air-texture",
-        frequency: "14.5 kHz",
-        band: "Brilliance/Air",
-        dbOffset: -2.3,
-        problem: "Air texture deficit leading to a slightly muffled, dry soundscape.",
-        solution: "Engage a smooth Baxandall musical high shelf boost of +1.8dB at 13.5kHz.",
-        detail: "Gently boosting the brilliance shelf adds spatial sheen and an expensive polish, allowing elements to breath naturally.",
-        xPct: 88,
-        yPct: 42,
-        status: "optimized"
-      }
+const generateHarmonicNodes = () => {
+    const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35;
+    const mid = critique?.liveMetrics?.calculatedMidEnergy ?? 40;
+    const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25;
+    const lufs = critique?.liveMetrics?.calculatedLufs ?? -14;
+    const lowEndText = critique?.mixQuality?.frequencyBalance?.lowEnd ?? "";
+    const midText = critique?.mixQuality?.frequencyBalance?.midrange ?? "";
+    const highEndText = critique?.mixQuality?.frequencyBalance?.highEnd ?? "";
+    const dominanceText = critique?.mixQuality?.dominanceIssues ?? "";
+    const stereoText = critique?.mixQuality?.stereoField ?? "";
+
+    // Helpers
+    const mentionsMud = (s: string) => /mud|build.?up|warm|thick|boom|cloud|heavy|low.?end/i.test(s);
+    const mentionsHarsh = (s: string) => /harsh|sibilanc|fatigue|bright|sharp|piercing|brittle|bite/i.test(s);
+    const mentionsMask = (s: string) => /mask|bury|buried|crowd|fight|dominan|compet/i.test(s);
+    const mentionsNarrow = (s: string) => /narrow|thin|center|mono|small|tight/i.test(s);
+
+    // Node 1: Sub-Bass — driven by calculatedBassEnergy
+    const subDbOffset = bass > 45 ? parseFloat((bass * 0.09).toFixed(1))
+      : bass < 22 ? parseFloat(((22 - bass) * 0.08 * -1).toFixed(1))
+      : 1.2;
+    const subStatus: HarmonicNode["status"] = bass > 45 ? "critical" : bass < 22 ? "warning" : "optimized";
+    const subProblem = bass > 45
+      ? `Excessive sub-bass energy (${bass}% of spectral power) is compressing master headroom and masking the kick transient.`
+      : bass < 22
+      ? `Sub-bass shelf is thin (${bass}% of spectral power) — the low-end foundation lacks physical weight on full-range systems.`
+      : `Sub-bass energy is balanced at ${bass}% of spectral power. No critical low-end rumble detected.`;
+    const subSolution = bass > 45
+      ? "High-pass filter at 32Hz with a dynamic low-shelf cut of -2dB to -4dB below 60Hz to restore transient punch."
+      : bass < 22
+      ? "Apply a gentle low-shelf boost of +1.5dB at 50Hz to restore weight without introducing mud."
+      : "Maintain current low-end profile. Monitor on full-range monitors before finalizing.";
+    const subDetail = lowEndText
+      ? `AI assessment: "${lowEndText}" — confirmed by measured bass spectral ratio of ${bass}%.`
+      : `Measured bass spectral energy at ${bass}%. Optimal range for most genres is 28–42%.`;
+
+    // Node 2: Low-Mid — driven by bassEnergy + lowEndText
+    const mudSeverity = mentionsMud(lowEndText) && bass > 38 ? "critical"
+      : mentionsMud(lowEndText) || bass > 38 ? "warning"
+      : "optimized";
+    const mudDb = mudSeverity === "critical" ? parseFloat((2.8 + (bass - 38) * 0.12).toFixed(1))
+      : mudSeverity === "warning" ? 2.1
+      : 0.8;
+    const mudFreq = bass > 42 ? "220 Hz" : "265 Hz";
+    const mudProblem = mudSeverity !== "optimized"
+      ? `Low-mid resonance accumulation at ~${mudFreq} is reducing mix clarity.${mentionsMud(lowEndText) ? " AI critique confirms mud buildup in this region." : ""}`
+      : `Low-midrange at ~${mudFreq} appears controlled. No significant mud accumulation detected.`;
+    const mudSolution = mudSeverity === "critical"
+      ? `Parametric EQ notch of -3dB to -4dB at ${mudFreq} with Q = 1.6–2.0 on rhythm guitars and bass simultaneously.`
+      : mudSeverity === "warning"
+      ? `Gentle parametric cut of -1.5dB to -2dB at ${mudFreq} with Q = 1.4 on the busiest instruments.`
+      : "No correction needed. Preserve the current low-mid warmth.";
+    const mudDetail = lowEndText
+      ? `AI assessment: "${lowEndText}" — bass spectral energy measured at ${bass}%. Low-mid zone is the most common masking problem in dense mixes.`
+      : `Bass spectral ratio: ${bass}%. Watch this zone on bass-heavy genres — buildup here masks vocal body and kick punch simultaneously.`;
+
+    // Node 3: Midrange — driven by midEnergy + dominanceIssues + midText
+    const boxySeverity = mentionsMask(dominanceText) || mentionsMask(midText) ? "critical"
+      : mid > 52 ? "warning"
+      : "optimized";
+    const boxyDb = boxySeverity === "critical" ? 2.8
+      : boxySeverity === "warning" ? parseFloat(((mid - 45) * 0.08).toFixed(1))
+      : 0.6;
+    const boxyProblem = boxySeverity !== "optimized"
+      ? `Mid-range crowding at ~580Hz is reducing vocal presence and instrument separation.${mentionsMask(dominanceText) ? ` AI flags: "${dominanceText}"` : ""}`
+      : `Midrange energy at ${mid}% is well distributed. Vocal pocket appears clear.`;
+    const boxySolution = boxySeverity === "critical"
+      ? "Sidechain dynamic EQ on the instrument bus at 2kHz triggered by the vocal to duck 2dB when the vocal is present."
+      : boxySeverity === "warning"
+      ? `Narrow parametric cut of -1.5dB at 580Hz on competing instruments (Q = 1.2). Mid spectral ratio currently ${mid}%.`
+      : "No correction needed. Maintain current instrument separation.";
+    const boxyDetail = midText
+      ? `AI assessment: "${midText}" — measured mid spectral ratio: ${mid}%. Optimal mid distribution is 40–52% for most rock and pop genres.`
+      : `Mid spectral energy at ${mid}%. The 500–800Hz zone is where boxiness and vocal masking most commonly collide.`;
+
+    // Node 4: High-Mid — driven by calculatedHighEnergy + highEndText
+    const harshSeverity = mentionsHarsh(highEndText) && high > 30 ? "critical"
+      : mentionsHarsh(highEndText) || high > 33 ? "warning"
+      : "optimized";
+    const harshDb = harshSeverity === "critical" ? parseFloat((2.4 + (high - 30) * 0.15).toFixed(1))
+      : harshSeverity === "warning" ? 2.0
+      : 0.5;
+    const harshFreq = high > 35 ? "3.8 kHz" : "4.4 kHz";
+    const harshProblem = harshSeverity !== "optimized"
+      ? `High-mid sibilance energy elevated at ~${harshFreq} (high spectral ratio: ${high}%). Listener fatigue risk at volume.${mentionsHarsh(highEndText) ? ` AI confirms: "${highEndText}"` : ""}`
+      : `High-mid presence at ${high}% is within acceptable range. No significant sibilance spikes detected.`;
+    const harshSolution = harshSeverity === "critical"
+      ? `Dynamic EQ or dedicated de-esser targeting ${harshFreq} with 3dB–5dB of gain reduction. Threshold set to trigger only on peak sibilant transients.`
+      : harshSeverity === "warning"
+      ? `Gentle dynamic EQ node at ${harshFreq}, -2dB with a medium attack (8ms) to catch harsh peaks without dulling the presence.`
+      : "No de-essing required. High-mid presence is clean.";
+    const harshDetail = highEndText
+      ? `AI assessment: "${highEndText}" — high spectral energy measured at ${high}%. The 3kHz–6kHz zone drives both clarity and fatigue depending on density.`
+      : `High spectral ratio: ${high}%. Above 32% in a dense mix, this zone begins to introduce ear fatigue on headphones and consumer speakers.`;
+
+    // Node 5: Air — driven by calculatedLufs + stereoField
+    const isOverLimited = lufs > -8;
+    const isUnderLimited = lufs < -16;
+    const airSeverity: HarmonicNode["status"] = isOverLimited ? "warning"
+      : isUnderLimited ? "warning"
+      : "optimized";
+    const airDb = isOverLimited ? parseFloat(((lufs + 8) * 0.4).toFixed(1))
+      : isUnderLimited ? -1.8
+      : -0.5;
+    const airProblem = isOverLimited
+      ? `Master is heavily limited at ${lufs} LUFS. Air band (12kHz+) is being compressed into the noise floor, reducing perceived spaciousness.${mentionsNarrow(stereoText) ? ` Stereo field also flags: "${stereoText}"` : ""}`
+      : isUnderLimited
+      ? `Track is mastered conservatively at ${lufs} LUFS. Air band has headroom but the mix may lack competitive density on streaming platforms.`
+      : `Loudness at ${lufs} LUFS is within a healthy range. Air band appears preserved.${stereoText ? ` Stereo note: "${stereoText}"` : ""}`;
+    const airSolution = isOverLimited
+      ? `Back off the master limiter input by 1.5dB–2dB to restore micro-dynamic breathing room in the 12kHz–18kHz shelf.`
+      : isUnderLimited
+      ? `Consider a gentle Baxandall high-shelf boost of +1.5dB at 13kHz, then bring the master up to -10 to -12 LUFS for streaming competitiveness.`
+      : "Maintain current loudness profile. No air band correction needed.";
+    const airDetail = `Integrated loudness measured at ${lufs} LUFS. Streaming target is -14 LUFS normalized, but competitive masters typically land between -9 and -11 LUFS for density. True Peak: ${critique?.liveMetrics?.calculatedTruePeak ?? "N/A"} dBTP.`;
+
+    const derivedNodes: HarmonicNode[] = [
+      { id: "sub-rumble", frequency: bass > 45 ? "32 Hz" : bass < 22 ? "40 Hz" : "28 Hz", band: "Sub-Bass", dbOffset: subDbOffset, problem: subProblem, solution: subSolution, detail: subDetail, xPct: 15, yPct: bass > 45 ? 80 : bass < 22 ? 55 : 65, status: subStatus },
+      { id: "muddy-mids", frequency: mudFreq, band: "Low-Midrange", dbOffset: mudDb, problem: mudProblem, solution: mudSolution, detail: mudDetail, xPct: 35, yPct: mudSeverity === "critical" ? 85 : mudSeverity === "warning" ? 72 : 55, status: mudSeverity },
+      { id: "boxy-color", frequency: "580 Hz", band: "Midrange", dbOffset: boxyDb, problem: boxyProblem, solution: boxySolution, detail: boxyDetail, xPct: 52, yPct: boxySeverity === "critical" ? 78 : boxySeverity === "warning" ? 65 : 50, status: boxySeverity },
+      { id: "harsh-presence", frequency: harshFreq, band: "High-Midrange", dbOffset: harshDb, problem: harshProblem, solution: harshSolution, detail: harshDetail, xPct: 72, yPct: harshSeverity === "critical" ? 82 : harshSeverity === "warning" ? 70 : 48, status: harshSeverity },
+      { id: "air-texture", frequency: "14.5 kHz", band: "Brilliance/Air", dbOffset: airDb, problem: airProblem, solution: airSolution, detail: airDetail, xPct: 88, yPct: isOverLimited ? 68 : isUnderLimited ? 58 : 42, status: airSeverity }
     ];
 
-    setHarmonicNodes(defaultNodes);
+    setHarmonicNodes(derivedNodes);
     setSelectedNodeId("muddy-mids");
     setCorrectionValue(0);
   };
