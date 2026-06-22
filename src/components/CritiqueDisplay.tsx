@@ -254,6 +254,7 @@ interface CritiqueDisplayProps {
   onViewDefinition?: (term: string) => void;
   onOpenArConsult?: () => void;
   onNavigateToRabbitHole?: () => void;
+  onNavigateToEngineeringStudio?: () => void;
 }
 
 export const REPRESENTATIVES = [
@@ -319,8 +320,8 @@ export const REPRESENTATIVES = [
   }
 ];
 
-export default function CritiqueDisplay({ critique, trackInfo, onClear, localFileBlobUrl, onViewDefinition, onOpenArConsult, onNavigateToRabbitHole }: CritiqueDisplayProps) {
-  const [activeTab, setActiveTab] = useState<"mix" | "execution" | "arrangement">("mix");
+export default function CritiqueDisplay({ critique, trackInfo, onClear, localFileBlobUrl, onViewDefinition, onOpenArConsult, onNavigateToRabbitHole, onNavigateToEngineeringStudio }: CritiqueDisplayProps) {
+  const [activeTab, setActiveTab] = useState<"mix" | "execution" | "arrangement" | "azimuth">("mix");
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioRef] = useState(() => new Audio());
   const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({});
@@ -691,6 +692,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   }, [sandboxPlaying]);
 
   const getEstimatedBpm = () => {
+    if (critique?.liveMetrics?.calculatedBpm) {
+      return Number(critique.liveMetrics.calculatedBpm);
+    }
     const genre = (critique?.vibe?.genre || "").toLowerCase();
     const style = (critique?.vibe?.subgenre || "").toLowerCase();
     if (genre.includes("synthwave") || style.includes("synthwave")) return 118;
@@ -857,8 +861,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const coverArt = trackInfo?.coverArt;
   const audioSourceUrl = localFileBlobUrl || "";
 
-  const isKashmir = trackName.toLowerCase().includes("kashmir") || artistName.toLowerCase().includes("zeppelin");
-
   const togglePlayback = () => {
     if (!audioSourceUrl) return;
 
@@ -911,7 +913,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const searchLevel = critique?.titleSearchability?.uniquenessLevel ?? "Moderately Unique Phrase";
   const searchFeedback = critique?.titleSearchability?.feedback ?? "Your song title is moderately unique. It avoids high-level congestion but should be paired with consistent meta tagging across streaming platforms.";
 
-  const artisticScore = isKashmir ? 100 : Math.min(100, Math.round(theoryScore * 0.40 + (critique?.scores?.overallProduction ?? 75) * 0.60));
+  const artisticScore = Math.min(100, Math.round(theoryScore * 0.40 + (critique?.scores?.overallProduction ?? 75) * 0.60));
 
   // Dynamic calculations for Songwriting DNA & Impact metrics to prevent hardcoded flat 90 score
   const parentFlowScore = critique?.arrangement?.flowScore ?? 75;
@@ -962,9 +964,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ],
       callout: "This Metric is not included in the Total Score as it has no effect on how streaming algorithms view a song",
       description: "Designed for masterpieces that transcend pop constraints. While standard radio formula rewards immediate 0:30 hooks, epics are built on atmospheric tension, complex harmony, and palette synergy. Focus on these parameters if you are writing timeless art outside the commercial box.",
-      feedback: isKashmir 
-        ? "TIMELESS MASTERWORK IN ARTISTRY. Hypnotic polymetric rhythm, gorgeous DADGAD string/brass synergy, and deeply spiritual lyrics fuse into an absolute 100/100 benchmark." 
-        : "Excellent artistic alignment. The track showcases outstanding atmospheric integrity and rich metaphorical choices that transcend formulaic boundaries."
+      feedback: "Excellent artistic alignment. The track showcases outstanding atmospheric integrity and rich metaphorical choices that transcend formulaic boundaries."
     },
     {
       id: "production",
@@ -986,7 +986,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     },
     {
       id: "readiness",
-      name: "Streaming Readiness",
+      name: "MIX/MASTER INTEGRITY",
       subtitle: "Digital streaming compliance",
       score: critique?.scores?.commercialReadiness ?? 75,
       colorClass: "stroke-teal-500",
@@ -2817,16 +2817,41 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   };
 
   const renderAlgotorialSandbox = () => {
-    // A. Estimate Valence and Energy based on existing critique metrics
+    // A. Estimate Valence and Energy based on live audio analyzer metrics if available, otherwise fallback
     const overallProductionVal = critique?.scores?.overallProduction ?? 75;
     const commercialReadinessVal = critique?.scores?.commercialReadiness ?? 75;
     const theoryScoreVal = critique?.musicTheory?.score ?? 72;
     const lyricsScoreVal = critique?.lyricalImpact?.score ?? 70;
 
-    // Valence (Joy / Nostalgia) is related to lyrics sentiment & keys
-    const inferredValence = Math.min(0.95, Math.max(0.12, Math.round(((theoryScoreVal * 0.45) + (lyricsScoreVal * 0.45) + 10)) / 100));
-    // Energy (Calm / Intense) is related to production volume, tempo & readiness
-    const inferredEnergy = Math.min(0.95, Math.max(0.15, Math.round(((overallProductionVal * 0.70) + (commercialReadinessVal * 0.30))) / 100));
+    let inferredValence = 0.5;
+    let inferredEnergy = 0.6;
+
+    if (critique?.liveMetrics) {
+      const { calculatedKey, calculatedBpm, calculatedLufs, calculatedBassEnergy, calculatedMidEnergy, calculatedHighEnergy } = critique.liveMetrics;
+      // Key modality impact on Valence
+      const isMajorKey = (calculatedKey || "").toLowerCase().includes("major") || !(calculatedKey || "").toLowerCase().includes("minor");
+      let baseVal = isMajorKey ? 0.62 : 0.38;
+      
+      // Spectral balance: High/Mid compared to Bass energy can increase valence (brightness)
+      const trebleRatio = (calculatedHighEnergy ?? 30) / Math.max(1, (calculatedBassEnergy ?? 30));
+      baseVal = baseVal + (trebleRatio - 1.0) * 0.15;
+      
+      inferredValence = Math.min(0.95, Math.max(0.12, parseFloat(baseVal.toFixed(2))));
+
+      // Energy based on tempo (60-160 mapped to 0.25-0.85) and loudness (-20 to -6 LUFS mapped to 0.2-0.9)
+      const bpmFactor = Math.min(1.0, Math.max(0.0, (calculatedBpm - 60) / 100));
+      const lufsFactor = Math.min(1.0, Math.max(0.0, (calculatedLufs + 22) / 16));
+      
+      let estEnergy = 0.25 + (bpmFactor * 0.35) + (lufsFactor * 0.3);
+      // High/Low energy influence standard deviation
+      const spectralFactor = (calculatedHighEnergy ?? 30) / 100;
+      estEnergy += (spectralFactor - 0.3) * 0.15;
+      
+      inferredEnergy = Math.min(0.95, Math.max(0.15, parseFloat(estEnergy.toFixed(2))));
+    } else {
+      inferredValence = Math.min(0.95, Math.max(0.12, Math.round(((theoryScoreVal * 0.45) + (lyricsScoreVal * 0.45) + 10)) / 100));
+      inferredEnergy = Math.min(0.95, Math.max(0.15, Math.round(((overallProductionVal * 0.70) + (commercialReadinessVal * 0.30))) / 100));
+    }
 
     // Target playlists coordinate dictionary dynamically adjusted to match the song's predicted genre
     const getPlaylistCoords = (playlistId: string) => {
@@ -2902,14 +2927,26 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     const trackBpm = getEstimatedBpm();
     const trackKey = getEstimatedKey();
 
+    // Helper to get related keys dynamically
+    const getRelatedKey = (key: string, offset: number) => {
+      const keys = ["C Major", "A minor", "G Major", "E minor", "D Major", "B minor", "A Major", "F# minor", "E Major", "C# minor", "F Major", "D minor", "Bb Major", "G minor", "Eb Major", "C minor", "Ab Major", "F minor"];
+      const cleanKey = key.replace(" (TKEY)", "");
+      const idx = keys.findIndex(k => cleanKey.toLowerCase().includes(k.split(" ")[0].toLowerCase()) && cleanKey.toLowerCase().includes(k.split(" ")[1].toLowerCase()));
+      if (idx === -1) {
+        return offset > 0 ? "G Major" : "D minor";
+      }
+      const targetIdx = (idx + offset + keys.length) % keys.length;
+      return keys[targetIdx];
+    };
+
     const getTransitionStats = (theme: "uniform" | "upbeat" | "sudden") => {
       switch (theme) {
         case "uniform":
           return {
             prevBpm: trackBpm - 3,
-            prevKey: trackKey,
+            prevKey: getRelatedKey(trackKey, 1),
             nextBpm: trackBpm + 4,
-            nextKey: trackKey,
+            nextKey: getRelatedKey(trackKey, -1),
             variance: 0.04,
             status: "Excellent (Harmonious Blend)",
             color: "text-emerald-400 border-emerald-500/20 bg-emerald-500/10",
@@ -2918,9 +2955,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         case "upbeat":
           return {
             prevBpm: Math.round(trackBpm * 0.85),
-            prevKey: "G Major",
+            prevKey: getRelatedKey(trackKey, 2),
             nextBpm: Math.round(trackBpm * 1.15),
-            nextKey: "D Minor",
+            nextKey: getRelatedKey(trackKey, -2),
             variance: 0.18,
             status: "Moderate (Energy Elevator)",
             color: "text-blue-400 border-blue-500/20 bg-blue-500/10",
@@ -2929,9 +2966,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         case "sudden":
           return {
             prevBpm: Math.round(trackBpm * 0.65),
-            prevKey: "F# Minor",
+            prevKey: getRelatedKey(trackKey, 5),
             nextBpm: Math.round(trackBpm * 1.45),
-            nextKey: "Bb Minor",
+            nextKey: getRelatedKey(trackKey, -5),
             variance: 0.64,
             status: "Critical (Abrupt Genre Skip Risk)",
             color: "text-rose-400 border-rose-500/20 bg-rose-500/10",
@@ -2943,11 +2980,29 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     const trans = getTransitionStats(vibeTransitionTheme);
 
     // C. 30-Second Skip & Playthrough Simulation Calculator
-    // Skip risk decreases if overallProduction is high and commercialReadiness is high
-    const baseSkipProb = Math.min(65, Math.max(15, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20))));
+    // Skip risk decreases if overallProduction is high and commercialReadiness is high, modified by live traits
+    let liveSkipModifier = 0;
+    if (critique?.liveMetrics) {
+      const { calculatedLufs, calculatedBpm, calculatedStereoCorrelation } = critique.liveMetrics;
+      // Loudness penalty: if quieter than -12.5 LUFS
+      if (calculatedLufs < -12.5) {
+        liveSkipModifier += Math.round(Math.abs(calculatedLufs + 12.5) * 1.8);
+      }
+      // Out of phase or completely mono penalty
+      if (calculatedStereoCorrelation > 0.82) {
+        liveSkipModifier += 6; // mono
+      } else if (calculatedStereoCorrelation < -0.15) {
+        liveSkipModifier += 14; // out of phase issues
+      }
+      // BPM extreme check
+      if (calculatedBpm < 75 || calculatedBpm > 155) {
+        liveSkipModifier += 5;
+      }
+    }
+    const baseSkipProb = Math.min(85, Math.max(10, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
     // Completion rate prediction (CR) is inverse of Skip Risk (SR) with some decay
     const predictedSkipRate = baseSkipProb;
-    const predictedCompletionRate = Math.min(96, Math.max(35, 100 - baseSkipProb - 5));
+    const predictedCompletionRate = Math.min(96, Math.max(15, 100 - baseSkipProb - 5));
 
     // Determine current skip risk status text during the 30-second live playback
     const getLiveSimFeedback = (seconds: number) => {
@@ -2991,13 +3046,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         {/* Section Title Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-white/5 pb-5 gap-4 relative z-10">
           <div className="flex items-center gap-3">
-            <span className="p-3 rounded-2xl bg-gradient-to-tr from-blue-600/10 to-blue-500/20 border border-blue-500/30 text-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.15)]">
+            <span className="p-3 rounded-2xl bg-gradient-to-tr from-amber-600/10 to-amber-500/20 border border-amber-500/30 text-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.15)]">
               <Compass className="w-6 h-6 animate-spin-strobe" />
             </span>
             <div className="flex flex-col text-left">
               <h2 className="text-lg font-bold text-white tracking-wide uppercase flex items-center gap-2">
                 Algotorial Playlist Sandbox
-                <span className="text-[10px] bg-blue-600/25 border border-blue-500/30 text-blue-400 font-mono tracking-widest px-2 py-0.5 rounded-full">SIMULATION ENGINE</span>
+                <span className="text-[10px] bg-amber-500/20 border border-amber-500/30 text-amber-500 font-mono tracking-widest px-2 py-0.5 rounded-full">SIMULATION ENGINE</span>
               </h2>
               <p className="text-xs text-slate-400 mt-1">
                 Contextual Modeling: Simulating track performance inside Spotify's "Algotorial" curation &amp; feedback loops.
@@ -3005,7 +3060,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             </div>
           </div>
           <div className="flex items-center gap-2 text-slate-500 text-[11px] font-mono select-none">
-            <Activity className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
+            <Activity className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
             <span>LATENT CODES MODEL: V1.8.2-PREVIEW</span>
           </div>
         </div>
@@ -3016,12 +3071,20 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           {/* Panel A: Cosine Similarity Vector Mapping */}
           <div className="bg-[#0A0B0E] border border-white/5 hover:border-white/10 rounded-2xl p-5 flex flex-col justify-between transition-all group shadow-inner min-h-[360px]">
             <div>
-              <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+              <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5 flex-wrap gap-y-1">
                 <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none">
                   <span className="text-blue-400 font-mono text-[14px]">A</span>
                   Cosine Similarity Mapping
                 </span>
                 <span className="text-[10px] font-mono text-slate-500">Vector Alignment (θ)</span>
+                <div className="w-full flex justify-start pl-5 mt-1">
+                  <button 
+                    onClick={() => onViewDefinition && onViewDefinition("cosine-similarity")}
+                    className="text-[9px] text-[#22d3ee] hover:text-white font-mono hover:underline cursor-pointer transition-colors text-left font-bold"
+                  >
+                    (see explanation)
+                  </button>
+                </div>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed mb-4 text-left">
                 Measures how closely your song's acoustic vector aligns with typical playlist target footprints.
@@ -3125,7 +3188,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </div>
 
           {/* Panel B: Circumplex Mood Plotting */}
-          <div className="bg-[#0A0B0E] border border-white/5 hover:border-white/10 rounded-2xl p-5 flex flex-col justify-between transition-all group shadow-inner min-h-[360px]">
+          <div className="bg-[#0A0B0E] border border-white/5 hover:border-white/10 rounded-2xl p-5 flex flex-col transition-all group shadow-inner min-h-[360px]">
             <div>
               <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
                 <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none">
@@ -3139,60 +3202,62 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               </p>
             </div>
 
-            {/* Circumplex Quad Drawing */}
-            <div className="grid grid-cols-2 gap-2 pr-1 relative my-1">
-              {/* Visual 2D Grid Representation */}
-              <div className="relative aspect-square w-full max-w-[130px] border border-white/10 rounded-lg overflow-hidden bg-black/40 flex-shrink-0 flex self-center mx-auto">
-                {/* Axes and Grid */}
-                <div className="absolute inset-x-0 top-1/2 h-px bg-white/10" />
-                <div className="absolute inset-y-0 left-1/2 w-px bg-white/10" />
-                
-                {/* 4 Quadrants colored backgrounds */}
-                <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-amber-500/[0.03] flex items-center justify-center">
-                  <span className="text-[7.5px] font-mono text-amber-500/50 tracking-widest font-bold">EUPHORIC</span>
-                </div>
-                <div className="absolute top-0 left-0 w-1/2 h-1/2 bg-red-500/[0.03] flex items-center justify-center">
-                  <span className="text-[7.5px] font-mono text-red-500/50 tracking-widest font-bold">INTENSE</span>
-                </div>
-                <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-violet-500/[0.03] flex items-center justify-center">
-                  <span className="text-[7.5px] font-mono text-violet-500/50 tracking-widest font-bold">MELANCHOLY</span>
-                </div>
-                <div className="absolute bottom-0 right-0 w-1/2 h-1/2 bg-emerald-500/[0.03] flex items-center justify-center">
-                  <span className="text-[7.5px] font-mono text-emerald-500/50 tracking-widest font-bold">SERENE</span>
+            {/* Circumplex Quad Drawing - Centered Vertically */}
+            <div className="flex-1 flex flex-col justify-center">
+              <div className="grid grid-cols-2 gap-2 pr-1 relative my-1">
+                {/* Visual 2D Grid Representation */}
+                <div className="relative aspect-square w-full max-w-[130px] border border-white/10 rounded-lg overflow-hidden bg-black/40 flex-shrink-0 flex self-center mx-auto">
+                  {/* Axes and Grid */}
+                  <div className="absolute inset-x-0 top-1/2 h-px bg-white/10" />
+                  <div className="absolute inset-y-0 left-1/2 w-px bg-white/10" />
+                  
+                  {/* 4 Quadrants colored backgrounds */}
+                  <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-amber-500/[0.03] flex items-center justify-center">
+                    <span className="text-[7.5px] font-mono text-amber-500/50 tracking-widest font-bold">EUPHORIC</span>
+                  </div>
+                  <div className="absolute top-0 left-0 w-1/2 h-1/2 bg-red-500/[0.03] flex items-center justify-center">
+                    <span className="text-[7.5px] font-mono text-red-500/50 tracking-widest font-bold">INTENSE</span>
+                  </div>
+                  <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-violet-500/[0.03] flex items-center justify-center">
+                    <span className="text-[7.5px] font-mono text-violet-500/50 tracking-widest font-bold">MELANCHOLY</span>
+                  </div>
+                  <div className="absolute bottom-0 right-0 w-1/2 h-1/2 bg-emerald-500/[0.03] flex items-center justify-center">
+                    <span className="text-[7.5px] font-mono text-emerald-500/50 tracking-widest font-bold">SERENE</span>
+                  </div>
+
+                  {/* Glowing Pulsing Point for Your Song */}
+                  <div 
+                    className="absolute w-3 h-3 rounded-full bg-cyan-400 border border-white shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse"
+                    style={{ 
+                      left: `${inferredValence * 100}%`, 
+                      bottom: `${inferredEnergy * 100}%`,
+                      transform: "translate(-50%, 50%)" 
+                    }}
+                  />
                 </div>
 
-                {/* Glowing Pulsing Point for Your Song */}
-                <div 
-                  className="absolute w-3 h-3 rounded-full bg-cyan-400 border border-white shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse"
-                  style={{ 
-                    left: `${inferredValence * 100}%`, 
-                    bottom: `${inferredEnergy * 100}%`,
-                    transform: "translate(-50%, 50%)" 
-                  }}
-                />
-              </div>
-
-              {/* Coordinates read-out details */}
-              <div className="flex flex-col text-left justify-center gap-1.5 pl-3">
-                <div className="font-mono text-[10px] text-slate-400">
-                  Valence <span className="text-white font-bold font-sans">({inferredValence})</span>
+                {/* Coordinates read-out details */}
+                <div className="flex flex-col text-left justify-center gap-1.5 pl-3">
+                  <div className="font-mono text-[10px] text-slate-400">
+                    Valence <span className="text-white font-bold font-sans">({inferredValence})</span>
+                  </div>
+                  <div className="font-mono text-[10px] text-slate-400">
+                    Energy <span className="text-white font-bold font-sans">({inferredEnergy})</span>
+                  </div>
+                  
+                  <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-pink-400 mt-1">
+                    EST. QUADRANT: {
+                      inferredValence >= 0.5 && inferredEnergy >= 0.5 ? "★ Euphoric Cheer" : 
+                      inferredValence < 0.5 && inferredEnergy >= 0.5 ? "★ Intense / Aggressive" : 
+                      inferredValence < 0.5 && inferredEnergy < 0.5 ? "★ Lyrical Melancholy" : 
+                      "★ Serene / Chill"
+                    }
+                  </span>
+                  
+                  <p className="text-[9.5px] text-slate-500 leading-normal mt-1">
+                    Valence maps the chord scale harmonic mood, while energy models transient complexity. Evaluators query this vector to schedule mood alignment playlists.
+                  </p>
                 </div>
-                <div className="font-mono text-[10px] text-slate-400">
-                  Energy <span className="text-white font-bold font-sans">({inferredEnergy})</span>
-                </div>
-                
-                <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-pink-400 mt-1">
-                  EST. QUADRANT: {
-                    inferredValence >= 0.5 && inferredEnergy >= 0.5 ? "★ Euphoric Cheer" : 
-                    inferredValence < 0.5 && inferredEnergy >= 0.5 ? "★ Intense / Aggressive" : 
-                    inferredValence < 0.5 && inferredEnergy < 0.5 ? "★ Lyrical Melancholy" : 
-                    "★ Serene / Chill"
-                  }
-                </span>
-                
-                <p className="text-[9.5px] text-slate-500 leading-normal mt-1">
-                  Valence maps the chord scale harmonic mood, while energy models transient complexity. Evaluators query this vector to schedule mood alignment playlists.
-                </p>
               </div>
             </div>
           </div>
@@ -3200,12 +3265,20 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           {/* Panel C: Sequential Variance Vibe-Transition Lab */}
           <div className="bg-[#0A0B0E] border border-white/5 hover:border-white/10 rounded-2xl p-5 flex flex-col justify-between transition-all group shadow-inner min-h-[360px]">
             <div>
-              <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+              <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5 flex-wrap gap-y-1">
                 <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none">
                   <span className="text-emerald-400 font-mono text-[14px]">C</span>
                   Sequential Variance / Transition Lab
                 </span>
                 <span className="text-[10px] font-mono text-slate-500">Consecutive Variance (s²)</span>
+                <div className="w-full flex justify-start pl-5 mt-1">
+                  <button 
+                    onClick={() => onViewDefinition && onViewDefinition("vibe-transition")}
+                    className="text-[9px] text-[#22d3ee] hover:text-white font-mono hover:underline cursor-pointer transition-colors text-left font-bold"
+                  >
+                    (see explanation)
+                  </button>
+                </div>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed mb-4 text-left">
                 Simulates placing your track consecutively next to other trending tracks to monitor transition flow.
@@ -4308,7 +4381,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         {/* Combined Interactive Category Selectors & Main Scoreboard Grid */}
       <div className="flex flex-col gap-6 mt-4 mb-[-9px]" id="kpi-category-selectors">
         <div className="pl-5 pr-5 pt-[5px] pb-[5px] rounded-2xl bg-[#0e1115]/80 border border-white/5 text-white text-xs md:text-[13px] leading-relaxed shadow-sm font-sans mb-1">
-          The below Core Metrics assess and evaluate the technical aspects of your song. The STREAMING ALGORITHM COMPATIBILITY and ALGORITHMIC SANDBOX metrics act as algorithm simulators telling you how streaming networks might index and route your song before it gets its first stream.
+          The below Core Metrics assess and evaluate the technical aspects of your song. The STREAMING ALGORITHMIC ALIGNMENT and ALGORITHMIC SANDBOX metrics act as algorithm simulators telling you how streaming networks might index and route your song before it gets its first stream.
         </div>
 
         {/* Card 1: Mainstream Radio Formatting (blue) */}
@@ -4481,7 +4554,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         activeCategory === "spotify" ? "text-white" : "text-slate-200 group-hover:text-white"
                       }`}
                     >
-                      STREAMING ALGORITHM COMPATIBILITY
+                      STREAMING ALGORITHMIC ALIGNMENT
                     </span>
                     <span className="text-[10px] text-slate-500 font-medium tracking-wide">Pillars of Content &amp; Collaborative Filtering</span>
                   </div>
@@ -5139,7 +5212,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       {/* Old duplicate Spotify and Sandbox metrics layout containers */}
       <div className="hidden" id="spotify-metric-card-wrapper-duplicate">
         <div className="hidden">
-          The Core Metrics above assess and evaluate the technical aspects of your song. The below STREAMING ALGORITHM COMPATIBILITY acts as an algorithm simulator telling you how streaming networks might index and route your song before it gets its first stream.
+          The Core Metrics above assess and evaluate the technical aspects of your song. The below STREAMING ALGORITHMIC ALIGNMENT acts as an algorithm simulator telling you how streaming networks might index and route your song before it gets its first stream.
         </div>
         
         {/* Button A: Spotify Algorithm Compatibility */}
@@ -5183,7 +5256,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         activeCategory === "spotify" ? "text-white" : "text-slate-200 group-hover:text-white"
                       }`}
                     >
-                      STREAMING ALGORITHM COMPATIBILITY
+                      STREAMING ALGORITHMIC ALIGNMENT
                     </span>
                     <span className="text-[10px] text-slate-500 font-medium tracking-wide">Pillars of Content &amp; Collaborative Filtering</span>
                   </div>
@@ -5399,317 +5472,44 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         </div>
       </div>
 
-      {/* Inlined accordion-style dropdown controls render directly below selective buttons above */}
+      {/* 3. Deep Consultation Breakdown Sidebar & Tabs replaced with button/card */}
+      <div 
+        onClick={() => {
+          if (onNavigateToEngineeringStudio) onNavigateToEngineeringStudio();
+        }}
+        className="group relative bg-[#13161C] border border-[#2563EB]/20 hover:border-[#2563EB]/45 rounded-3xl p-6.5 shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-[0_0_40px_rgba(37,99,235,0.12)] hover:scale-[1.005]"
+        id="engineering-studio-invite-banner"
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-blue-500/[0.015] to-[#2563EB]/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+        <div className="absolute top-0 right-0 w-[320px] h-[320px] bg-[#2563EB]/[0.02] rounded-full blur-[80px] pointer-events-none" />
 
-      {/* 3. Deep Consultation Breakdown Sidebar & Tabs */}
-      <div className="flex flex-col gap-6 w-full">
-        {/* Left 2 Columns: Tabs and Narrative Critique */}
-        <div className="w-full bg-[#13161C] border border-white/5 rounded-3xl flex flex-col overflow-hidden shadow-xl">
-          {/* Tab Headers */}
-          <div className="flex border-b border-white/5 bg-[#0A0B0E]/60 p-2 gap-1 overflow-x-auto">
-            <button
-              onClick={() => setActiveTab("mix")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer ${
-                activeTab === "mix"
-                  ? "bg-blue-600/10 text-blue-400 border border-blue-500/20"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-              }`}
-            >
-              <Sliders className="w-4 h-4" />
-              <span>The Mixing Desk</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("execution")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer ${
-                activeTab === "execution"
-                  ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-              }`}
-            >
-              <Mic className="w-4 h-4" />
-              <span>Performance</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("arrangement")}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer ${
-                activeTab === "arrangement"
-                  ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-              }`}
-            >
-              <Layers className="w-4 h-4" />
-              <span>Composition flow</span>
-            </button>
+        <div className="flex flex-col md:flex-row items-center gap-6 relative z-10 text-center md:text-left">
+          <div className="p-4 rounded-2xl bg-[#2563EB]/10 border border-[#2563EB]/20 text-blue-400 shadow-[0_0_20px_rgba(37,99,235,0.15)] group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
+            <Volume2 className="w-8 h-8 text-blue-400" />
           </div>
-
-          {/* Active Tab Critique Narrative */}
-          <div className="p-6 flex-1 text-sm text-slate-300 leading-relaxed overflow-y-auto" style={{ height: "541.5px" }} id="tabbed-narrative-container">
-            {activeTab === "mix" && (
-              <div className="flex flex-col gap-5 animate-fadeIn" id="mix-tab">
-                {/* Stereo Field Width */}
-                <div>
-                  <h3 className="text-white font-semibold mb-1 flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-blue-400" />
-                    Stereo Staging &amp; Stereo Field Panning
-                  </h3>
-                  <p className="text-slate-400">{critique?.mixQuality?.stereoField ?? "N/A"}</p>
-                </div>
-
-                {/* Spectral Frequency management */}
-                <div className="mt-2 border-t border-white/5 pt-4">
-                  <h3 className="text-white font-semibold mb-3">Harmonic Frequency Management</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-[#0A0B0E] p-4 rounded-xl border border-blue-500/10">
-                      <span className="text-xs uppercase font-mono text-blue-400 tracking-wider">Low-End (Bass/Kick)</span>
-                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">{critique?.mixQuality?.frequencyBalance?.lowEnd ?? "N/A"}</p>
-                    </div>
-                    <div className="bg-[#0A0B0E] p-4 rounded-xl border border-teal-500/10">
-                      <span className="text-xs uppercase font-mono text-teal-400 tracking-wider">Midrange (Vocals/Harmonics)</span>
-                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">{critique?.mixQuality?.frequencyBalance?.midrange ?? "N/A"}</p>
-                    </div>
-                    <div className="bg-[#0A0B0E] p-4 rounded-xl border border-purple-500/10">
-                      <span className="text-xs uppercase font-mono text-purple-400 tracking-wider">High-End (Air/Sibilance)</span>
-                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">{critique?.mixQuality?.frequencyBalance?.highEnd ?? "N/A"}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Frequency Bloats or Buried Mix elements */}
-                <div className="mt-2 border-t border-white/5 pt-4">
-                  <h3 className="text-white font-semibold mb-1">Buried &amp; Dominant Frequencies</h3>
-                  <p className="text-slate-400">{critique?.mixQuality?.dominanceIssues ?? "N/A"}</p>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "execution" && (
-              <div className="flex flex-col gap-5 animate-fadeIn" id="execution-tab">
-                <div>
-                  <h3 className="text-white font-semibold mb-1.5 flex items-center gap-2">
-                    <Mic className="w-4 h-4 text-purple-400" />
-                    Vocal Balance &amp; Track Production
-                  </h3>
-                  <p className="text-slate-400">{critique?.performance?.vocalsCritique ?? "N/A"}</p>
-                </div>
-
-                <div className="mt-2 border-t border-white/5 pt-4">
-                  <h3 className="text-white font-semibold mb-1.5 flex items-center gap-2">
-                    <Volume2 className="w-4 h-4 text-emerald-400" />
-                    Instrumentation Pacing &amp; Recording Arrangement
-                  </h3>
-                  <p className="text-slate-400">{critique?.performance?.instrumentationCritique ?? "N/A"}</p>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "arrangement" && (
-              <div className="flex flex-col gap-5 animate-fadeIn" id="arrangement-tab">
-                <div>
-                  <h3 className="text-white font-semibold mb-2 flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-rose-400" />
-                    Structural transitions, Chorus Peaks &amp; Energy Shifts
-                  </h3>
-                  <p className="text-slate-400 leading-relaxed">{critique?.arrangement?.transitionsAndArc ?? "N/A"}</p>
-                </div>
-              </div>
-            )}
+          <div>
+            <h3 className="text-xl font-bold text-white tracking-wide uppercase flex items-center justify-center md:justify-start gap-2.5">
+              THE ENGINEERING STUDIO
+              <span className="text-[9px] bg-[#2563EB]/15 border border-[#2563EB]/25 text-blue-400 font-mono tracking-widest px-2.5 py-0.5 rounded-full uppercase">High Precision Analysis</span>
+            </h3>
+            <p className="text-xs text-slate-400 mt-2 max-w-xl leading-relaxed animate-pulse">
+              Unlock laser-precision harmonic frequency analysis, stereo azimuth imaging, vocalist performance critiques, and custom DAW mixing and mastering checklists for <span className="text-slate-300 font-semibold">"{trackName}"</span>.
+            </p>
           </div>
         </div>
 
-        {/* Right 1 Column: DAW Interactive Task List & Widgets */}
-        <div className="flex flex-col gap-6">
-          <div className="bg-[#13161C] border border-white/5 rounded-3xl p-6 shadow-xl flex flex-col justify-between">
-            <div>
-              <div className="flex items-center gap-2.5 mb-2">
-                <CheckSquare className="w-5 h-5 text-blue-500 animate-pulse" />
-                <h2 className="text-lg font-semibold text-white">DAW Engineering Checklist</h2>
-              </div>
-              <p className="text-xs text-slate-400 mb-5 leading-relaxed">
-                Specific mixing assignments with target values. Run through these and mark them as resolved in your project arrangement:
-              </p>
-
-              <div className="flex flex-col gap-3.5" id="daw-checklist">
-                {(critique?.actionItems || []).map((item, index) => {
-                  const isChecked = checkedItems[index] || false;
-                  
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => toggleTask(index)}
-                      className={`flex items-start text-left gap-3 p-3.5 rounded-xl border transition-all duration-300 relative group overflow-hidden cursor-pointer ${
-                        isChecked
-                          ? "bg-[#0A0B0E]/40 border-white/5 text-slate-500"
-                          : "bg-[#0A0B0E] border-white/5 hover:border-white/10 hover:bg-white/5 text-slate-300"
-                      }`}
-                    >
-                      <div className="mt-0.5 flex-shrink-0">
-                        {isChecked ? (
-                          <CheckCircle className="w-4.5 h-4.5 text-emerald-500 stroke-[2.5px]" />
-                         ) : (
-                          <Square className="w-4.5 h-4.5 text-slate-600 group-hover:text-blue-500 transition-colors" />
-                         )}
-                      </div>
-                      
-                      <div className="flex flex-col">
-                        <span className={`text-xs font-semibold leading-tight ${isChecked ? "line-through text-slate-600" : "text-slate-200"}`}>
-                          {item.title}
-                        </span>
-                        <span className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
-                          {item.recommendation}
-                        </span>
-                        <div className="mt-2.5 pt-2 border-t border-white/5 font-mono text-[10px] text-blue-400 leading-normal">
-                          <span className="text-slate-500 font-sans font-semibold mr-1">GUIDE:</span>
-                          {item.technicalGuide}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="mt-6 pt-5 border-t border-white/5 text-center flex items-center justify-between">
-              <span className="text-[10px] font-mono tracking-widest text-[#94a3b8] uppercase">
-                Assigned by Studio A&amp;R AI
-              </span>
-            </div>
-          </div>
-
-          {/* Stereo Azimuth Profiler Widget under DAW checklist */}
-          <div className="flex flex-col w-full gap-4">
-            <button
-              onClick={() => {
-                if (activeCategory === "azimuth") {
-                  handleCategoryChange(null);
-                } else {
-                  handleCategoryChange("azimuth");
-                }
-              }}
-              className={`relative z-10 flex flex-col justify-between p-6 rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none min-h-[175px] text-white w-full ${
-                activeCategory === "azimuth"
-                  ? "bg-[#090b0e] border-cyan-500 shadow-[0_0_35px_rgba(6,182,212,0.35)] ring-1 ring-cyan-500/40 font-black"
-                  : "bg-[#13161C] border-[#06b6d4] hover:border-[#06b6d4] hover:bg-neutral-900/40 text-slate-400"
-              }`}
-            >
-              {/* Background ambient shade */}
-              {activeCategory === "azimuth" ? (
-                <div className="absolute inset-0 bg-gradient-to-br from-[#0c2024]/30 via-neutral-950 to-[#030509] pointer-events-none" />
-              ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-[#040c0f]/10 via-neutral-950 to-[#030509] pointer-events-none" />
-              )}
-
-              <div className="relative z-10 flex flex-col gap-4 w-full h-full">
-                {/* Header block */}
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
-                    activeCategory === "azimuth"
-                      ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
-                      : "p-2 rounded-xl border border-white/5 bg-neutral-900 text-slate-500 group-hover:text-cyan-400 group-hover:border-cyan-500/20 group-hover:shadow-[0_0_15px_rgba(6,182,212,0.2)]"
-                  }`}>
-                    <Compass className="w-5 h-5 text-cyan-400 animate-spin" style={{ animationDuration: "12s" }} />
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span 
-                      className={`font-black text-xs tracking-wider uppercase transition-colors ${
-                        activeCategory === "azimuth" ? "text-white" : "text-slate-200 group-hover:text-white"
-                      }`}
-                    >
-                      STEREO AZIMUTH PROFILER
-                    </span>
-                    <span className="text-[9px] text-slate-500 font-medium tracking-wide">Soundstage &amp; Panning Analysis</span>
-                  </div>
-                </div>
-
-                {/* Score and Mini Scorecard row/col */}
-                <div className="flex items-center gap-3.5 bg-black/40 p-3 rounded-2xl border border-white/5 justify-between">
-                  <div className="flex flex-col gap-1 font-mono text-[9px] text-left">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-slate-500 w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                      <span className="text-slate-400">Width Sep:</span>
-                      <span className="text-cyan-400 font-bold">
-                        {critique?.liveMetrics ? `${Math.round((1 - critique.liveMetrics.calculatedStereoCorrelation) * 100)}%` : "--"}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-slate-500 w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                      <span className="text-slate-400">Low End Mono:</span>
-                      <span className="text-emerald-400 font-bold">
-                        {critique?.liveMetrics ? "98%" : "--"}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-slate-500 w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                      <span className="text-slate-400">Correlation:</span>
-                      <span className="text-emerald-400 font-bold">
-                        {critique?.liveMetrics ? `${critique.liveMetrics.calculatedStereoCorrelation > 0 ? "+" : ""}${critique.liveMetrics.calculatedStereoCorrelation}` : "--"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex-shrink-0">
-                    <ScoreCircle 
-                      score={Math.max(40, Math.min(99, Math.round(
-                        (critique?.mixQuality?.score ?? 75) * 0.4 + 
-                        (critique?.scores?.overallProduction ?? 75) * 0.3 + 
-                        82
-                      )))} 
-                      size={68} 
-                      strokeWidth={5} 
-                      color={activeCategory === "azimuth" ? "#06b6d4" : "rgba(6, 182, 212, 0.45)"} 
-                      glowColor={activeCategory === "azimuth" ? "rgba(6, 182, 212, 0.65)" : "rgba(6, 182, 212, 0.15)"} 
-                      extraGlow={activeCategory === "azimuth"}
-                    />
-                  </div>
-                </div>
-
-                {/* Bottom info block */}
-                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
-                  activeCategory === "azimuth" ? "border-cyan-500/15" : "border-white/5"
-                }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
-                    Visualizes time-domain stereo azimuth spreads, L/R power distribution, and phase correlation.
-                  </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
-                    activeCategory === "azimuth"
-                      ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-400"
-                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-cyan-400/80"
-                  }`}>
-                    {activeCategory === "azimuth" ? "ACTIVE ⬇" : "VIEW AZIMUTH SIMULATOR ★"}
-                  </span>
-                </div>
-              </div>
-            </button>
-
-            <AnimatePresence initial={false}>
-              {activeCategory === "azimuth" && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0, marginTop: -8 }}
-                  animate={{ height: "auto", opacity: 1, marginTop: 4 }}
-                  exit={{ height: 0, opacity: 0, marginTop: -8 }}
-                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                  className="overflow-hidden w-full relative z-0"
-                >
-                  <div className="bg-[#0A0B0E] border border-[#06b6d4] rounded-2xl p-4 shadow-[0_0_25px_rgba(0,0,0,0.9)] flex flex-col gap-4">
-                    <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "14px" }}>
-                      STEREO AZIMUTH & SOUNDSTAGE ANALYSIS
-                    </div>
-                    <div style={{ marginTop: "-12px", paddingTop: "6px", paddingBottom: "10px" }} className="flex items-center justify-between border-b border-white/5">
-                      <span className="text-[10px] font-mono font-bold tracking-widest text-[#90a1b9] uppercase flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                        <span>SONIC LINEUP ANALYSIS</span>
-                      </span>
-                      <span className="text-[8px] font-mono text-slate-500 text-right">
-                        Displaying L/R soundstage, spectral frequencies & azimuth heatmaps
-                      </span>
-                    </div>
-                    <div className="w-full">
-                      {renderStereoAzimuthPanel()}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+        <div className="relative z-10 shrink-0">
+          <button 
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onNavigateToEngineeringStudio) onNavigateToEngineeringStudio();
+            }}
+            className="px-6 py-3 bg-[#2563EB] hover:bg-blue-500 text-white font-mono text-[11px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)] cursor-pointer flex items-center gap-2 group-hover:scale-102"
+          >
+            <span>Enter Engineering Studio</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+          </button>
         </div>
       </div>
 
@@ -6412,23 +6212,67 @@ function StereoAzimuthVisualizer({ activeTab, onActiveTabChange, refMode, isPlay
           let userEnergy = 0;
           let targetEnergy = 0;
 
-          // Compute user azimuth coordinates (slightly narrow, vocal wandering)
-          if (distFromCenter < 0.12) {
-            const drift = (tc > 0.18 && tc < 0.48) ? -0.04 : 0;
-            const diff = Math.abs(tr - drift);
-            if (diff < 0.08) {
-              userEnergy = 0.88 + Math.sin(tc * 35) * 0.1;
+          if (liveMetrics) {
+            // Get live values from metrics
+            const correlation = liveMetrics.calculatedStereoCorrelation ?? 0.15;
+            const bass = liveMetrics.calculatedBassEnergy ?? 45;
+            const mid = liveMetrics.calculatedMidEnergy ?? 40;
+            const high = liveMetrics.calculatedHighEnergy ?? 35;
+            const wavePoints = liveMetrics.calculatedWaveformPoints || [];
+            
+            // Width factor mapped from correlation (correlation +1.0 is mono, 0.0 is wide, -1.0 is out of phase)
+            const widthFactor = Math.max(0.1, Math.min(1.0, 1.0 - correlation)); 
+            
+            // Waveform envelope index
+            let wavePctVal = 1.0;
+            if (wavePoints.length > 0) {
+              const pIdx = Math.floor(tc * wavePoints.length);
+              wavePctVal = Math.max(0.12, (wavePoints[pIdx] || 50) / 100);
             }
+
+            // A. Center mono core (usually vocals or sub-bass)
+            const centerLimit = 0.06 + (1.0 - widthFactor) * 0.05;
+            if (distFromCenter < centerLimit) {
+              const centerFactor = (bass / 100) * 0.8 + 0.45;
+              userEnergy = centerFactor * wavePctVal * 1.15; 
+            }
+
+            // B. Left and Right side clouds
+            const sidePos = 0.45 + widthFactor * 0.33; // ranges from 0.45 (mono) to 0.78 (wide)
+            const sideWidth = 0.10 + (high / 100) * 0.12; 
+
+            const leftDist = Math.abs(tr + sidePos);
+            const rightDist = Math.abs(tr - sidePos);
+
+            if (leftDist < sideWidth) {
+              const sideEnergyVal = ((mid * 0.4 + high * 0.6) / 100) * 0.72 + 0.22;
+              userEnergy += sideEnergyVal * wavePctVal * (1.0 - leftDist / sideWidth);
+            }
+            if (rightDist < sideWidth) {
+              const sideEnergyVal = ((mid * 0.4 + high * 0.6) / 100) * 0.72 + 0.22;
+              userEnergy += sideEnergyVal * wavePctVal * (1.0 - rightDist / sideWidth);
+            }
+
+            userEnergy += Math.random() * 0.06;
+          } else {
+            // Static default baseline fallback profile
+            if (distFromCenter < 0.12) {
+              const drift = (tc > 0.18 && tc < 0.48) ? -0.04 : 0;
+              const diff = Math.abs(tr - drift);
+              if (diff < 0.08) {
+                userEnergy = 0.88 + Math.sin(tc * 35) * 0.1;
+              }
+            }
+            const leftSideAmp = Math.abs(tr - (-0.66));
+            const rightSideAmp = Math.abs(tr - (0.64));
+            if (leftSideAmp < 0.15) {
+              userEnergy += (tc > 0.18) ? (0.52 + Math.cos(tc * 14) * 0.22) : 0.08;
+            }
+            if (rightSideAmp < 0.15) {
+              userEnergy += (tc > 0.18) ? (0.35 + Math.sin(tc * 11) * 0.18) : 0.08;
+            }
+            userEnergy += Math.random() * 0.08;
           }
-          const leftSideAmp = Math.abs(tr - (-0.66));
-          const rightSideAmp = Math.abs(tr - (0.64));
-          if (leftSideAmp < 0.15) {
-            userEnergy += (tc > 0.18) ? (0.52 + Math.cos(tc * 14) * 0.22) : 0.08;
-          }
-          if (rightSideAmp < 0.15) {
-            userEnergy += (tc > 0.18) ? (0.35 + Math.sin(tc * 11) * 0.18) : 0.08;
-          }
-          userEnergy += Math.random() * 0.08;
 
           // Compute target master coordinates
           if (distFromCenter < 0.07) {
