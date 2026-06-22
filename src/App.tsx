@@ -13,6 +13,7 @@ import DefinitionsPage from "./components/DefinitionsPage";
 import WhatIsPage from "./components/WhatIsPage";
 import WhatItDoesPage from "./components/WhatItDoesPage";
 import UsefulToolsPage from "./components/UsefulToolsPage";
+import EngineeringStudioPage from "./components/EngineeringStudioPage";
 import Dashboard, { MOCK_GENERATED_CRITIQUE_TEMPLATE } from "./components/Dashboard";
 import ArConsultPage, { REPRESENTATIVES, renderActiveAvatarSVG } from "./components/ArConsultPage";
 import { saveUserTrack, subscribeToAuth, fetchUserTracks } from "./firebase";
@@ -51,6 +52,7 @@ export default function App() {
   const [viewingAboutPage, setViewingAboutPage] = useState(false);
   const [viewingWhatItDoesPage, setViewingWhatItDoesPage] = useState(false);
   const [viewingUsefulTools, setViewingUsefulTools] = useState(false);
+  const [viewingEngineeringStudio, setViewingEngineeringStudio] = useState(false);
   const [viewingDashboard, setViewingDashboard] = useState(false);
   const [activeUploadFile, setActiveUploadFile] = useState<File | null>(null);
   const [selectedDefinitionTerm, setSelectedDefinitionTerm] = useState<string | undefined>(undefined);
@@ -652,7 +654,7 @@ export default function App() {
 
       // Try actual calculation from server using the audio URL
       try {
-        if (!track.convertedMp3Url) return;
+        if (!track.convertedMp3Url) throw new Error("No remote audio link available; initiating high-fidelity local calculations.");
         const urlToAnalyze = track.convertedMp3Url;
         setLoadingStatus(threeXMode ? "Multi-pass analysis starting up..." : "Gemini is listening to your transients and harmonics...");
         
@@ -749,6 +751,7 @@ export default function App() {
           name: track.metaTitle || track.name,
           artist: track.metaArtist || "Independent Artist",
           hasAudio: true,
+          coverArt: track.coverArt,
         }
       });
       setQueuedTrack(null);
@@ -777,6 +780,7 @@ export default function App() {
     setViewingAboutPage(false);
     setViewingWhatItDoesPage(false);
     setViewingUsefulTools(false);
+    setViewingEngineeringStudio(false);
     clearInputStates();
   };
 
@@ -786,6 +790,7 @@ export default function App() {
     setViewingAboutPage(false);
     setViewingWhatItDoesPage(false);
     setViewingUsefulTools(false);
+    setViewingEngineeringStudio(false);
     setViewingArRep(false);
     setViewingDashboard(false);
     clearInputStates();
@@ -1074,6 +1079,7 @@ export default function App() {
             }}
             onQueueForAudit={(track) => {
               setQueuedTrack(track);
+              setCritiqueResult(null);
               setViewingDashboard(false);
             }}
             autoStartAuditTrack={autoStartTrack}
@@ -1101,6 +1107,13 @@ export default function App() {
               setViewingUsefulTools(true);
             }}
           />
+        ) : viewingEngineeringStudio ? (
+          <EngineeringStudioPage
+            onBack={() => setViewingEngineeringStudio(false)}
+            critique={critiqueResult ? critiqueResult.critique : null}
+            trackInfo={critiqueResult ? critiqueResult.trackInfo : null}
+            localFileBlobUrl={localFileBlobUrl}
+          />
         ) : viewingUsefulTools ? (
           <UsefulToolsPage
             onBack={() => setViewingUsefulTools(false)}
@@ -1117,12 +1130,22 @@ export default function App() {
               onClear={clearCritique}
               localFileBlobUrl={localFileBlobUrl}
               onViewDefinition={handleViewDefinition}
+              onNavigateToEngineeringStudio={() => {
+                setViewingEngineeringStudio(true);
+                setViewingUsefulTools(false);
+                setViewingDefinitions(false);
+                setViewingArRep(false);
+                setViewingDashboard(false);
+                setViewingAboutPage(false);
+                setViewingWhatItDoesPage(false);
+              }}
               onOpenArConsult={() => {
                 setViewingArRep(true);
                 setViewingDashboard(false);
                 setViewingAboutPage(false);
                 setViewingWhatItDoesPage(false);
                 setViewingDefinitions(false);
+                setViewingEngineeringStudio(false);
               }}
               onNavigateToRabbitHole={() => {
                 setViewingUsefulTools(true);
@@ -1131,6 +1154,7 @@ export default function App() {
                 setViewingDashboard(false);
                 setViewingAboutPage(false);
                 setViewingWhatItDoesPage(false);
+                setViewingEngineeringStudio(false);
               }}
             />
           </div>
@@ -1555,6 +1579,32 @@ export default function App() {
                     </button>
                   </div>
                 )}
+
+                {/* Read This Before You Analyze Your First Song Button */}
+                <div className="flex justify-center p-6 border-t border-white/5 bg-[#0A0B0E]/30" id="read-before-analyze-container">
+                  <button
+                    onClick={() => {
+                      setViewingAboutPage(true);
+                      setViewingDashboard(false);
+                      setViewingWhatItDoesPage(false);
+                      setViewingDefinitions(false);
+                      setViewingUsefulTools(false);
+                      setViewingArRep(false);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="flex items-center justify-center transition-all cursor-pointer rounded bg-[#262626] hover:bg-[#404040] text-white font-bold"
+                    style={{
+                      height: '30px',
+                      width: '700px',
+                      maxWidth: '100%',
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '14pt'
+                    }}
+                    id="read-before-analyze-btn"
+                  >
+                    READ THIS BEFORE YOU ANALYZE YOUR FIRST SONG
+                  </button>
+                </div>
               </div>
             </div>
 
