@@ -904,21 +904,21 @@ const generateHarmonicNodes = () => {
                       const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35;
                       const mid = critique?.liveMetrics?.calculatedMidEnergy ?? 40;
                       const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25;
-                      const subBassVal = Math.min(99, Math.round(bass * 0.6));
-                      const bassCorridorVal = Math.min(99, Math.round(bass * 1.1));
-                      const lowMidVal = Math.min(99, Math.round(mid * 0.85));
-                      const coreMidVal = Math.min(99, Math.round(mid * 0.75));
-                      const presenceVal = Math.min(99, Math.round(high * 1.2));
-                      const airVal = Math.min(99, Math.round(high * 0.9));
+                      const subBassVal = Math.min(99, Math.round(30 + (bass * 1.4)));
+                      const bassCorridorVal = Math.min(99, Math.round(35 + (bass * 1.2)));
+                      const lowMidVal = Math.min(99, Math.round(20 + (mid * 0.9)));
+                      const coreMidVal = Math.min(99, Math.round(15 + (mid * 0.8)));
+                      const presenceVal = Math.min(99, Math.round(15 + (high * 1.1)));
+                      const airVal = Math.min(99, Math.round(10 + (high * 0.95)));
                       const getStatus = (v: number, ideal: number) =>
-                        v > ideal + 12 ? "Peak" : v > ideal + 5 ? "Slight Peak" : v < ideal - 12 ? "Deficit" : v < ideal - 5 ? "Slight Deficit" : "Nominal";
+                        v > ideal + 15 ? "Peak" : v > ideal + 7 ? "Slight Peak" : v < ideal - 15 ? "Deficit" : v < ideal - 7 ? "Slight Deficit" : "Nominal";
                       return [
-                        { band: "Sub-Bass", r: "20 - 64 Hz", val: subBassVal, status: getStatus(subBassVal, 52), color: "from-blue-600 to-blue-400" },
-                        { band: "Bass Corridor", r: "64 - 250 Hz", val: bassCorridorVal, status: getStatus(bassCorridorVal, 70), color: "from-indigo-600 to-indigo-400" },
-                        { band: "Low-Mids", r: "250 - 1000 Hz", val: lowMidVal, status: getStatus(lowMidVal, 65), color: "from-purple-600 to-purple-400" },
-                        { band: "Core Mids", r: "1kHz - 4kHz", val: coreMidVal, status: getStatus(coreMidVal, 60), color: "from-pink-600 to-pink-400" },
+                        { band: "Sub-Bass", r: "20 - 64 Hz", val: subBassVal, status: getStatus(subBassVal, 55), color: "from-blue-600 to-blue-400" },
+                        { band: "Bass Corridor", r: "64 - 250 Hz", val: bassCorridorVal, status: getStatus(bassCorridorVal, 60), color: "from-indigo-600 to-indigo-400" },
+                        { band: "Low-Mids", r: "250 - 1000 Hz", val: lowMidVal, status: getStatus(lowMidVal, 60), color: "from-purple-600 to-purple-400" },
+                        { band: "Core Mids", r: "1kHz - 4kHz", val: coreMidVal, status: getStatus(coreMidVal, 55), color: "from-pink-600 to-pink-400" },
                         { band: "Presence", r: "4kHz - 8kHz", val: presenceVal, status: getStatus(presenceVal, 55), color: "from-rose-600 to-rose-400" },
-                        { band: "Air", r: "8kHz - 20kHz", val: airVal, status: getStatus(airVal, 45), color: "from-teal-600 to-teal-400" }
+                        { band: "Air", r: "8kHz - 20kHz", val: airVal, status: getStatus(airVal, 50), color: "from-teal-600 to-teal-400" }
                       ];
                     })().map((band) => (
                       <div key={band.band} className="bg-[#0A0B0E] border border-white/5 p-3.5 rounded-2xl flex flex-col items-center justify-between min-h-[190px]">
