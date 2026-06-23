@@ -211,9 +211,11 @@ const generateHarmonicNodes = () => {
       : mudSeverity === "warning" ? 2.1
       : 0.8;
     const mudFreq = bass > 42 ? "220 Hz" : "265 Hz";
-    const mudProblem = mudSeverity !== "optimized"
-      ? `Low-mid resonance accumulation at ~${mudFreq} is reducing mix clarity.${mentionsMud(lowEndText) ? " AI critique confirms mud buildup in this region." : ""}`
-      : `Low-midrange at ~${mudFreq} appears controlled. No significant mud accumulation detected.`;
+    const mudProblem = mudSeverity === "critical"
+      ? `Significant low-mid resonance at ~${mudFreq} (bass energy: ${bass}%). ${mentionsMud(lowEndText) ? "AI critique confirms mud buildup — this is a priority fix." : "High bass spectral ratio is congesting this zone."}`
+      : mudSeverity === "warning"
+      ? `Moderate low-mid accumulation at ~${mudFreq} detected (bass energy: ${bass}%). ${mentionsMud(lowEndText) ? "AI critique flags low-end buildup in this region." : "Monitor this zone — may tighten on dense arrangements."}`
+      : `Low-midrange at ~${mudFreq} appears controlled (bass energy: ${bass}%). No significant mud accumulation detected.`;
     const mudSolution = mudSeverity === "critical"
       ? `Parametric EQ notch of -3dB to -4dB at ${mudFreq} with Q = 1.6–2.0 on rhythm guitars and bass simultaneously.`
       : mudSeverity === "warning"
@@ -943,11 +945,11 @@ const generateHarmonicNodes = () => {
                     <div className="text-left">
                       <span className="text-[10px] font-mono text-slate-500 uppercase font-bold block mb-1">Spectral Tilt Indicator</span>
                       <p className="text-[11.5px] text-slate-300">
-                        Your master registers a warm analog spectral tilt of <span className="text-purple-400 font-mono font-bold">-4.5dB/oct</span>. This translates to an expansive, smooth, vintage warmth across standard acoustic/rock genres.
+                        {(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25; const tilt = parseFloat((-2.0 - (bass * 0.08) + (high * 0.04)).toFixed(1)); return <>Your master registers a spectral tilt of <span className="text-purple-400 font-mono font-bold">{tilt}dB/oct</span>. {tilt < -5 ? "This indicates a bass-heavy, warm analog profile — common in classic rock and vintage recordings." : tilt < -3 ? "This translates to a balanced, natural spectral slope well-suited for modern streaming." : "This indicates a bright, high-energy mix — presence and air are elevated relative to the low end."}</>; })()}
                       </p>
                     </div>
                     <span className="px-3.5 py-1.5 bg-[#0A0B0E] border border-purple-500/20 text-purple-400 font-mono tracking-widest text-[9.5px] rounded-lg uppercase whitespace-nowrap">
-                      Slight Sub Bass Tilt
+                      {(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25; if (bass > 40) return "Bass-Heavy Tilt"; if (bass > 28 && high < 25) return "Slight Sub Bass Tilt"; if (high > 35) return "Bright High-End Tilt"; if (high > 28) return "Slight High-End Tilt"; return "Neutral Spectral Balance"; })()}
                     </span>
                   </div>
                 </div>
@@ -1035,8 +1037,8 @@ const generateHarmonicNodes = () => {
                         <div className="absolute w-full h-[1px] bg-white/2 -rotate-45" />
 
                         {/* Simulated particle sparks cluster */}
-                        <div className="absolute w-20 h-28 bg-pink-500/25 blur-xl rounded-full rotate-42 animate-pulse" />
-                        <div className="absolute w-12 h-20 bg-blue-500/20 blur-md rounded-full -rotate-12" />
+                        <div className={`absolute bg-pink-500/25 blur-xl rounded-full rotate-42 animate-pulse`} style={{ width: `${Math.round(60 + ((critique?.liveMetrics?.calculatedMidEnergy ?? 40) * 0.4))}px`, height: `${Math.round(80 + ((critique?.liveMetrics?.calculatedMidEnergy ?? 40) * 0.5))}px` }} />
+                        <div className={`absolute bg-blue-500/20 blur-md rounded-full -rotate-12`} style={{ width: `${Math.round(30 + ((critique?.liveMetrics?.calculatedBassEnergy ?? 35) * 0.5))}px`, height: `${Math.round(50 + ((critique?.liveMetrics?.calculatedBassEnergy ?? 35) * 0.7))}px` }} />
                       </div>
                       <span className="text-[10px] font-mono text-slate-400">{(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25; const width = Math.round(45 + (high * 0.8) - (bass * 0.3)); return `Total Spatial Breadth Index: ${width > 70 ? "wide" : width > 55 ? "moderate" : "narrow"} (${width}°)`; })()}</span>
                     </div>
@@ -1049,7 +1051,7 @@ const generateHarmonicNodes = () => {
                           <span className="text-pink-400 font-mono">{(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const mid = critique?.liveMetrics?.calculatedMidEnergy ?? 40; const correlation = parseFloat(Math.min(0.99, Math.max(0.3, 1.0 - ((bass + mid) * 0.006))).toFixed(2)); return `+${correlation}`; })()}</span>
                         </div>
                         <div className="w-full h-1.5 bg-neutral-950 rounded-full border border-white/5 relative p-[1px]">
-                          <div className="absolute w-3 h-3 bg-pink-500 rounded-full shadow-[0_0_8px_#ec4899] top-1/2 -mt-[5px] left-[84%]" />
+                          <div className="absolute w-3 h-3 bg-pink-500 rounded-full shadow-[0_0_8px_#ec4899] top-1/2 -mt-[5px]" style={{ left: `${(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const mid = critique?.liveMetrics?.calculatedMidEnergy ?? 40; const correlation = Math.min(0.99, Math.max(0.3, 1.0 - ((bass + mid) * 0.006))); return Math.round(40 + (correlation * 45)); })()}%` }} />
                         </div>
                         <div className="flex justify-between text-[8px] font-mono text-slate-500 mt-2">
                           <span>-1.0 (Out of Phase)</span>
@@ -1103,13 +1105,13 @@ const generateHarmonicNodes = () => {
 
                         {/* Middle Instrumental space */}
                         <div className="absolute top-12 left-1/2 -ml-28 w-56 h-12 border border-[#2563EB]/15 bg-blue-500/[0.02] rounded-full flex items-center justify-between px-3 text-[9px] text-slate-500">
-                          <span>Synthesizers (Left)</span>
-                          <span>Guitar Group (Right)</span>
+                          <span>{critique?.liveMetrics?.calculatedBassEnergy !== undefined && critique.liveMetrics.calculatedBassEnergy > 30 ? "Bass / Low-End (Left)" : critique?.liveMetrics?.calculatedHighEnergy !== undefined && critique.liveMetrics.calculatedHighEnergy > 35 ? "Synths / Keys (Left)" : "Rhythm Guitars (Left)"}</span>
+                          <span>{critique?.liveMetrics?.calculatedHighEnergy !== undefined && critique.liveMetrics.calculatedHighEnergy > 35 ? "Percussion / Hi-Hats (Right)" : critique?.liveMetrics?.calculatedMidEnergy !== undefined && critique.liveMetrics.calculatedMidEnergy > 50 ? "Guitar Group (Right)" : "Ambient / Pads (Right)"}</span>
                         </div>
 
                         {/* Front dry space */}
                         <div className="absolute top-24 left-1/2 -ml-16 w-32 h-10 border border-purple-500/30 bg-purple-500/[0.04] rounded-full flex items-center justify-center text-[9.5px] font-bold text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.1)]">
-                          Lead Vocals / Snare
+                          {critique?.liveMetrics?.calculatedMidEnergy !== undefined && critique.liveMetrics.calculatedMidEnergy > 50 ? "Lead Vocal / Snare" : critique?.liveMetrics?.calculatedBassEnergy !== undefined && critique.liveMetrics.calculatedBassEnergy > 30 ? "Kick / Bass Center" : "Lead Vocal / Center"}
                         </div>
                       </div>
                     </div>
