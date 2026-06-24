@@ -325,7 +325,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioRef] = useState(() => new Audio());
   const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({});
-  const [activeCategory, setActiveCategory] = useState<"mainstream" | "artistic" | "dna" | "sandbox" | "spotify" | "azimuth" | "blueprints" | null>(null);
+  const [activeCategory, setActiveCategory] = useState<"mainstream" | "artistic" | "dna" | "sandbox" | "spotify" | "azimuth" | "blueprints" | "architecture" | null>(null);
   const [azimuthActiveTab, setAzimuthActiveTab] = useState<"outline" | "waveform" | "melodic" | "spectrogram" | "pitch" | "key" | "azimuth">("azimuth");
   const [azimuthRefMode, setAzimuthRefMode] = useState<"user" | "benchmark" | "overlap">("user");
   const [azimuthPlaying, setAzimuthPlaying] = useState(false);
@@ -338,6 +338,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   });
   const [isEchoNestExpanded, setIsEchoNestExpanded] = useState(false);
   const [isRecommenderExpanded, setIsRecommenderExpanded] = useState(false);
+  const liveMetrics = critique?.liveMetrics;
 
   React.useEffect(() => {
     if (critique?.liveMetrics) {
@@ -1162,7 +1163,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     }
   ];
 
-  const getFilteredMetrics = (cat: "mainstream" | "artistic" | "dna" | "sandbox" | "spotify" | "azimuth" | "blueprints" | null = activeCategory) => {
+  const getFilteredMetrics = (cat: "mainstream" | "artistic" | "dna" | "sandbox" | "spotify" | "azimuth" | "blueprints" | "architecture" | null = activeCategory) => {
     if (cat === "mainstream") {
       return [
         METRICS_LIST.find(m => m.id === "readiness"),
@@ -1197,7 +1198,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     return [];
   };
 
-  const handleCategoryChange = (category: "mainstream" | "artistic" | "dna" | "sandbox" | "spotify" | "azimuth" | "blueprints" | null) => {
+  const handleCategoryChange = (category: "mainstream" | "artistic" | "dna" | "sandbox" | "spotify" | "azimuth" | "blueprints" | "architecture" | null) => {
     if (activeCategory === category) {
       setActiveCategory(null);
     } else {
@@ -3516,10 +3517,43 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     }
 
     // Feeder Channel Chances aligned directly and proportionally with overall compatibility score
-    const releaseRadarChance = Math.min(99, Math.max(10, Math.round(predictedScore * 0.85)));
-    const discoverWeeklyChance = Math.min(95, Math.max(5, Math.round(predictedScore * 0.70 * (spotifyChecks.vocalEntrance && spotifyChecks.spectralWidth ? 1.05 : 0.85))));
-    const dailyMixChance = Math.min(99, Math.max(10, Math.round(predictedScore * 0.78)));
-    const radioSeedChance = Math.min(99, Math.max(10, Math.round(predictedScore * 0.75)));
+    const valenceScore = critique?.streamingAlignment?.echoNestScorecard?.moodValence ?? 50;
+    const danceScore = critique?.streamingAlignment?.echoNestScorecard?.danceability ?? 50;
+    const energyScore = critique?.streamingAlignment?.echoNestScorecard?.energyIntensity ?? 50;
+    const speechScore = critique?.streamingAlignment?.echoNestScorecard?.speechiness ?? 20;
+
+    // Release Radar — driven by production quality and early hook delivery
+    const releaseRadarChance = Math.min(99, Math.max(10, Math.round(
+      (predictedScore * 0.60) +
+      (spotifyChecks.vocalEntrance ? 8 : 0) +
+      (spotifyChecks.spectralWidth ? 6 : 0) +
+      (hasLufs ? 5 : 0)
+    )));
+
+    // Discover Weekly — driven by collaborative filtering: valence + danceability + energy alignment
+    const discoverWeeklyChance = Math.min(95, Math.max(5, Math.round(
+      (predictedScore * 0.45) +
+      (valenceScore * 0.20) +
+      (danceScore * 0.15) +
+      (energyScore * 0.10)
+    )));
+
+    // Daily Mix & Radio — driven by genre consistency and energy profile
+    const dailyMixChance = Math.min(99, Math.max(10, Math.round(
+      (predictedScore * 0.50) +
+      (energyScore * 0.18) +
+      (danceScore * 0.12) +
+      (averageMatch * 0.10)
+    )));
+
+    // AI Playlist Prompts — driven by mood valence, speechiness, and lyrical theme clarity
+    const radioSeedChance = Math.min(99, Math.max(10, Math.round(
+      (predictedScore * 0.35) +
+      (valenceScore * 0.30) +
+      (danceScore * 0.15) +
+      (speechScore * 0.08) +
+      (spotifyChecks.vocalEntrance ? 7 : 0)
+    )));
 
     const metricsData = [
       {
@@ -4390,7 +4424,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   return (
     <div className="flex flex-col gap-6" id="critique-display-container">
       {/* 1. Header Hero Panel */}
-      <div className="bg-[#0D0E12] border border-white/15 rounded-3xl p-6 shadow-2xl relative overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-6 ring-1 ring-white/5">
+      <div className="bg-[#0D0E12] border border-white/15 rounded-3xl p-6 shadow-2xl relative overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-6 ring-1 ring-white/5 mt-[-12px]">
         <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
           <Disc className="w-48 h-48 animate-spin" style={{ animationDuration: "10s" }} />
         </div>
@@ -4427,15 +4461,51 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             </div>
           </div>
 
-          {/* Place the Genre and sub genre profile divs here */}
-          <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
+          {/* Key and BPM Row - Version 4 Harmonic Audit */}
+          <div className="flex flex-col sm:flex-row gap-4 flex-wrap mt-1">
             <div 
               style={{ 
                 width: isMobile ? "100%" : "auto"
               }}
-              className="bg-[#13151D] px-4 py-2.5 rounded-xl border border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.35)] hover:border-white/20 transition-all flex items-center gap-2.5 whitespace-nowrap min-w-fit"
+              className="bg-[#11131A] px-4 py-3 rounded-xl border border-blue-500/25 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-blue-500/50 transition-all flex items-center gap-2.5 whitespace-nowrap min-w-fit"
             >
-              <span className="text-[11px] uppercase font-mono tracking-wider text-slate-400 font-bold">Core Genre Profile:</span>
+              <div className="p-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                <Music4 className="w-4 h-4" />
+              </div>
+              <div className="flex flex-col text-left">
+                <span className="text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">Detected Key</span>
+                <div className="font-bold text-pink-400 text-sm mt-0.5 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-pink-500 shadow-[0_0_8px_#ec4899]" />
+                  <span>{getEstimatedKey().replace(" (TKEY)", "")}</span>
+                </div>
+              </div>
+            </div>
+
+            <div 
+              style={{ 
+                width: isMobile ? "100%" : "auto"
+              }}
+              className="bg-[#11131A] px-4 py-3 rounded-xl border border-blue-500/25 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-blue-500/50 transition-all flex items-center gap-2.5 whitespace-nowrap min-w-fit"
+            >
+              <div className="p-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                <Activity className="w-4 h-4" />
+              </div>
+              <div className="flex flex-col text-left">
+                <span className="text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">Tempo (BPM)</span>
+                <div className="font-bold text-blue-400 text-sm mt-0.5 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]" />
+                  <span>{getEstimatedBpm()} BPM</span>
+                </div>
+              </div>
+            </div>
+
+            <div 
+              style={{ 
+                width: isMobile ? "100%" : "auto"
+              }}
+              className="bg-[#11131A] px-4 py-3 rounded-xl border border-blue-500/25 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-blue-500/50 transition-all flex flex-col items-start gap-1 justify-center whitespace-nowrap min-w-fit"
+            >
+              <span className="text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">Core Genre Profile:</span>
               <div className="font-bold text-white text-sm flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500" />
                 <span>{critique?.vibe?.genre ?? "N/A"}</span>
@@ -4447,9 +4517,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               style={{ 
                 width: isMobile ? "100%" : "auto"
               }}
-              className="bg-[#13151D] px-4 py-2.5 rounded-xl border border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.35)] hover:border-white/20 transition-all flex items-center gap-2.5 whitespace-nowrap min-w-fit"
+              className="bg-[#11131A] px-4 py-3 rounded-xl border border-blue-500/25 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-blue-500/50 transition-all flex flex-col items-start gap-1 justify-center whitespace-nowrap min-w-fit"
             >
-              <span className="text-[11px] uppercase font-mono tracking-wider text-slate-400 font-bold">Sub-Genre &amp; Dynamic Style:</span>
+              <span className="text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">Sub-Genre &amp; Dynamic Style:</span>
               <div className="font-bold text-white text-sm flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-teal-400" style={{ backgroundColor: '#2dd4bf' }} />
                 <span>{critique?.vibe?.subgenre ?? "N/A"}</span>
@@ -4485,7 +4555,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       </div>
 
         {/* Combined Interactive Category Selectors & Main Scoreboard Grid */}
-      <div className="flex flex-col gap-6 mt-4 mb-[-9px]" id="kpi-category-selectors">
+      <div className="flex flex-col gap-4 mt-4 mb-[-9px]" id="kpi-category-selectors">
         <div className="pl-5 pr-5 pt-[5px] pb-[5px] rounded-2xl bg-[#0e1115]/80 border border-white/5 text-white text-xs md:text-[13px] leading-relaxed shadow-sm font-sans mb-1">
           The below Core Metrics assess and evaluate the technical aspects of your song. The STREAMING ALGORITHMIC ALIGNMENT and ALGORITHMIC SANDBOX metrics act as algorithm simulators telling you how streaming networks might index and route your song before it gets its first stream.
         </div>
@@ -4878,6 +4948,50 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         {/* The prominent blue line element moved here dynamically */}
         <div className="my-[18px] border-b-4 border-blue-500/80 shadow-[0_0_12px_rgba(59,130,246,0.6)] rounded-full w-full animate-pulse" />
 
+        {/* The engineering studio invite banner moved here with blue border */}
+        <div 
+          onClick={() => {
+            if (onNavigateToEngineeringStudio) onNavigateToEngineeringStudio();
+          }}
+          className="group relative bg-[#13161C] border border-[#2563EB] rounded-3xl p-6.5 shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-[0_0_40px_rgba(37,99,235,0.12)] hover:scale-[1.005]"
+          id="engineering-studio-invite-banner"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-blue-500/[0.015] to-[#2563EB]/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+          <div className="absolute top-0 right-0 w-[320px] h-[320px] bg-[#2563EB]/[0.02] rounded-full blur-[80px] pointer-events-none" />
+
+          <div className="flex flex-col md:flex-row items-center gap-6 relative z-10 text-center md:text-left">
+            <div className="p-4 rounded-2xl bg-[#2563EB]/10 border border-[#2563EB]/20 text-blue-400 shadow-[0_0_20px_rgba(37,99,235,0.15)] group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
+              <Volume2 className="w-8 h-8 text-blue-400" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-white tracking-wide uppercase flex items-center justify-center md:justify-start gap-2.5">
+                THE ENGINEERING STUDIO
+                <span className="text-[9px] bg-[#2563EB]/15 border border-[#2563EB]/25 text-blue-400 font-mono tracking-widest px-2.5 py-0.5 rounded-full uppercase">High Precision Analysis</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-2 max-w-xl leading-relaxed animate-pulse">
+                Unlock laser-precision harmonic frequency analysis, stereo azimuth imaging, vocalist performance critiques, and custom DAW mixing and mastering checklists for <span className="text-slate-300 font-semibold">"{trackName}"</span>.
+              </p>
+            </div>
+          </div>
+
+          <div className="relative z-10 shrink-0">
+            <button 
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onNavigateToEngineeringStudio) onNavigateToEngineeringStudio();
+              }}
+              className="px-6 py-3 bg-[#2563EB] hover:bg-blue-500 text-white font-mono text-[11px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)] cursor-pointer flex items-center gap-2 group-hover:scale-102"
+            >
+              <span>Enter Engineering Studio</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+        </div>
+
+        {/* Copy of the 3rd div selected (blue line) placed below the moved 1st div */}
+        <div className="my-[18px] border-b-4 border-blue-500/80 shadow-[0_0_12px_rgba(59,130,246,0.6)] rounded-full w-full animate-pulse" />
+
         {/* Descriptive div above the Artistic Impact button */}
         <div className="pl-5 pr-5 pt-[5px] pb-[5px] rounded-2xl bg-[#0e1115]/80 border border-white/5 text-white text-xs md:text-[13px] leading-relaxed shadow-sm font-sans mb-1">
           The below metrics contain a host of sub metrics and provide you with a deep dive look at the creative and harmonic depth of your songs construction, how it might compare to other songs in your subgenre, and how the mix quality can be corrected if needed.
@@ -5165,6 +5279,188 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             )}
           </AnimatePresence>
         </div>
+
+              {/* SONG ARCHITECTURE */}
+              <button
+                onClick={() => handleCategoryChange('architecture')}
+                className={`relative z-10 flex flex-col justify-between w-full text-left p-6 rounded-3xl border transition-all duration-300 cursor-pointer group ${
+                  activeCategory === 'architecture'
+                    ? 'bg-[#0f1a2e] border-violet-500/40 shadow-[0_0_30px_rgba(139,92,246,0.08)]'
+                    : 'bg-[#13161C] border-white/5 hover:border-violet-500/20'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className={`p-2.5 rounded-2xl transition-colors ${activeCategory === 'architecture' ? 'bg-violet-500/15' : 'bg-[#0A0B0E] group-hover:bg-violet-500/10'}`}>
+                      <svg className="w-5 h-5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-mono text-violet-400/70 uppercase tracking-widest mb-0.5">Song Architecture</p>
+                      <h2 className="text-lg font-black text-white tracking-tight leading-none">SONG ARCHITECTURE</h2>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Structural Timeline & Section Map</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                    <div className="text-[9px] font-mono text-slate-600 uppercase tracking-wider">THIS METRIC IS NOT CONSIDERED BY STREAMING SERVICES.</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 text-[11px] text-slate-400 leading-relaxed">
+                  A visual breakdown of your song's structural sections with timestamps, loudness arc, and hook placement audit.
+                </div>
+
+                {activeCategory === 'architecture' && (
+                  <div className="mt-6 flex flex-col gap-5" onClick={e => e.stopPropagation()}>
+
+                    {/* Section Timeline Map */}
+                    <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-4.5">
+                      <span className="text-[9.5px] font-mono text-slate-500 uppercase font-bold tracking-wider block mb-3">Section Map</span>
+                      {(() => {
+                        const points = liveMetrics?.calculatedWaveformPoints ?? [];
+                        const duration = liveMetrics?.calculatedDuration ?? 0;
+                        const bpm = liveMetrics?.calculatedBpm ?? 120;
+                        if (points.length === 0 || duration === 0) {
+                          return <div className="text-[10px] text-slate-600 font-mono">Upload a local file to generate section map.</div>;
+                        }
+
+                        // Detect section boundaries from amplitude envelope
+                        const windowSize = Math.floor(points.length / 16);
+                        const windows: number[] = [];
+                        for (let i = 0; i < 16; i++) {
+                          const slice = points.slice(i * windowSize, (i + 1) * windowSize);
+                          const avg = slice.reduce((a: number, b: number) => a + b, 0) / slice.length;
+                          windows.push(avg);
+                        }
+
+                        // Find significant changes in amplitude to mark section boundaries
+                        const boundaries: number[] = [0];
+                        for (let i = 1; i < windows.length - 1; i++) {
+                          const diff = Math.abs(windows[i] - windows[i - 1]);
+                          if (diff > 8) boundaries.push(i);
+                        }
+                        boundaries.push(16);
+
+                        // Label sections based on position and amplitude
+                        const sectionLabels = ['Intro', 'Verse', 'Pre-Chorus', 'Chorus', 'Verse', 'Chorus', 'Bridge', 'Outro'];
+                        const sections = boundaries.slice(0, -1).map((start, idx) => {
+                          const end = boundaries[idx + 1];
+                          const startTime = (start / 16) * duration;
+                          const endTime = (end / 16) * duration;
+                          const avgAmp = windows.slice(start, end).reduce((a: number, b: number) => a + b, 0) / (end - start);
+                          const label = sectionLabels[Math.min(idx, sectionLabels.length - 1)];
+                          const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+                          return { label, startTime, endTime, avgAmp, fmt };
+                        });
+
+                        const maxAmp = Math.max(...sections.map(s => s.avgAmp));
+
+                        return (
+                          <div className="flex flex-col gap-2">
+                            {/* Visual timeline bar */}
+                            <div className="flex w-full h-2 rounded-full overflow-hidden gap-px mb-2">
+                              {sections.map((s, i) => {
+                                const width = ((s.endTime - s.startTime) / duration) * 100;
+                                const colors = ['bg-blue-500/40', 'bg-cyan-500/40', 'bg-purple-500/40', 'bg-rose-500/60', 'bg-cyan-500/40', 'bg-rose-500/60', 'bg-amber-500/40', 'bg-slate-500/30'];
+                                return <div key={i} className={`${colors[i % colors.length]} rounded-sm`} style={{ width: `${width}%` }} />;
+                              })}
+                            </div>
+
+                            {/* Section rows */}
+                            {sections.map((s, i) => {
+                              const barWidth = Math.round((s.avgAmp / maxAmp) * 100);
+                              const isHook = s.label === 'Chorus';
+                              const hookEarly = isHook && s.startTime < 30;
+                              return (
+                                <div key={i} className="flex items-center gap-3 py-1.5 border-b border-white/[0.03]">
+                                  <span className={`text-[9px] font-mono font-bold w-20 flex-shrink-0 ${isHook ? 'text-rose-400' : 'text-slate-400'}`}>{s.label}</span>
+                                  <span className="text-[9px] font-mono text-slate-600 w-24 flex-shrink-0">{s.fmt(s.startTime)} – {s.fmt(s.endTime)}</span>
+                                  <div className="flex-1 bg-neutral-900 rounded-full h-1.5 overflow-hidden">
+                                    <div className={`h-full rounded-full ${isHook ? 'bg-rose-500/60' : 'bg-indigo-500/40'}`} style={{ width: `${barWidth}%` }} />
+                                  </div>
+                                  {hookEarly && <span className="text-[8px] font-mono text-emerald-400 flex-shrink-0">✓ Early Hook</span>}
+                                  {isHook && !hookEarly && s.startTime > 0 && <span className="text-[8px] font-mono text-amber-400 flex-shrink-0">Hook at {s.fmt(s.startTime)}</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Hook Placement Audit */}
+                    <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-4.5">
+                      <span className="text-[9.5px] font-mono text-slate-500 uppercase font-bold tracking-wider block mb-3">Hook Placement Audit</span>
+                      {(() => {
+                        const points = liveMetrics?.calculatedWaveformPoints ?? [];
+                        const duration = liveMetrics?.calculatedDuration ?? 0;
+                        if (points.length === 0 || duration === 0) {
+                          return <div className="text-[10px] text-slate-600 font-mono">Upload a local file to enable hook audit.</div>;
+                        }
+                        const first30Pct = points.slice(0, Math.floor(points.length * (30 / duration)));
+                        const peakIn30 = first30Pct.length > 0 ? Math.max(...first30Pct) : 0;
+                        const overallPeak = Math.max(...points);
+                        const hookRatio = peakIn30 / overallPeak;
+                        const hookScore = Math.round(hookRatio * 100);
+                        const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+                        const peakIdx = points.indexOf(overallPeak);
+                        const peakTime = (peakIdx / points.length) * duration;
+                        return (
+                          <div className="flex flex-col gap-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-slate-400">First 30 seconds energy vs. full track peak</span>
+                              <span className={`text-sm font-black font-mono ${hookScore > 70 ? 'text-emerald-400' : hookScore > 45 ? 'text-amber-400' : 'text-rose-400'}`}>{hookScore}%</span>
+                            </div>
+                            <div className="w-full bg-neutral-900 rounded-full h-2 overflow-hidden">
+                              <div className={`h-full rounded-full ${hookScore > 70 ? 'bg-emerald-500/60' : hookScore > 45 ? 'bg-amber-500/60' : 'bg-rose-500/60'}`} style={{ width: `${hookScore}%` }} />
+                            </div>
+                            <p className="text-[10px] text-slate-400 leading-relaxed">
+                              {hookScore > 70 ? `Strong early engagement — peak energy arrives within the first 30 seconds. Ideal for streaming retention.` : hookScore > 45 ? `Moderate early energy. Track builds toward its peak at ${fmt(peakTime)}. Consider bringing the hook forward.` : `Low early energy ratio. Peak energy arrives at ${fmt(peakTime)}. Streaming algorithms may penalize late engagement.`}
+                            </p>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Per-Section Loudness Summary */}
+                    <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-4.5">
+                      <span className="text-[9.5px] font-mono text-slate-500 uppercase font-bold tracking-wider block mb-3">Dynamic Arc</span>
+                      <p className="text-[10px] text-slate-500 mb-3">Does the chorus hit harder than the verse?</p>
+                      {(() => {
+                        const points = liveMetrics?.calculatedWaveformPoints ?? [];
+                        const lufs = liveMetrics?.calculatedLufs ?? -12;
+                        if (points.length === 0) return <div className="text-[10px] text-slate-600 font-mono">Upload a local file to enable dynamic arc.</div>;
+                        const verse = points.slice(Math.floor(points.length * 0.12), Math.floor(points.length * 0.35));
+                        const chorus = points.slice(Math.floor(points.length * 0.45), Math.floor(points.length * 0.70));
+                        const verseAvg = verse.reduce((a: number, b: number) => a + b, 0) / verse.length;
+                        const chorusAvg = chorus.reduce((a: number, b: number) => a + b, 0) / chorus.length;
+                        const verseLufs = parseFloat((lufs + ((verseAvg - 50) * 0.12)).toFixed(1));
+                        const chorusLufs = parseFloat((lufs + ((chorusAvg - 50) * 0.12)).toFixed(1));
+                        const diff = parseFloat((chorusLufs - verseLufs).toFixed(1));
+                        return (
+                          <div className="flex flex-col gap-2.5">
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-slate-400">Verse avg loudness</span>
+                              <span className="font-mono text-cyan-400">{verseLufs} LUFS</span>
+                            </div>
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-slate-400">Chorus avg loudness</span>
+                              <span className="font-mono text-rose-400">{chorusLufs} LUFS</span>
+                            </div>
+                            <div className="flex items-center justify-between text-[10px] border-t border-white/5 pt-2">
+                              <span className="text-slate-400">Chorus lift</span>
+                              <span className={`font-mono font-bold ${diff > 0 ? 'text-emerald-400' : 'text-amber-400'}`}>{diff > 0 ? `+${diff}` : diff} dB</span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 leading-relaxed mt-1">
+                              {diff > 2 ? "Strong dynamic lift into the chorus. The arrangement is creating real perceived impact." : diff > 0 ? "Mild chorus lift detected. Consider adding more arrangement density or limiting the verse slightly." : "Chorus is not louder than the verse. This is a common reason for listener disengagement at the hook."}
+                            </p>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                  </div>
+                )}
+              </button>
 
         {/* Card: Technical and Diagnostic Blueprints (cyan) */}
         <div className="flex flex-col w-full gap-4">
@@ -5578,46 +5874,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         </div>
       </div>
 
-      {/* 3. Deep Consultation Breakdown Sidebar & Tabs replaced with button/card */}
-      <div 
-        onClick={() => {
-          if (onNavigateToEngineeringStudio) onNavigateToEngineeringStudio();
-        }}
-        className="group relative bg-[#13161C] border border-[#2563EB]/20 hover:border-[#2563EB]/45 rounded-3xl p-6.5 shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-[0_0_40px_rgba(37,99,235,0.12)] hover:scale-[1.005]"
-        id="engineering-studio-invite-banner"
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-blue-500/[0.015] to-[#2563EB]/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-        <div className="absolute top-0 right-0 w-[320px] h-[320px] bg-[#2563EB]/[0.02] rounded-full blur-[80px] pointer-events-none" />
 
-        <div className="flex flex-col md:flex-row items-center gap-6 relative z-10 text-center md:text-left">
-          <div className="p-4 rounded-2xl bg-[#2563EB]/10 border border-[#2563EB]/20 text-blue-400 shadow-[0_0_20px_rgba(37,99,235,0.15)] group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
-            <Volume2 className="w-8 h-8 text-blue-400" />
-          </div>
-          <div>
-            <h3 className="text-xl font-bold text-white tracking-wide uppercase flex items-center justify-center md:justify-start gap-2.5">
-              THE ENGINEERING STUDIO
-              <span className="text-[9px] bg-[#2563EB]/15 border border-[#2563EB]/25 text-blue-400 font-mono tracking-widest px-2.5 py-0.5 rounded-full uppercase">High Precision Analysis</span>
-            </h3>
-            <p className="text-xs text-slate-400 mt-2 max-w-xl leading-relaxed animate-pulse">
-              Unlock laser-precision harmonic frequency analysis, stereo azimuth imaging, vocalist performance critiques, and custom DAW mixing and mastering checklists for <span className="text-slate-300 font-semibold">"{trackName}"</span>.
-            </p>
-          </div>
-        </div>
-
-        <div className="relative z-10 shrink-0">
-          <button 
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onNavigateToEngineeringStudio) onNavigateToEngineeringStudio();
-            }}
-            className="px-6 py-3 bg-[#2563EB] hover:bg-blue-500 text-white font-mono text-[11px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)] cursor-pointer flex items-center gap-2 group-hover:scale-102"
-          >
-            <span>Enter Engineering Studio</span>
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-          </button>
-        </div>
-      </div>
 
       {/* Dedicated A&R Consultation Invitation Banner */}
       <div 
@@ -6571,3 +6828,4 @@ function StereoAzimuthVisualizer({ activeTab, onActiveTabChange, refMode, isPlay
     </div>
   );
 }
+
