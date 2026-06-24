@@ -417,6 +417,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     calculatedBassEnergy: bassPerc,
     calculatedMidEnergy: midPerc,
     calculatedHighEnergy: highPerc,
-    calculatedWaveformPoints: waveTimeline
+    calculatedWaveformPoints: waveTimeline,
+    calculatedDuration: parseFloat(duration.toFixed(2))
   };
 }
