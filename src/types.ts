@@ -70,6 +70,7 @@ export interface LiveAudioMetrics {
   calculatedMidEnergy: number;
   calculatedHighEnergy: number;
   calculatedWaveformPoints: number[];
+  calculatedDuration: number;
 }
 
 export interface CritiqueData {
@@ -111,6 +112,8 @@ export interface SampleSong {
   type: "demo" | "finished" | "vocal";
   audioUrl: string;
   description: string;
+  key?: string;
+  bpm?: number;
 }
 
 export const SAMPLE_SONGS: SampleSong[] = [
@@ -120,7 +123,9 @@ export const SAMPLE_SONGS: SampleSong[] = [
     artist: "The Backyard Project",
     type: "demo",
     audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-    description: "A cozy, raw indie-pop mix in progress with active acoustic strumming and double-tracked backing keys."
+    description: "A cozy, raw indie-pop mix in progress with active acoustic strumming and double-tracked backing keys.",
+    key: "G Major",
+    bpm: 115
   },
   {
     id: "live-session",
@@ -128,7 +133,9 @@ export const SAMPLE_SONGS: SampleSong[] = [
     artist: "Tidal Sync",
     type: "vocal",
     audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-    description: "A fast-paced synthwave instrumental demo. Great for checking low-end compression recommendations and pacing."
+    description: "A fast-paced synthwave instrumental demo. Great for checking low-end compression recommendations and pacing.",
+    key: "A minor",
+    bpm: 120
   },
   {
     id: "retro-funk",
@@ -136,7 +143,9 @@ export const SAMPLE_SONGS: SampleSong[] = [
     artist: "Retrograde",
     type: "finished",
     audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
-    description: "A fully developed, upbeat indie-rock arrangement. Excellent for testing commercial readiness and stream limiting levels."
+    description: "A fully developed, upbeat indie-rock arrangement. Excellent for testing commercial readiness and stream limiting levels.",
+    key: "D minor",
+    bpm: 128
   }
 ];
 
