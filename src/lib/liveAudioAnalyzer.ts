@@ -407,6 +407,22 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     waveTimeline.push(scaledVal);
   }
 
+  // Generate 400-point HD wave amplitude timeline for section analysis
+  const waveTimelineHD: number[] = [];
+  const hdStep = Math.floor(filteredLength / 400);
+  for (let k = 0; k < 400; k++) {
+    let sumBlock = 0;
+    const rangeStart = k * hdStep;
+    const rangeEnd = Math.min(filteredLength, (k + 1) * hdStep);
+    const blockLen = rangeEnd - rangeStart;
+    for (let u = rangeStart; u < rangeEnd; u++) {
+      sumBlock += Math.abs(fCh0[u]);
+    }
+    const avgVal = blockLen > 0 ? sumBlock / blockLen : 0;
+    const scaledHD = Math.max(2, Math.min(98, Math.round(avgVal * 200)));
+    waveTimelineHD.push(scaledHD);
+  }
+
   return {
     calculatedLufs: parseFloat(lufsValue.toFixed(1)),
     calculatedTruePeak: parseFloat(truePeak.toFixed(2)),
@@ -418,6 +434,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     calculatedMidEnergy: midPerc,
     calculatedHighEnergy: highPerc,
     calculatedWaveformPoints: waveTimeline,
+    calculatedWaveformPointsHD: waveTimelineHD,
     calculatedDuration: parseFloat(duration.toFixed(2))
   };
 }
