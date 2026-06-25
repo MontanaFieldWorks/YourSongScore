@@ -10,7 +10,7 @@ export interface TestSongOption {
   data: CritiqueResponse;
 }
 
-export const TEST_SONG_OPTIONS: TestSongOption[] = [
+const TEST_SONG_OPTIONS_RAW = [
   {
     id: "test-excellent",
     name: "Elysian Fields",
@@ -82,6 +82,30 @@ export const TEST_SONG_OPTIONS: TestSongOption[] = [
           score: 89,
           uniquenessLevel: "Strong and distinct title style.",
           feedback: "Uncluttered SEO space; high likelihood of organic discoverability."
+        },
+        liveMetrics: {
+          calculatedLufs: -9.5,
+          calculatedTruePeak: -1.0,
+          calculatedLra: 8.5,
+          calculatedStereoCorrelation: 0.28,
+          calculatedBpm: 120,
+          calculatedKey: "F# Major",
+          calculatedBassEnergy: 78,
+          calculatedMidEnergy: 82,
+          calculatedHighEnergy: 80,
+          calculatedDuration: 210,
+          calculatedWaveformPoints: [
+            18, 20, 22, 19, 21,
+            35, 38, 40, 42, 39, 41, 43,
+            45, 52, 58, 65, 72,
+            82, 85, 88, 90, 89, 91, 88, 92,
+            32, 35, 38, 36, 37, 39,
+            46, 54, 62, 68, 74,
+            84, 87, 89, 92, 91, 93, 90, 94,
+            22, 25, 28, 24, 26, 30,
+            86, 88, 91, 94, 95, 93, 96, 94, 98,
+            45, 38, 30, 22, 15, 8, 3
+          ]
         }
       }
     }
@@ -162,6 +186,28 @@ export const TEST_SONG_OPTIONS: TestSongOption[] = [
           score: 35,
           uniquenessLevel: "High competition title.",
           feedback: "Over 5,000 matches with the word 'Gravel'; discoverability is statistically near zero."
+        },
+        liveMetrics: {
+          calculatedLufs: -5.8,
+          calculatedTruePeak: 1.2,
+          calculatedLra: 3.2,
+          calculatedStereoCorrelation: 0.05,
+          calculatedBpm: 145,
+          calculatedKey: "A minor",
+          calculatedBassEnergy: 92,
+          calculatedMidEnergy: 85,
+          calculatedHighEnergy: 78,
+          calculatedDuration: 165,
+          calculatedWaveformPoints: [
+            45, 48, 52, 50, 48,
+            68, 72, 70, 74, 71, 73, 75, 72, 74, 73,
+            85, 88, 92, 95, 94, 96, 95, 98, 96, 97,
+            66, 70, 68, 72, 69, 71, 73, 70, 72, 71,
+            86, 89, 93, 96, 95, 97, 96, 99, 97, 98,
+            75, 78, 82, 80, 84, 82, 85, 83, 86, 84,
+            88, 91, 95, 98, 97, 99, 98, 100, 99, 99,
+            70, 72, 74, 71, 73, 75, 72, 74, 73, 70
+          ]
         }
       }
     }
@@ -242,6 +288,30 @@ export const TEST_SONG_OPTIONS: TestSongOption[] = [
           score: 60,
           uniquenessLevel: "Fair index search quality.",
           feedback: "A few existing artists use 'Neon' themes, but adding 'Pulse' clears up some SEO room."
+        },
+        liveMetrics: {
+          calculatedLufs: -11.2,
+          calculatedTruePeak: -0.5,
+          calculatedLra: 6.8,
+          calculatedStereoCorrelation: 0.42,
+          calculatedBpm: 112,
+          calculatedKey: "B minor",
+          calculatedBassEnergy: 70,
+          calculatedMidEnergy: 65,
+          calculatedHighEnergy: 72,
+          calculatedDuration: 240,
+          calculatedWaveformPoints: [
+            22, 24, 26, 25, 23,
+            42, 45, 48, 44, 46, 47, 49, 45,
+            50, 55, 60, 65, 70,
+            76, 79, 82, 85, 83, 84, 82, 86,
+            40, 43, 46, 42, 44, 45, 47, 44,
+            51, 56, 61, 66, 71,
+            77, 80, 83, 86, 84, 85, 83, 87,
+            30, 35, 40, 48, 55, 62, 70, 78,
+            80, 83, 86, 88, 87, 89, 86, 90,
+            48, 42, 35, 28, 20, 12, 5
+          ]
         }
       }
     }
@@ -403,8 +473,45 @@ export const TEST_SONG_OPTIONS: TestSongOption[] = [
           acousticness: 85,
           valence: 20,
           liveness: 75
+        },
+        liveMetrics: {
+          calculatedLufs: -14.5,
+          calculatedTruePeak: -0.2,
+          calculatedLra: 10.5,
+          calculatedStereoCorrelation: 0.15,
+          calculatedBpm: 96,
+          calculatedKey: "G Major",
+          calculatedBassEnergy: 48,
+          calculatedMidEnergy: 52,
+          calculatedHighEnergy: 42,
+          calculatedDuration: 198,
+          calculatedWaveformPoints: [
+            12, 14, 13, 15, 12,
+            28, 30, 29, 31, 28, 30, 29, 32,
+            34, 38, 42, 45,
+            55, 58, 56, 59, 57, 58, 56, 60,
+            26, 29, 28, 30, 27, 29, 28, 31,
+            35, 39, 43, 46,
+            56, 59, 57, 60, 58, 59, 57, 61,
+            30, 32, 34, 31, 33, 35,
+            58, 60, 62, 65, 63, 64, 62, 66,
+            32, 28, 24, 18, 12, 6
+          ]
         }
       }
     }
   }
 ];
+
+export const TEST_SONG_OPTIONS: TestSongOption[] = TEST_SONG_OPTIONS_RAW.map(opt => {
+  if (opt.data?.critique?.liveMetrics) {
+    const pts = opt.data.critique.liveMetrics.calculatedWaveformPoints;
+    const hd: number[] = [];
+    for (let i = 0; i < 400; i++) {
+      const srcIdx = Math.floor((i / 400) * pts.length);
+      hd.push(pts[srcIdx] || 40);
+    }
+    (opt.data.critique.liveMetrics as any).calculatedWaveformPointsHD = hd;
+  }
+  return opt as TestSongOption;
+});
