@@ -5424,27 +5424,35 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                           );
                         }
 
-                        // Detect section boundaries from amplitude envelope
+                        // Improved section boundary detection
                         const windowSize = Math.floor(points.length / 16);
                         const windows: number[] = [];
                         for (let i = 0; i < 16; i++) {
                           const slice = points.slice(i * windowSize, (i + 1) * windowSize);
-                          const avg = slice.reduce((a: number, b: number) => a + b, 0) / slice.length;
+                          const avg = slice.length > 0 ? slice.reduce((a: number, b: number) => a + b, 0) / slice.length : 0;
                           windows.push(avg);
                         }
 
-                        // Find significant changes in amplitude to mark section boundaries
+                        // Lower threshold and ensure minimum sections
                         const boundaries: number[] = [0];
                         for (let i = 1; i < windows.length - 1; i++) {
                           const diff = Math.abs(windows[i] - windows[i - 1]);
-                          if (diff > 8) boundaries.push(i);
+                          if (diff > 3) boundaries.push(i);
+                        }
+                        // If fewer than 3 boundaries found, force splits at musical positions
+                        if (boundaries.length < 4) {
+                          const forced = [0, 2, 5, 9, 12, 14, 16];
+                          forced.forEach(f => { if (!boundaries.includes(f)) boundaries.push(f); });
+                          boundaries.sort((a, b) => a - b);
                         }
                         boundaries.push(16);
+                        // Remove duplicates
+                        const uniqueBoundaries = [...new Set(boundaries)].sort((a, b) => a - b);
 
                         // Label sections based on position and amplitude
                         const sectionLabels = ['Intro', 'Verse', 'Pre-Chorus', 'Chorus', 'Verse', 'Chorus', 'Bridge', 'Outro'];
-                        const sections = boundaries.slice(0, -1).map((start, idx) => {
-                          const end = boundaries[idx + 1];
+                        const sections = uniqueBoundaries.slice(0, -1).map((start, idx) => {
+                          const end = uniqueBoundaries[idx + 1];
                           const startTime = (start / 16) * duration;
                           const endTime = (end / 16) * duration;
                           const avgAmp = windows.slice(start, end).reduce((a: number, b: number) => a + b, 0) / (end - start);
@@ -5547,11 +5555,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             if (points.length === 0 || duration === 0) {
                               return <div className="text-[10px] text-slate-600 font-mono py-4">Upload a track to analyze hooks.</div>;
                             }
-                            const first30Pct = points.slice(0, Math.floor(points.length * (30 / duration)));
-                            const peakIn30 = first30Pct.length > 0 ? Math.max(...first30Pct) : 0;
-                            const overallPeak = Math.max(...points);
-                            const hookRatio = peakIn30 / overallPeak;
-                            const hookScore = Math.round(hookRatio * 100);
+                        const first30Count = Math.max(1, Math.floor(points.length * (30 / duration)));
+                        const first30 = points.slice(0, first30Count);
+                        const rest = points.slice(first30Count);
+                        const avgFirst30 = first30.reduce((a: number, b: number) => a + b, 0) / first30.length;
+                        const avgRest = rest.length > 0 ? rest.reduce((a: number, b: number) => a + b, 0) / rest.length : avgFirst30;
+                        const hookRatio = avgFirst30 / Math.max(avgRest, 1);
+                        const hookScore = Math.min(99, Math.round(hookRatio * 70));
+                        const overallPeak = Math.max(...points);
                             const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
                             const peakIdx = points.indexOf(overallPeak);
                             const peakTime = (peakIdx / points.length) * duration;
@@ -5603,13 +5614,23 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             if (points.length === 0) {
                               return <div className="text-[10px] text-slate-600 font-mono py-4">Upload a track to analyze dynamics.</div>;
                             }
-                            const verse = points.slice(Math.floor(points.length * 0.12), Math.floor(points.length * 0.35));
-                            const chorus = points.slice(Math.floor(points.length * 0.45), Math.floor(points.length * 0.70));
-                            const verseAvg = verse.reduce((a: number, b: number) => a + b, 0) / verse.length;
-                            const chorusAvg = chorus.reduce((a: number, b: number) => a + b, 0) / chorus.length;
-                            const verseLufs = parseFloat((lufs + ((verseAvg - 50) * 0.12)).toFixed(1));
-                            const chorusLufs = parseFloat((lufs + ((chorusAvg - 50) * 0.12)).toFixed(1));
-                            const diff = parseFloat((chorusLufs - verseLufs).toFixed(1));
+                        // Use detected windows for verse/chorus positions
+                        const wSize = Math.floor(points.length / 16);
+                        const wins: number[] = [];
+                        for (let i = 0; i < 16; i++) {
+                          const sl = points.slice(i * wSize, (i + 1) * wSize);
+                          wins.push(sl.length > 0 ? sl.reduce((a: number, b: number) => a + b, 0) / sl.length : 0);
+                        }
+                        // Find lowest energy window (verse) and highest energy window (chorus)
+                        const minWinIdx = wins.indexOf(Math.min(...wins.slice(1, 12)));
+                        const maxWinIdx = wins.indexOf(Math.max(...wins.slice(2, 14)));
+                        const verseSlice = points.slice(minWinIdx * wSize, (minWinIdx + 2) * wSize);
+                        const chorusSlice = points.slice(maxWinIdx * wSize, (maxWinIdx + 2) * wSize);
+                        const verseAvg = verseSlice.reduce((a: number, b: number) => a + b, 0) / Math.max(verseSlice.length, 1);
+                        const chorusAvg = chorusSlice.reduce((a: number, b: number) => a + b, 0) / Math.max(chorusSlice.length, 1);
+                        const verseLufs = parseFloat((lufs + ((verseAvg - 50) * 0.12)).toFixed(1));
+                        const chorusLufs = parseFloat((lufs + ((chorusAvg - 50) * 0.12)).toFixed(1));
+                        const diff = parseFloat((chorusLufs - verseLufs).toFixed(1));
                             return (
                               <div className="flex flex-col gap-3">
                                 <div className="flex flex-col gap-2 bg-black/40 border border-white/[0.02] p-3 rounded-xl font-mono">
