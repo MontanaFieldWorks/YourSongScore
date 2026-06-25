@@ -5400,7 +5400,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   </div>
 
                   <div className="flex flex-col gap-6 relative">
-                    {/* Section Timeline Map */}
+                    {/* Section Map & Progression */}
                     <div className="bg-[#0e1115]/80 border border-white/5 rounded-2xl p-5 shadow-inner">
                       <div className="flex justify-between items-center mb-3.5">
                         <span className="text-[10px] font-mono text-violet-400 uppercase font-bold tracking-widest flex items-center gap-1.5">
@@ -5412,125 +5412,183 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       {(() => {
                         const points = liveMetrics?.calculatedWaveformPoints ?? [];
                         const duration = liveMetrics?.calculatedDuration ?? 0;
-                        const bpm = liveMetrics?.calculatedBpm ?? 120;
                         if (points.length === 0 || duration === 0) {
                           return (
                             <div className="flex flex-col items-center justify-center py-6 border border-dashed border-white/5 rounded-xl bg-black/40">
                               <span className="text-[11px] text-slate-400 font-medium mb-1">No audio data found</span>
                               <p className="text-[9.5px] text-slate-500 max-w-xs text-center leading-relaxed">
-                                Please upload a local audio file or analyze a benchmark track to map out its exact timeline.
+                                Upload a local audio file to generate the section map.
                               </p>
                             </div>
                           );
                         }
 
-                        // Improved section boundary detection
-                        const windowSize = Math.floor(points.length / 16);
+                        // Build 32 windows for higher resolution
+                        const numWindows = 32;
+                        const wSize = Math.floor(points.length / numWindows);
                         const windows: number[] = [];
-                        for (let i = 0; i < 16; i++) {
-                          const slice = points.slice(i * windowSize, (i + 1) * windowSize);
+                        for (let i = 0; i < numWindows; i++) {
+                          const slice = points.slice(i * wSize, (i + 1) * wSize);
                           const avg = slice.length > 0 ? slice.reduce((a: number, b: number) => a + b, 0) / slice.length : 0;
                           windows.push(avg);
                         }
 
-                        // Lower threshold and ensure minimum sections
-                        const boundaries: number[] = [0];
-                        for (let i = 1; i < windows.length - 1; i++) {
-                          const diff = Math.abs(windows[i] - windows[i - 1]);
-                          if (diff > 3) boundaries.push(i);
-                        }
-                        // If fewer than 3 boundaries found, force splits at musical positions
-                        if (boundaries.length < 4) {
-                          const forced = [0, 2, 5, 9, 12, 14, 16];
-                          forced.forEach(f => { if (!boundaries.includes(f)) boundaries.push(f); });
-                          boundaries.sort((a, b) => a - b);
-                        }
-                        boundaries.push(16);
-                        // Remove duplicates
-                        const uniqueBoundaries = [...new Set(boundaries)].sort((a, b) => a - b);
-
-                        // Label sections based on position and amplitude
-                        const sectionLabels = ['Intro', 'Verse', 'Pre-Chorus', 'Chorus', 'Verse', 'Chorus', 'Bridge', 'Outro'];
-                        const sections = uniqueBoundaries.slice(0, -1).map((start, idx) => {
-                          const end = uniqueBoundaries[idx + 1];
-                          const startTime = (start / 16) * duration;
-                          const endTime = (end / 16) * duration;
-                          const avgAmp = windows.slice(start, end).reduce((a: number, b: number) => a + b, 0) / (end - start);
-                          const label = sectionLabels[Math.min(idx, sectionLabels.length - 1)];
-                          const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-                          return { label, startTime, endTime, avgAmp, fmt };
+                        // Smooth windows to reduce noise
+                        const smoothed = windows.map((v, i) => {
+                          const neighbors = windows.slice(Math.max(0, i - 1), Math.min(numWindows, i + 2));
+                          return neighbors.reduce((a, b) => a + b, 0) / neighbors.length;
                         });
 
-                        const maxAmp = Math.max(...sections.map(s => s.avgAmp));
+                        // Detect boundaries — significant amplitude change OR local minimum
+                        const boundaries: number[] = [0];
+                        for (let i = 2; i < numWindows - 2; i++) {
+                          const rising = smoothed[i] > smoothed[i - 1] && smoothed[i - 1] < smoothed[i - 2];
+                          const falling = smoothed[i] < smoothed[i - 1] && smoothed[i - 1] > smoothed[i - 2];
+                          const bigChange = Math.abs(smoothed[i] - smoothed[i - 1]) > 4;
+                          if ((rising || falling || bigChange) && i - boundaries[boundaries.length - 1] >= 2) {
+                            boundaries.push(i);
+                          }
+                        }
+                        boundaries.push(numWindows);
+
+                        // Merge very short sections (less than 3% of duration)
+                        const minWindows = Math.max(1, Math.floor(numWindows * 0.03));
+                        const merged: number[] = [0];
+                        for (let i = 1; i < boundaries.length - 1; i++) {
+                          if (boundaries[i] - merged[merged.length - 1] >= minWindows) {
+                            merged.push(boundaries[i]);
+                          }
+                        }
+                        merged.push(numWindows);
+
+                        // Build sections with amplitude
+                        const rawSections = merged.slice(0, -1).map((start, idx) => {
+                          const end = merged[idx + 1];
+                          const startTime = (start / numWindows) * duration;
+                          const endTime = (end / numWindows) * duration;
+                          const avgAmp = smoothed.slice(start, end).reduce((a, b) => a + b, 0) / (end - start);
+                          const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+                          return { start, end, startTime, endTime, avgAmp, fmt };
+                        });
+
+                        // Rank sections by amplitude to assign labels accurately
+                        const sorted = [...rawSections].sort((a, b) => b.avgAmp - a.avgAmp);
+                        const maxAmp = sorted[0]?.avgAmp ?? 1;
+                        const minAmp = sorted[sorted.length - 1]?.avgAmp ?? 0;
+                        const ampRange = maxAmp - minAmp || 1;
+
+                        // Assign label based on amplitude rank and position
+                        const labeled = rawSections.map((s, idx) => {
+                          const rank = sorted.findIndex(r => r.startTime === s.startTime);
+                          const total = rawSections.length;
+                          const isFirst = idx === 0;
+                          const isLast = idx === total - 1;
+                          const ampPct = (s.avgAmp - minAmp) / ampRange;
+
+                          let label: string;
+                          if (isFirst && s.endTime < duration * 0.2) {
+                            label = 'Intro';
+                          } else if (isLast && s.startTime > duration * 0.75) {
+                            label = 'Outro';
+                          } else if (rank < Math.ceil(total * 0.3)) {
+                            label = 'Chorus';
+                          } else if (rank >= Math.floor(total * 0.7)) {
+                            label = 'Verse';
+                          } else if (ampPct > 0.55 && ampPct < 0.75) {
+                            label = 'Pre-Chorus';
+                          } else if (ampPct < 0.35 && !isFirst && !isLast) {
+                            label = 'Bridge';
+                          } else {
+                            label = idx % 2 === 0 ? 'Verse' : 'Pre-Chorus';
+                          }
+                          return { ...s, label };
+                        });
+
+                        // Calculate LUFS estimates per section
+                        const lufs = liveMetrics?.calculatedLufs ?? -12;
+                        const sections = labeled.map(s => {
+                          const sectionLufs = parseFloat((lufs + ((s.avgAmp - 50) * 0.18)).toFixed(1));
+                          return { ...s, sectionLufs };
+                        });
+
+                        const maxLufs = Math.max(...sections.map(s => s.sectionLufs));
+                        const minLufs = Math.min(...sections.map(s => s.sectionLufs));
+                        const lufsRange = maxLufs - minLufs || 1;
+                        const chartHeight = 100; // px
+
+                        const sectionColors: Record<string, string> = {
+                          'Intro': '#3b82f6',
+                          'Verse': '#06b6d4',
+                          'Pre-Chorus': '#8b5cf6',
+                          'Chorus': '#f43f5e',
+                          'Bridge': '#f59e0b',
+                          'Outro': '#64748b',
+                        };
 
                         return (
-                          <div className="flex flex-col gap-3">
-                            {/* Visual timeline bar */}
-                            <div className="flex w-full h-3.5 rounded-xl overflow-hidden gap-[2px] bg-black/50 p-0.5 border border-white/5 mb-1">
-                              {sections.map((s, i) => {
-                                const width = ((s.endTime - s.startTime) / duration) * 100;
-                                const colors = [
-                                  'bg-blue-500/30 border-blue-500/20 text-blue-400',
-                                  'bg-cyan-500/30 border-cyan-500/20 text-cyan-400',
-                                  'bg-purple-500/30 border-purple-500/20 text-purple-400',
-                                  'bg-rose-500/40 border-rose-500/30 text-rose-300',
-                                  'bg-cyan-500/30 border-cyan-500/20 text-cyan-400',
-                                  'bg-rose-500/40 border-rose-500/30 text-rose-300',
-                                  'bg-amber-500/30 border-amber-500/20 text-amber-400',
-                                  'bg-slate-500/20 border-slate-500/10 text-slate-400'
-                                ];
-                                return (
-                                  <div 
-                                    key={i} 
-                                    className={`${colors[i % colors.length].split(' ')[0]} ${colors[i % colors.length].split(' ')[1]} rounded-md relative group/tooltip`}
-                                    style={{ width: `${width}%` }}
-                                  >
-                                    {/* Tooltip on hover */}
-                                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1.5 hidden group-hover/tooltip:flex flex-col items-center z-30 pointer-events-none">
-                                      <div className="bg-neutral-900 border border-white/10 px-2 py-1 rounded-md shadow-2xl text-[9px] font-mono text-white whitespace-nowrap">
-                                        {s.label} ({s.fmt(s.startTime)} - {s.fmt(s.endTime)})
-                                      </div>
-                                      <div className="w-1.5 h-1.5 bg-neutral-900 border-r border-b border-white/10 transform rotate-45 -mt-1" />
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
+                          <div className="flex flex-col gap-4">
+                            {/* LUFS label */}
+                            <div className="text-[9px] font-mono text-slate-500 uppercase tracking-widest mb-1">Loudness</div>
 
-                            {/* Section rows */}
-                            <div className="flex flex-col gap-1.5">
-                              {sections.map((s, i) => {
-                                const barWidth = Math.round((s.avgAmp / maxAmp) * 100);
-                                const isHook = s.label === 'Chorus';
-                                const hookEarly = isHook && s.startTime < 30;
-                                return (
-                                  <div key={i} className="flex items-center gap-3 py-2 px-3.5 rounded-xl border border-white/[0.02] bg-neutral-950/40 hover:bg-neutral-950/80 hover:border-white/5 transition-all">
-                                    <div className="flex items-center gap-2.5 w-24 flex-shrink-0">
-                                      <span className={`w-1.5 h-1.5 rounded-full ${
-                                        isHook ? 'bg-rose-500 shadow-[0_0_8px_#f43f5e]' : 'bg-violet-500'
-                                      }`} />
-                                      <span className={`text-[10px] font-mono font-bold ${isHook ? 'text-rose-400' : 'text-slate-300'}`}>{s.label}</span>
-                                    </div>
-                                    <span className="text-[10px] font-mono text-slate-500 w-28 flex-shrink-0">{s.fmt(s.startTime)} – {s.fmt(s.endTime)}</span>
-                                    <div className="flex-1 bg-neutral-950 rounded-full h-2 overflow-hidden border border-white/[0.03]">
-                                      <div className={`h-full rounded-full transition-all duration-1000 ${
-                                        isHook ? 'bg-gradient-to-r from-rose-500/50 to-rose-400/80 shadow-[0_0_8px_rgba(244,63,94,0.3)]' : 'bg-gradient-to-r from-violet-500/30 to-indigo-500/50'
-                                      }`} style={{ width: `${barWidth}%` }} />
-                                    </div>
-                                    {hookEarly && (
-                                      <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-md flex-shrink-0 flex items-center gap-1">
-                                        <CheckCircle className="w-3 h-3 text-emerald-400" />
-                                        <span>Early Hook</span>
-                                      </span>
-                                    )}
-                                    {isHook && !hookEarly && s.startTime > 0 && (
-                                      <span className="text-[9px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md flex-shrink-0">
-                                        Hook at {s.fmt(s.startTime)}
-                                      </span>
-                                    )}
+                            {/* Bar chart */}
+                            <div className="relative w-full" style={{ height: `${chartHeight + 48}px` }}>
+                              {/* Y axis guides */}
+                              <div className="absolute left-0 right-0 top-0 flex flex-col justify-between pointer-events-none" style={{ height: `${chartHeight}px` }}>
+                                {[maxLufs, (maxLufs + minLufs) / 2, minLufs].map((v, i) => (
+                                  <div key={i} className="flex items-center gap-2">
+                                    <span className="text-[8px] font-mono text-slate-600 w-10 text-right flex-shrink-0">{v.toFixed(1)}dB</span>
+                                    <div className="flex-1 h-px bg-white/[0.03]" />
                                   </div>
-                                );
-                              })}
+                                ))}
+                              </div>
+
+                              {/* Bars container */}
+                              <div className="absolute left-12 right-0 top-0 bottom-12 flex items-end gap-[2px]">
+                                {sections.map((s, i) => {
+                                  const barHeightPct = Math.max(8, Math.round(((s.sectionLufs - minLufs) / lufsRange) * 90 + 8));
+                                  const widthPct = ((s.endTime - s.startTime) / duration) * 100;
+                                  const color = sectionColors[s.label] ?? '#6366f1';
+                                  const isChorus = s.label === 'Chorus';
+                                  const hookEarly = isChorus && s.startTime < 60;
+                                  return (
+                                    <div
+                                      key={i}
+                                      className="relative flex flex-col justify-end group/bar"
+                                      style={{ width: `${widthPct}%`, height: '100%' }}
+                                    >
+                                      {/* Bar */}
+                                      <div
+                                        className="w-full rounded-t-sm transition-all duration-700 relative"
+                                        style={{
+                                          height: `${barHeightPct}%`,
+                                          backgroundColor: color,
+                                          opacity: 0.75,
+                                          boxShadow: isChorus ? `0 0 12px ${color}60` : 'none'
+                                        }}
+                                      >
+                                        {/* Hover tooltip */}
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/bar:flex flex-col items-center z-30 pointer-events-none">
+                                          <div className="bg-neutral-900 border border-white/10 px-2 py-1 rounded-md text-[9px] font-mono text-white whitespace-nowrap shadow-2xl">
+                                            {s.label} · {s.fmt(s.startTime)}–{s.fmt(s.endTime)} · {s.sectionLufs} LUFS
+                                          </div>
+                                          <div className="w-1.5 h-1.5 bg-neutral-900 border-r border-b border-white/10 rotate-45 -mt-1" />
+                                        </div>
+                                      </div>
+
+                                      {/* X axis label */}
+                                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full flex flex-col items-center pt-1.5" style={{ width: 'max-content' }}>
+                                        <span className="text-[8px] font-mono text-slate-500">{s.fmt(s.startTime)}</span>
+                                        <span className={`text-[9px] font-mono font-bold mt-0.5`} style={{ color }}>{s.label}</span>
+                                        {hookEarly && (
+                                          <span className="text-[8px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1 py-0.5 rounded mt-0.5 whitespace-nowrap">
+                                            Hook at {s.fmt(s.startTime)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
                           </div>
                         );
@@ -5561,7 +5619,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         const avgFirst30 = first30.reduce((a: number, b: number) => a + b, 0) / first30.length;
                         const avgRest = rest.length > 0 ? rest.reduce((a: number, b: number) => a + b, 0) / rest.length : avgFirst30;
                         const hookRatio = avgFirst30 / Math.max(avgRest, 1);
-                        const hookScore = Math.min(99, Math.round(hookRatio * 70));
+                        const hookScore = Math.min(99, Math.max(5, Math.round((hookRatio - 0.5) * 180)));
                         const overallPeak = Math.max(...points);
                             const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
                             const peakIdx = points.indexOf(overallPeak);
@@ -5628,8 +5686,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         const chorusSlice = points.slice(maxWinIdx * wSize, (maxWinIdx + 2) * wSize);
                         const verseAvg = verseSlice.reduce((a: number, b: number) => a + b, 0) / Math.max(verseSlice.length, 1);
                         const chorusAvg = chorusSlice.reduce((a: number, b: number) => a + b, 0) / Math.max(chorusSlice.length, 1);
-                        const verseLufs = parseFloat((lufs + ((verseAvg - 50) * 0.12)).toFixed(1));
-                        const chorusLufs = parseFloat((lufs + ((chorusAvg - 50) * 0.12)).toFixed(1));
+                        const verseLufs = parseFloat((lufs + ((verseAvg - 50) * 0.28)).toFixed(1));
+                        const chorusLufs = parseFloat((lufs + ((chorusAvg - 50) * 0.28)).toFixed(1));
                         const diff = parseFloat((chorusLufs - verseLufs).toFixed(1));
                             return (
                               <div className="flex flex-col gap-3">
