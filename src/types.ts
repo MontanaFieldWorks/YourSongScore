@@ -70,7 +70,7 @@ export interface LiveAudioMetrics {
   calculatedMidEnergy: number;
   calculatedHighEnergy: number;
   calculatedWaveformPoints: number[];
-  calculatedDuration: number;
+  calculatedDuration?: number;
 }
 
 export interface CritiqueData {
@@ -88,6 +88,14 @@ export interface CritiqueData {
     acousticness?: number;
     valence?: number;
     liveness?: number;
+  };
+  streamingAlignment?: {
+    echoNestScorecard?: {
+      moodValence?: number;
+      danceability?: number;
+      energyIntensity?: number;
+      speechiness?: number;
+    };
   };
   liveMetrics?: LiveAudioMetrics;
 }
