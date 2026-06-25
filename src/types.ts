@@ -70,6 +70,7 @@ export interface LiveAudioMetrics {
   calculatedMidEnergy: number;
   calculatedHighEnergy: number;
   calculatedWaveformPoints: number[];
+  calculatedWaveformPointsHD: number[];
   calculatedDuration?: number;
 }
 
