@@ -915,7 +915,7 @@ export default function App() {
               <span className="font-display font-medium text-base text-white tracking-tight flex items-center gap-2" id="app-heading">
                 YourSongScore
                 <span className="px-2 py-0.5 text-[8px] uppercase tracking-widest font-mono bg-[#1C202A] border border-white/5 text-slate-400 rounded-md">
-                  v4
+                  v5
                 </span>
               </span>
               <span className="text-[10px] font-mono text-blue-400 uppercase tracking-widest leading-none mt-1">
@@ -1269,7 +1269,7 @@ export default function App() {
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
               
               {/* Left Column: Brief Explanation */}
-              <div className="lg:col-span-2 flex flex-col justify-center">
+              <div className="lg:col-span-2 flex flex-col justify-center h-[490px]">
                 <span className="text-xs uppercase font-mono tracking-widest text-blue-500 font-semibold mb-3">
                   Decades of Studio Wisdom
                 </span>
