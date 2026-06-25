@@ -5410,7 +5410,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         <span className="text-[9px] font-mono text-slate-500">Based on analyzed loudness envelope</span>
                       </div>
                       {(() => {
-                        const points = liveMetrics?.calculatedWaveformPoints ?? [];
+                        const points = liveMetrics?.calculatedWaveformPointsHD ?? liveMetrics?.calculatedWaveformPoints ?? [];
                         const duration = liveMetrics?.calculatedDuration ?? 0;
                         if (points.length === 0 || duration === 0) {
                           return (
@@ -5608,7 +5608,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             <span className="text-[9px] font-mono text-slate-500">First 30s analysis</span>
                           </div>
                           {(() => {
-                            const points = liveMetrics?.calculatedWaveformPoints ?? [];
+                            const points = liveMetrics?.calculatedWaveformPointsHD ?? liveMetrics?.calculatedWaveformPoints ?? [];
                             const duration = liveMetrics?.calculatedDuration ?? 0;
                             if (points.length === 0 || duration === 0) {
                               return <div className="text-[10px] text-slate-600 font-mono py-4">Upload a track to analyze hooks.</div>;
@@ -5667,7 +5667,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             <span className="text-[9px] font-mono text-slate-500">Chorus vs. Verse Delta</span>
                           </div>
                           {(() => {
-                            const points = liveMetrics?.calculatedWaveformPoints ?? [];
+                            const points = liveMetrics?.calculatedWaveformPointsHD ?? liveMetrics?.calculatedWaveformPoints ?? [];
                             const lufs = liveMetrics?.calculatedLufs ?? -12;
                             if (points.length === 0) {
                               return <div className="text-[10px] text-slate-600 font-mono py-4">Upload a track to analyze dynamics.</div>;
