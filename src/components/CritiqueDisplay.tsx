@@ -5280,47 +5280,148 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </AnimatePresence>
         </div>
 
-              {/* SONG ARCHITECTURE */}
-              <button
-                onClick={() => handleCategoryChange('architecture')}
-                className={`relative z-10 flex flex-col justify-between w-full text-left p-6 rounded-3xl border transition-all duration-300 cursor-pointer group ${
-                  activeCategory === 'architecture'
-                    ? 'bg-[#0f1a2e] border-violet-500/40 shadow-[0_0_30px_rgba(139,92,246,0.08)]'
-                    : 'bg-[#13161C] border-white/5 hover:border-violet-500/20'
-                }`}
+        {/* Card 5: Song Architecture (violet) */}
+        <div className="flex flex-col w-full gap-4">
+          <button
+            onClick={() => handleCategoryChange("architecture")}
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+              activeCategory === "architecture"
+                ? "bg-[#090b0e] border-violet-500 shadow-[0_0_35px_rgba(139,92,246,0.35)] ring-1 ring-violet-500/40 font-black"
+                : "bg-[#0A0B0E]/60 border-[#8b5cf6] hover:border-[#8b5cf6] hover:bg-neutral-900/40 text-slate-400"
+            }`}
+          >
+            {/* Background ambient shade */}
+            {activeCategory === "architecture" ? (
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-950/5 via-neutral-950 to-[#030509] pointer-events-none" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#030509] pointer-events-none" />
+            )}
+
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+              {/* Left Content Column */}
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                {/* Header block */}
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                    activeCategory === "architecture"
+                      ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-[0_0_15px_rgba(139,92,246,0.25)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-slate-300"
+                  }`}>
+                    <Waves className="w-5 h-5 text-violet-400" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span 
+                      className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                        activeCategory === "architecture" ? "text-white" : "text-[#8b5cf6] group-hover:text-white"
+                      }`}
+                    >
+                      SONG ARCHITECTURE
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">Structural Timeline & Section Map</span>
+                  </div>
+                </div>
+
+                {/* Bottom info block */}
+                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                  activeCategory === "architecture" ? "border-violet-500/15" : "border-white/5"
+                }`}>
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                    A visual breakdown of your song's structural sections with timestamps, loudness arc, and hook placement audit.
+                    <span className="block mt-1 text-violet-400/90 font-mono text-[8.5px] uppercase tracking-wider">This metric is not considered by streaming services.</span>
+                  </p>
+                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    activeCategory === "architecture"
+                      ? "bg-violet-500/10 border-violet-500/20 text-violet-400"
+                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
+                  }`}>
+                    {activeCategory === "architecture" ? "ACTIVE ⬇" : "VIEW TIMELINE"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right Blueprint Vector schematic visual */}
+              <div className="flex-shrink-0 flex items-center justify-center relative w-[110px] h-[110px]">
+                {/* Outer pulsing ring */}
+                <div className={`absolute inset-0 rounded-full border border-dashed duration-[35s] ${
+                  activeCategory === "architecture" ? "border-violet-500/50 animate-spin" : "border-violet-500/20 group-hover:animate-spin"
+                }`} />
+                <div className={`absolute inset-2 rounded-full border bg-[#05070a]/90 flex flex-col items-center justify-center shadow-inner overflow-hidden transition-colors ${
+                  activeCategory === "architecture" ? "border-violet-500/40" : "border-white/5 group-hover:border-[#8b5cf6]/30"
+                }`}>
+                  {/* Tech drawing lines layout */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
+                    {/* Grid overlay */}
+                    <div className="w-full h-full border border-violet-500/40 relative">
+                      <div className="absolute left-1/2 top-0 bottom-0 border-l border-violet-500/40" />
+                      <div className="absolute top-1/2 left-0 right-0 border-t border-violet-500/40" />
+                      <div className="absolute inset-4 rounded-full border border-violet-500/40" />
+                      <div className="absolute inset-8 rounded-full border border-violet-500/40" />
+                    </div>
+                  </div>
+                  
+                  {/* Visual icon representation */}
+                  <div className="flex items-center justify-center gap-1.5 z-10">
+                    <Activity className={`w-6 h-6 transition-transform duration-500 ${
+                      activeCategory === "architecture" ? "text-violet-400 scale-110 rotate-6" : "text-slate-500 group-hover:text-violet-400/80"
+                    }`} />
+                  </div>
+                  <span className={`text-[8.5px] font-mono tracking-wider font-bold mt-2 z-10 uppercase ${
+                    activeCategory === "architecture" ? "text-violet-400" : "text-slate-500"
+                  }`}>
+                    WAVEFORM
+                  </span>
+                </div>
+              </div>
+            </div>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {activeCategory === "architecture" && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginTop: -8 }}
+                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
+                exit={{ height: 0, opacity: 0, marginTop: -8 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden w-full relative z-0"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-3.5">
-                    <div className={`p-2.5 rounded-2xl transition-colors ${activeCategory === 'architecture' ? 'bg-violet-500/15' : 'bg-[#0A0B0E] group-hover:bg-violet-500/10'}`}>
-                      <svg className="w-5 h-5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-mono text-violet-400/70 uppercase tracking-widest mb-0.5">Song Architecture</p>
-                      <h2 className="text-lg font-black text-white tracking-tight leading-none">SONG ARCHITECTURE</h2>
-                      <p className="text-[11px] text-slate-500 mt-0.5">Structural Timeline & Section Map</p>
-                    </div>
+                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0b0c10]/95 border border-[#8b5cf6]/30 rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
+                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }} className="flex items-center gap-2">
+                    <Waves className="w-4 h-4 text-violet-400" />
+                    <span>SONG STRUCTURE & SECTIONS DIARY</span>
                   </div>
-                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                    <div className="text-[9px] font-mono text-slate-600 uppercase tracking-wider">THIS METRIC IS NOT CONSIDERED BY STREAMING SERVICES.</div>
+                  <div style={{ marginTop: "-20px", paddingTop: "11px", paddingBottom: "18px" }} className="flex items-center justify-between border-b border-white/5">
+                    <span className="text-xs font-mono font-bold tracking-widest text-[#90a1b9] uppercase flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+                      <span>Timeline-based Arrangement Blueprint</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500 text-right">
+                      Interactive layout mapping peaks, transitions, and dynamics
+                    </span>
                   </div>
-                </div>
 
-                <div className="mt-4 text-[11px] text-slate-400 leading-relaxed">
-                  A visual breakdown of your song's structural sections with timestamps, loudness arc, and hook placement audit.
-                </div>
-
-                {activeCategory === 'architecture' && (
-                  <div className="mt-6 flex flex-col gap-5" onClick={e => e.stopPropagation()}>
-
+                  <div className="flex flex-col gap-6 relative">
                     {/* Section Timeline Map */}
-                    <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-4.5">
-                      <span className="text-[9.5px] font-mono text-slate-500 uppercase font-bold tracking-wider block mb-3">Section Map</span>
+                    <div className="bg-[#0e1115]/80 border border-white/5 rounded-2xl p-5 shadow-inner">
+                      <div className="flex justify-between items-center mb-3.5">
+                        <span className="text-[10px] font-mono text-violet-400 uppercase font-bold tracking-widest flex items-center gap-1.5">
+                          <Activity className="w-3.5 h-3.5" />
+                          Section Map & Progression
+                        </span>
+                        <span className="text-[9px] font-mono text-slate-500">Based on analyzed loudness envelope</span>
+                      </div>
                       {(() => {
                         const points = liveMetrics?.calculatedWaveformPoints ?? [];
                         const duration = liveMetrics?.calculatedDuration ?? 0;
                         const bpm = liveMetrics?.calculatedBpm ?? 120;
                         if (points.length === 0 || duration === 0) {
-                          return <div className="text-[10px] text-slate-600 font-mono">Upload a local file to generate section map.</div>;
+                          return (
+                            <div className="flex flex-col items-center justify-center py-6 border border-dashed border-white/5 rounded-xl bg-black/40">
+                              <span className="text-[11px] text-slate-400 font-medium mb-1">No audio data found</span>
+                              <p className="text-[9.5px] text-slate-500 max-w-xs text-center leading-relaxed">
+                                Please upload a local audio file or analyze a benchmark track to map out its exact timeline.
+                              </p>
+                            </div>
+                          );
                         }
 
                         // Detect section boundaries from amplitude envelope
@@ -5355,112 +5456,205 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         const maxAmp = Math.max(...sections.map(s => s.avgAmp));
 
                         return (
-                          <div className="flex flex-col gap-2">
+                          <div className="flex flex-col gap-3">
                             {/* Visual timeline bar */}
-                            <div className="flex w-full h-2 rounded-full overflow-hidden gap-px mb-2">
+                            <div className="flex w-full h-3.5 rounded-xl overflow-hidden gap-[2px] bg-black/50 p-0.5 border border-white/5 mb-1">
                               {sections.map((s, i) => {
                                 const width = ((s.endTime - s.startTime) / duration) * 100;
-                                const colors = ['bg-blue-500/40', 'bg-cyan-500/40', 'bg-purple-500/40', 'bg-rose-500/60', 'bg-cyan-500/40', 'bg-rose-500/60', 'bg-amber-500/40', 'bg-slate-500/30'];
-                                return <div key={i} className={`${colors[i % colors.length]} rounded-sm`} style={{ width: `${width}%` }} />;
+                                const colors = [
+                                  'bg-blue-500/30 border-blue-500/20 text-blue-400',
+                                  'bg-cyan-500/30 border-cyan-500/20 text-cyan-400',
+                                  'bg-purple-500/30 border-purple-500/20 text-purple-400',
+                                  'bg-rose-500/40 border-rose-500/30 text-rose-300',
+                                  'bg-cyan-500/30 border-cyan-500/20 text-cyan-400',
+                                  'bg-rose-500/40 border-rose-500/30 text-rose-300',
+                                  'bg-amber-500/30 border-amber-500/20 text-amber-400',
+                                  'bg-slate-500/20 border-slate-500/10 text-slate-400'
+                                ];
+                                return (
+                                  <div 
+                                    key={i} 
+                                    className={`${colors[i % colors.length].split(' ')[0]} ${colors[i % colors.length].split(' ')[1]} rounded-md relative group/tooltip`}
+                                    style={{ width: `${width}%` }}
+                                  >
+                                    {/* Tooltip on hover */}
+                                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1.5 hidden group-hover/tooltip:flex flex-col items-center z-30 pointer-events-none">
+                                      <div className="bg-neutral-900 border border-white/10 px-2 py-1 rounded-md shadow-2xl text-[9px] font-mono text-white whitespace-nowrap">
+                                        {s.label} ({s.fmt(s.startTime)} - {s.fmt(s.endTime)})
+                                      </div>
+                                      <div className="w-1.5 h-1.5 bg-neutral-900 border-r border-b border-white/10 transform rotate-45 -mt-1" />
+                                    </div>
+                                  </div>
+                                );
                               })}
                             </div>
 
                             {/* Section rows */}
-                            {sections.map((s, i) => {
-                              const barWidth = Math.round((s.avgAmp / maxAmp) * 100);
-                              const isHook = s.label === 'Chorus';
-                              const hookEarly = isHook && s.startTime < 30;
-                              return (
-                                <div key={i} className="flex items-center gap-3 py-1.5 border-b border-white/[0.03]">
-                                  <span className={`text-[9px] font-mono font-bold w-20 flex-shrink-0 ${isHook ? 'text-rose-400' : 'text-slate-400'}`}>{s.label}</span>
-                                  <span className="text-[9px] font-mono text-slate-600 w-24 flex-shrink-0">{s.fmt(s.startTime)} – {s.fmt(s.endTime)}</span>
-                                  <div className="flex-1 bg-neutral-900 rounded-full h-1.5 overflow-hidden">
-                                    <div className={`h-full rounded-full ${isHook ? 'bg-rose-500/60' : 'bg-indigo-500/40'}`} style={{ width: `${barWidth}%` }} />
+                            <div className="flex flex-col gap-1.5">
+                              {sections.map((s, i) => {
+                                const barWidth = Math.round((s.avgAmp / maxAmp) * 100);
+                                const isHook = s.label === 'Chorus';
+                                const hookEarly = isHook && s.startTime < 30;
+                                return (
+                                  <div key={i} className="flex items-center gap-3 py-2 px-3.5 rounded-xl border border-white/[0.02] bg-neutral-950/40 hover:bg-neutral-950/80 hover:border-white/5 transition-all">
+                                    <div className="flex items-center gap-2.5 w-24 flex-shrink-0">
+                                      <span className={`w-1.5 h-1.5 rounded-full ${
+                                        isHook ? 'bg-rose-500 shadow-[0_0_8px_#f43f5e]' : 'bg-violet-500'
+                                      }`} />
+                                      <span className={`text-[10px] font-mono font-bold ${isHook ? 'text-rose-400' : 'text-slate-300'}`}>{s.label}</span>
+                                    </div>
+                                    <span className="text-[10px] font-mono text-slate-500 w-28 flex-shrink-0">{s.fmt(s.startTime)} – {s.fmt(s.endTime)}</span>
+                                    <div className="flex-1 bg-neutral-950 rounded-full h-2 overflow-hidden border border-white/[0.03]">
+                                      <div className={`h-full rounded-full transition-all duration-1000 ${
+                                        isHook ? 'bg-gradient-to-r from-rose-500/50 to-rose-400/80 shadow-[0_0_8px_rgba(244,63,94,0.3)]' : 'bg-gradient-to-r from-violet-500/30 to-indigo-500/50'
+                                      }`} style={{ width: `${barWidth}%` }} />
+                                    </div>
+                                    {hookEarly && (
+                                      <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-md flex-shrink-0 flex items-center gap-1">
+                                        <CheckCircle className="w-3 h-3 text-emerald-400" />
+                                        <span>Early Hook</span>
+                                      </span>
+                                    )}
+                                    {isHook && !hookEarly && s.startTime > 0 && (
+                                      <span className="text-[9px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md flex-shrink-0">
+                                        Hook at {s.fmt(s.startTime)}
+                                      </span>
+                                    )}
                                   </div>
-                                  {hookEarly && <span className="text-[8px] font-mono text-emerald-400 flex-shrink-0">✓ Early Hook</span>}
-                                  {isHook && !hookEarly && s.startTime > 0 && <span className="text-[8px] font-mono text-amber-400 flex-shrink-0">Hook at {s.fmt(s.startTime)}</span>}
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Bottom grid columns for Hook Placement & Dynamic Arc */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full">
+                      {/* Hook Placement Audit */}
+                      <div className="bg-[#0e1115]/80 border border-white/5 rounded-2xl p-5 shadow-inner flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-center mb-3">
+                            <span className="text-[10px] font-mono text-violet-400 uppercase font-bold tracking-widest flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5" />
+                              Hook Placement Audit
+                            </span>
+                            <span className="text-[9px] font-mono text-slate-500">First 30s analysis</span>
+                          </div>
+                          {(() => {
+                            const points = liveMetrics?.calculatedWaveformPoints ?? [];
+                            const duration = liveMetrics?.calculatedDuration ?? 0;
+                            if (points.length === 0 || duration === 0) {
+                              return <div className="text-[10px] text-slate-600 font-mono py-4">Upload a track to analyze hooks.</div>;
+                            }
+                            const first30Pct = points.slice(0, Math.floor(points.length * (30 / duration)));
+                            const peakIn30 = first30Pct.length > 0 ? Math.max(...first30Pct) : 0;
+                            const overallPeak = Math.max(...points);
+                            const hookRatio = peakIn30 / overallPeak;
+                            const hookScore = Math.round(hookRatio * 100);
+                            const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+                            const peakIdx = points.indexOf(overallPeak);
+                            const peakTime = (peakIdx / points.length) * duration;
+                            return (
+                              <div className="flex flex-col gap-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] text-slate-400">Energy ratio in first 30 seconds</span>
+                                  <span className={`text-sm font-black font-mono ${hookScore > 70 ? 'text-emerald-400' : hookScore > 45 ? 'text-amber-400' : 'text-rose-400'}`}>{hookScore}%</span>
                                 </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      })()}
-                    </div>
+                                <div className="w-full bg-neutral-950 border border-white/[0.03] rounded-full h-2.5 overflow-hidden p-[2px]">
+                                  <div className={`h-full rounded-full transition-all duration-1000 ${
+                                    hookScore > 70 ? 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_8px_rgba(16,185,129,0.3)]' : hookScore > 45 ? 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_8px_rgba(245,158,11,0.3)]' : 'bg-gradient-to-r from-rose-500 to-red-400 shadow-[0_0_8px_rgba(244,63,94,0.3)]'
+                                  }`} style={{ width: `${hookScore}%` }} />
+                                </div>
+                                <p className="text-[10px] text-slate-400 leading-relaxed bg-black/30 border border-white/[0.02] rounded-xl p-3 mt-1.5 font-sans">
+                                  {hookScore > 70 ? (
+                                    <>
+                                      <strong className="text-emerald-400">Strong early engagement:</strong> Peak energy arrives within the first 30 seconds of the song. Outstanding arrangement strategy matching popular playlist standards for maximizing listener retention.
+                                    </>
+                                  ) : hookScore > 45 ? (
+                                    <>
+                                      <strong className="text-amber-400">Moderate early energy:</strong> The track builds gradually, hitting peak volume later around <span className="font-mono text-slate-300">{fmt(peakTime)}</span>. Consider adding a quick vocal snippet, riser, or dynamic sound at the intro to hook listeners.
+                                    </>
+                                  ) : (
+                                    <>
+                                      <strong className="text-rose-400">Low introductory energy:</strong> Peak energy doesn't arrive until <span className="font-mono text-slate-300">{fmt(peakTime)}</span>. Listeners may skip before reaching the main drop or chorus. Consider shortening the intro timeline.
+                                    </>
+                                  )}
+                                </p>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
 
-                    {/* Hook Placement Audit */}
-                    <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-4.5">
-                      <span className="text-[9.5px] font-mono text-slate-500 uppercase font-bold tracking-wider block mb-3">Hook Placement Audit</span>
-                      {(() => {
-                        const points = liveMetrics?.calculatedWaveformPoints ?? [];
-                        const duration = liveMetrics?.calculatedDuration ?? 0;
-                        if (points.length === 0 || duration === 0) {
-                          return <div className="text-[10px] text-slate-600 font-mono">Upload a local file to enable hook audit.</div>;
-                        }
-                        const first30Pct = points.slice(0, Math.floor(points.length * (30 / duration)));
-                        const peakIn30 = first30Pct.length > 0 ? Math.max(...first30Pct) : 0;
-                        const overallPeak = Math.max(...points);
-                        const hookRatio = peakIn30 / overallPeak;
-                        const hookScore = Math.round(hookRatio * 100);
-                        const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-                        const peakIdx = points.indexOf(overallPeak);
-                        const peakTime = (peakIdx / points.length) * duration;
-                        return (
-                          <div className="flex flex-col gap-3">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-slate-400">First 30 seconds energy vs. full track peak</span>
-                              <span className={`text-sm font-black font-mono ${hookScore > 70 ? 'text-emerald-400' : hookScore > 45 ? 'text-amber-400' : 'text-rose-400'}`}>{hookScore}%</span>
-                            </div>
-                            <div className="w-full bg-neutral-900 rounded-full h-2 overflow-hidden">
-                              <div className={`h-full rounded-full ${hookScore > 70 ? 'bg-emerald-500/60' : hookScore > 45 ? 'bg-amber-500/60' : 'bg-rose-500/60'}`} style={{ width: `${hookScore}%` }} />
-                            </div>
-                            <p className="text-[10px] text-slate-400 leading-relaxed">
-                              {hookScore > 70 ? `Strong early engagement — peak energy arrives within the first 30 seconds. Ideal for streaming retention.` : hookScore > 45 ? `Moderate early energy. Track builds toward its peak at ${fmt(peakTime)}. Consider bringing the hook forward.` : `Low early energy ratio. Peak energy arrives at ${fmt(peakTime)}. Streaming algorithms may penalize late engagement.`}
-                            </p>
+                      {/* Dynamic Arc & Loudness Lift */}
+                      <div className="bg-[#0e1115]/80 border border-white/5 rounded-2xl p-5 shadow-inner flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-center mb-3">
+                            <span className="text-[10px] font-mono text-violet-400 uppercase font-bold tracking-widest flex items-center gap-1.5">
+                              <Layers className="w-3.5 h-3.5" />
+                              Dynamic Arc Lift
+                            </span>
+                            <span className="text-[9px] font-mono text-slate-500">Chorus vs. Verse Delta</span>
                           </div>
-                        );
-                      })()}
+                          {(() => {
+                            const points = liveMetrics?.calculatedWaveformPoints ?? [];
+                            const lufs = liveMetrics?.calculatedLufs ?? -12;
+                            if (points.length === 0) {
+                              return <div className="text-[10px] text-slate-600 font-mono py-4">Upload a track to analyze dynamics.</div>;
+                            }
+                            const verse = points.slice(Math.floor(points.length * 0.12), Math.floor(points.length * 0.35));
+                            const chorus = points.slice(Math.floor(points.length * 0.45), Math.floor(points.length * 0.70));
+                            const verseAvg = verse.reduce((a: number, b: number) => a + b, 0) / verse.length;
+                            const chorusAvg = chorus.reduce((a: number, b: number) => a + b, 0) / chorus.length;
+                            const verseLufs = parseFloat((lufs + ((verseAvg - 50) * 0.12)).toFixed(1));
+                            const chorusLufs = parseFloat((lufs + ((chorusAvg - 50) * 0.12)).toFixed(1));
+                            const diff = parseFloat((chorusLufs - verseLufs).toFixed(1));
+                            return (
+                              <div className="flex flex-col gap-3">
+                                <div className="flex flex-col gap-2 bg-black/40 border border-white/[0.02] p-3 rounded-xl font-mono">
+                                  <div className="flex items-center justify-between text-[11px]">
+                                    <span className="text-slate-400">Verse Loudness Estimate</span>
+                                    <span className="text-cyan-400 font-bold">{verseLufs} LUFS</span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-[11px]">
+                                    <span className="text-slate-400">Chorus Loudness Estimate</span>
+                                    <span className="text-rose-400 font-bold">{chorusLufs} LUFS</span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-[11px] border-t border-white/5 pt-2 mt-1">
+                                    <span className="text-slate-400">Chorus Power Lift</span>
+                                    <span className={`font-black ${diff > 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                      {diff > 0 ? `+${diff}` : diff} dB
+                                    </span>
+                                  </div>
+                                </div>
+                                <p className="text-[10px] text-slate-400 leading-relaxed bg-black/30 border border-white/[0.02] rounded-xl p-3 font-sans">
+                                  {diff > 2 ? (
+                                    <>
+                                      <strong className="text-emerald-400">Excellent Dynamic Lift:</strong> Strong power boost detected when transitioning into the chorus section. This helps keep listeners emotionally stimulated and prevents arrangement fatigue.
+                                    </>
+                                  ) : diff > 0 ? (
+                                    <>
+                                      <strong className="text-amber-400">Mild Chorus Lift:</strong> Standard Pop/Rock lift. Consider beefing up the chorus layout by adding more stereo elements, thicker vocals, or an extra synth layer to make the drop hit harder.
+                                    </>
+                                  ) : (
+                                    <>
+                                      <strong className="text-rose-400">Flat Arrangement Arc:</strong> The chorus does not show a power increase relative to the verse. This flat energy profile is a common cause of disengagement during playlist delivery.
+                                    </>
+                                  )}
+                                </p>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
                     </div>
-
-                    {/* Per-Section Loudness Summary */}
-                    <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-4.5">
-                      <span className="text-[9.5px] font-mono text-slate-500 uppercase font-bold tracking-wider block mb-3">Dynamic Arc</span>
-                      <p className="text-[10px] text-slate-500 mb-3">Does the chorus hit harder than the verse?</p>
-                      {(() => {
-                        const points = liveMetrics?.calculatedWaveformPoints ?? [];
-                        const lufs = liveMetrics?.calculatedLufs ?? -12;
-                        if (points.length === 0) return <div className="text-[10px] text-slate-600 font-mono">Upload a local file to enable dynamic arc.</div>;
-                        const verse = points.slice(Math.floor(points.length * 0.12), Math.floor(points.length * 0.35));
-                        const chorus = points.slice(Math.floor(points.length * 0.45), Math.floor(points.length * 0.70));
-                        const verseAvg = verse.reduce((a: number, b: number) => a + b, 0) / verse.length;
-                        const chorusAvg = chorus.reduce((a: number, b: number) => a + b, 0) / chorus.length;
-                        const verseLufs = parseFloat((lufs + ((verseAvg - 50) * 0.12)).toFixed(1));
-                        const chorusLufs = parseFloat((lufs + ((chorusAvg - 50) * 0.12)).toFixed(1));
-                        const diff = parseFloat((chorusLufs - verseLufs).toFixed(1));
-                        return (
-                          <div className="flex flex-col gap-2.5">
-                            <div className="flex items-center justify-between text-[10px]">
-                              <span className="text-slate-400">Verse avg loudness</span>
-                              <span className="font-mono text-cyan-400">{verseLufs} LUFS</span>
-                            </div>
-                            <div className="flex items-center justify-between text-[10px]">
-                              <span className="text-slate-400">Chorus avg loudness</span>
-                              <span className="font-mono text-rose-400">{chorusLufs} LUFS</span>
-                            </div>
-                            <div className="flex items-center justify-between text-[10px] border-t border-white/5 pt-2">
-                              <span className="text-slate-400">Chorus lift</span>
-                              <span className={`font-mono font-bold ${diff > 0 ? 'text-emerald-400' : 'text-amber-400'}`}>{diff > 0 ? `+${diff}` : diff} dB</span>
-                            </div>
-                            <p className="text-[10px] text-slate-500 leading-relaxed mt-1">
-                              {diff > 2 ? "Strong dynamic lift into the chorus. The arrangement is creating real perceived impact." : diff > 0 ? "Mild chorus lift detected. Consider adding more arrangement density or limiting the verse slightly." : "Chorus is not louder than the verse. This is a common reason for listener disengagement at the hook."}
-                            </p>
-                          </div>
-                        );
-                      })()}
-                    </div>
-
                   </div>
-                )}
-              </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Card: Technical and Diagnostic Blueprints (cyan) */}
         <div className="flex flex-col w-full gap-4">
