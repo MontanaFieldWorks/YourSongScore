@@ -99,7 +99,20 @@ export const MOCK_GENERATED_CRITIQUE_TEMPLATE = (title: string, format: string, 
       recommendation: "Clean up harsh frequency resonances on background kit.",
       technicalGuide: "Set your DAW de-esser to trigger compression selectively in the 7.2kHz to 8.0kHz region of the drum overhead mix."
     }
-  ]
+  ],
+  liveMetrics: {
+    calculatedLufs: -10.5,
+    calculatedTruePeak: -0.8,
+    calculatedLra: 4.5,
+    calculatedStereoCorrelation: 0.85,
+    calculatedBpm: 120,
+    calculatedKey: "G Major",
+    calculatedBassEnergy: 40,
+    calculatedMidEnergy: 55,
+    calculatedHighEnergy: 35,
+    calculatedWaveformPoints: [20, 45, 60, 55, 40, 35, 65, 80, 50, 40, 30, 25, 45, 60, 55, 40],
+    calculatedWaveformPointsHD: Array.from({ length: 400 }, (_, i) => [20, 45, 60, 55, 40, 35, 65, 80, 50, 40, 30, 25, 45, 60, 55, 40][i % 16])
+  }
 };
 };
 
@@ -116,6 +129,7 @@ interface DashboardProps {
   autoStartAuditTrack?: StoredTrack | null;
   overrideThreeXMode?: boolean;
   onClearAutoStart?: () => void;
+  onRegisterLocalTrackFile?: (trackId: string, file: File) => void;
 }
 
 export default function Dashboard({ 
@@ -130,7 +144,8 @@ export default function Dashboard({
   onQueueForAudit,
   autoStartAuditTrack,
   overrideThreeXMode,
-  onClearAutoStart
+  onClearAutoStart,
+  onRegisterLocalTrackFile
 }: DashboardProps) {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
@@ -290,15 +305,7 @@ export default function Dashboard({
     setTracksLoading(true);
     try {
       const uTracks = await fetchUserTracks(userId);
-      setTracks((prevTracks) => {
-        const merged = [...uTracks];
-        prevTracks.forEach((pt) => {
-          if (!merged.some((mt) => mt.id === pt.id)) {
-            merged.push(pt);
-          }
-        });
-        return merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      });
+      setTracks(uTracks);
     } catch (e) {
       console.error(e);
     } finally {
@@ -429,6 +436,9 @@ export default function Dashboard({
 
     try {
       await saveUserTrack(newTrack);
+      if (onRegisterLocalTrackFile) {
+        onRegisterLocalTrackFile(newTrack.id, wavFile);
+      }
       await loadUserTracks(currentUser.uid);
       setSuccessMsg(`Successfully converted "${wavFile.name}" to "${convertedName}"! Saved to account history.`);
       setSelectedWavFile(null);
@@ -499,7 +509,7 @@ export default function Dashboard({
 
       // Try actual calculation from server using the audio URL
       try {
-        if (!track.convertedMp3Url) return;
+        if (!track.convertedMp3Url) throw new Error("No remote audio link available; initiating high-fidelity local calculations.");
         const urlToAnalyze = track.convertedMp3Url;
         const trackWithMeta = track as any;
         const res = await fetch("/api/critique-url", {
@@ -679,6 +689,7 @@ export default function Dashboard({
     setSuccessMsg(null);
     try {
       await deleteUserTrack(trackId);
+      setTracks((prev) => prev.filter((t) => t.id !== trackId));
       await loadUserTracks(currentUser.uid);
       setSuccessMsg("Track has been deleted from your locker.");
     } catch (err: any) {
@@ -1295,17 +1306,17 @@ export default function Dashboard({
                 </div>
               ) : (
                 <div className="overflow-x-auto border border-white/5 rounded-2xl" id="analyzed-songs-table-container">
-                  <table className="w-full text-[11px] text-left border-collapse min-w-[700px]">
+                  <table className="w-full text-[11px] text-left border-collapse min-w-0">
                     <thead className="bg-[#0A0B0E] text-[10px] font-mono text-slate-400 uppercase border-b border-white/5">
                       <tr>
                         <th className="p-3 font-semibold">Song Info</th>
                         <th className="p-3 text-center font-semibold">Total Index</th>
-                        <th className="p-3 text-center font-semibold">Mix Qual</th>
-                        <th className="p-3 text-center font-semibold">Voc / Inst</th>
-                        <th className="p-3 text-center font-semibold">Arr Flow</th>
-                        <th className="p-3 text-center font-semibold">Lyrical</th>
-                        <th className="p-3 text-center font-semibold">Theory</th>
-                        <th className="p-3 text-center font-semibold">SEO</th>
+                        <th className="p-3 text-center font-semibold hidden md:table-cell">Mix Qual</th>
+                        <th className="p-3 text-center font-semibold hidden lg:table-cell">Voc / Inst</th>
+                        <th className="p-3 text-center font-semibold hidden md:table-cell">Arr Flow</th>
+                        <th className="p-3 text-center font-semibold hidden lg:table-cell">Lyrical</th>
+                        <th className="p-3 text-center font-semibold hidden xl:table-cell">Theory</th>
+                        <th className="p-3 text-center font-semibold hidden lg:table-cell">SEO</th>
                         <th className="p-3 text-right font-semibold">Action</th>
                       </tr>
                     </thead>
@@ -1391,12 +1402,12 @@ export default function Dashboard({
                               {track.metrics?.overall}%
                             </span>
                           </td>
-                          <td className="p-3 text-center font-mono text-slate-300 font-bold">{track.metrics?.mix}%</td>
-                          <td className="p-3 text-center font-mono text-slate-300 font-bold">{track.metrics?.performance}%</td>
-                          <td className="p-3 text-center font-mono text-slate-300 font-bold">{track.metrics?.flow}%</td>
-                          <td className="p-3 text-center font-mono text-slate-300 font-bold">{track.metrics?.lyric}%</td>
-                          <td className="p-3 text-center font-mono text-slate-300 font-bold">{track.metrics?.theory}%</td>
-                          <td className="p-3 text-center font-mono text-slate-300 font-bold">{track.metrics?.seo}%</td>
+                          <td className="p-3 text-center font-mono text-slate-300 font-bold hidden md:table-cell">{track.metrics?.mix}%</td>
+                          <td className="p-3 text-center font-mono text-slate-300 font-bold hidden lg:table-cell">{track.metrics?.performance}%</td>
+                          <td className="p-3 text-center font-mono text-slate-300 font-bold hidden md:table-cell">{track.metrics?.flow}%</td>
+                          <td className="p-3 text-center font-mono text-slate-300 font-bold hidden lg:table-cell">{track.metrics?.lyric}%</td>
+                          <td className="p-3 text-center font-mono text-slate-300 font-bold hidden xl:table-cell">{track.metrics?.theory}%</td>
+                          <td className="p-3 text-center font-mono text-slate-300 font-bold hidden lg:table-cell">{track.metrics?.seo}%</td>
                           <td className="p-3 text-right">
                             <div className="flex items-center justify-end gap-1.5 w-full">
                               <button
