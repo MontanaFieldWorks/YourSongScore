@@ -661,7 +661,8 @@ export default function App() {
           calculatedBassEnergy: 40,
           calculatedMidEnergy: 55,
           calculatedHighEnergy: 35,
-          calculatedWaveformPoints: [20, 45, 60, 55, 40, 35, 65, 80, 50, 40, 30, 25, 45, 60, 55, 40]
+          calculatedWaveformPoints: [20, 45, 60, 55, 40, 35, 65, 80, 50, 40, 30, 25, 45, 60, 55, 40],
+          calculatedWaveformPointsHD: Array.from({ length: 400 }, (_, i) => [20, 45, 60, 55, 40, 35, 65, 80, 50, 40, 30, 25, 45, 60, 55, 40][i % 16])
         };
       }
 
@@ -776,7 +777,8 @@ export default function App() {
           calculatedBassEnergy: 40,
           calculatedMidEnergy: 55,
           calculatedHighEnergy: 35,
-          calculatedWaveformPoints: [20, 45, 60, 55, 40, 35, 65, 80, 50, 40, 30, 25, 45, 60, 55, 40]
+          calculatedWaveformPoints: [20, 45, 60, 55, 40, 35, 65, 80, 50, 40, 30, 25, 45, 60, 55, 40],
+          calculatedWaveformPointsHD: Array.from({ length: 400 }, (_, i) => [20, 45, 60, 55, 40, 35, 65, 80, 50, 40, 30, 25, 45, 60, 55, 40][i % 16])
         };
 
         // Add robust variability based on the length and metadata of the song name to make it feel calculated
@@ -1428,11 +1430,21 @@ export default function App() {
                         </div>
                         
                         {/* Notice Card */}
-                        <div className="p-3 bg-red-950/15 border border-red-500/10 rounded-xl text-left flex gap-2.5 items-start">
-                          <span className="text-xs text-red-400 font-bold mt-0.5 shrink-0">⚠️</span>
-                          <div>
-                            <p className="text-[10px] text-red-200/90 font-bold uppercase tracking-wider leading-tight">Can Take up to 5 minutes to Assess your Track.</p>
-                            <p className="text-[10px] text-slate-400 mt-0.5 font-medium leading-normal font-sans">Do Not Leave this Page or close this tab while the high-precision model processes audio transients.</p>
+                        <div className="p-4 bg-red-950/15 border border-red-500/10 rounded-xl text-center flex flex-col gap-2 items-center justify-center">
+                          <span className="text-sm text-red-400 font-bold">⚠️</span>
+                          <div className="flex flex-col gap-1.5">
+                            <p className="text-[10px] text-red-200/90 font-bold uppercase tracking-wider leading-tight text-center">
+                              ANALYSIS TAKES FROM 3 TO 5 MINUTES
+                            </p>
+                            <p className="text-[10px] text-slate-400 font-semibold leading-normal font-sans text-center">
+                              (Depends on Length and Complexity of Your Song.)
+                            </p>
+                            <p className="text-[10px] text-red-200/90 font-bold uppercase tracking-wider leading-tight text-center">
+                              DURING PEAK USAGE TIMES THIS PROCESS CAN BE MUCH LONGER.
+                            </p>
+                            <p className="text-[10px] text-slate-300 mt-1 font-medium leading-normal font-sans text-center">
+                              Be patient - this is the heaviest hitting analysis engine on the market - it takes time to give you the feedback you're paying for.
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -1664,17 +1676,25 @@ export default function App() {
                     )}
 
                     {/* 3x Analysis Stability Tonal Engine Controller */}
-                    <div className="flex items-start gap-4 p-3.5 bg-white/[0.03] border border-white/5 rounded-xl hover:bg-white/[0.04] transition-all">
+                    <div 
+                      onClick={() => setThreeXMode(true)}
+                      className={`flex items-start gap-4 p-3.5 border rounded-xl hover:bg-white/[0.04] transition-all cursor-pointer ${
+                        threeXMode 
+                          ? "bg-blue-500/5 border-blue-500/30" 
+                          : "bg-white/[0.03] border-white/5"
+                      }`}
+                    >
                       <input
-                        type="checkbox"
+                        type="radio"
                         id="three-x-toggle"
-                        checked={true}
-                        disabled
-                        className="mt-1.5 w-4 h-4 rounded border-blue-500/30 bg-[#13161C] text-blue-500 cursor-not-allowed opacity-80"
+                        name="analysis-stability-mode"
+                        checked={threeXMode}
+                        onChange={() => setThreeXMode(true)}
+                        className="mt-1.5 w-4 h-4 rounded border-blue-500/30 bg-[#13161C] text-blue-500 cursor-pointer"
                       />
-                      <label htmlFor="three-x-toggle" className="flex flex-col cursor-not-allowed select-none">
+                      <label htmlFor="three-x-toggle" className="flex flex-col cursor-pointer select-none">
                         <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                          <Layers className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
+                          <Layers className={`w-3.5 h-3.5 text-blue-400 ${threeXMode ? "animate-pulse" : ""}`} />
                           3x Analysis (High Stability Mode)
                           <span className="px-1.5 py-0.5 text-[8px] font-mono tracking-wider font-bold uppercase bg-blue-500/20 text-blue-300 rounded border border-blue-500/30">
                             STANDARD
@@ -1682,6 +1702,37 @@ export default function App() {
                         </span>
                         <span className="text-[10px] text-slate-400 mt-1 leading-normal">
                           Runs the critique 3x in parallel and calculates mathematical averages of scores in order to reduce AI generation variance.
+                        </span>
+                      </label>
+                    </div>
+
+                    {/* Single Pass Analysis (Low Stability Mode) */}
+                    <div 
+                      onClick={() => setThreeXMode(false)}
+                      className={`flex items-start gap-4 p-3.5 border rounded-xl hover:bg-white/[0.04] transition-all cursor-pointer ${
+                        !threeXMode 
+                          ? "bg-blue-500/5 border-blue-500/30" 
+                          : "bg-white/[0.03] border-white/5"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        id="single-pass-toggle"
+                        name="analysis-stability-mode"
+                        checked={!threeXMode}
+                        onChange={() => setThreeXMode(false)}
+                        className="mt-1.5 w-4 h-4 rounded border-blue-500/30 bg-[#13161C] text-blue-500 cursor-pointer"
+                      />
+                      <label htmlFor="single-pass-toggle" className="flex flex-col cursor-pointer select-none">
+                        <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                          <Layers className={`w-3.5 h-3.5 text-blue-400 ${!threeXMode ? "animate-pulse" : ""}`} />
+                          Single Pass Analysis (Low Stability Mode)
+                          <span className="px-1.5 py-0.5 text-[8px] font-mono tracking-wider font-bold uppercase bg-amber-500/20 text-amber-300 rounded border border-amber-500/30">
+                            FAST
+                          </span>
+                        </span>
+                        <span className="text-[10px] text-slate-400 mt-1 leading-normal">
+                          Runs the critique through a single analysis. This is a faster process but will result in greater variances between re-runs.
                         </span>
                       </label>
                     </div>
