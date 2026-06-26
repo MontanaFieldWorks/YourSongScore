@@ -275,12 +275,12 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
       } else if (tempo > 180 && tempo <= 360) {
         const halved = Math.round(tempo / 2);
         if (halved >= 70 && halved <= 180) {
-          intervalCounts[halved] = (intervalCounts[halved] || 0) + 1.2; // slight weight to half-time
+          intervalCounts[halved] = (intervalCounts[halved] || 0) + 0.6;
         }
       } else if (tempo < 70 && tempo >= 35) {
         const doubled = tempo * 2;
         if (doubled >= 70 && doubled <= 180) {
-          intervalCounts[doubled] = (intervalCounts[doubled] || 0) + 1.2;
+          intervalCounts[doubled] = (intervalCounts[doubled] || 0) + 0.6;
         }
       }
     }
