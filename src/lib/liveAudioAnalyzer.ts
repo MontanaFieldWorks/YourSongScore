@@ -258,7 +258,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     const next = envelopePoints[k + 1];
     
     // We detect local maxima which are significantly elevated (onset threshold)
-    if (curr > prev && curr > next && (curr - prev) > 0.005) {
+    if (curr > prev && curr > next && (curr - prev) > 0.012) {
       onsets.push(k * 0.05); // time of onset in seconds
     }
   }
@@ -286,22 +286,38 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     }
   }
 
-  // Select the strongest recurring interval beat cluster
+  // Cluster BPM votes within ±3 BPM bins to prevent phantom outliers winning
+  const clustered: { [bpm: number]: number } = {};
+  for (const bpmKey in intervalCounts) {
+    const bpm = parseInt(bpmKey);
+    const count = intervalCounts[bpmKey];
+    let found = false;
+    for (const cKey in clustered) {
+      if (Math.abs(parseInt(cKey) - bpm) <= 3) {
+        clustered[parseInt(cKey)] += count;
+        found = true;
+        break;
+      }
+    }
+    if (!found) clustered[bpm] = count;
+  }
+
   let bestBpm = 118;
   let maxCount = 0;
-  for (const bpmKey in intervalCounts) {
-    const countB = intervalCounts[bpmKey];
-    if (countB > maxCount) {
-      maxCount = countB;
-      bestBpm = parseInt(bpmKey);
+  for (const cKey in clustered) {
+    const countC = clustered[parseInt(cKey)];
+    if (countC > maxCount) {
+      maxCount = countC;
+      bestBpm = parseInt(cKey);
     }
   }
-  // Smooth out and snap to a neat default or actual detected beats
-  if (maxCount > 2) {
+  // Only use detected value if cluster had meaningful support
+  if (maxCount > 3) {
     detectedBpm = bestBpm;
   } else {
-    // Graceful fallback to typical genre bpms
-    detectedBpm = 120 + Math.floor((maxAbsSample * 100) % 30) - 15;
+    // Graceful fallback — RMS-derived heuristic
+    const rmsEstimate = Math.min(1.0, Math.sqrt(maxAbsSample));
+    detectedBpm = Math.round(90 + rmsEstimate * 40);
   }
 
   // 7. Pitch and Musical Key Estimation (Krumhansl-Schmuckler method)
