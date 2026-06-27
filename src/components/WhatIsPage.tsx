@@ -48,6 +48,19 @@ export default function WhatIsPage({ onBack }: WhatIsPageProps) {
         </button>
       </div>
 
+      {/* Warning callout section */}
+      <div className="bg-[#13161C] border border-white/10 rounded-[32px] p-6 md:p-8 relative overflow-hidden shadow-2xl text-left" id="warning-notice-block">
+        <h3 className="font-sans font-bold text-white" style={{ fontSize: '14pt', marginBottom: '0px' }} id="warning-notice-title">
+          READ THIS BEFORE YOU ANALYZE YOUR FIRST SONG:
+        </h3>
+        <p className="font-sans" style={{ fontSize: '14px', lineHeight: '20px', marginBottom: '16px', color: '#90a1b9' }} id="warning-notice-paragraph-1">
+          Some of the greatest songs in history, if run through the multitude of analyzers in this app, would receive low scores. YourSongScore does not and can not evaluate your music as an artistic expression. Great music doesn’t always fit neatly into the digital measurements applied to today’s music by streaming services.  
+        </p>
+        <p className="font-sans" style={{ fontSize: '14px', lineHeight: '20px', color: '#90a1b9' }} id="warning-notice-paragraph-2">
+          If your song receives low scores for any metric, those scores are only telling you that streaming services’ digital gatekeepers are more likely to “pass” on promoting it out of the gate.
+        </p>
+      </div>
+
       {/* 2. The Core Analogy Backdrop: Car vs Highway */}
       <div className="bg-[#13161C] border border-white/10 rounded-[32px] p-6 md:p-8 relative overflow-hidden shadow-2xl select-none">
         {/* Decorative subtle visual grid */}
