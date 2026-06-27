@@ -333,7 +333,8 @@ export default function App() {
         metaGenre: genre,
       };
 
-      await saveUserTrack(newTrack);
+      // Do not save to locker before analysis — AutoLocker handles this after audit completes
+      // await saveUserTrack(newTrack);
     } catch (err) {
       console.warn("Auto-saving uploaded track to locker failed:", err);
     }
