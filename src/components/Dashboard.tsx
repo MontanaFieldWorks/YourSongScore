@@ -1419,7 +1419,7 @@ export default function Dashboard({
                               </button>
                               
                               {deletingTrackId === track.id ? (
-                                <div className="flex items-center gap-1 bg-red-950/20 border border-red-500/30 p-1 rounded-lg shrink-0">
+                                <div className="flex items-center gap-1 bg-red-950/20 border border-red-500/30 p-1 rounded-lg shrink-0 relative z-50">
                                   <span className="text-[9px] text-red-300 font-mono font-bold uppercase pl-1 select-none">Sure?</span>
                                   <button
                                     onClick={async () => {
