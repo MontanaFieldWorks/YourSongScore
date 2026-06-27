@@ -237,15 +237,30 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   const midPerc = 100 - bassPerc - highPerc;
 
   // 6. Envelope-Based Beat / BPM Detection
+  // Apply a low-pass filter simulation (< 150 Hz) to isolate kick drum energy
+  // This is the standard technique: filter first, then detect peaks
+  // We simulate a low-pass by averaging blocks — high frequencies cancel, low frequencies survive
   let detectedBpm = 120;
-  // Compute envelope energy at 100ms blocks
+  const lpBlockSize = Math.floor(sampleRate / 150 / hop); // ~one cycle of 150Hz
+  const lpFiltered: number[] = [];
+  for (let i = 0; i < filteredLength; i++) {
+    let sum = 0;
+    let count = 0;
+    for (let j = Math.max(0, i - lpBlockSize); j <= Math.min(filteredLength - 1, i + lpBlockSize); j++) {
+      sum += fCh0[j];
+      count++;
+    }
+    lpFiltered.push(sum / count);
+  }
+
+  // Compute envelope energy on low-pass filtered signal only
   const envelopeBlockSize = Math.floor((sampleRate * 0.05) / hop); // 50ms blocks
   const envelopePoints: number[] = [];
   for (let i = 0; i < filteredLength; i += envelopeBlockSize) {
     let energySum = 0;
     const blockEnd = Math.min(filteredLength, i + envelopeBlockSize);
     for (let j = i; j < blockEnd; j++) {
-      energySum += fCh0[j] * fCh0[j];
+      energySum += lpFiltered[j] * lpFiltered[j];
     }
     envelopePoints.push(Math.sqrt(energySum / envelopeBlockSize));
   }
@@ -272,6 +287,20 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
       // Group bpms into standard range of 70 to 180bpm
       if (tempo >= 70 && tempo <= 180) {
         intervalCounts[tempo] = (intervalCounts[tempo] || 0) + 1;
+      } else if (tempo > 180) {
+        // Fold high tempos down into range (standard beat detection technique)
+        let t = tempo;
+        while (t > 180) t = Math.round(t / 2);
+        if (t >= 60 && t <= 180) {
+          intervalCounts[t] = (intervalCounts[t] || 0) + 0.8;
+        }
+      } else if (tempo < 60) {
+        // Fold low tempos up into range
+        let t = tempo;
+        while (t < 60) t *= 2;
+        if (t >= 60 && t <= 180) {
+          intervalCounts[t] = (intervalCounts[t] || 0) + 0.8;
+        }
       }
     }
   }
