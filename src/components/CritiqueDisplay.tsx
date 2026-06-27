@@ -52,7 +52,6 @@ export function ScoreCircle({
   color = "#3b82f6",
   glowColor = "rgba(59, 130, 246, 0.4)",
   extraGlow = false,
-  animate: animateScore = false,
   style,
 }: {
   score: number;
@@ -61,35 +60,11 @@ export function ScoreCircle({
   color?: string;
   glowColor?: string;
   extraGlow?: boolean;
-  animate?: boolean;
   style?: React.CSSProperties;
 }) {
-  const [displayScore, setDisplayScore] = React.useState(animateScore ? 0 : score);
-  const [hasAnimated, setHasAnimated] = React.useState(!animateScore);
-
-  React.useEffect(() => {
-    if (!animateScore || hasAnimated) return;
-    // Casino-style ease-out spin up: fast start, slow finish
-    const duration = 2800;
-    const start = performance.now();
-    const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
-    const frame = (now: number) => {
-      const elapsed = Math.min(now - start, duration);
-      const progress = easeOut(elapsed / duration);
-      setDisplayScore(Math.round(progress * score));
-      if (elapsed < duration) {
-        requestAnimationFrame(frame);
-      } else {
-        setDisplayScore(score);
-        setHasAnimated(true);
-      }
-    };
-    requestAnimationFrame(frame);
-  }, [animateScore, score, hasAnimated]);
-
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (displayScore / 100) * circumference;
+  const offset = circumference - (score / 100) * circumference;
 
   return (
     <div className="relative flex items-center justify-center animate-fadeIn" style={{ width: size, height: size, ...style }}>
@@ -144,7 +119,7 @@ export function ScoreCircle({
       </svg>
       {/* In-ring text */}
       <span className="absolute font-mono font-black text-white text-center select-none" style={{ fontSize: size * 0.28 }}>
-        {animateScore && !hasAnimated ? displayScore : score}
+        {score}
       </span>
     </div>
   );
@@ -931,7 +906,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const [lufsOpen, setLufsOpen] = useState(false);
   const [showLufsRecommendation, setShowLufsRecommendation] = useState(false);
   const [productionQualityExpanded, setProductionQualityExpanded] = useState(false);
-  const [commercialScoreAnimated, setCommercialScoreAnimated] = React.useState(false);
   const [selectedPQMetric, setSelectedPQMetric] = useState<string | null>(null);
   const [artistAudienceExpanded, setArtistAudienceExpanded] = useState(false);
 
@@ -4670,31 +4644,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
               {/* Right Score display */}
               <div className="flex-shrink-0 flex items-center justify-center">
-                <div className="flex flex-col items-center gap-1">
-                  <div onClick={() => setCommercialScoreAnimated(true)} style={{ cursor: commercialScoreAnimated ? "default" : "pointer" }}>
-                    <ScoreCircle 
-                      score={Math.round((critique?.scores?.commercialReadiness ?? 75) * 0.8 + (critique?.scores?.overallProduction ?? 75) * 0.2)} 
-                      size={110} 
-                      strokeWidth={7} 
-                      color={activeCategory === "mainstream" ? "#3b82f6" : "rgba(59, 130, 246, 0.45)"} 
-                      glowColor={activeCategory === "mainstream" ? "rgba(59, 130, 246, 0.65)" : "rgba(59, 130, 246, 0.15)"} 
-                      extraGlow={activeCategory === "mainstream"}
-                      animate={commercialScoreAnimated}
-                    />
-                    {!commercialScoreAnimated && (
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <span className="text-[8px] font-mono text-blue-400/70 uppercase tracking-widest mt-8">tap score</span>
-                      </div>
-                    )}
-                  </div>
-                  {/* TEMP: remove before final build */}
-                  <button
-                    onClick={() => setCommercialScoreAnimated(false)}
-                    className="text-[8px] font-mono text-slate-600 hover:text-slate-400 transition-colors underline"
-                  >
-                    test-reset
-                  </button>
-                </div>
+                <ScoreCircle 
+                  score={Math.round((critique?.scores?.commercialReadiness ?? 75) * 0.8 + (critique?.scores?.overallProduction ?? 75) * 0.2)} 
+                  size={110} 
+                  strokeWidth={7} 
+                  color={activeCategory === "mainstream" ? "#3b82f6" : "rgba(59, 130, 246, 0.45)"} 
+                  glowColor={activeCategory === "mainstream" ? "rgba(59, 130, 246, 0.65)" : "rgba(59, 130, 246, 0.15)"} 
+                  extraGlow={activeCategory === "mainstream"}
+                />
               </div>
             </div>
           </button>
