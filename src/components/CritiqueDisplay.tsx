@@ -5360,7 +5360,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Right Score display */}
               <div className="flex-shrink-0 flex items-center justify-center">
                 <ScoreCircle 
-                  score={74} 
+                  score={Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2))} 
                   size={110} 
                   strokeWidth={7} 
                   color={artistAudienceExpanded ? "#44CDF4" : "rgba(68, 205, 244, 0.45)"} 
@@ -5397,7 +5397,26 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3">
                       <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Mood Tags</div>
                       <div className="flex flex-wrap gap-2">
-                        {["Driving", "Defiant", "Late Night", "High Energy", "Anthemic", "Raw"].map((tag) => (
+                        {(() => {
+                          const aesthetic = critique?.vibe?.aesthetic ?? "";
+                          const viability = critique?.vibe?.commercialViability ?? "";
+                          const combined = `${aesthetic} ${viability}`;
+                          const tagMap: { [key: string]: string } = {
+                            "driv": "Driving", "energet": "High Energy", "anthем": "Anthemic", "anthem": "Anthemic",
+                            "raw": "Raw", "grit": "Gritty", "defian": "Defiant", "dark": "Dark", "melanchol": "Melancholic",
+                            "upbeat": "Upbeat", "euphori": "Euphoric", "cinematic": "Cinematic", "intense": "Intense",
+                            "aggress": "Aggressive", "late night": "Late Night", "atmospheric": "Atmospheric",
+                            "nostalgic": "Nostalgic", "haunting": "Haunting", "playful": "Playful", "fun": "Fun",
+                            "danc": "Danceable", "groov": "Groovy", "minimalist": "Minimalist", "epic": "Epic",
+                            "rebel": "Rebellious", "confident": "Confident", "emot": "Emotional", "power": "Powerful"
+                          };
+                          const detected = Object.entries(tagMap)
+                            .filter(([key]) => combined.toLowerCase().includes(key))
+                            .map(([, label]) => label);
+                          const unique = [...new Set(detected)].slice(0, 7);
+                          const tags = unique.length > 0 ? unique : ["Driving", "Defiant", "High Energy", "Raw", "Anthemic"];
+                          return tags;
+                        })().map((tag) => (
                           <span 
                             key={tag} 
                             className="px-3 py-1 bg-[#44CDF4]/5 border border-[#44CDF4]/20 rounded-full text-[11px] font-semibold text-[#44CDF4] tracking-wide"
@@ -5412,7 +5431,27 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3">
                       <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Sonic Peer Group</div>
                       <div className="flex flex-wrap gap-2">
-                        {["The Black Keys", "Royal Blood", "Jack White", "Foo Fighters"].map((artist) => (
+                        {(() => {
+                          const universe = critique?.streamingAlignment?.artistUniverse ?? "";
+                          const genre = critique?.vibe?.genre ?? "";
+                          const subgenre = critique?.vibe?.subgenre ?? "";
+                          const artistMap: { [key: string]: string[] } = {
+                            "hard rock": ["Royal Blood", "Wolfmother", "Rival Sons", "Greta Van Fleet"],
+                            "classic rock": ["The Black Keys", "Jack White", "The White Stripes", "Clutch"],
+                            "indie rock": ["Arctic Monkeys", "Interpol", "Editors", "Bloc Party"],
+                            "alternative": ["Foo Fighters", "Muse", "Placebo", "Nothing But Thieves"],
+                            "punk": ["The Gaslight Anthem", "Social Distortion", "The Hold Steady", "Frank Turner"],
+                            "blues rock": ["Gary Clark Jr.", "Joe Bonamassa", "Marcus King", "The Black Keys"],
+                            "garage rock": ["The Strokes", "Jack White", "The Hives", "The Vines"],
+                            "pop rock": ["OneRepublic", "Imagine Dragons", "The Killers", "Neon Trees"],
+                          };
+                          const combined = `${genre} ${subgenre} ${universe}`.toLowerCase();
+                          let peers: string[] = ["The Black Keys", "Royal Blood", "Jack White", "Foo Fighters"];
+                          for (const [key, artists] of Object.entries(artistMap)) {
+                            if (combined.includes(key)) { peers = artists; break; }
+                          }
+                          return peers.slice(0, 5);
+                        })().map((artist) => (
                           <span 
                             key={artist} 
                             className="px-3 py-1 bg-neutral-900 border border-white/10 rounded-full text-[11px] font-semibold text-slate-300"
@@ -5430,21 +5469,25 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3 md:col-span-2">
                       <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Audience Profile</div>
                       <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                        Male, 28–45. Most likely listening context: late night drive, workout, or background focus session. Behavioral profile: high listen-through rate, moderate save rate, low skip probability after the 30-second mark.
+                        {critique?.vibe?.commercialViability 
+                          ? `${critique.vibe.commercialViability} Listener behavioral profile: tracks with this energy signature typically show high listen-through rates and moderate-to-high save rates among active music discovery users.`
+                          : "Male, 28–45. Most likely listening context: late night drive, workout, or background focus session. Behavioral profile: high listen-through rate, moderate save rate, low skip probability after the 30-second mark."}
                       </p>
                     </div>
 
                     {/* Section 4: Distinctiveness Score */}
-                    <div className={`bg-[#050608] border ${getScoreBorderColor(74)} rounded-2xl p-5 flex flex-col gap-3.5 md:col-span-2`}>
+                    <div className={`bg-[#050608] border ${getScoreBorderColor(Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2)))} rounded-2xl p-5 flex flex-col gap-3.5 md:col-span-2`}>
                       <div className="flex justify-between items-center">
                         <span className="text-[12px] font-mono text-slate-400 uppercase font-bold tracking-wider">Distinctiveness Score</span>
-                        <span className={`${getScoreColor(74)} font-mono font-bold text-[12px]`}>74 / 100</span>
+                        <span className={`${getScoreColor(Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2)))} font-mono font-bold text-[12px]`}>{Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2))} / 100</span>
                       </div>
                       <div className="w-full h-1 bg-neutral-900 rounded-full overflow-hidden relative border border-white/5">
-                        <div className="h-full rounded-full" style={{ width: '74%', backgroundColor: getScoreBarColor(74), boxShadow: `0 0 10px ${getScoreBarColor(74)}` }} />
+                        {(() => { const ds = Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2)); return <div className="h-full rounded-full" style={{ width: `${ds}%`, backgroundColor: getScoreBarColor(ds), boxShadow: `0 0 10px ${getScoreBarColor(ds)}` }} />; })()}
                       </div>
                       <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                        Your sonic fingerprint is moderately distinct within the rock genre. Strong identity in the low-mid energy range, but chorus texture overlaps with a crowded peer group.
+                        {critique?.vibe?.aesthetic 
+                          ? `${critique.vibe.aesthetic} Your track's sonic identity within the ${critique?.vibe?.subgenre ?? critique?.vibe?.genre ?? "rock"} space is shaped by these characteristics relative to current commercial peers.`
+                          : "Your sonic fingerprint is moderately distinct within the rock genre. Strong identity in the low-mid energy range, but chorus texture overlaps with a crowded peer group."}
                       </p>
                     </div>
                   </div>
