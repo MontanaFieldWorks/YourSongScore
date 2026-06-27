@@ -2,14 +2,73 @@ import React from "react";
 import { 
   ArrowLeft, BookOpen, Clock, Code, ShieldCheck, HelpCircle,
   Rabbit, Activity, Compass, Music, FileMusic, AudioLines, Headphones,
-  Layers, Radio, Wrench, LineChart, BarChart3, Sparkles
+  Layers, Radio, Wrench, LineChart, BarChart3, Sparkles,
+  ChevronDown, ChevronUp, ChevronsUp, Volume2, ChevronsRight
 } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+
+function GlowingLoader({ color = "#3b82f6", glowColor = "rgba(59, 130, 246, 0.4)", className = "" }: { color?: string; glowColor?: string; className?: string }) {
+  const size = 14;
+  const strokeWidth = 2.2;
+  const radius = (size - strokeWidth) / 2; // 5.9
+
+  return (
+    <div className={`relative flex items-center justify-center shrink-0 ${className}`} style={{ width: size, height: size }}>
+      {/* Background Radial Glow */}
+      <div
+        className="absolute pointer-events-none rounded-full"
+        style={{
+          background: `radial-gradient(circle, ${glowColor} 0%, transparent 70%)`,
+          opacity: 0.8,
+          width: 28,
+          height: 28,
+          filter: "blur(1px)",
+        }}
+      />
+      <div style={{ width: size, height: size }}>
+        <svg width={size} height={size} className="overflow-visible">
+          {/* Glow circle overlay */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            className="fill-none"
+            stroke={color}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            style={{
+              filter: `blur(0.8px) drop-shadow(0 0 3px ${glowColor})`,
+              opacity: 0.95,
+            }}
+          />
+          {/* Sharp White Core circle */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            className="fill-none"
+            stroke="#ffffff"
+            strokeWidth={strokeWidth / 2}
+            strokeLinecap="round"
+          />
+        </svg>
+      </div>
+    </div>
+  );
+}
 
 interface WhatItDoesPageProps {
   onBack: () => void;
+  onNavigateToRabbitHole?: () => void;
+  onNavigateToEngineeringDetails?: () => void;
 }
 
-export default function WhatItDoesPage({ onBack }: WhatItDoesPageProps) {
+export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavigateToEngineeringDetails }: WhatItDoesPageProps) {
+  const [isCommercialImpactOpen, setIsCommercialImpactOpen] = React.useState(false);
+  const [isAlgorithmicAlignmentOpen, setIsAlgorithmicAlignmentOpen] = React.useState(false);
+  const [isAlgorithmicSandboxOpen, setIsAlgorithmicSandboxOpen] = React.useState(false);
+  const [isEngineeringStudioOpen, setIsEngineeringStudioOpen] = React.useState(false);
+
   React.useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -87,36 +146,422 @@ export default function WhatItDoesPage({ onBack }: WhatItDoesPageProps) {
               <div>
                 <h3 className="text-[16px] font-bold text-blue-400 mb-4">Streaming Readiness Metrics</h3>
                 
-                <div className="flex flex-col gap-4 text-left">
-                  <div className="border border-blue-500/30 bg-blue-500/[0.07] p-3.5 rounded-xl">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <Rabbit className="w-4 h-4 text-blue-400 shrink-0" />
-                      <h4 className="text-xs font-bold text-slate-200">COMMERCIAL IMPACT</h4>
+                <div className="flex flex-col gap-1.5 text-left">
+                  <div 
+                    id="commercial-impact-toggle-btn"
+                    onClick={() => setIsCommercialImpactOpen(!isCommercialImpactOpen)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIsCommercialImpactOpen(!isCommercialImpactOpen);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isCommercialImpactOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 ${
+                      isCommercialImpactOpen 
+                        ? "border-blue-500/60 bg-blue-500/[0.12] shadow-[0_0_15px_rgba(59,130,246,0.15)]" 
+                        : "border-blue-500/30 bg-blue-500/[0.07] hover:border-blue-500/50 hover:bg-blue-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Rabbit className="w-4 h-4 text-blue-400 shrink-0" />
+                        <h4 className="text-xs font-bold text-slate-200 tracking-wider">COMMERCIAL IMPACT</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isCommercialImpactOpen ? "rotate-180 text-blue-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
                     <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
-                      Deconstructs the overall commercial readiness and potential of the track by scoring its dynamic characteristics against high-performing commercial hits.
-                    </p>
-                  </div>
-                  
-                  <div className="border border-emerald-500/30 bg-emerald-500/[0.07] p-3.5 rounded-xl">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <Activity className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <h4 className="text-xs font-bold text-slate-200">STREAMING ALGORITHMIC ALIGNMENT</h4>
-                    </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
-                      Models fundamental recommendation attributes (such as Danceability, Energy, Mood Valence, and Acousticness) to predict how auto-curation systems will profile and package the release.
+                      Deconstructs the overall commercial readiness and potential of the track by scoring its dynamic characteristics against high-performing commercial hits. <span className="text-[10px] text-blue-400 font-semibold block mt-1 hover:underline">Click to {isCommercialImpactOpen ? "collapse details" : "expand details"}</span>
                     </p>
                   </div>
 
-                  <div className="border border-amber-500/30 bg-amber-500/[0.07] p-3.5 rounded-xl">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <Compass className="w-4 h-4 text-amber-400 shrink-0" />
-                      <h4 className="text-xs font-bold text-slate-200">ALGORITHMIC SANDBOX</h4>
+                  <AnimatePresence>
+                    {isCommercialImpactOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="border border-blue-500/15 bg-blue-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-xs shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-blue-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          
+                          {/* Section 1: MIX/MASTER INTEGRITY */}
+                          <div className="flex flex-col gap-1 relative z-10">
+                            <div className="flex items-center gap-2 pb-0 border-b border-white/5">
+                              <GlowingLoader color="#3b82f6" glowColor="rgba(59, 130, 246, 0.4)" className="text-blue-500 shrink-0" />
+                              <h5 className="text-[10.5px] font-mono tracking-wider font-extrabold text-blue-400 uppercase">
+                                MIX/MASTER INTEGRITY
+                              </h5>
+                            </div>
+                            <p className="text-[11px] text-slate-300 leading-[1.375] font-sans">
+                              Determines how successfully a song's master format matches modern, highly competitive digital distribution standards.
+                            </p>
+                            
+                            <div className="flex flex-col gap-2.5 pl-[6px] w-[220px] self-center mt-1">
+                              <div className="flex gap-2">
+                                <span className="text-blue-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">LUFS Loudness</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    Measures integrated loudness over time to ensure the track avoids aggressive volume attenuation by automatic platform limiters.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-blue-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Spectral Match</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    Compares the track's frequency distribution to mainstream hits to ensure a balanced, commercially viable audio spectrum.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-blue-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Engagement Power</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    Predicts how reliably a song will maintain listener focus over its duration based on dynamic variety and section transitions.
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Section 2: PRODUCTION INDEX */}
+                          <div className="flex flex-col gap-1 relative z-10">
+                            <div className="flex items-center gap-2 pb-0 border-b border-white/5">
+                              <GlowingLoader color="#3b82f6" glowColor="rgba(59, 130, 246, 0.4)" className="text-blue-500 shrink-0" />
+                              <h5 className="text-[10.5px] font-mono tracking-wider font-extrabold text-blue-400 uppercase">
+                                PRODUCTION INDEX
+                              </h5>
+                            </div>
+                            <p className="text-[11px] text-slate-300 leading-[1.375] font-sans">
+                              Evaluates the physical alignment, tracking quality, and engineering polish applied to the final mix and master.
+                            </p>
+                            
+                            <div className="flex flex-col gap-2.5 pl-[6px] w-[220px] self-center mt-1">
+                              <div className="flex gap-2">
+                                <span className="text-blue-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Palette Cohesion</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    Rates how effectively the selected sound elements, instruments, and samples complement each other within the overall frequency space.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-blue-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Aesthetic Design</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    Assesses the distinctiveness, genre authenticity, and stylistic clarity of the track's sonic footprint.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-blue-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Space & Density</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    Analyzes the arrangement's breathing room to prevent instrument overcrowding and avoid listener ear fatigue.
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Collapse button inside the dropdown container at the bottom */}
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-2 relative z-10">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsCommercialImpactOpen(false);
+                                setTimeout(() => {
+                                  const toggleBtn = document.getElementById("commercial-impact-toggle-btn");
+                                  if (toggleBtn) {
+                                    toggleBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                                    toggleBtn.focus();
+                                  }
+                                }, 100);
+                              }}
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-blue-300 text-[10px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 w-full"
+                              title="Collapse details"
+                            >
+                              <ChevronsUp className="w-3.5 h-3.5" />
+                              <span>Collapse Details</span>
+                            </button>
+                          </div>
+
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  
+                  <div 
+                    id="streaming-algorithmic-alignment-toggle-btn"
+                    onClick={() => setIsAlgorithmicAlignmentOpen(!isAlgorithmicAlignmentOpen)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIsAlgorithmicAlignmentOpen(!isAlgorithmicAlignmentOpen);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isAlgorithmicAlignmentOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 ${
+                      isAlgorithmicAlignmentOpen 
+                        ? "border-emerald-500/60 bg-emerald-500/[0.12] shadow-[0_0_15px_rgba(16,185,129,0.15)]" 
+                        : "border-emerald-500/30 bg-emerald-500/[0.07] hover:border-emerald-500/50 hover:bg-emerald-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <h4 className="text-xs font-bold text-slate-200 tracking-wider">STREAMING ALGORITHMIC ALIGNMENT</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isAlgorithmicAlignmentOpen ? "rotate-180 text-emerald-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
                     <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
-                      Provides a simulated digital environment to test and visualize how the track behaves inside recommendation-engine systems.
+                      Models fundamental recommendation attributes (such as Danceability, Energy, Mood Valence, and Acousticness) to predict how auto-curation systems will profile and package the release. <span className="text-[10px] text-emerald-400 font-semibold block mt-1 hover:underline">Click to {isAlgorithmicAlignmentOpen ? "collapse details" : "expand details"}</span>
                     </p>
                   </div>
+
+                  <AnimatePresence>
+                    {isAlgorithmicAlignmentOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="border border-emerald-500/15 bg-emerald-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-xs shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-emerald-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          
+                          {/* Section 1: The ECHO NEST SIMULATOR */}
+                          <div className="flex flex-col gap-1 relative z-10">
+                            <div className="flex items-center gap-2 pb-0 border-b border-white/5">
+                              <GlowingLoader color="#10b981" glowColor="rgba(16, 185, 129, 0.4)" className="text-emerald-400 shrink-0" />
+                              <h5 className="text-[10.5px] font-mono tracking-wider font-extrabold text-emerald-400 uppercase">
+                                The ECHO NEST SIMULATOR
+                              </h5>
+                            </div>
+                            <p className="text-[11px] text-slate-300 leading-[1.375] font-sans">
+                              The Echo Nest (now a core part of Spotify's recommendation engine) pioneered computational audio analysis. To determine editorial playlist placement, The Echo Nest’s algorithm uses <span className="text-emerald-400 font-semibold">7 Core Metrics (details here)</span>. YSS’s The Echo Nest Simulator use those same, genre specific indicators to help predict how auto-curation systems will profile and package your release.
+                            </p>
+                            <p className="text-[11px] text-slate-300 font-bold mt-1">
+                              This is the 1st CRITICAL STREAMING GATE …{" "}
+                              <span
+                                onClick={onNavigateToRabbitHole}
+                                className="text-emerald-400 hover:text-emerald-300 underline cursor-pointer hover:brightness-110 active:scale-[0.98] transition-all"
+                              >
+                                Read More in the Rabbit Hole
+                              </span>
+                            </p>
+                          </div>
+
+                          {/* Section 2: RECOMMENDER PERFORMANCE PREDICTION */}
+                          <div className="flex flex-col gap-1 relative z-10">
+                            <div className="flex items-center gap-2 pb-0 border-b border-white/5">
+                              <GlowingLoader color="#10b981" glowColor="rgba(16, 185, 129, 0.4)" className="text-emerald-400 shrink-0" />
+                              <h5 className="text-[10.5px] font-mono tracking-wider font-extrabold text-emerald-400 uppercase">
+                                RECOMMENDER PERFORMANCE PREDICTION
+                              </h5>
+                            </div>
+                            
+                            <div className="flex flex-col gap-2.5 pl-[6px] w-[220px] self-center mt-1">
+                              <div className="flex gap-2">
+                                <span className="text-emerald-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">NLP semantic Clustered Neighborhood "Artist Universe"</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    Vectorizes thematic, musical, and semantic details to map the track's exact position among similar current recording artists.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-emerald-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Discovery Feeder Distribution Probabilities Algorithms</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    Simulates prediction scores to estimate how frequently the track will be automatically recommended in automated queues and radio sessions.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-emerald-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Collaborative Filtering Prevention Checklist</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    Audits the checklist of vital elements required in the first 30 seconds of a track to minimize early skip rates and avoid recommendation penalties.
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Collapse button inside the dropdown container at the bottom */}
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-2 relative z-10">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsAlgorithmicAlignmentOpen(false);
+                                setTimeout(() => {
+                                  const toggleBtn = document.getElementById("streaming-algorithmic-alignment-toggle-btn");
+                                  if (toggleBtn) {
+                                    toggleBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                                    toggleBtn.focus();
+                                  }
+                                }, 100);
+                              }}
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 hover:text-emerald-300 text-[10px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 w-full"
+                              title="Collapse details"
+                            >
+                              <ChevronsUp className="w-3.5 h-3.5" />
+                              <span>Collapse Details</span>
+                            </button>
+                          </div>
+
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div 
+                    id="algorithmic-sandbox-toggle-btn"
+                    onClick={() => setIsAlgorithmicSandboxOpen(!isAlgorithmicSandboxOpen)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIsAlgorithmicSandboxOpen(!isAlgorithmicSandboxOpen);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isAlgorithmicSandboxOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 ${
+                      isAlgorithmicSandboxOpen 
+                        ? "border-amber-500/60 bg-amber-500/[0.12] shadow-[0_0_15px_rgba(245,158,11,0.15)]" 
+                        : "border-amber-500/30 bg-amber-500/[0.07] hover:border-amber-500/50 hover:bg-amber-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Compass className="w-4 h-4 text-amber-400 shrink-0" />
+                        <h4 className="text-xs font-bold text-slate-200 tracking-wider">ALGORITHMIC SANDBOX</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isAlgorithmicSandboxOpen ? "rotate-180 text-amber-400" : "group-hover/btn:text-slate-200"}`} />
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
+                      Provides a simulated digital environment to test and visualize how the track behaves inside recommendation-engine systems. <span className="text-[10px] text-amber-400 font-semibold block mt-1 hover:underline">Click to {isAlgorithmicSandboxOpen ? "collapse details" : "expand details"}</span>
+                    </p>
+                  </div>
+
+                  <AnimatePresence>
+                    {isAlgorithmicSandboxOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="border border-amber-500/15 bg-amber-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-xs shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-amber-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          
+                          {/* Section 1: ALGOTORIAL PLAYLIST SANDBOX */}
+                          <div className="flex flex-col gap-1 relative z-10">
+                            <div className="flex items-center gap-2 pb-0 border-b border-white/5">
+                              <GlowingLoader color="#f59e0b" glowColor="rgba(245, 158, 11, 0.4)" className="text-amber-500 shrink-0" />
+                              <h5 className="text-[10.5px] font-mono tracking-wider font-extrabold text-amber-400 uppercase">
+                                Algotorial Playlist Sandbox
+                              </h5>
+                            </div>
+                            <p className="text-[11px] text-slate-300 leading-[1.375] font-sans">
+                              Hosts a variety of algorithmic model simulations to predict how the song fits into contextual music feeds.
+                            </p>
+                            
+                            <div className="flex flex-col gap-2.5 pl-[6px] w-[220px] self-center mt-1">
+                              <div className="flex gap-2">
+                                <span className="text-amber-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Cosine Similarity Mapping</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    Measures the mathematical similarity vector between the track and curated hit playlists to forecast target audience fits.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-amber-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Circumplex Mood Space Plotter</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    Plots the track's valence and energy values onto a standard visual coordinate wheel representing human emotional responsiveness.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-amber-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Transition Lab</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    Evaluates immediate volume, tempo, and key shifts to simulate the crossfade transition quality when this track follows others in a queue.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-amber-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">30s Skip & Playout Simulator The 30-Second Rule Gatekeeper</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    Models user skip behaviors based on arrangement markers to pinpoint potential arrangement drops that cause early skips.
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Collapse button inside the dropdown container at the bottom */}
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-2 relative z-10">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsAlgorithmicSandboxOpen(false);
+                                setTimeout(() => {
+                                  const toggleBtn = document.getElementById("algorithmic-sandbox-toggle-btn");
+                                  if (toggleBtn) {
+                                    toggleBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                                    toggleBtn.focus();
+                                  }
+                                }, 100);
+                              }}
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 hover:border-amber-500/40 text-amber-400 hover:text-amber-300 text-[10px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-amber-500/50 w-full"
+                              title="Collapse details"
+                            >
+                              <ChevronsUp className="w-3.5 h-3.5" />
+                              <span>Collapse Details</span>
+                            </button>
+                          </div>
+
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
             </div>
@@ -144,6 +589,192 @@ export default function WhatItDoesPage({ onBack }: WhatItDoesPageProps) {
                 <h3 className="text-[16px] font-bold text-purple-400 mb-4">Sonic Soundprint Metrics</h3>
                 
                 <div className="flex flex-col gap-4 text-left">
+                  <div 
+                    id="engineering-studio-toggle-btn"
+                    onClick={() => setIsEngineeringStudioOpen(!isEngineeringStudioOpen)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIsEngineeringStudioOpen(!isEngineeringStudioOpen);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isEngineeringStudioOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50 ${
+                      isEngineeringStudioOpen 
+                        ? "border-purple-500/60 bg-purple-500/[0.12] shadow-[0_0_15px_rgba(168,85,247,0.15)]" 
+                        : "border-purple-500/30 bg-purple-500/[0.07] hover:border-purple-500/50 hover:bg-purple-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Volume2 className="w-4 h-4 text-purple-400 shrink-0" />
+                        <h4 className="text-xs font-bold text-slate-200 tracking-wider">THE ENGINEERING STUDIO</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isEngineeringStudioOpen ? "rotate-180 text-purple-400" : "group-hover/btn:text-slate-200"}`} />
+                    </div>
+                    <h3 className="text-xs font-bold text-purple-400 mb-1 leading-snug">Mixing & Mastering Technical Recommendation</h3>
+                    <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
+                      A powerhouse engineering and production mix/master diagnostic suite guides with nine diagnostic modules.  Analyzes a broad array of measurements that guide step-by-step mix correction blueprints. <span className="text-[10px] text-purple-400 font-semibold block mt-1 hover:underline">Click to {isEngineeringStudioOpen ? "collapse details" : "expand details"}</span>
+                    </p>
+                  </div>
+
+                  <AnimatePresence>
+                    {isEngineeringStudioOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="border border-purple-500/15 bg-purple-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-xs shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-purple-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          
+                          <div className="flex flex-col gap-1 relative z-10">
+                            <button 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                if (onNavigateToEngineeringDetails) {
+                                  onNavigateToEngineeringDetails();
+                                }
+                              }} 
+                              className="text-white font-bold hover:underline text-left bg-transparent border-none p-0 cursor-pointer outline-none focus:underline flex items-center gap-1.5"
+                            >
+                              <ChevronsRight className="w-4 h-4 text-purple-400 shrink-0" />
+                              <span>see The Engineering Studio Details Page for Module by Module Details</span>
+                            </button>
+                          </div>
+
+                          <div className="flex flex-col gap-1 relative z-10">
+                            <div className="flex items-center gap-2 pb-0 border-b border-white/5">
+                              <GlowingLoader color="#a855f7" glowColor="rgba(168, 85, 247, 0.4)" className="text-purple-500 shrink-0" />
+                              <h5 className="text-[10.5px] font-mono tracking-wider font-extrabold text-purple-400 uppercase">
+                                MIXING & MASTERING TECHNICAL ANALYSIS
+                              </h5>
+                            </div>
+                            
+                            <div className="flex flex-col gap-2.5 pl-[6px] mt-1.5">
+                              <div className="flex gap-2">
+                                <span className="text-purple-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Harmonic Resolution</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    A high-resolution spectral monitoring utility that sweeps the frequency spectrum from 20 Hz to 20 kHz to map harmonic overloads.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-purple-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Signal &amp; Levels</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    This module conducts an essential amplitude analysis to measure overall signal energy, dynamic variance, and headroom.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-purple-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Dynamics Profile</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    An analytical sweep examining transient spikes, compression boundaries, and macro vs. micro changes over time.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-purple-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Frequency Balance</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    A six-band spectral energy sweep mapping acoustic density from sub-bass foundations up through high-frequency presence.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-purple-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Stereo Field</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    This module combines stereo width analysis with front-to-back spatial depth mapping into a single two-tab view.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-purple-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Genre Compliance</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    This module compares your track's loudness and frequency signature against standard target profiles for global streaming networks.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-purple-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Noise &amp; Artifacts</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    An auditing module designed to detect system noise, low-level electrical hum, files glitches, and digital conversion offsets.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-purple-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Arrangement Patterns</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    A multi-track simulator running on arrangement files to locate clashing tracks and crowded acoustic neighborhoods.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-purple-400 font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Stereo Azimuth Profile</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    An advanced stereophonic compass mapping active panning distribution and center-channel energy weighting.
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Collapse button inside the dropdown container at the bottom */}
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-2 relative z-10">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsEngineeringStudioOpen(false);
+                                setTimeout(() => {
+                                  const toggleBtn = document.getElementById("engineering-studio-toggle-btn");
+                                  if (toggleBtn) {
+                                    toggleBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                                    toggleBtn.focus();
+                                  }
+                                }, 100);
+                              }}
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 text-[10px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 w-full"
+                              title="Collapse details"
+                            >
+                              <ChevronsUp className="w-3.5 h-3.5" />
+                              <span>Collapse Details</span>
+                            </button>
+                          </div>
+
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <div className="border border-purple-500/30 bg-purple-500/[0.07] p-3.5 rounded-xl">
                     <div className="flex items-center gap-2 mb-1.5">
                       <Music className="w-4 h-4 text-purple-400 shrink-0" />
