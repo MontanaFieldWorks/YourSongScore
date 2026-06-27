@@ -5050,7 +5050,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Right Score display */}
               <div className="flex-shrink-0 flex items-center justify-center">
                 <ScoreCircle 
-                  score={73} 
+                  score={(() => {
+                    const scores = [
+                      Math.min(100, Math.round((critique?.arrangement?.flowScore ?? 72) * 1.0)),
+                      Math.min(100, Math.round((critique?.scores?.overallProduction ?? 68) * 0.9)),
+                      Math.min(100, Math.round(50 + ((liveMetrics?.calculatedBassEnergy ?? 0.3) * 100))),
+                      Math.min(100, Math.round(50 + ((liveMetrics?.calculatedStereoCorrelation ?? 0.5) * 45))),
+                      Math.min(100, critique?.performance?.vocalScore ?? 65),
+                      Math.min(100, Math.round(50 + ((liveMetrics?.calculatedLra ?? 6) * 3)))
+                    ];
+                    return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+                  })()} 
                   size={110} 
                   strokeWidth={7} 
                   color={productionQualityExpanded ? "#46F4CD" : "rgba(70, 244, 205, 0.45)"} 
@@ -5088,12 +5098,36 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   {/* Six sub-metric rows */}
                   <div className="flex flex-col gap-4 mt-2">
                     {[
-                      { label: "Arrangement Density", score: 72, desc: "Your arrangement transitions smoothly between sections. Minor overlaps in the lower-mid frequencies could be cleaned up to enhance overall clarity." },
-                      { label: "Sonic Texture & Sound Design", score: 68, desc: "Strong sound selection and synth soundscapes. Adding subtle high-frequency harmonic saturation to elements would make the texture pop further." },
-                      { label: "Low-End Power", score: 81, desc: "Sub-bass and kick relationship is well-defined and driving. The energy in the 40-80Hz region is powerful and consistent." },
-                      { label: "Width & Dimension", score: 74, desc: "Stereo width is wide and immersive. Mid-range elements feel nicely centered, while ambient textures span wide across the field." },
-                      { label: "Vocal Production", score: 65, desc: "Vocals are crisp and well-compressed, but sit slightly too forward in the mix. A touch of delay or plate reverb could sit them more cohesively." },
-                      { label: "Energy Management", score: 78, desc: "Excellent build-up and drop transitions. The dynamic range is preserved nicely, giving the chorus maximum impact." }
+                      { 
+                        label: "Arrangement Density", 
+                        score: Math.min(100, Math.round((critique?.arrangement?.flowScore ?? 72) * 1.0)),
+                        desc: critique?.arrangement?.transitionsAndArc ?? "Arrangement transitions and dynamic arc data unavailable."
+                      },
+                      { 
+                        label: "Sonic Texture & Sound Design", 
+                        score: Math.min(100, Math.round((critique?.scores?.overallProduction ?? 68) * 0.9)),
+                        desc: `${critique?.vibe?.aesthetic ?? "Sonic texture data unavailable."} ${critique?.mixQuality?.dominanceIssues ?? ""}`.trim()
+                      },
+                      { 
+                        label: "Low-End Power", 
+                        score: Math.min(100, Math.round(50 + ((liveMetrics?.calculatedBassEnergy ?? 0.3) * 100))),
+                        desc: critique?.mixQuality?.frequencyBalance?.lowEnd ?? "Low-end frequency data unavailable."
+                      },
+                      { 
+                        label: "Width & Dimension", 
+                        score: Math.min(100, Math.round(50 + ((liveMetrics?.calculatedStereoCorrelation ?? 0.5) * 45))),
+                        desc: critique?.mixQuality?.stereoField ?? "Stereo field data unavailable."
+                      },
+                      { 
+                        label: "Vocal Production", 
+                        score: Math.min(100, critique?.performance?.vocalScore ?? 65),
+                        desc: critique?.performance?.vocalsCritique ?? "Vocal production data unavailable."
+                      },
+                      { 
+                        label: "Energy Management", 
+                        score: Math.min(100, Math.round(50 + ((liveMetrics?.calculatedLra ?? 6) * 3))),
+                        desc: critique?.arrangement?.transitionsAndArc ?? "Energy management data unavailable."
+                      }
                     ].map((m) => (
                       <div key={m.label} className="bg-[#050608] border border-white/5 hover:border-white/10 rounded-2xl p-4 flex flex-col gap-2.5 transition-all duration-300 animate-fadeIn">
                         <div className="flex justify-between items-center">
