@@ -181,7 +181,7 @@ export default function DefinitionsPage({ onBack, initialSelectedTerm, onNavigat
         </div>
       </div>
 
-      {/* 3. CORE EXPLANATORY SECTION: Artistic Integrity vs. Pop Formulas (KASHMIR CASE STUDY) */}
+      {/* 3. CORE EXPLANATORY SECTION: Artistic Integrity vs. Pop Formulas (ARTISTIC CASE STUDY) */}
       <div id="artistic-essay" className="scroll-mt-6 bg-black border-2 border-pink-500/20 rounded-3xl p-6 shadow-[0_0_30px_rgba(236,72,153,0.06)] relative overflow-hidden">
         <div className="absolute -top-12 -right-12 p-8 opacity-5 pointer-events-none">
           <Sparkles className="w-48 h-48 text-pink-500 animate-pulse" />
@@ -205,9 +205,9 @@ export default function DefinitionsPage({ onBack, initialSelectedTerm, onNavigat
           </p>
 
           <div className="my-3 p-5 bg-nested-neutral bg-[#030304] border border-white/5 rounded-2xl">
-            <span className="text-[10px] font-mono text-pink-400 uppercase font-bold block mb-2 tracking-wider">The Kashmir Benchmark (100/100)</span>
+            <span className="text-[10px] font-mono text-pink-400 uppercase font-bold block mb-2 tracking-wider">The Progressive Art Benchmark (100/100)</span>
             <p className="text-xs text-slate-300 leading-relaxed italic">
-              "Consider Led Zeppelin's legendary 8-minute masterpiece, <strong>Kashmir</strong>. By standard pop metrics, it would score horribly: there is no vocal block or catchy hook in the first 30 seconds, it's over twice the size of standard streaming slots, it loops a hypnotic Eastern string-guitar polyrhythm (drums in 4/4 while instruments play in 3/4), and lacks a basic chorus-verse hierarchy. Yet, it gets an absolute <strong>100/100 classic rating</strong> in our Artistic Analysis engine because it possesses masterful sonic atmosphere, exquisite harmonic suspense, and ultimate palette synergy."
+              "Consider a legendary 8-minute progressive rock masterpiece. By standard pop metrics, it would score horribly: there is no vocal block or catchy hook in the first 30 seconds, it's over twice the size of standard streaming slots, it loops a hypnotic Eastern polyrhythm (drums in 4/4 while instruments play in 3/4), and lacks a basic chorus-verse hierarchy. Yet, it gets an absolute <strong>100/100 classic rating</strong> in our Artistic Analysis engine because it possesses masterful sonic atmosphere, exquisite harmonic suspense, and ultimate palette synergy."
             </p>
           </div>
 
@@ -288,6 +288,48 @@ export default function DefinitionsPage({ onBack, initialSelectedTerm, onNavigat
             <p className="text-xs text-slate-300 mt-3 leading-relaxed">
               In this system, machines analyze loudness benchmarks, transient dynamic impact, vocal clarity indexes, and genre spectral signatures to establish audio compatibility and route pre-qualified uploads to human playlist editors.
             </p>
+          </div>
+
+          {/* DEFINITION: Cosine Similarity Mapping */}
+          <div id="def-cosine-similarity" className="bg-[#020203] border border-blue-500/20 rounded-xl p-5 shadow-inner transition-all duration-300 text-left relative overflow-hidden">
+            <div className="absolute top-4 right-4 px-2 py-0.5 bg-blue-500/10 border border-blue-500/30 rounded text-[9px] font-mono font-bold text-blue-400 uppercase tracking-widest">
+              A&amp;R Vector Mapping
+            </div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              <span>COSINE SIMILARITY MAPPING</span>
+            </h3>
+            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+              Cosine similarity measures the mathematical angle between your song’s 3D acoustic footprint (timbre, frequency distribution, stereo width) and a cluster mapping of successful reference tracks in your target genre.
+            </p>
+            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+              A matching percentage of <strong>85% or higher</strong> (a very small vector angle) is the gold standard for high compatibility. This means your song will blend seamlessly into editorial playlists alongside established industry giants.
+            </p>
+          </div>
+
+          {/* DEFINITION: Sequential Variance / Transition Lab */}
+          <div id="def-vibe-transition" className="bg-[#020203] border border-emerald-500/20 rounded-xl p-5 shadow-inner transition-all duration-300 text-left relative overflow-hidden">
+            <div className="absolute top-4 right-4 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded text-[9px] font-mono font-bold text-emerald-400 uppercase tracking-widest">
+              Transition Lab
+            </div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <span>SEQUENTIAL VARIANCE / TRANSITION LAB</span>
+            </h3>
+            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+              Consecutive Variance measures the mathematical density of changes from moment to moment. The three simulation options model distinct acoustic transition behaviors:
+            </p>
+            <div className="mt-3 space-y-2 text-xs text-slate-300">
+              <p>
+                <strong className="text-white">UNIFORM = Consecutive Track Energy Drift:</strong> Measures the direct, immediate change between the end of track A and the start of track B. High variance here means a sudden clash (e.g., going instantly from a quiet acoustic intro to a heavy drop), while low variance indicates a smooth, seamless transition.
+              </p>
+              <p>
+                <strong className="text-white">ELEVATOR = Spectral Flow Coherence:</strong> Compares the harmonic keys and primary resonance frequencies at transition points to ensure your track doesn't cause acoustic friction (clod or muddy transitions) when transitioning in a continuous playlist.
+              </p>
+              <p>
+                <strong className="text-white">SUDDEN SHIFT = Cross-Fade Stability Limit:</strong> Evaluates the rhythmic beat-matching potential at the transitions, indicating whether a standard cross-fader can blend the tracks smoothly without causing rhythmic confusion or temporary energy drops. For instance, if your song is in Bb minor and the playlist subgenre typically favors standard Major keys (such as E, A, D, C), your song may not be considered a match for typical playlists due to key clashes.
+              </p>
+            </div>
           </div>
 
           {/* DEFINITION: Artistic Analysis */}
