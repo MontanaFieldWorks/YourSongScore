@@ -14,6 +14,7 @@ import WhatIsPage from "./components/WhatIsPage";
 import WhatItDoesPage from "./components/WhatItDoesPage";
 import UsefulToolsPage from "./components/UsefulToolsPage";
 import EngineeringStudioPage from "./components/EngineeringStudioPage";
+import EngineeringDetailsPage from "./components/EngineeringDetailsPage";
 import Dashboard, { MOCK_GENERATED_CRITIQUE_TEMPLATE } from "./components/Dashboard";
 import ArConsultPage, { REPRESENTATIVES, renderActiveAvatarSVG } from "./components/ArConsultPage";
 import { saveUserTrack, subscribeToAuth, fetchUserTracks } from "./firebase";
@@ -22,7 +23,7 @@ import {
   FileAudio, Library, Sparkles, AlertCircle, RefreshCw, 
   Disc, Waves, HelpCircle, ArrowRight, Layers, Music, Compass, Star,
   Fingerprint, Squirrel, Radar, Rose, Orbit, History, Rabbit, ArrowLeft, BookOpen, Gauge, DoorClosed, User, Send,
-  ChevronDown, Lock, Sliders, PackageOpen
+  ChevronDown, Lock, Sliders, PackageOpen, Info
 } from "lucide-react";
 
 export default function App() {
@@ -54,12 +55,15 @@ export default function App() {
   const [viewingWhatItDoesPage, setViewingWhatItDoesPage] = useState(false);
   const [viewingUsefulTools, setViewingUsefulTools] = useState(false);
   const [viewingEngineeringStudio, setViewingEngineeringStudio] = useState(false);
+  const [viewingEngineeringDetails, setViewingEngineeringDetails] = useState(false);
+  const [engineeringDetailsSource, setEngineeringDetailsSource] = useState<"what-it-does" | "studio">("what-it-does");
   const [viewingDashboard, setViewingDashboard] = useState(false);
   const [activeUploadFile, setActiveUploadFile] = useState<File | null>(null);
   const [localTrackFiles, setLocalTrackFiles] = useState<Record<string, File>>({});
   const [selectedDefinitionTerm, setSelectedDefinitionTerm] = useState<string | undefined>(undefined);
   const [threeXMode, setThreeXMode] = useState(true);
   const [showQuickTestDropdown, setShowQuickTestDropdown] = useState(false);
+  const [showLibraryDropdown, setShowLibraryDropdown] = useState(false);
   const [showMoreNav, setShowMoreNav] = useState(false);
   const [queuedTrack, setQueuedTrack] = useState<any | null>(null);
   const [autoStartTrack, setAutoStartTrack] = useState<any | null>(null);
@@ -880,6 +884,7 @@ export default function App() {
     setViewingWhatItDoesPage(false);
     setViewingUsefulTools(false);
     setViewingEngineeringStudio(false);
+    setViewingEngineeringDetails(false);
     clearInputStates();
   };
 
@@ -890,6 +895,7 @@ export default function App() {
     setViewingWhatItDoesPage(false);
     setViewingUsefulTools(false);
     setViewingEngineeringStudio(false);
+    setViewingEngineeringDetails(false);
     setViewingArRep(false);
     setViewingDashboard(false);
     clearInputStates();
@@ -937,7 +943,6 @@ export default function App() {
                 className="flex items-center gap-1.5 text-[11px] font-mono py-1.5 px-3.5 bg-amber-600/10 hover:bg-amber-600/20 border border-amber-500/30 hover:border-amber-500/50 text-amber-400 rounded-full transition-all cursor-pointer shadow-[0_0_15px_rgba(245,158,11,0.05)] font-semibold flex-shrink-0"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                <span>Test ▾</span>
               </button>
               {showQuickTestDropdown && (
                 <div className="absolute right-0 sm:right-auto sm:left-0 mt-2 w-72 bg-[#0d0f14] border border-amber-500/30 rounded-2xl shadow-[0_10px_35px_rgba(0,0,0,0.8)] p-2.5 z-50 flex flex-col gap-1 text-left">
@@ -982,89 +987,111 @@ export default function App() {
               )}
             </div>
 
-            <div className="flex items-center gap-2 flex-nowrap justify-center sm:justify-end overflow-x-auto no-scrollbar max-w-full py-1">
+            <div className="flex items-center gap-2 flex-nowrap justify-center sm:justify-end overflow-x-auto sm:overflow-visible no-scrollbar max-w-full py-1">
 
-              <button
-                onClick={() => {
-                  setViewingAboutPage(!viewingAboutPage);
-                  setViewingWhatItDoesPage(false);
-                  setViewingDefinitions(false);
-                  setViewingUsefulTools(false);
-                  setViewingArRep(false);
-                }}
-                className={`flex items-center gap-1.5 text-[11px] font-mono py-1.5 px-3.5 rounded-full border transition-all cursor-pointer flex-shrink-0 ${
-                  viewingAboutPage 
-                    ? "bg-blue-600 text-white border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.2)] font-bold animate-pulse"
-                    : "bg-[#13161C] hover:bg-[#1E232E] text-slate-300 hover:text-white border-white/5 hover:border-white/10"
-                }`}
+              <div 
+                className="relative flex-shrink-0"
+                onMouseEnter={() => setShowLibraryDropdown(true)}
+                onMouseLeave={() => setShowLibraryDropdown(false)}
               >
-                <HelpCircle className="w-3.5 h-3.5" />
-                <span>What YSS is</span>
-              </button>
+                <button
+                  onClick={() => setShowLibraryDropdown(!showLibraryDropdown)}
+                  className={`flex items-center gap-1.5 text-[11px] font-mono py-1.5 px-3.5 rounded-full border transition-all cursor-pointer flex-shrink-0 ${
+                    viewingAboutPage || viewingWhatItDoesPage || viewingDefinitions
+                      ? "bg-blue-600/20 text-blue-400 border-blue-500/50 font-bold shadow-[0_0_15px_rgba(59,130,246,0.15)]"
+                      : "bg-[#13161C] hover:bg-[#1E232E] text-blue-400 hover:text-blue-300 border-blue-500/20 hover:border-blue-500/40"
+                  }`}
+                >
+                  <Info className="w-3.5 h-3.5 text-blue-400" />
+                  <span>The Library</span>
+                  <ChevronDown className={`w-3 h-3 text-blue-400/70 transition-transform duration-200 ${showLibraryDropdown ? "rotate-180" : ""}`} />
+                </button>
+
+                {showLibraryDropdown && (
+                  <div className="absolute left-0 mt-2 w-48 bg-[#0d0f14] border border-blue-500/30 rounded-2xl shadow-[0_10px_35px_rgba(0,0,0,0.8)] p-2 z-50 flex flex-col gap-1 text-left">
+                    <button
+                      onClick={() => {
+                        setViewingAboutPage(!viewingAboutPage);
+                        setViewingWhatItDoesPage(false);
+                        setViewingDefinitions(false);
+                        setViewingUsefulTools(false);
+                        setViewingArRep(false);
+                        setViewingEngineeringDetails(false);
+                        setShowLibraryDropdown(false);
+                      }}
+                      className={`flex items-center gap-2 text-[11px] font-mono w-full text-left p-2 rounded-xl transition-all cursor-pointer ${
+                        viewingAboutPage 
+                          ? "bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold"
+                          : "hover:bg-blue-500/10 text-slate-300 hover:text-blue-300 border border-transparent"
+                      }`}
+                    >
+                      <HelpCircle className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                      <span>What YSS is</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setViewingWhatItDoesPage(!viewingWhatItDoesPage);
+                        setViewingAboutPage(false);
+                        setViewingDefinitions(false);
+                        setViewingUsefulTools(false);
+                        setViewingArRep(false);
+                        setViewingEngineeringDetails(false);
+                        setShowLibraryDropdown(false);
+                      }}
+                      className={`flex items-center gap-2 text-[11px] font-mono w-full text-left p-2 rounded-xl transition-all cursor-pointer ${
+                        viewingWhatItDoesPage 
+                          ? "bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold"
+                          : "hover:bg-blue-500/10 text-slate-300 hover:text-blue-300 border border-transparent"
+                      }`}
+                    >
+                      <Gauge className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                      <span>What YSS does</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setSelectedDefinitionTerm(undefined);
+                        setViewingDefinitions(!viewingDefinitions);
+                        setViewingAboutPage(false);
+                        setViewingWhatItDoesPage(false);
+                        setViewingUsefulTools(false);
+                        setViewingDashboard(false);
+                        setViewingArRep(false);
+                        setViewingEngineeringDetails(false);
+                        setShowLibraryDropdown(false);
+                      }}
+                      className={`flex items-center gap-2 text-[11px] font-mono w-full text-left p-2 rounded-xl transition-all cursor-pointer ${
+                        viewingDefinitions 
+                          ? "bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold"
+                          : "hover:bg-blue-500/10 text-slate-300 hover:text-blue-300 border border-transparent"
+                      }`}
+                    >
+                      <BookOpen className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                      <span>Glossary</span>
+                    </button>
+                  </div>
+                )}
+              </div>
 
               <button
                 onClick={() => {
-                  setViewingWhatItDoesPage(!viewingWhatItDoesPage);
-                  setViewingAboutPage(false);
-                  setViewingDefinitions(false);
-                  setViewingUsefulTools(false);
-                  setViewingArRep(false);
-                }}
-                className={`flex items-center gap-1.5 text-[11px] font-mono py-1.5 px-3.5 rounded-full border transition-all cursor-pointer flex-shrink-0 ${
-                  viewingWhatItDoesPage 
-                    ? "bg-blue-600 text-white border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.2)] font-bold animate-pulse"
-                    : "bg-[#13161C] hover:bg-[#1E232E] text-slate-300 hover:text-white border-white/5 hover:border-white/10"
-                }`}
-              >
-                <Gauge className="w-3.5 h-3.5 text-blue-400" />
-                <span>What YSS does</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setSelectedDefinitionTerm(undefined);
-                  setViewingDefinitions(!viewingDefinitions);
-                  setViewingAboutPage(false);
-                  setViewingWhatItDoesPage(false);
-                  setViewingUsefulTools(false);
-                  setViewingDashboard(false);
-                  setViewingArRep(false);
-                }}
-                className={`${showMoreNav ? "flex" : "hidden sm:flex"} items-center gap-1.5 text-[11px] font-mono py-1.5 px-3.5 rounded-full border transition-all cursor-pointer flex-shrink-0 ${
-                  viewingDefinitions 
-                    ? "bg-blue-600 text-white border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.2)] font-bold animate-pulse"
-                    : "bg-[#13161C] hover:bg-[#1E232E] text-slate-300 hover:text-white border-white/5 hover:border-white/10"
-                }`}
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Glossary</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  if (!critiqueResult) return;
                   setViewingUsefulTools(!viewingUsefulTools);
                   setViewingAboutPage(false);
                   setViewingWhatItDoesPage(false);
                   setViewingDefinitions(false);
                   setViewingArRep(false);
                   setViewingDashboard(false);
+                  setViewingEngineeringDetails(false);
                 }}
-                disabled={!critiqueResult}
-                title={!critiqueResult ? "Unlock 'The Rabbit Hole' by analyzing/selecting a track first!" : "Enter The Rabbit Hole"}
-                className={`${showMoreNav ? "flex" : "hidden md:flex"} items-center gap-1.5 text-[11px] font-mono py-1.5 px-3.5 rounded-full border transition-all flex-shrink-0 ${
-                  !critiqueResult
-                    ? "bg-[#13161C]/50 text-slate-500 border-white/5 cursor-not-allowed opacity-40"
-                    : viewingUsefulTools 
-                      ? "bg-[#bd93f9] text-white border-[#bd93f9] shadow-[0_0_15px_rgba(189,147,249,0.3)] font-bold animate-pulse cursor-pointer"
-                      : "bg-[#13161C] hover:bg-[#1E232E] text-slate-300 hover:text-white border-white/5 hover:border-white/10 cursor-pointer group-hover:text-[#bd93f9]"
+                title="Enter The Rabbit Hole"
+                className={`${showMoreNav ? "flex" : "hidden md:flex"} items-center gap-1.5 text-[11px] font-mono py-1.5 px-3.5 rounded-full border transition-all flex-shrink-0 cursor-pointer ${
+                  viewingUsefulTools 
+                    ? "bg-[#bd93f9] text-white border-[#bd93f9] shadow-[0_0_15px_rgba(189,147,249,0.3)] font-bold"
+                    : "bg-[#13161C] hover:bg-[#1E232E] text-slate-300 hover:text-white border-white/5 hover:border-white/10"
                 }`}
               >
-                {!critiqueResult ? (
-                  <Lock className="w-3.5 h-3.5 text-slate-500" />
-                ) : (
-                  <PackageOpen className={`w-3.5 h-3.5 ${viewingUsefulTools ? "text-white" : "text-[#bd93f9]"}`} />
-                )}
+                <PackageOpen className={`w-3.5 h-3.5 ${viewingUsefulTools ? "text-white" : "text-[#bd93f9]"}`} />
                 <span>The Rabbit Hole</span>
               </button>
 
@@ -1076,10 +1103,11 @@ export default function App() {
                   setViewingWhatItDoesPage(false);
                   setViewingDefinitions(false);
                   setViewingUsefulTools(false);
+                  setViewingEngineeringDetails(false);
                 }}
                 className={`${showMoreNav ? "flex" : "hidden lg:flex"} items-center gap-1.5 text-[11px] font-mono py-1.5 px-3.5 rounded-full border transition-all cursor-pointer flex-shrink-0 ${
                   viewingArRep 
-                    ? "bg-blue-600 text-white border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.2)] font-bold animate-pulse"
+                    ? "bg-blue-600 text-white border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.2)] font-bold"
                     : "bg-[#13161C] hover:bg-[#1E232E] text-blue-300 hover:text-white border-blue-500/15 hover:border-blue-500/30 font-semibold"
                 }`}
               >
@@ -1098,13 +1126,14 @@ export default function App() {
                   setViewingDefinitions(false);
                   setViewingUsefulTools(false);
                   setViewingArRep(false);
+                  setViewingEngineeringDetails(false);
                   if (targetState && selectedFile) {
                     setActiveUploadFile(selectedFile);
                   }
                 }}
                 className={`${showMoreNav ? "flex" : "hidden xl:flex"} items-center gap-1.5 text-[11px] font-mono py-1.5 px-3.5 rounded-full border transition-all cursor-pointer flex-shrink-0 ${
                   viewingDashboard 
-                    ? "bg-amber-500 text-neutral-955 border-amber-400 font-extrabold shadow-[0_0_15px_rgba(245,158,11,0.2)] animate-pulse"
+                    ? "bg-amber-500 text-neutral-955 border-amber-400 font-extrabold shadow-[0_0_15px_rgba(245,158,11,0.2)]"
                     : "bg-[#13161C] hover:bg-[#1E232E] text-amber-450 hover:text-amber-300 border-amber-500/15 hover:border-amber-500/30 font-semibold"
                 }`}
               >
@@ -1123,7 +1152,7 @@ export default function App() {
             </div>
             {critiqueResult && (
               <div className="flex gap-2">
-                {(viewingDefinitions || viewingAboutPage || viewingWhatItDoesPage || viewingDashboard || viewingArRep || viewingUsefulTools) && (
+                {(viewingDefinitions || viewingAboutPage || viewingWhatItDoesPage || viewingDashboard || viewingArRep || viewingUsefulTools || viewingEngineeringDetails) && (
                   <button
                     onClick={() => {
                       setViewingDefinitions(false);
@@ -1132,6 +1161,7 @@ export default function App() {
                       setViewingDashboard(false);
                       setViewingArRep(false);
                       setViewingUsefulTools(false);
+                      setViewingEngineeringDetails(false);
                     }}
                     className="px-3.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-white/10 text-slate-300 text-[10px] uppercase font-bold tracking-widest rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
                   >
@@ -1198,6 +1228,26 @@ export default function App() {
         ) : viewingWhatItDoesPage ? (
           <WhatItDoesPage 
             onBack={() => setViewingWhatItDoesPage(false)}
+            onNavigateToRabbitHole={() => {
+              setViewingWhatItDoesPage(false);
+              setViewingUsefulTools(true);
+            }}
+            onNavigateToEngineeringDetails={() => {
+              setEngineeringDetailsSource("what-it-does");
+              setViewingWhatItDoesPage(false);
+              setViewingEngineeringDetails(true);
+            }}
+          />
+        ) : viewingEngineeringDetails ? (
+          <EngineeringDetailsPage 
+            onBack={() => {
+              setViewingEngineeringDetails(false);
+              if (engineeringDetailsSource === "studio") {
+                setViewingEngineeringStudio(true);
+              } else {
+                setViewingWhatItDoesPage(true);
+              }
+            }}
           />
         ) : viewingDefinitions ? (
           <DefinitionsPage 
@@ -1218,6 +1268,11 @@ export default function App() {
             critique={critiqueResult ? critiqueResult.critique : null}
             trackInfo={critiqueResult ? critiqueResult.trackInfo : null}
             localFileBlobUrl={localFileBlobUrl}
+            onNavigateToEngineeringDetails={() => {
+              setEngineeringDetailsSource("studio");
+              setViewingEngineeringStudio(false);
+              setViewingEngineeringDetails(true);
+            }}
           />
         ) : viewingUsefulTools ? (
           <UsefulToolsPage
@@ -1430,20 +1485,13 @@ export default function App() {
                         </div>
                         
                         {/* Notice Card */}
-                        <div className="p-4 bg-red-950/15 border border-red-500/10 rounded-xl text-center flex flex-col gap-2 items-center justify-center">
-                          <span className="text-sm text-red-400 font-bold">⚠️</span>
+                        <div className="p-4 bg-blue-950/15 border border-blue-500/15 rounded-xl text-center flex flex-col gap-2 items-center justify-center">
                           <div className="flex flex-col gap-1.5">
-                            <p className="text-[10px] text-red-200/90 font-bold uppercase tracking-wider leading-tight text-center">
+                            <p className="text-[10px] text-blue-300 font-bold uppercase tracking-wider leading-tight text-center">
                               ANALYSIS TAKES FROM 3 TO 5 MINUTES
                             </p>
                             <p className="text-[10px] text-slate-400 font-semibold leading-normal font-sans text-center">
                               (Depends on Length and Complexity of Your Song.)
-                            </p>
-                            <p className="text-[10px] text-red-200/90 font-bold uppercase tracking-wider leading-tight text-center">
-                              DURING PEAK USAGE TIMES THIS PROCESS CAN BE MUCH LONGER.
-                            </p>
-                            <p className="text-[10px] text-slate-300 mt-1 font-medium leading-normal font-sans text-center">
-                              Be patient - this is the heaviest hitting analysis engine on the market - it takes time to give you the feedback you're paying for.
                             </p>
                           </div>
                         </div>
