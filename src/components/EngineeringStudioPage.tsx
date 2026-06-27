@@ -24,6 +24,7 @@ interface EngineeringStudioPageProps {
   critique: any;
   trackInfo: any;
   localFileBlobUrl: string | null;
+  onNavigateToEngineeringDetails?: () => void;
 }
 
 interface HarmonicNode {
@@ -118,7 +119,7 @@ function SpectrogramCanvas({ blobUrl }: { blobUrl: string }) {
   );
 }
 
-export default function EngineeringStudioPage({ onBack, critique, trackInfo, localFileBlobUrl }: EngineeringStudioPageProps) {
+export default function EngineeringStudioPage({ onBack, critique, trackInfo, localFileBlobUrl, onNavigateToEngineeringDetails }: EngineeringStudioPageProps) {
   const trackName = trackInfo?.name || "Independent Demo Track";
   const artistName = trackInfo?.artist || "Independent Songwriter";
   const coverArt = trackInfo?.coverArt;
@@ -628,6 +629,23 @@ const generateHarmonicNodes = () => {
                   </button>
                 );
               })}
+
+              <button
+                onClick={onNavigateToEngineeringDetails}
+                className="flex items-center gap-3.5 px-3 py-2.5 rounded-2xl text-left border border-blue-500/20 bg-blue-600/5 hover:bg-blue-600/10 text-blue-400 transition-all duration-200 cursor-pointer group hover:scale-[1.01] mt-1"
+              >
+                <div className="p-2 rounded-xl bg-blue-600/15 text-blue-400 group-hover:text-blue-300">
+                  <Info className="w-4.5 h-4.5" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[11.5px] font-bold tracking-wide leading-tight text-blue-400 group-hover:text-blue-300">
+                    Module by Module Details
+                  </span>
+                  <span className="text-[9.5px] text-blue-500/70 leading-normal truncate">
+                    The Engineering Studio Details Page
+                  </span>
+                </div>
+              </button>
             </div>
 
             {/* Right Stage: Interactive Viewer Panel */}
