@@ -9,7 +9,7 @@ import {
   Mountain, Drum, MicVocal, Music4, AudioLines, Orbit, Waves,
   Copy, Check, Tag,
   Compass, TrendingUp, Gauge, Zap, RotateCcw, Info, HelpCircle, Activity,
-  Send, User
+  Send, User, Users
 } from "lucide-react";
 
 // Robust icon matcher matching standard genres to precise Lucide symbols
@@ -887,19 +887,23 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const [expandedMetric, setExpandedMetric] = useState<string | null>(null);
   const [lufsOpen, setLufsOpen] = useState(false);
   const [showLufsRecommendation, setShowLufsRecommendation] = useState(false);
-  const lastCardPosRef = React.useRef<{ id: string; top: number } | null>(null);
+  const [productionQualityExpanded, setProductionQualityExpanded] = useState(false);
+  const [artistAudienceExpanded, setArtistAudienceExpanded] = useState(false);
 
-  React.useLayoutEffect(() => {
-    if (lastCardPosRef.current) {
-      const element = document.getElementById(`metric-row-${lastCardPosRef.current.id}`);
-      if (element) {
-        const rect = element.getBoundingClientRect();
-        const diff = rect.top - lastCardPosRef.current.top;
-        if (Math.abs(diff) > 0.5) {
-          window.scrollBy(0, diff);
+  React.useEffect(() => {
+    if (expandedMetric) {
+      const timer = setTimeout(() => {
+        const wrapper = document.getElementById(`metric-wrapper-${expandedMetric}`);
+        if (wrapper) {
+          wrapper.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        } else {
+          const element = document.getElementById(`metric-row-${expandedMetric}`);
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          }
         }
-      }
-      lastCardPosRef.current = null;
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [expandedMetric]);
 
@@ -4662,16 +4666,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         if (!metric) return null;
                         const isExpanded = expandedMetric === metric.id;
                         return (
-                          <div key={metric.id} className="flex flex-col gap-1.5 relative">
+                          <div key={metric.id} className="flex flex-col gap-1.5 relative" id={`metric-wrapper-${metric.id}`}>
                             <RowMetricCard
                               metric={metric}
                               isExpanded={isExpanded}
                               onClick={() => {
-                                const element = document.getElementById(`metric-row-${metric.id}`);
-                                if (element) {
-                                  const rect = element.getBoundingClientRect();
-                                  lastCardPosRef.current = { id: metric.id, top: rect.top };
-                                }
                                 setExpandedMetric(isExpanded ? null : metric.id);
                               }}
                             />
@@ -4902,10 +4901,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   {/* Visual pulse line or equalizer */}
                   <div className="flex items-end gap-1 h-8 mb-1">
-                    <div className={`w-[3px] rounded-full h-4 animate-pulse transition-all ${activeCategory === "sandbox" ? "bg-amber-500 scale-y-125" : "bg-amber-500/60 group-hover:bg-amber-500 group-hover:scale-y-125"}`} />
-                    <div className={`w-[3px] rounded-full h-7 animate-pulse delay-75 transition-all ${activeCategory === "sandbox" ? "bg-amber-500 scale-y-110" : "bg-amber-500/60 group-hover:bg-amber-500 group-hover:scale-y-110"}`} />
-                    <div className={`w-[3px] rounded-full h-5 animate-pulse delay-150 transition-all ${activeCategory === "sandbox" ? "bg-amber-500 scale-y-125" : "bg-amber-500/60 group-hover:bg-amber-500 group-hover:scale-y-125"}`} />
-                    <div className={`w-[3px] rounded-full h-3 animate-pulse delay-200 transition-all ${activeCategory === "sandbox" ? "bg-amber-500 scale-y-105" : "bg-amber-500/60 group-hover:bg-amber-500 group-hover:scale-y-105"}`} />
+                    <div className={`w-[3px] rounded-full h-4 transition-all ${activeCategory === "sandbox" ? "bg-amber-500 scale-y-125" : "bg-amber-500/60 group-hover:bg-amber-500 group-hover:scale-y-125"}`} />
+                    <div className={`w-[3px] rounded-full h-7 delay-75 transition-all ${activeCategory === "sandbox" ? "bg-amber-500 scale-y-110" : "bg-amber-500/60 group-hover:bg-amber-500 group-hover:scale-y-110"}`} />
+                    <div className={`w-[3px] rounded-full h-5 delay-150 transition-all ${activeCategory === "sandbox" ? "bg-amber-500 scale-y-125" : "bg-amber-500/60 group-hover:bg-amber-500 group-hover:scale-y-125"}`} />
+                    <div className={`w-[3px] rounded-full h-3 delay-200 transition-all ${activeCategory === "sandbox" ? "bg-amber-500 scale-y-105" : "bg-amber-500/60 group-hover:bg-amber-500 group-hover:scale-y-105"}`} />
                   </div>
                   <span className={`text-[10px] font-sans font-black transition-colors ${activeCategory === "sandbox" ? "text-amber-500" : "text-slate-400 group-hover:text-amber-400"}`}>SANDBOX</span>
                   <span className="text-[8px] font-mono text-slate-500">PLAYBACK</span>
@@ -4946,14 +4945,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         </div>
 
         {/* The prominent blue line element moved here dynamically */}
-        <div className="my-[18px] border-b-4 border-blue-500/80 shadow-[0_0_12px_rgba(59,130,246,0.6)] rounded-full w-full animate-pulse" />
+        <div className="my-[18px] border-b-4 border-blue-500/80 shadow-[0_0_12px_rgba(59,130,246,0.6)] rounded-full w-full" />
 
         {/* The engineering studio invite banner moved here with blue border */}
         <div 
           onClick={() => {
             if (onNavigateToEngineeringStudio) onNavigateToEngineeringStudio();
           }}
-          className="group relative bg-[#13161C] border border-[#2563EB] rounded-3xl p-6.5 shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-[0_0_40px_rgba(37,99,235,0.12)] hover:scale-[1.005]"
+          className="group relative bg-[#13161C] border-[1.2px] border-[#2563EB] rounded-3xl p-6.5 shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-[0_0_40px_rgba(37,99,235,0.12)] hover:scale-[1.005]"
           id="engineering-studio-invite-banner"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-blue-500/[0.015] to-[#2563EB]/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
@@ -4968,8 +4967,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 THE ENGINEERING STUDIO
                 <span className="text-[9px] bg-[#2563EB]/15 border border-[#2563EB]/25 text-blue-400 font-mono tracking-widest px-2.5 py-0.5 rounded-full uppercase">High Precision Analysis</span>
               </h3>
-              <p className="text-xs text-slate-400 mt-2 max-w-xl leading-relaxed animate-pulse">
-                Unlock laser-precision harmonic frequency analysis, stereo azimuth imaging, vocalist performance critiques, and custom DAW mixing and mastering checklists for <span className="text-slate-300 font-semibold">"{trackName}"</span>.
+              <p className="text-xs text-slate-400 mt-2 max-w-xl leading-relaxed">
+                <span className="font-bold text-white">Enter the studio.</span>{"  "}<span className="text-[#90a1b9]">This powerhouse engineering and production mix/master diagnostic suite guides a mix from good to masterful. Nine diagnostic modules analyze a broad array of measurements that guide step-by-step, plugin setting specific mix correction blueprints.</span>
               </p>
             </div>
           </div>
@@ -4989,8 +4988,291 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </div>
         </div>
 
+        {/* Card: Production Quality (Turquoise-Lime #46F4CD) */}
+        <div className="flex flex-col w-full gap-4 mt-6">
+          <button
+            onClick={() => setProductionQualityExpanded(!productionQualityExpanded)}
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+              productionQualityExpanded
+                ? "bg-[#090b0e] border-[#46F4CD] shadow-[0_0_35px_rgba(70,244,205,0.35)] ring-1 ring-[#46F4CD]/40 font-black"
+                : "bg-[#0A0B0E]/60 border-[#46F4CD]/40 hover:border-[#46F4CD] hover:bg-neutral-900/40 text-slate-400"
+            }`}
+          >
+            {/* Background ambient shade */}
+            {productionQualityExpanded ? (
+              <div className="absolute inset-0 bg-gradient-to-br from-[#46F4CD]/5 via-neutral-950 to-[#030509] pointer-events-none" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#030509] pointer-events-none" />
+            )}
+
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+              {/* Left Content Column */}
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                {/* Header block */}
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                    productionQualityExpanded
+                      ? "bg-[#46F4CD]/10 border-[#46F4CD]/30 text-[#46F4CD] shadow-[0_0_15px_rgba(70,244,205,0.25)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-slate-300"
+                  }`}>
+                    <Sparkles className="w-5 h-5 text-[#46F4CD]" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span 
+                      className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                        productionQualityExpanded ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                      }`}
+                    >
+                      PRODUCTION QUALITY
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">Sonic Fidelity & Engineering Polish</span>
+                  </div>
+                </div>
+
+                {/* Bottom info block */}
+                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                  productionQualityExpanded ? "border-[#46F4CD]/15" : "border-white/5"
+                }`}>
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                    A diagnostic of arrangement, sonic texture, low-end power, stereo depth, vocals, and energy.
+                    <span className="block mt-1 text-[#46F4CD]/90 font-mono text-[8.5px] uppercase tracking-wider">This metric is crucial for algorithmic reach and listener retention.</span>
+                  </p>
+                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    productionQualityExpanded
+                      ? "bg-[#46F4CD]/10 border-[#46F4CD]/20 text-[#46F4CD]"
+                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
+                  }`}>
+                    {productionQualityExpanded ? "ACTIVE ⬇" : "VIEW METRICS"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right Score display */}
+              <div className="flex-shrink-0 flex items-center justify-center">
+                <ScoreCircle 
+                  score={73} 
+                  size={110} 
+                  strokeWidth={7} 
+                  color={productionQualityExpanded ? "#46F4CD" : "rgba(70, 244, 205, 0.45)"} 
+                  glowColor={productionQualityExpanded ? "rgba(70, 244, 205, 0.65)" : "rgba(70, 244, 205, 0.15)"} 
+                  extraGlow={productionQualityExpanded}
+                />
+              </div>
+            </div>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {productionQualityExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginTop: -8 }}
+                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
+                exit={{ height: 0, opacity: 0, marginTop: -8 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden w-full relative z-0"
+              >
+                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-black/80 border border-[#46F4CD] rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
+                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }} className="uppercase tracking-wide">
+                    PRODUCTION QUALITY DIAGNOSTICS
+                  </div>
+                  
+                  {/* Descriptor box */}
+                  <div className="p-4 bg-[#020203] border border-white/10 rounded-xl flex flex-col gap-2">
+                    <p className="text-xs text-slate-200 leading-relaxed font-semibold">
+                      Streaming algorithms don't hear your mix — but your listeners do. Poor production drives early skips, and early skips tank your algorithmic reach.
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-mono italic">
+                      Some of these metrics share data with other YSS modules. PRODUCTION QUALITY combines them here with a single focus: not whether your mix is technically correct, but whether it sounds like a finished, competitive record.
+                    </p>
+                  </div>
+
+                  {/* Six sub-metric rows */}
+                  <div className="flex flex-col gap-4 mt-2">
+                    {[
+                      { label: "Arrangement Density", score: 72, desc: "Your arrangement transitions smoothly between sections. Minor overlaps in the lower-mid frequencies could be cleaned up to enhance overall clarity." },
+                      { label: "Sonic Texture & Sound Design", score: 68, desc: "Strong sound selection and synth soundscapes. Adding subtle high-frequency harmonic saturation to elements would make the texture pop further." },
+                      { label: "Low-End Power", score: 81, desc: "Sub-bass and kick relationship is well-defined and driving. The energy in the 40-80Hz region is powerful and consistent." },
+                      { label: "Width & Dimension", score: 74, desc: "Stereo width is wide and immersive. Mid-range elements feel nicely centered, while ambient textures span wide across the field." },
+                      { label: "Vocal Production", score: 65, desc: "Vocals are crisp and well-compressed, but sit slightly too forward in the mix. A touch of delay or plate reverb could sit them more cohesively." },
+                      { label: "Energy Management", score: 78, desc: "Excellent build-up and drop transitions. The dynamic range is preserved nicely, giving the chorus maximum impact." }
+                    ].map((m) => (
+                      <div key={m.label} className="bg-[#050608] border border-white/5 hover:border-white/10 rounded-2xl p-4 flex flex-col gap-2.5 transition-all duration-300 animate-fadeIn">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[13px] font-bold text-white uppercase tracking-wide">{m.label}</span>
+                          <span className="text-[12px] font-mono font-bold text-[#46F4CD]">{m.score} / 100</span>
+                        </div>
+                        <div className="w-full h-1 bg-neutral-900 rounded-full overflow-hidden relative border border-white/5">
+                          <div className="h-full bg-[#46F4CD] rounded-full" style={{ width: `${m.score}%`, boxShadow: '0 0 10px #46F4CD' }} />
+                        </div>
+                        <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                          {m.desc}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Card: Artist & Audience Positioning (Powder Blue #44CDF4) */}
+        <div className="flex flex-col w-full gap-4 mt-6">
+          <button
+            onClick={() => setArtistAudienceExpanded(!artistAudienceExpanded)}
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+              artistAudienceExpanded
+                ? "bg-[#090b0e] border-[#44CDF4] shadow-[0_0_35px_rgba(68,205,244,0.35)] ring-1 ring-[#44CDF4]/40 font-black"
+                : "bg-[#0A0B0E]/60 border-[#44CDF4]/40 hover:border-[#44CDF4] hover:bg-neutral-900/40 text-slate-400"
+            }`}
+          >
+            {/* Background ambient shade */}
+            {artistAudienceExpanded ? (
+              <div className="absolute inset-0 bg-gradient-to-br from-[#44CDF4]/5 via-neutral-950 to-[#030509] pointer-events-none" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#030509] pointer-events-none" />
+            )}
+
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+              {/* Left Content Column */}
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                {/* Header block */}
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                    artistAudienceExpanded
+                      ? "bg-[#44CDF4]/10 border-[#44CDF4]/30 text-[#44CDF4] shadow-[0_0_15px_rgba(68,205,244,0.25)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-slate-300"
+                  }`}>
+                    <Users className="w-5 h-5 text-[#44CDF4]" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span 
+                      className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                        artistAudienceExpanded ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                      }`}
+                    >
+                      ARTIST & AUDIENCE POSITIONING
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">Market Alignment & Demographic Fit</span>
+                  </div>
+                </div>
+
+                {/* Bottom info block */}
+                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                  artistAudienceExpanded ? "border-[#44CDF4]/15" : "border-white/5"
+                }`}>
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                    Demographic analysis, mood classification, sonic similarity grouping, and genre-wide distinctiveness.
+                    <span className="block mt-1 text-[#44CDF4]/90 font-mono text-[8.5px] uppercase tracking-wider">Useful for targeting campaigns and securing playlist placement.</span>
+                  </p>
+                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    artistAudienceExpanded
+                      ? "bg-[#44CDF4]/10 border-[#44CDF4]/20 text-[#44CDF4]"
+                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
+                  }`}>
+                    {artistAudienceExpanded ? "ACTIVE ⬇" : "VIEW POSITIONING"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right Score display */}
+              <div className="flex-shrink-0 flex items-center justify-center">
+                <ScoreCircle 
+                  score={74} 
+                  size={110} 
+                  strokeWidth={7} 
+                  color={artistAudienceExpanded ? "#44CDF4" : "rgba(68, 205, 244, 0.45)"} 
+                  glowColor={artistAudienceExpanded ? "rgba(68, 205, 244, 0.65)" : "rgba(68, 205, 244, 0.15)"} 
+                  extraGlow={artistAudienceExpanded}
+                />
+              </div>
+            </div>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {artistAudienceExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginTop: -8 }}
+                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
+                exit={{ height: 0, opacity: 0, marginTop: -8 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden w-full relative z-0"
+              >
+                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-black/80 border border-[#44CDF4] rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-6">
+                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }} className="uppercase tracking-wide">
+                    ARTIST & AUDIENCE POSITIONING DIAGNOSTICS
+                  </div>
+                  
+                  {/* Descriptor box */}
+                  <div className="p-4 bg-[#020203] border border-white/10 rounded-xl">
+                    <p className="text-xs text-slate-200 leading-relaxed font-semibold">
+                      Algorithms sort you whether you plan for it or not. This metric shows you which box you're being put in — and whether that box is the right one.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* Section 1: Mood Tags */}
+                    <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3">
+                      <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Mood Tags</div>
+                      <div className="flex flex-wrap gap-2">
+                        {["Driving", "Defiant", "Late Night", "High Energy", "Anthemic", "Raw"].map((tag) => (
+                          <span 
+                            key={tag} 
+                            className="px-3 py-1 bg-[#44CDF4]/5 border border-[#44CDF4]/20 rounded-full text-[11px] font-semibold text-[#44CDF4] tracking-wide"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Section 2: Sonic Peer Group */}
+                    <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3">
+                      <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Sonic Peer Group</div>
+                      <div className="flex flex-wrap gap-2">
+                        {["The Black Keys", "Royal Blood", "Jack White", "Foo Fighters"].map((artist) => (
+                          <span 
+                            key={artist} 
+                            className="px-3 py-1 bg-neutral-900 border border-white/10 rounded-full text-[11px] font-semibold text-slate-300"
+                          >
+                            {artist}
+                          </span>
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        Listeners of these artists are your most likely first audience.
+                      </span>
+                    </div>
+
+                    {/* Section 3: Audience Profile */}
+                    <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3 md:col-span-2">
+                      <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Audience Profile</div>
+                      <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                        Male, 28–45. Most likely listening context: late night drive, workout, or background focus session. Behavioral profile: high listen-through rate, moderate save rate, low skip probability after the 30-second mark.
+                      </p>
+                    </div>
+
+                    {/* Section 4: Distinctiveness Score */}
+                    <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3.5 md:col-span-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[12px] font-mono text-slate-400 uppercase font-bold tracking-wider">Distinctiveness Score</span>
+                        <span className="text-[12px] font-mono font-bold text-[#44CDF4]">74 / 100</span>
+                      </div>
+                      <div className="w-full h-1 bg-neutral-900 rounded-full overflow-hidden relative border border-white/5">
+                        <div className="h-full bg-[#44CDF4] rounded-full" style={{ width: '74%', boxShadow: '0 0 10px #44CDF4' }} />
+                      </div>
+                      <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                        Your sonic fingerprint is moderately distinct within the rock genre. Strong identity in the low-mid energy range, but chorus texture overlaps with a crowded peer group.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
         {/* Copy of the 3rd div selected (blue line) placed below the moved 1st div */}
-        <div className="my-[18px] border-b-4 border-blue-500/80 shadow-[0_0_12px_rgba(59,130,246,0.6)] rounded-full w-full animate-pulse" />
+        <div className="my-[18px] border-b-4 border-blue-500/80 shadow-[0_0_12px_rgba(59,130,246,0.6)] rounded-full w-full" />
 
         {/* Descriptive div above the Artistic Impact button */}
         <div className="pl-5 pr-5 pt-[5px] pb-[5px] rounded-2xl bg-[#0e1115]/80 border border-white/5 text-white text-xs md:text-[13px] leading-relaxed shadow-sm font-sans mb-1">
@@ -5098,16 +5380,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       if (!metric) return null;
                       const isExpanded = expandedMetric === metric.id;
                       return (
-                        <div key={metric.id} className="flex flex-col gap-1.5 relative">
+                        <div key={metric.id} className="flex flex-col gap-1.5 relative" id={`metric-wrapper-${metric.id}`}>
                           <RowMetricCard
                             metric={metric}
                             isExpanded={isExpanded}
                             onClick={() => {
-                              const element = document.getElementById(`metric-row-${metric.id}`);
-                              if (element) {
-                                const rect = element.getBoundingClientRect();
-                                lastCardPosRef.current = { id: metric.id, top: rect.top };
-                              }
                               setExpandedMetric(isExpanded ? null : metric.id);
                             }}
                           />
@@ -5131,16 +5408,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       if (!metric) return null;
                       const isExpanded = expandedMetric === metric.id;
                       return (
-                        <div key={metric.id} className="flex flex-col gap-1.5 relative">
+                        <div key={metric.id} className="flex flex-col gap-1.5 relative" id={`metric-wrapper-${metric.id}`}>
                           <RowMetricCard
                             metric={metric}
                             isExpanded={isExpanded}
                             onClick={() => {
-                              const element = document.getElementById(`metric-row-${metric.id}`);
-                              if (element) {
-                                const rect = element.getBoundingClientRect();
-                                lastCardPosRef.current = { id: metric.id, top: rect.top };
-                              }
                               setExpandedMetric(isExpanded ? null : metric.id);
                             }}
                           />
@@ -5256,16 +5528,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       if (!metric) return null;
                       const isExpanded = expandedMetric === metric.id;
                       return (
-                        <div key={metric.id} className="flex flex-col gap-1.5 relative">
+                        <div key={metric.id} className="flex flex-col gap-1.5 relative" id={`metric-wrapper-${metric.id}`}>
                           <RowMetricCard
                             metric={metric}
                             isExpanded={isExpanded}
                             onClick={() => {
-                              const element = document.getElementById(`metric-row-${metric.id}`);
-                              if (element) {
-                                const rect = element.getBoundingClientRect();
-                                lastCardPosRef.current = { id: metric.id, top: rect.top };
-                              }
                               setExpandedMetric(isExpanded ? null : metric.id);
                             }}
                           />
@@ -5859,16 +6126,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       if (!metric) return null;
                       const isExpanded = expandedMetric === metric.id;
                       return (
-                        <div key={metric.id} className="flex flex-col gap-1.5 relative">
+                        <div key={metric.id} className="flex flex-col gap-1.5 relative" id={`metric-wrapper-${metric.id}`}>
                           <RowMetricCard
                             metric={metric}
                             isExpanded={isExpanded}
                             onClick={() => {
-                              const element = document.getElementById(`metric-row-${metric.id}`);
-                              if (element) {
-                                const rect = element.getBoundingClientRect();
-                                lastCardPosRef.current = { id: metric.id, top: rect.top };
-                              }
                               setExpandedMetric(isExpanded ? null : metric.id);
                             }}
                           />
@@ -6103,10 +6365,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   {/* Visual pulse line or equalizer */}
                   <div className="flex items-end gap-1 h-8 mb-1">
-                    <div className={`w-[3px] rounded-full h-4 animate-pulse transition-all ${activeCategory === "sandbox" ? "bg-amber-500 scale-y-125" : "bg-amber-500/60 group-hover:bg-amber-500 group-hover:scale-y-125"}`} />
-                    <div className={`w-[3px] rounded-full h-7 animate-pulse delay-75 transition-all ${activeCategory === "sandbox" ? "bg-amber-500 scale-y-110" : "bg-amber-500/60 group-hover:bg-amber-500 group-hover:scale-y-110"}`} />
-                    <div className={`w-[3px] rounded-full h-5 animate-pulse delay-150 transition-all ${activeCategory === "sandbox" ? "bg-amber-500 scale-y-125" : "bg-amber-500/60 group-hover:bg-amber-500 group-hover:scale-y-125"}`} />
-                    <div className={`w-[3px] rounded-full h-3 animate-pulse delay-200 transition-all ${activeCategory === "sandbox" ? "bg-amber-500 scale-y-105" : "bg-amber-500/60 group-hover:bg-amber-500 group-hover:scale-y-105"}`} />
+                    <div className={`w-[3px] rounded-full h-4 transition-all ${activeCategory === "sandbox" ? "bg-amber-500 scale-y-125" : "bg-amber-500/60 group-hover:bg-amber-500 group-hover:scale-y-125"}`} />
+                    <div className={`w-[3px] rounded-full h-7 delay-75 transition-all ${activeCategory === "sandbox" ? "bg-amber-500 scale-y-110" : "bg-amber-500/60 group-hover:bg-amber-500 group-hover:scale-y-110"}`} />
+                    <div className={`w-[3px] rounded-full h-5 delay-150 transition-all ${activeCategory === "sandbox" ? "bg-amber-500 scale-y-125" : "bg-amber-500/60 group-hover:bg-amber-500 group-hover:scale-y-125"}`} />
+                    <div className={`w-[3px] rounded-full h-3 delay-200 transition-all ${activeCategory === "sandbox" ? "bg-amber-500 scale-y-105" : "bg-amber-500/60 group-hover:bg-amber-500 group-hover:scale-y-105"}`} />
                   </div>
                   <span className={`text-[10px] font-sans font-black transition-colors ${activeCategory === "sandbox" ? "text-amber-500" : "text-slate-400 group-hover:text-amber-400"}`}>SANDBOX</span>
                   <span className="text-[8px] font-mono text-slate-500">PLAYBACK</span>
