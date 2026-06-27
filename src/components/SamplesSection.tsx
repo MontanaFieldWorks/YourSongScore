@@ -58,9 +58,16 @@ export default function SamplesSection({ onSelectSample, disabled, selectedId }:
                 {song.title}
               </h3>
               
-              <p className="text-slate-400 text-xs truncate w-full mb-3">
+              <p className="text-slate-400 text-xs truncate w-full mb-2">
                 {song.artist}
               </p>
+
+              {song.key && song.bpm && (
+                <div className="flex items-center gap-2.5 text-[9px] font-mono mb-3 bg-neutral-900 border border-white/5 py-1 px-2 rounded-md w-fit">
+                  <span className="text-pink-400 font-bold">🔑 {song.key}</span>
+                  <span className="text-blue-400 font-bold">⚡ {song.bpm} BPM</span>
+                </div>
+              )}
 
               <p className="text-slate-500 text-xs line-clamp-2 leading-snug mb-4 mt-auto">
                 {song.description}
