@@ -970,6 +970,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const [artistAudienceExpanded, setArtistAudienceExpanded] = useState(false);
   const [activeSection, setActiveSection] = useState<"streaming" | "sonic" | "compositional">("streaming");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [expandedCategory, setExpandedCategory] = useState<"streaming" | "sonic" | "compositional" | null>(null);
 
   // Dynamic Category Scores for Sidebar and Mobile Tabs
   const streamingScore = Math.round(
@@ -4749,32 +4750,21 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <span className="text-[10px] font-mono font-bold uppercase tracking-widest leading-none">STREAMING READINESS</span>
                       <span className="text-[8.5px] font-mono text-slate-500 mt-1">Curation & Discovery</span>
                     </div>
-                    <span className="ml-auto text-[10px] font-mono font-black text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
-                      {Math.round((critique?.scores?.commercialReadiness ?? 75) * 0.5 + (critique?.scores?.overallProduction ?? 75) * 0.3 + (critique?.mixQuality?.score ?? 75) * 0.2)}
-                    </span>
                   </>
                 )}
-              </div>
-
-              {/* Score Badge */}
-              <div className={`flex items-center justify-center rounded-lg font-mono font-bold text-[10px] flex-shrink-0 ${
-                sidebarCollapsed ? "w-7 h-7" : "w-6 h-6 ml-auto"
-              } ${
-                activeSection === "streaming"
-                  ? "bg-blue-500/20 border border-blue-500/40 text-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.1)]"
-                  : "bg-neutral-900 border border-white/5 text-slate-400"
-              }`}>
-                {streamingScore}
               </div>
             </button>
 
             {/* Sub-links for streaming — only show when active and not collapsed */}
             {activeSection === "streaming" && !sidebarCollapsed && (
               <div className="flex flex-col gap-0.5 pl-3 border-l border-blue-500/20 ml-3.5 py-1">
-                {["Commercial Impact", "Streaming Alignment", "Algo Sandbox", "Production Quality", "Artist & Audience"].map((label, i) => (
+                {["Commercial Impact", "Streaming Alignment", "Algo Sandbox", "Artist & Audience"].map((label, i) => (
                   <button
                     key={i}
-                    onClick={() => document.getElementById(`sidebar-link-streaming-${i}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                    onClick={() => {
+                      const ids = ["sidebar-link-streaming-0", "sidebar-link-streaming-1", "sidebar-link-streaming-2", "sidebar-link-streaming-4"];
+                      document.getElementById(ids[i])?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }}
                     className="text-[9px] font-mono text-slate-500 hover:text-blue-400 hover:bg-blue-500/5 px-2 py-1 rounded-md transition-all text-left cursor-pointer truncate w-full"
                   >
                     · {label}
@@ -4805,33 +4795,22 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <span className="text-[10px] font-mono font-bold uppercase tracking-widest leading-none">SONIC SOUNDPRINT</span>
                       <span className="text-[8.5px] font-mono text-slate-500 mt-1">Mix Diagnostics</span>
                     </div>
-                    <span className="ml-auto text-[10px] font-mono font-black text-[#46F4CD] bg-[#46F4CD]/10 px-1.5 py-0.5 rounded">
-                      {Math.round((critique?.scores?.overallProduction ?? 75) * 0.6 + (critique?.mixQuality?.score ?? 75) * 0.4)}
-                    </span>
                   </>
                 )}
-              </div>
-
-              {/* Score Badge */}
-              <div className={`flex items-center justify-center rounded-lg font-mono font-bold text-[10px] flex-shrink-0 ${
-                sidebarCollapsed ? "w-7 h-7" : "w-6 h-6 ml-auto"
-              } ${
-                activeSection === "sonic"
-                  ? "bg-[#46F4CD]/20 border border-[#46F4CD]/40 text-[#46F4CD] shadow-[0_0_10px_rgba(70,244,205,0.1)]"
-                  : "bg-neutral-900 border border-white/5 text-slate-400"
-              }`}>
-                {sonicScore}
               </div>
             </button>
 
             {/* Sub-links for sonic */}
             {activeSection === "sonic" && !sidebarCollapsed && (
               <div className="flex flex-col gap-0.5 pl-3 border-l border-[#46F4CD]/20 ml-3.5 py-1">
-                {["Engineering Studio", "Tech Blueprints"].map((label, i) => (
+                {["Engineering Studio", "Production Quality", "Tech Blueprints"].map((label, i) => (
                   <button
                     key={i}
-                    onClick={() => document.getElementById(`sidebar-link-sonic-${i}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
-                    className="text-[9px] font-mono text-slate-500 hover:text-[#46F4CD] hover:bg-[#46F4CD]/5 px-2 py-1 rounded-md transition-all text-left cursor-pointer truncate w-full"
+                    onClick={() => {
+                      const ids = ["sidebar-link-sonic-0", "sidebar-link-sonic-2", "sidebar-link-sonic-1"];
+                      document.getElementById(ids[i])?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }}
+                    className="text-[9px] font-mono text-slate-500 hover:text-[#46F4CD] hover:bg-[#46F4CD]/5 transition-colors text-left py-1 px-2 rounded cursor-pointer"
                   >
                     · {label}
                   </button>
@@ -4861,22 +4840,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <span className="text-[10px] font-mono font-bold uppercase tracking-widest leading-none">COMPOSITIONAL DEPTH</span>
                       <span className="text-[8.5px] font-mono text-slate-500 mt-1">Theory & Craft</span>
                     </div>
-                    <span className="ml-auto text-[10px] font-mono font-black text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">
-                      {Math.round((critique?.arrangement?.flowScore ?? 75) * 0.4 + (critique?.musicTheory?.score ?? 75) * 0.3 + (critique?.lyricalImpact?.score ?? 75) * 0.3)}
-                    </span>
                   </>
                 )}
-              </div>
-
-              {/* Score Badge */}
-              <div className={`flex items-center justify-center rounded-lg font-mono font-bold text-[10px] flex-shrink-0 ${
-                sidebarCollapsed ? "w-7 h-7" : "w-6 h-6 ml-auto"
-              } ${
-                activeSection === "compositional"
-                  ? "bg-purple-500/20 border border-purple-500/40 text-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.1)]"
-                  : "bg-neutral-900 border border-white/5 text-slate-400"
-              }`}>
-                {compositionalScore}
               </div>
             </button>
 
@@ -4898,9 +4863,96 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
           {/* MAIN CONTENT AREA */}
           <div className="flex-1 min-w-0 flex flex-col gap-4">
-            
+            {/* THREE CATEGORY LANDING CARDS — default collapsed view */}
+            {expandedCategory === null && (
+              <div className="flex flex-col gap-4">
+                {/* Streaming Readiness card */}
+                <div
+                  onClick={() => setExpandedCategory("streaming")}
+                  className="group relative bg-[#090b0e] border border-blue-500/30 hover:border-blue-500/60 rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:shadow-[0_0_25px_rgba(59,130,246,0.15)] flex items-center justify-between gap-6 overflow-hidden"
+                >
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-blue-500 rounded-r" />
+                  <div className="flex flex-col gap-2 pl-3">
+                    <span className="text-[10px] font-mono text-blue-400 uppercase tracking-widest font-bold">Streaming Readiness</span>
+                    <h3 className="text-lg font-black text-white uppercase tracking-wide">Algorithmic Curation & Discovery</h3>
+                    <p className="text-[11px] text-slate-400 leading-relaxed max-w-lg">Commercial impact, streaming alignment, algorithmic sandbox, artist positioning — how streaming services find, categorize, and promote your song.</p>
+                    <div className="flex gap-2 mt-1 flex-wrap">
+                      {["Commercial Impact", "Streaming Alignment", "Algo Sandbox", "Artist & Audience"].map(tag => (
+                        <span key={tag} className="text-[8px] font-mono text-blue-400/60 border border-blue-500/15 px-2 py-0.5 rounded-full">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                    <div className="w-16 h-16 rounded-full border-2 border-blue-500/40 flex items-center justify-center bg-blue-500/5">
+                      <span className="text-xl font-black font-mono text-blue-400">{streamingScore}</span>
+                    </div>
+                    <span className="text-[8px] font-mono text-slate-500 uppercase">Open ↓</span>
+                  </div>
+                </div>
+
+                {/* Sonic Soundprint card */}
+                <div
+                  onClick={() => setExpandedCategory("sonic")}
+                  className="group relative bg-[#090b0e] border border-[#46F4CD]/30 hover:border-[#46F4CD]/60 rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:shadow-[0_0_25px_rgba(70,244,205,0.15)] flex items-center justify-between gap-6 overflow-hidden"
+                >
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#46F4CD] rounded-r" />
+                  <div className="flex flex-col gap-2 pl-3">
+                    <span className="text-[10px] font-mono text-[#46F4CD] uppercase tracking-widest font-bold">Sonic Soundprint</span>
+                    <h3 className="text-lg font-black text-white uppercase tracking-wide">Technical Mix Architecture</h3>
+                    <p className="text-[11px] text-slate-400 leading-relaxed max-w-lg">Engineering studio, production quality, and technical diagnostic blueprints — whether your mix sounds finished and competitive.</p>
+                    <div className="flex gap-2 mt-1 flex-wrap">
+                      {["Engineering Studio", "Production Quality", "Tech Blueprints"].map(tag => (
+                        <span key={tag} className="text-[8px] font-mono text-[#46F4CD]/60 border border-[#46F4CD]/15 px-2 py-0.5 rounded-full">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                    <div className="w-16 h-16 rounded-full border-2 border-[#46F4CD]/40 flex items-center justify-center bg-[#46F4CD]/5">
+                      <span className="text-xl font-black font-mono text-[#46F4CD]">{sonicScore}</span>
+                    </div>
+                    <span className="text-[8px] font-mono text-slate-500 uppercase">Open ↓</span>
+                  </div>
+                </div>
+
+                {/* Compositional Depth card */}
+                <div
+                  onClick={() => setExpandedCategory("compositional")}
+                  className="group relative bg-[#090b0e] border border-purple-500/30 hover:border-purple-500/60 rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)] flex items-center justify-between gap-6 overflow-hidden"
+                >
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-purple-500 rounded-r" />
+                  <div className="flex flex-col gap-2 pl-3">
+                    <span className="text-[10px] font-mono text-purple-400 uppercase tracking-widest font-bold">Compositional Depth</span>
+                    <h3 className="text-lg font-black text-white uppercase tracking-wide">Songwriting Craft & Artistic Merit</h3>
+                    <p className="text-[11px] text-slate-400 leading-relaxed max-w-lg">Artistic impact, songwriting quality, and song architecture — the human elements that make a song worth remembering.</p>
+                    <div className="flex gap-2 mt-1 flex-wrap">
+                      {["Artistic Impact", "Songwriting Quality", "Song Architecture"].map(tag => (
+                        <span key={tag} className="text-[8px] font-mono text-purple-400/60 border border-purple-500/15 px-2 py-0.5 rounded-full">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                    <div className="w-16 h-16 rounded-full border-2 border-purple-500/40 flex items-center justify-center bg-purple-500/5">
+                      <span className="text-xl font-black font-mono text-purple-400">{compositionalScore}</span>
+                    </div>
+                    <span className="text-[8px] font-mono text-slate-500 uppercase">Open ↓</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* When a category is expanded show a back button above the sections */}
+            {expandedCategory !== null && (
+              <button
+                onClick={() => setExpandedCategory(null)}
+                className="flex items-center gap-2 text-[10px] font-mono text-slate-400 hover:text-white transition-colors cursor-pointer self-start px-3 py-2 bg-neutral-900 border border-white/10 rounded-xl mb-2"
+              >
+                ← Back to Overview
+              </button>
+            )}
+
             {/* SECTION: STREAMING READINESS */}
-            <div id="section-streaming" className="flex flex-col gap-4">
+            {(expandedCategory === "streaming" || expandedCategory === null) && expandedCategory === "streaming" && (
+              <div id="section-streaming" className="flex flex-col gap-4">
               <div className="flex items-center gap-3 px-1 py-2.5 border-t border-t-blue-500/30 border-b border-blue-500/20">
                 <div className="w-1 h-6 bg-blue-500 rounded-full" />
                 <span className="text-[11px] font-mono font-bold text-blue-400 uppercase tracking-widest">Streaming Readiness</span>
@@ -5287,8 +5339,424 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </AnimatePresence>
         </div>
 
+        {/* Card: Artist & Audience Positioning (Powder Blue #44CDF4) */}
+        <div className="flex flex-col w-full gap-4 mt-6" id="sidebar-link-streaming-4">
+          <button
+            onClick={() => setArtistAudienceExpanded(!artistAudienceExpanded)}
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+              artistAudienceExpanded
+                ? "bg-[#090b0e] border-[#44CDF4] shadow-[0_0_35px_rgba(68,205,244,0.35)] ring-1 ring-[#44CDF4]/40 font-black"
+                : "bg-[#0A0B0E]/60 border-[#44CDF4]/40 hover:border-[#44CDF4] hover:bg-neutral-900/40 text-slate-400"
+            }`}
+          >
+            {/* Background ambient shade */}
+            {artistAudienceExpanded ? (
+              <div className="absolute inset-0 bg-gradient-to-br from-[#44CDF4]/5 via-neutral-950 to-[#030509] pointer-events-none" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#030509] pointer-events-none" />
+            )}
+
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+              {/* Left Content Column */}
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                {/* Header block */}
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                    artistAudienceExpanded
+                      ? "bg-[#44CDF4]/10 border-[#44CDF4]/30 text-[#44CDF4] shadow-[0_0_15px_rgba(68,205,244,0.25)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-slate-300"
+                  }`}>
+                    <Users className="w-5 h-5 text-[#44CDF4]" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span 
+                      className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                        artistAudienceExpanded ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                      }`}
+                    >
+                      ARTIST & AUDIENCE POSITIONING
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">Market Alignment & Demographic Fit</span>
+                  </div>
+                </div>
+
+                {/* Bottom info block */}
+                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                  artistAudienceExpanded ? "border-[#44CDF4]/15" : "border-white/5"
+                }`}>
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                    Demographic analysis, mood classification, sonic similarity grouping, and genre-wide distinctiveness.
+                    <span className="block mt-1 text-[#44CDF4]/90 font-mono text-[8.5px] uppercase tracking-wider">Useful for targeting campaigns and securing playlist placement.</span>
+                  </p>
+                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    artistAudienceExpanded
+                      ? "bg-[#44CDF4]/10 border-[#44CDF4]/20 text-[#44CDF4]"
+                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
+                  }`}>
+                    {artistAudienceExpanded ? "ACTIVE ⬇" : "VIEW POSITIONING"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right Score display */}
+              <div className="flex-shrink-0 flex items-center justify-center">
+                <ScoreCircle 
+                  score={Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2))} 
+                  size={110} 
+                  strokeWidth={7} 
+                  color={artistAudienceExpanded ? "#44CDF4" : "rgba(68, 205, 244, 0.45)"} 
+                  glowColor={artistAudienceExpanded ? "rgba(68, 205, 244, 0.65)" : "rgba(68, 205, 244, 0.15)"} 
+                  extraGlow={artistAudienceExpanded}
+                />
+              </div>
+            </div>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {artistAudienceExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginTop: -8 }}
+                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
+                exit={{ height: 0, opacity: 0, marginTop: -8 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden w-full relative z-0"
+              >
+                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-black/80 border border-[#44CDF4] rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-6">
+                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }} className="uppercase tracking-wide">
+                    ARTIST & AUDIENCE POSITIONING DIAGNOSTICS
+                  </div>
+                  
+                  {/* Descriptor box */}
+                  <div className="p-4 bg-[#020203] border border-white/10 rounded-xl">
+                    <p className="text-xs text-slate-200 leading-relaxed font-semibold">
+                      Algorithms sort you whether you plan for it or not. This metric shows you which box you're being put in — and whether that box is the right one.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* Section 1: Mood Tags */}
+                    <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3">
+                      <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Mood Tags</div>
+                      <div className="flex flex-wrap gap-2">
+                        {(() => {
+                          const aesthetic = critique?.vibe?.aesthetic ?? "";
+                          const viability = critique?.vibe?.commercialViability ?? "";
+                          const combined = `${aesthetic} ${viability}`;
+                          const tagMap: { [key: string]: string } = {
+                            "driv": "Driving", "energet": "High Energy", "anthем": "Anthemic", "anthem": "Anthemic",
+                            "raw": "Raw", "grit": "Gritty", "defian": "Defiant", "dark": "Dark", "melanchol": "Melancholic",
+                            "upbeat": "Upbeat", "euphori": "Euphoric", "cinematic": "Cinematic", "intense": "Intense",
+                            "aggress": "Aggressive", "late night": "Late Night", "atmospheric": "Atmospheric",
+                            "nostalgic": "Nostalgic", "haunting": "Haunting", "playful": "Playful", "fun": "Fun",
+                            "danc": "Danceable", "groov": "Groovy", "minimalist": "Minimalist", "epic": "Epic",
+                            "rebel": "Rebellious", "confident": "Confident", "emot": "Emotional", "power": "Powerful",
+                            "infectious": "Infectious", "feel-good": "Feel-Good", "feel good": "Feel-Good",
+                            "optimis": "Optimistic", "joyful": "Joyful", "celebrat": "Celebratory", "summer": "Summery",
+                            "retro": "Retro", "vintage": "Vintage", "soul": "Soulful", "motown": "Motown-Influenced",
+                            "funk": "Funky", "gospel": "Gospel-Tinged", "chart": "Chart-Ready", "crossover": "Crossover",
+                            "warm": "Warm", "bright": "Bright", "lush": "Lush", "modern": "Modern",
+                            "tension": "Tense", "build": "Building", "dramatic": "Dramatic", "soar": "Soaring",
+                            "vulnerable": "Vulnerable", "intimate": "Intimate", "honest": "Honest", "sincere": "Sincere"
+                          };
+                          const detected = Object.entries(tagMap)
+                            .filter(([key]) => combined.toLowerCase().includes(key))
+                            .map(([, label]) => label);
+                          const unique = [...new Set(detected)].slice(0, 7);
+                          const tags = unique.length > 0 ? unique : ["Driving", "Defiant", "High Energy", "Raw", "Anthemic"];
+                          return tags;
+                        })().map((tag) => (
+                          <span 
+                            key={tag} 
+                            className="px-3 py-1 bg-[#44CDF4]/5 border border-[#44CDF4]/20 rounded-full text-[11px] font-semibold text-[#44CDF4] tracking-wide"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Section 2: Sonic Peer Group */}
+                    <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3">
+                      <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Sonic Peer Group</div>
+                      <div className="flex flex-wrap gap-2">
+                        {(() => {
+                          const universe = (critique?.streamingAlignment as any)?.artistUniverse ?? "";
+                          const genre = critique?.vibe?.genre ?? "";
+                          const subgenre = critique?.vibe?.subgenre ?? "";
+                          const artistMap: { [key: string]: string[] } = {
+                            "hard rock": ["Royal Blood", "Wolfmother", "Rival Sons", "Greta Van Fleet"],
+                            "classic rock": ["The Black Keys", "Jack White", "The White Stripes", "Clutch"],
+                            "indie rock": ["Arctic Monkeys", "Interpol", "Editors", "Bloc Party"],
+                            "alternative": ["Foo Fighters", "Muse", "Placebo", "Nothing But Thieves"],
+                            "punk": ["The Gaslight Anthem", "Social Distortion", "The Hold Steady", "Frank Turner"],
+                            "blues rock": ["Gary Clark Jr.", "Joe Bonamassa", "Marcus King", "The Black Keys"],
+                            "garage rock": ["The Strokes", "Jack White", "The Hives", "The Vines"],
+                            "pop rock": ["OneRepublic", "Imagine Dragons", "The Killers", "Neon Trees"],
+                            "dance-pop": ["Bruno Mars", "Justin Timberlake", "Dua Lipa", "Lizzo", "Doja Cat"],
+                            "dance pop": ["Bruno Mars", "Justin Timberlake", "Dua Lipa", "Lizzo", "Doja Cat"],
+                            "retro soul": ["Bruno Mars", "Leon Bridges", "Anderson .Paak", "Silk Sonic"],
+                            "retro-soul": ["Bruno Mars", "Leon Bridges", "Anderson .Paak", "Silk Sonic"],
+                            "motown": ["Bruno Mars", "Leon Bridges", "Smokey Robinson", "Silk Sonic"],
+                            "soul": ["Leon Bridges", "Anderson .Paak", "Gary Clark Jr.", "H.E.R."],
+                            "funk": ["Bruno Mars", "Anderson .Paak", "Silk Sonic", "Cory Wong"],
+                            "pop": ["Bruno Mars", "Ed Sheeran", "Harry Styles", "Dua Lipa"],
+                            "r&b": ["H.E.R.", "Daniel Caesar", "SZA", "Anderson .Paak"],
+                            "electronic": ["Daft Punk", "Disclosure", "Calvin Harris", "Kaytranada"],
+                            "country": ["Morgan Wallen", "Tyler Childers", "Zach Bryan", "Kacey Musgraves"],
+                            "folk": ["Noah Kahan", "Phoebe Bridgers", "Bon Iver", "Iron & Wine"],
+                            "hip hop": ["Kendrick Lamar", "J. Cole", "Isaiah Rashad", "Joey Bada$$"],
+                            "metal": ["Tool", "Mastodon", "Gojira", "Baroness"],
+                            "ambient": ["Brian Eno", "Hammock", "Explosions in the Sky", "Stars of the Lid"],
+                          };
+                          const combined = `${genre} ${subgenre} ${universe}`.toLowerCase();
+                          let peers: string[] = ["The Black Keys", "Royal Blood", "Jack White", "Foo Fighters"];
+                          for (const [key, artists] of Object.entries(artistMap)) {
+                            if (combined.includes(key)) { peers = artists; break; }
+                          }
+                          return peers.slice(0, 5);
+                        })().map((artist) => (
+                          <span 
+                            key={artist} 
+                            className="px-3 py-1 bg-neutral-900 border border-white/10 rounded-full text-[11px] font-semibold text-slate-300"
+                          >
+                            {artist}
+                          </span>
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        Listeners of these artists are your most likely first audience.
+                      </span>
+                    </div>
+
+                    {/* Section 3: Audience Profile */}
+                    <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3 md:col-span-2">
+                      <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Audience Profile</div>
+                      <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                        {critique?.vibe?.commercialViability 
+                          ? `${critique.vibe.commercialViability} Listener behavioral profile: tracks with this energy signature typically show high listen-through rates and moderate-to-high save rates among active music discovery users.`
+                          : "Male, 28–45. Most likely listening context: late night drive, workout, or background focus session. Behavioral profile: high listen-through rate, moderate save rate, low skip probability after the 30-second mark."}
+                      </p>
+                    </div>
+
+                    {/* Section 4: Distinctiveness Score */}
+                    <div className={`bg-[#050608] border ${getScoreBorderColor(Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2)))} rounded-2xl p-5 flex flex-col gap-3.5 md:col-span-2`}>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[12px] font-mono text-slate-400 uppercase font-bold tracking-wider">Distinctiveness Score</span>
+                        <span className={`${getScoreColor(Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2)))} font-mono font-bold text-[12px]`}>{Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2))} / 100</span>
+                      </div>
+                      <div className="w-full h-1 bg-neutral-900 rounded-full overflow-hidden relative border border-white/5">
+                        {(() => { const ds = Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2)); return <div className="h-full rounded-full" style={{ width: `${ds}%`, backgroundColor: getScoreBarColor(ds), boxShadow: `0 0 10px ${getScoreBarColor(ds)}` }} />; })()}
+                      </div>
+                      <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                        {critique?.vibe?.aesthetic 
+                          ? `${critique.vibe.aesthetic} Your track's sonic identity within the ${critique?.vibe?.subgenre ?? critique?.vibe?.genre ?? "rock"} space is shaped by these characteristics relative to current commercial peers.`
+                          : "Your sonic fingerprint is moderately distinct within the rock genre. Strong identity in the low-mid energy range, but chorus texture overlaps with a crowded peer group."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div> /* End of section-streaming */
+            )}
+
+      {/* SECTION: SONIC SOUNDPRINT */}
+      {expandedCategory === "sonic" && (
+        <div id="section-sonic" className="flex flex-col gap-4 mt-8">
+        <div className="flex items-center gap-3 px-1 py-2.5 border-t border-t-[#46F4CD]/30 border-b border-[#46F4CD]/20">
+          <div className="w-1 h-6 bg-[#46F4CD] rounded-full" />
+          <span className="text-[11px] font-mono font-bold text-[#46F4CD] uppercase tracking-widest">Sonic Soundprint</span>
+          <span className="text-[9px] font-mono text-slate-500 ml-auto">Technical mix architecture & engineering diagnostics</span>
+        </div>
+
+        {/* The engineering studio invite banner moved here with blue border */}
+        <div 
+          onClick={() => {
+            if (onNavigateToEngineeringStudio) onNavigateToEngineeringStudio();
+          }}
+          className="group relative bg-[#13161C] border-[1.2px] border-[#2563EB] rounded-3xl p-6.5 shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-[0_0_40px_rgba(37,99,235,0.12)] hover:scale-[1.005]"
+          id="sidebar-link-sonic-0"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-blue-500/[0.015] to-[#2563EB]/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+          <div className="absolute top-0 right-0 w-[320px] h-[320px] bg-[#2563EB]/[0.02] rounded-full blur-[80px] pointer-events-none" />
+
+          <div className="flex flex-col md:flex-row items-center gap-6 relative z-10 text-center md:text-left">
+            <div className="p-4 rounded-2xl bg-[#2563EB]/10 border border-[#2563EB]/20 text-blue-400 shadow-[0_0_20px_rgba(37,99,235,0.15)] group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
+              <Volume2 className="w-8 h-8 text-blue-400" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-white tracking-wide uppercase flex items-center justify-center md:justify-start gap-2.5">
+                THE ENGINEERING STUDIO
+                <span className="text-[9px] bg-[#2563EB]/15 border border-[#2563EB]/25 text-blue-400 font-mono tracking-widest px-2.5 py-0.5 rounded-full uppercase">High Precision Analysis</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-2 max-w-xl leading-relaxed">
+                <span className="font-bold text-white">Enter the studio.</span>{"  "}<span className="text-[#90a1b9]">This powerhouse engineering and production mix/master diagnostic suite guides a mix from good to masterful. Nine diagnostic modules analyze a broad array of measurements that guide step-by-step, plugin setting specific mix correction blueprints.</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="relative z-10 shrink-0">
+            <button 
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onNavigateToEngineeringStudio) onNavigateToEngineeringStudio();
+              }}
+              className="px-6 py-3 bg-[#2563EB] hover:bg-blue-500 text-white font-mono text-[11px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)] cursor-pointer flex items-center gap-2 group-hover:scale-102"
+            >
+              <span>Enter Engineering Studio</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+        </div>
+
+        {/* Card: Technical and Diagnostic Blueprints (cyan) */}
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-sonic-1">
+          <button
+            onClick={() => handleCategoryChange("blueprints")}
+            id="blueprint-category-selector"
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+              activeCategory === "blueprints"
+                ? "bg-[#090b0e] border-cyan-500 shadow-[0_0_35px_rgba(6,182,212,0.35)] ring-1 ring-cyan-500/40 font-black"
+                : "bg-[#0A0B0E]/60 border-[#06b6d4] hover:border-[#06b6d4] hover:bg-neutral-900/40 text-slate-400"
+            }`}
+          >
+            {/* Background ambient shade */}
+            {activeCategory === "blueprints" ? (
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-950/5 via-neutral-950 to-[#030509] pointer-events-none" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#030509] pointer-events-none" />
+            )}
+
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+              {/* Left Content Column */}
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                {/* Header block */}
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                    activeCategory === "blueprints"
+                      ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.25)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-slate-300"
+                  }`}>
+                    <Layers className="w-5 h-5 text-cyan-400" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span 
+                      className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                        activeCategory === "blueprints" ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                      }`}
+                    >
+                      TECHNICAL AND DIAGNOSTIC BLUEPRINTS
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">Core Metric Integration</span>
+                  </div>
+                </div>
+
+                {/* Bottom info block */}
+                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                  activeCategory === "blueprints" ? "border-cyan-500/15" : "border-white/5"
+                }`}>
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                    Integrated assessment linking Composition Flow, Stereo Mix Balance, Vocal Tracking, Instrumental Staging, and Title Searchability.
+                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider">A highly precise look at the acoustic parameters and indexing metadata of the track.</span>
+                  </p>
+                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    activeCategory === "blueprints"
+                      ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-400"
+                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
+                  }`}>
+                    {activeCategory === "blueprints" ? "ACTIVE ⬇" : "VIEW METRICS"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right Blueprint Vector schematic visual */}
+              <div className="flex-shrink-0 flex items-center justify-center relative w-[110px] h-[110px]">
+                {/* Outer pulsing ring */}
+                <div className={`absolute inset-0 rounded-full border border-dashed duration-[30s] ${
+                  activeCategory === "blueprints" ? "border-cyan-500/50 animate-spin" : "border-cyan-500/20 group-hover:animate-spin"
+                }`} />
+                <div className={`absolute inset-2 rounded-full border bg-[#05070a]/90 flex flex-col items-center justify-center shadow-inner overflow-hidden transition-colors ${
+                  activeCategory === "blueprints" ? "border-cyan-500/40" : "border-white/5 group-hover:border-cyan-500/30"
+                }`}>
+                  {/* Tech drawing lines layout */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
+                    {/* Grid overlay */}
+                    <div className="w-full h-full border border-cyan-500/40 relative">
+                      <div className="absolute left-1/2 top-0 bottom-0 border-l border-cyan-500/40" />
+                      <div className="absolute top-1/2 left-0 right-0 border-t border-cyan-500/40" />
+                      <div className="absolute inset-4 rounded-full border border-cyan-500/40" />
+                    </div>
+                  </div>
+                  
+                  {/* Visual icon representation */}
+                  <div className="flex items-center justify-center gap-1.5 z-10">
+                    <Sliders className={`w-6 h-6 transition-transform duration-500 ${
+                      activeCategory === "blueprints" ? "text-cyan-400 scale-110 rotate-12" : "text-slate-500 group-hover:text-cyan-400/80"
+                    }`} />
+                  </div>
+                  <span className={`text-[8.5px] font-mono tracking-wider font-bold mt-2 z-10 uppercase ${
+                    activeCategory === "blueprints" ? "text-cyan-400" : "text-slate-500"
+                  }`}>
+                    BLUEPRINT
+                  </span>
+                  <span className="text-[7.5px] font-mono text-slate-600 z-10">DIAGN: ON</span>
+                </div>
+              </div>
+            </div>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {activeCategory === "blueprints" && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginTop: -8 }}
+                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
+                exit={{ height: 0, opacity: 0, marginTop: -8 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden w-full relative z-0"
+              >
+                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-black/80 border border-[#06b6d4] rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
+                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
+                    TECHNICAL & DIAGNOSTIC SYSTEM BLUEPRINTS
+                  </div>
+                  <div style={{ marginTop: "-20px", paddingTop: "11px", paddingBottom: "18px" }} className="flex items-center justify-between border-b border-white/5">
+                    <span className="text-xs font-mono font-bold tracking-widest text-[#90a1b9] uppercase flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                      <span>DIAGNOSTIC SYSTEM BLUEPRINTS</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500 text-right">
+                      Exposing critical audio performance vectors & Search Indexing blueprints
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-5 relative">
+                    {getFilteredMetrics("blueprints").map((metric) => {
+                      if (!metric) return null;
+                      const isExpanded = expandedMetric === metric.id;
+                      return (
+                        <div key={metric.id} className="flex flex-col gap-1.5 relative" id={`metric-wrapper-${metric.id}`}>
+                          <RowMetricCard
+                            metric={metric}
+                            isExpanded={isExpanded}
+                            onClick={() => {
+                              setExpandedMetric(isExpanded ? null : metric.id);
+                            }}
+                          />
+                          {isExpanded && renderExpandedBreakdown(metric.id)}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
         {/* Card: Production Quality (Turquoise-Lime #46F4CD) */}
-        <div className="flex flex-col w-full gap-4 mt-6" id="sidebar-link-streaming-3">
+        <div className="flex flex-col w-full gap-4 mt-6" id="sidebar-link-sonic-2">
           <button
             onClick={() => setProductionQualityExpanded(!productionQualityExpanded)}
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
@@ -5517,424 +5985,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             )}
           </AnimatePresence>
         </div>
-
-        {/* Card: Artist & Audience Positioning (Powder Blue #44CDF4) */}
-        <div className="flex flex-col w-full gap-4 mt-6" id="sidebar-link-streaming-4">
-          <button
-            onClick={() => setArtistAudienceExpanded(!artistAudienceExpanded)}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
-              artistAudienceExpanded
-                ? "bg-[#090b0e] border-[#44CDF4] shadow-[0_0_35px_rgba(68,205,244,0.35)] ring-1 ring-[#44CDF4]/40 font-black"
-                : "bg-[#0A0B0E]/60 border-[#44CDF4]/40 hover:border-[#44CDF4] hover:bg-neutral-900/40 text-slate-400"
-            }`}
-          >
-            {/* Background ambient shade */}
-            {artistAudienceExpanded ? (
-              <div className="absolute inset-0 bg-gradient-to-br from-[#44CDF4]/5 via-neutral-950 to-[#030509] pointer-events-none" />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#030509] pointer-events-none" />
-            )}
-
-            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
-              {/* Left Content Column */}
-              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
-                {/* Header block */}
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
-                    artistAudienceExpanded
-                      ? "bg-[#44CDF4]/10 border-[#44CDF4]/30 text-[#44CDF4] shadow-[0_0_15px_rgba(68,205,244,0.25)]"
-                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-slate-300"
-                  }`}>
-                    <Users className="w-5 h-5 text-[#44CDF4]" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span 
-                      className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
-                        artistAudienceExpanded ? "text-white" : "text-slate-400 group-hover:text-slate-200"
-                      }`}
-                    >
-                      ARTIST & AUDIENCE POSITIONING
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Market Alignment & Demographic Fit</span>
-                  </div>
-                </div>
-
-                {/* Bottom info block */}
-                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
-                  artistAudienceExpanded ? "border-[#44CDF4]/15" : "border-white/5"
-                }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
-                    Demographic analysis, mood classification, sonic similarity grouping, and genre-wide distinctiveness.
-                    <span className="block mt-1 text-[#44CDF4]/90 font-mono text-[8.5px] uppercase tracking-wider">Useful for targeting campaigns and securing playlist placement.</span>
-                  </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
-                    artistAudienceExpanded
-                      ? "bg-[#44CDF4]/10 border-[#44CDF4]/20 text-[#44CDF4]"
-                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
-                  }`}>
-                    {artistAudienceExpanded ? "ACTIVE ⬇" : "VIEW POSITIONING"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Right Score display */}
-              <div className="flex-shrink-0 flex items-center justify-center">
-                <ScoreCircle 
-                  score={Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2))} 
-                  size={110} 
-                  strokeWidth={7} 
-                  color={artistAudienceExpanded ? "#44CDF4" : "rgba(68, 205, 244, 0.45)"} 
-                  glowColor={artistAudienceExpanded ? "rgba(68, 205, 244, 0.65)" : "rgba(68, 205, 244, 0.15)"} 
-                  extraGlow={artistAudienceExpanded}
-                />
-              </div>
-            </div>
-          </button>
-
-          <AnimatePresence initial={false}>
-            {artistAudienceExpanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0, marginTop: -8 }}
-                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
-                exit={{ height: 0, opacity: 0, marginTop: -8 }}
-                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                className="overflow-hidden w-full relative z-0"
-              >
-                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-black/80 border border-[#44CDF4] rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-6">
-                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }} className="uppercase tracking-wide">
-                    ARTIST & AUDIENCE POSITIONING DIAGNOSTICS
-                  </div>
-                  
-                  {/* Descriptor box */}
-                  <div className="p-4 bg-[#020203] border border-white/10 rounded-xl">
-                    <p className="text-xs text-slate-200 leading-relaxed font-semibold">
-                      Algorithms sort you whether you plan for it or not. This metric shows you which box you're being put in — and whether that box is the right one.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    {/* Section 1: Mood Tags */}
-                    <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3">
-                      <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Mood Tags</div>
-                      <div className="flex flex-wrap gap-2">
-                        {(() => {
-                          const aesthetic = critique?.vibe?.aesthetic ?? "";
-                          const viability = critique?.vibe?.commercialViability ?? "";
-                          const combined = `${aesthetic} ${viability}`;
-                          const tagMap: { [key: string]: string } = {
-                            "driv": "Driving", "energet": "High Energy", "anthем": "Anthemic", "anthem": "Anthemic",
-                            "raw": "Raw", "grit": "Gritty", "defian": "Defiant", "dark": "Dark", "melanchol": "Melancholic",
-                            "upbeat": "Upbeat", "euphori": "Euphoric", "cinematic": "Cinematic", "intense": "Intense",
-                            "aggress": "Aggressive", "late night": "Late Night", "atmospheric": "Atmospheric",
-                            "nostalgic": "Nostalgic", "haunting": "Haunting", "playful": "Playful", "fun": "Fun",
-                            "danc": "Danceable", "groov": "Groovy", "minimalist": "Minimalist", "epic": "Epic",
-                            "rebel": "Rebellious", "confident": "Confident", "emot": "Emotional", "power": "Powerful",
-                            "infectious": "Infectious", "feel-good": "Feel-Good", "feel good": "Feel-Good",
-                            "optimis": "Optimistic", "joyful": "Joyful", "celebrat": "Celebratory", "summer": "Summery",
-                            "retro": "Retro", "vintage": "Vintage", "soul": "Soulful", "motown": "Motown-Influenced",
-                            "funk": "Funky", "gospel": "Gospel-Tinged", "chart": "Chart-Ready", "crossover": "Crossover",
-                            "warm": "Warm", "bright": "Bright", "lush": "Lush", "modern": "Modern",
-                            "tension": "Tense", "build": "Building", "dramatic": "Dramatic", "soar": "Soaring",
-                            "vulnerable": "Vulnerable", "intimate": "Intimate", "honest": "Honest", "sincere": "Sincere"
-                          };
-                          const detected = Object.entries(tagMap)
-                            .filter(([key]) => combined.toLowerCase().includes(key))
-                            .map(([, label]) => label);
-                          const unique = [...new Set(detected)].slice(0, 7);
-                          const tags = unique.length > 0 ? unique : ["Driving", "Defiant", "High Energy", "Raw", "Anthemic"];
-                          return tags;
-                        })().map((tag) => (
-                          <span 
-                            key={tag} 
-                            className="px-3 py-1 bg-[#44CDF4]/5 border border-[#44CDF4]/20 rounded-full text-[11px] font-semibold text-[#44CDF4] tracking-wide"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Section 2: Sonic Peer Group */}
-                    <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3">
-                      <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Sonic Peer Group</div>
-                      <div className="flex flex-wrap gap-2">
-                        {(() => {
-                          const universe = (critique?.streamingAlignment as any)?.artistUniverse ?? "";
-                          const genre = critique?.vibe?.genre ?? "";
-                          const subgenre = critique?.vibe?.subgenre ?? "";
-                          const artistMap: { [key: string]: string[] } = {
-                            "hard rock": ["Royal Blood", "Wolfmother", "Rival Sons", "Greta Van Fleet"],
-                            "classic rock": ["The Black Keys", "Jack White", "The White Stripes", "Clutch"],
-                            "indie rock": ["Arctic Monkeys", "Interpol", "Editors", "Bloc Party"],
-                            "alternative": ["Foo Fighters", "Muse", "Placebo", "Nothing But Thieves"],
-                            "punk": ["The Gaslight Anthem", "Social Distortion", "The Hold Steady", "Frank Turner"],
-                            "blues rock": ["Gary Clark Jr.", "Joe Bonamassa", "Marcus King", "The Black Keys"],
-                            "garage rock": ["The Strokes", "Jack White", "The Hives", "The Vines"],
-                            "pop rock": ["OneRepublic", "Imagine Dragons", "The Killers", "Neon Trees"],
-                            "dance-pop": ["Bruno Mars", "Justin Timberlake", "Dua Lipa", "Lizzo", "Doja Cat"],
-                            "dance pop": ["Bruno Mars", "Justin Timberlake", "Dua Lipa", "Lizzo", "Doja Cat"],
-                            "retro soul": ["Bruno Mars", "Leon Bridges", "Anderson .Paak", "Silk Sonic"],
-                            "retro-soul": ["Bruno Mars", "Leon Bridges", "Anderson .Paak", "Silk Sonic"],
-                            "motown": ["Bruno Mars", "Leon Bridges", "Smokey Robinson", "Silk Sonic"],
-                            "soul": ["Leon Bridges", "Anderson .Paak", "Gary Clark Jr.", "H.E.R."],
-                            "funk": ["Bruno Mars", "Anderson .Paak", "Silk Sonic", "Cory Wong"],
-                            "pop": ["Bruno Mars", "Ed Sheeran", "Harry Styles", "Dua Lipa"],
-                            "r&b": ["H.E.R.", "Daniel Caesar", "SZA", "Anderson .Paak"],
-                            "electronic": ["Daft Punk", "Disclosure", "Calvin Harris", "Kaytranada"],
-                            "country": ["Morgan Wallen", "Tyler Childers", "Zach Bryan", "Kacey Musgraves"],
-                            "folk": ["Noah Kahan", "Phoebe Bridgers", "Bon Iver", "Iron & Wine"],
-                            "hip hop": ["Kendrick Lamar", "J. Cole", "Isaiah Rashad", "Joey Bada$$"],
-                            "metal": ["Tool", "Mastodon", "Gojira", "Baroness"],
-                            "ambient": ["Brian Eno", "Hammock", "Explosions in the Sky", "Stars of the Lid"],
-                          };
-                          const combined = `${genre} ${subgenre} ${universe}`.toLowerCase();
-                          let peers: string[] = ["The Black Keys", "Royal Blood", "Jack White", "Foo Fighters"];
-                          for (const [key, artists] of Object.entries(artistMap)) {
-                            if (combined.includes(key)) { peers = artists; break; }
-                          }
-                          return peers.slice(0, 5);
-                        })().map((artist) => (
-                          <span 
-                            key={artist} 
-                            className="px-3 py-1 bg-neutral-900 border border-white/10 rounded-full text-[11px] font-semibold text-slate-300"
-                          >
-                            {artist}
-                          </span>
-                        ))}
-                      </div>
-                      <span className="text-[10px] text-slate-500 font-medium">
-                        Listeners of these artists are your most likely first audience.
-                      </span>
-                    </div>
-
-                    {/* Section 3: Audience Profile */}
-                    <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3 md:col-span-2">
-                      <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Audience Profile</div>
-                      <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                        {critique?.vibe?.commercialViability 
-                          ? `${critique.vibe.commercialViability} Listener behavioral profile: tracks with this energy signature typically show high listen-through rates and moderate-to-high save rates among active music discovery users.`
-                          : "Male, 28–45. Most likely listening context: late night drive, workout, or background focus session. Behavioral profile: high listen-through rate, moderate save rate, low skip probability after the 30-second mark."}
-                      </p>
-                    </div>
-
-                    {/* Section 4: Distinctiveness Score */}
-                    <div className={`bg-[#050608] border ${getScoreBorderColor(Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2)))} rounded-2xl p-5 flex flex-col gap-3.5 md:col-span-2`}>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[12px] font-mono text-slate-400 uppercase font-bold tracking-wider">Distinctiveness Score</span>
-                        <span className={`${getScoreColor(Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2)))} font-mono font-bold text-[12px]`}>{Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2))} / 100</span>
-                      </div>
-                      <div className="w-full h-1 bg-neutral-900 rounded-full overflow-hidden relative border border-white/5">
-                        {(() => { const ds = Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2)); return <div className="h-full rounded-full" style={{ width: `${ds}%`, backgroundColor: getScoreBarColor(ds), boxShadow: `0 0 10px ${getScoreBarColor(ds)}` }} />; })()}
-                      </div>
-                      <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                        {critique?.vibe?.aesthetic 
-                          ? `${critique.vibe.aesthetic} Your track's sonic identity within the ${critique?.vibe?.subgenre ?? critique?.vibe?.genre ?? "rock"} space is shaped by these characteristics relative to current commercial peers.`
-                          : "Your sonic fingerprint is moderately distinct within the rock genre. Strong identity in the low-mid energy range, but chorus texture overlaps with a crowded peer group."}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div> {/* End of section-streaming */}
-
-      {/* SECTION: SONIC SOUNDPRINT */}
-      <div id="section-sonic" className="flex flex-col gap-4 mt-8">
-        <div className="flex items-center gap-3 px-1 py-2.5 border-t border-t-[#46F4CD]/30 border-b border-[#46F4CD]/20">
-          <div className="w-1 h-6 bg-[#46F4CD] rounded-full" />
-          <span className="text-[11px] font-mono font-bold text-[#46F4CD] uppercase tracking-widest">Sonic Soundprint</span>
-          <span className="text-[9px] font-mono text-slate-500 ml-auto">Technical mix architecture & engineering diagnostics</span>
-        </div>
-
-        {/* The engineering studio invite banner moved here with blue border */}
-        <div 
-          onClick={() => {
-            if (onNavigateToEngineeringStudio) onNavigateToEngineeringStudio();
-          }}
-          className="group relative bg-[#13161C] border-[1.2px] border-[#2563EB] rounded-3xl p-6.5 shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-[0_0_40px_rgba(37,99,235,0.12)] hover:scale-[1.005]"
-          id="sidebar-link-sonic-0"
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-blue-500/[0.015] to-[#2563EB]/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-          <div className="absolute top-0 right-0 w-[320px] h-[320px] bg-[#2563EB]/[0.02] rounded-full blur-[80px] pointer-events-none" />
-
-          <div className="flex flex-col md:flex-row items-center gap-6 relative z-10 text-center md:text-left">
-            <div className="p-4 rounded-2xl bg-[#2563EB]/10 border border-[#2563EB]/20 text-blue-400 shadow-[0_0_20px_rgba(37,99,235,0.15)] group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
-              <Volume2 className="w-8 h-8 text-blue-400" />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white tracking-wide uppercase flex items-center justify-center md:justify-start gap-2.5">
-                THE ENGINEERING STUDIO
-                <span className="text-[9px] bg-[#2563EB]/15 border border-[#2563EB]/25 text-blue-400 font-mono tracking-widest px-2.5 py-0.5 rounded-full uppercase">High Precision Analysis</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-2 max-w-xl leading-relaxed">
-                <span className="font-bold text-white">Enter the studio.</span>{"  "}<span className="text-[#90a1b9]">This powerhouse engineering and production mix/master diagnostic suite guides a mix from good to masterful. Nine diagnostic modules analyze a broad array of measurements that guide step-by-step, plugin setting specific mix correction blueprints.</span>
-              </p>
-            </div>
-          </div>
-
-          <div className="relative z-10 shrink-0">
-            <button 
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onNavigateToEngineeringStudio) onNavigateToEngineeringStudio();
-              }}
-              className="px-6 py-3 bg-[#2563EB] hover:bg-blue-500 text-white font-mono text-[11px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)] cursor-pointer flex items-center gap-2 group-hover:scale-102"
-            >
-              <span>Enter Engineering Studio</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
-        </div>
-
-        {/* Card: Technical and Diagnostic Blueprints (cyan) */}
-        <div className="flex flex-col w-full gap-4" id="sidebar-link-sonic-1">
-          <button
-            onClick={() => handleCategoryChange("blueprints")}
-            id="blueprint-category-selector"
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
-              activeCategory === "blueprints"
-                ? "bg-[#090b0e] border-cyan-500 shadow-[0_0_35px_rgba(6,182,212,0.35)] ring-1 ring-cyan-500/40 font-black"
-                : "bg-[#0A0B0E]/60 border-[#06b6d4] hover:border-[#06b6d4] hover:bg-neutral-900/40 text-slate-400"
-            }`}
-          >
-            {/* Background ambient shade */}
-            {activeCategory === "blueprints" ? (
-              <div className="absolute inset-0 bg-gradient-to-br from-cyan-950/5 via-neutral-950 to-[#030509] pointer-events-none" />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#030509] pointer-events-none" />
-            )}
-
-            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
-              {/* Left Content Column */}
-              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
-                {/* Header block */}
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
-                    activeCategory === "blueprints"
-                      ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.25)]"
-                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-slate-300"
-                  }`}>
-                    <Layers className="w-5 h-5 text-cyan-400" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span 
-                      className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
-                        activeCategory === "blueprints" ? "text-white" : "text-slate-400 group-hover:text-slate-200"
-                      }`}
-                    >
-                      TECHNICAL AND DIAGNOSTIC BLUEPRINTS
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Core Metric Integration</span>
-                  </div>
-                </div>
-
-                {/* Bottom info block */}
-                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
-                  activeCategory === "blueprints" ? "border-cyan-500/15" : "border-white/5"
-                }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
-                    Integrated assessment linking Composition Flow, Stereo Mix Balance, Vocal Tracking, Instrumental Staging, and Title Searchability.
-                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider">A highly precise look at the acoustic parameters and indexing metadata of the track.</span>
-                  </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
-                    activeCategory === "blueprints"
-                      ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-400"
-                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
-                  }`}>
-                    {activeCategory === "blueprints" ? "ACTIVE ⬇" : "VIEW METRICS"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Right Blueprint Vector schematic visual */}
-              <div className="flex-shrink-0 flex items-center justify-center relative w-[110px] h-[110px]">
-                {/* Outer pulsing ring */}
-                <div className={`absolute inset-0 rounded-full border border-dashed duration-[30s] ${
-                  activeCategory === "blueprints" ? "border-cyan-500/50 animate-spin" : "border-cyan-500/20 group-hover:animate-spin"
-                }`} />
-                <div className={`absolute inset-2 rounded-full border bg-[#05070a]/90 flex flex-col items-center justify-center shadow-inner overflow-hidden transition-colors ${
-                  activeCategory === "blueprints" ? "border-cyan-500/40" : "border-white/5 group-hover:border-cyan-500/30"
-                }`}>
-                  {/* Tech drawing lines layout */}
-                  <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
-                    {/* Grid overlay */}
-                    <div className="w-full h-full border border-cyan-500/40 relative">
-                      <div className="absolute left-1/2 top-0 bottom-0 border-l border-cyan-500/40" />
-                      <div className="absolute top-1/2 left-0 right-0 border-t border-cyan-500/40" />
-                      <div className="absolute inset-4 rounded-full border border-cyan-500/40" />
-                    </div>
-                  </div>
-                  
-                  {/* Visual icon representation */}
-                  <div className="flex items-center justify-center gap-1.5 z-10">
-                    <Sliders className={`w-6 h-6 transition-transform duration-500 ${
-                      activeCategory === "blueprints" ? "text-cyan-400 scale-110 rotate-12" : "text-slate-500 group-hover:text-cyan-400/80"
-                    }`} />
-                  </div>
-                  <span className={`text-[8.5px] font-mono tracking-wider font-bold mt-2 z-10 uppercase ${
-                    activeCategory === "blueprints" ? "text-cyan-400" : "text-slate-500"
-                  }`}>
-                    BLUEPRINT
-                  </span>
-                  <span className="text-[7.5px] font-mono text-slate-600 z-10">DIAGN: ON</span>
-                </div>
-              </div>
-            </div>
-          </button>
-
-          <AnimatePresence initial={false}>
-            {activeCategory === "blueprints" && (
-              <motion.div
-                initial={{ height: 0, opacity: 0, marginTop: -8 }}
-                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
-                exit={{ height: 0, opacity: 0, marginTop: -8 }}
-                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                className="overflow-hidden w-full relative z-0"
-              >
-                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-black/80 border border-[#06b6d4] rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
-                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
-                    TECHNICAL & DIAGNOSTIC SYSTEM BLUEPRINTS
-                  </div>
-                  <div style={{ marginTop: "-20px", paddingTop: "11px", paddingBottom: "18px" }} className="flex items-center justify-between border-b border-white/5">
-                    <span className="text-xs font-mono font-bold tracking-widest text-[#90a1b9] uppercase flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                      <span>DIAGNOSTIC SYSTEM BLUEPRINTS</span>
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-500 text-right">
-                      Exposing critical audio performance vectors & Search Indexing blueprints
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col gap-5 relative">
-                    {getFilteredMetrics("blueprints").map((metric) => {
-                      if (!metric) return null;
-                      const isExpanded = expandedMetric === metric.id;
-                      return (
-                        <div key={metric.id} className="flex flex-col gap-1.5 relative" id={`metric-wrapper-${metric.id}`}>
-                          <RowMetricCard
-                            metric={metric}
-                            isExpanded={isExpanded}
-                            onClick={() => {
-                              setExpandedMetric(isExpanded ? null : metric.id);
-                            }}
-                          />
-                          {isExpanded && renderExpandedBreakdown(metric.id)}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div> {/* End of section-sonic */}
+      </div> /* End of section-sonic */
+      )}
 
         {/* SECTION: COMPOSITIONAL DEPTH */}
-        <div id="section-compositional" className="flex flex-col gap-4 mt-8">
+        {expandedCategory === "compositional" && (
+          <div id="section-compositional" className="flex flex-col gap-4 mt-8">
           <div className="flex items-center gap-3 px-1 py-2.5 border-t border-t-purple-500/30 border-b border-purple-500/20">
             <div className="w-1 h-6 bg-purple-500 rounded-full" />
             <span className="text-[11px] font-mono font-bold text-purple-400 uppercase tracking-widest">Compositional Depth</span>
@@ -6663,7 +6719,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             )}
           </AnimatePresence>
         </div>
-      </div> {/* End of section-compositional */}
+      </div> /* End of section-compositional */
+        )}
 
           </div> {/* End of MAIN CONTENT AREA */}
         </div> {/* End of critique-page-layout */}
