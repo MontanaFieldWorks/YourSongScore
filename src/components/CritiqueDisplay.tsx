@@ -5408,7 +5408,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             "aggress": "Aggressive", "late night": "Late Night", "atmospheric": "Atmospheric",
                             "nostalgic": "Nostalgic", "haunting": "Haunting", "playful": "Playful", "fun": "Fun",
                             "danc": "Danceable", "groov": "Groovy", "minimalist": "Minimalist", "epic": "Epic",
-                            "rebel": "Rebellious", "confident": "Confident", "emot": "Emotional", "power": "Powerful"
+                            "rebel": "Rebellious", "confident": "Confident", "emot": "Emotional", "power": "Powerful",
+                            "infectious": "Infectious", "feel-good": "Feel-Good", "feel good": "Feel-Good",
+                            "optimis": "Optimistic", "joyful": "Joyful", "celebrat": "Celebratory", "summer": "Summery",
+                            "retro": "Retro", "vintage": "Vintage", "soul": "Soulful", "motown": "Motown-Influenced",
+                            "funk": "Funky", "gospel": "Gospel-Tinged", "chart": "Chart-Ready", "crossover": "Crossover",
+                            "warm": "Warm", "bright": "Bright", "lush": "Lush", "modern": "Modern",
+                            "tension": "Tense", "build": "Building", "dramatic": "Dramatic", "soar": "Soaring",
+                            "vulnerable": "Vulnerable", "intimate": "Intimate", "honest": "Honest", "sincere": "Sincere"
                           };
                           const detected = Object.entries(tagMap)
                             .filter(([key]) => combined.toLowerCase().includes(key))
@@ -5444,6 +5451,21 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             "blues rock": ["Gary Clark Jr.", "Joe Bonamassa", "Marcus King", "The Black Keys"],
                             "garage rock": ["The Strokes", "Jack White", "The Hives", "The Vines"],
                             "pop rock": ["OneRepublic", "Imagine Dragons", "The Killers", "Neon Trees"],
+                            "dance-pop": ["Bruno Mars", "Justin Timberlake", "Dua Lipa", "Lizzo", "Doja Cat"],
+                            "dance pop": ["Bruno Mars", "Justin Timberlake", "Dua Lipa", "Lizzo", "Doja Cat"],
+                            "retro soul": ["Bruno Mars", "Leon Bridges", "Anderson .Paak", "Silk Sonic"],
+                            "retro-soul": ["Bruno Mars", "Leon Bridges", "Anderson .Paak", "Silk Sonic"],
+                            "motown": ["Bruno Mars", "Leon Bridges", "Smokey Robinson", "Silk Sonic"],
+                            "soul": ["Leon Bridges", "Anderson .Paak", "Gary Clark Jr.", "H.E.R."],
+                            "funk": ["Bruno Mars", "Anderson .Paak", "Silk Sonic", "Cory Wong"],
+                            "pop": ["Bruno Mars", "Ed Sheeran", "Harry Styles", "Dua Lipa"],
+                            "r&b": ["H.E.R.", "Daniel Caesar", "SZA", "Anderson .Paak"],
+                            "electronic": ["Daft Punk", "Disclosure", "Calvin Harris", "Kaytranada"],
+                            "country": ["Morgan Wallen", "Tyler Childers", "Zach Bryan", "Kacey Musgraves"],
+                            "folk": ["Noah Kahan", "Phoebe Bridgers", "Bon Iver", "Iron & Wine"],
+                            "hip hop": ["Kendrick Lamar", "J. Cole", "Isaiah Rashad", "Joey Bada$$"],
+                            "metal": ["Tool", "Mastodon", "Gojira", "Baroness"],
+                            "ambient": ["Brian Eno", "Hammock", "Explosions in the Sky", "Stars of the Lid"],
                           };
                           const combined = `${genre} ${subgenre} ${universe}`.toLowerCase();
                           let peers: string[] = ["The Black Keys", "Royal Blood", "Jack White", "Foo Fighters"];
