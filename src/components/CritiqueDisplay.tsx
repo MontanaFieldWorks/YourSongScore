@@ -321,6 +321,7 @@ export const REPRESENTATIVES = [
 ];
 
 interface PQMetricCardProps {
+  key?: React.Key | any;
   label: string;
   score: number;
   desc: string;
@@ -967,6 +968,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const [productionQualityExpanded, setProductionQualityExpanded] = useState(false);
   const [selectedPQMetric, setSelectedPQMetric] = useState<string | null>(null);
   const [artistAudienceExpanded, setArtistAudienceExpanded] = useState(false);
+  const [activeSection, setActiveSection] = useState<"streaming" | "sonic" | "compositional">("streaming");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   React.useEffect(() => {
     if (expandedMetric) {
@@ -4642,8 +4645,134 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           The below Core Metrics assess and evaluate the technical aspects of your song. The STREAMING ALGORITHMIC ALIGNMENT and ALGORITHMIC SANDBOX metrics act as algorithm simulators telling you how streaming networks might index and route your song before it gets its first stream.
         </div>
 
-        {/* Card 1: Mainstream Radio Formatting (blue) */}
-        <div className="flex flex-col w-full gap-4">
+        <div className="flex gap-0 relative mt-4" id="critique-page-layout">
+          
+          {/* SIDEBAR */}
+          <div 
+            className={`sticky top-4 self-start flex flex-col gap-2 transition-all duration-300 mr-4 ${sidebarCollapsed ? 'w-12' : 'w-48'}`}
+            style={{ height: 'fit-content' }}
+          >
+            {/* Collapse toggle */}
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="self-end mb-2 p-1.5 rounded-lg bg-neutral-900 border border-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            >
+              {sidebarCollapsed ? '→' : '←'}
+            </button>
+
+            {/* STREAMING READINESS nav item */}
+            <button
+              onClick={() => { setActiveSection("streaming"); document.getElementById("section-streaming")?.scrollIntoView({ behavior: "smooth" }); }}
+              className={`flex items-center gap-2.5 px-3 py-3 rounded-xl border transition-all cursor-pointer text-left ${
+                activeSection === "streaming" 
+                  ? "bg-blue-500/10 border-blue-500/40 text-blue-400" 
+                  : "bg-neutral-900/50 border-white/5 text-slate-500 hover:text-slate-300 hover:border-white/10"
+              }`}
+            >
+              <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+              {!sidebarCollapsed && (
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-wider">Streaming</span>
+                  <span className="text-[9px] font-mono text-slate-500">Readiness</span>
+                </div>
+              )}
+            </button>
+
+            {/* Sub-links for streaming — only show when active and not collapsed */}
+            {activeSection === "streaming" && !sidebarCollapsed && (
+              <div className="flex flex-col gap-1 pl-4 border-l border-blue-500/20 ml-3">
+                {["Commercial Impact", "Streaming Alignment", "Algo Sandbox", "Production Quality", "Artist & Audience"].map((label, i) => (
+                  <button
+                    key={i}
+                    onClick={() => document.getElementById(`sidebar-link-streaming-${i}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                    className="text-[9px] font-mono text-slate-500 hover:text-blue-400 transition-colors text-left py-0.5 cursor-pointer"
+                  >
+                    · {label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* SONIC SOUNDPRINT nav item */}
+            <button
+              onClick={() => { setActiveSection("sonic"); document.getElementById("section-sonic")?.scrollIntoView({ behavior: "smooth" }); }}
+              className={`flex items-center gap-2.5 px-3 py-3 rounded-xl border transition-all cursor-pointer text-left ${
+                activeSection === "sonic" 
+                  ? "bg-[#46F4CD]/10 border-[#46F4CD]/40 text-[#46F4CD]" 
+                  : "bg-neutral-900/50 border-white/5 text-slate-500 hover:text-slate-300 hover:border-white/10"
+              }`}
+            >
+              <div className="w-2 h-2 rounded-full bg-[#46F4CD] flex-shrink-0" />
+              {!sidebarCollapsed && (
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-wider">Sonic</span>
+                  <span className="text-[9px] font-mono text-slate-500">Soundprint</span>
+                </div>
+              )}
+            </button>
+
+            {/* Sub-links for sonic */}
+            {activeSection === "sonic" && !sidebarCollapsed && (
+              <div className="flex flex-col gap-1 pl-4 border-l border-[#46F4CD]/20 ml-3">
+                {["Engineering Studio", "Tech Blueprints"].map((label, i) => (
+                  <button
+                    key={i}
+                    onClick={() => document.getElementById(`sidebar-link-sonic-${i}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                    className="text-[9px] font-mono text-slate-500 hover:text-[#46F4CD] transition-colors text-left py-0.5 cursor-pointer"
+                  >
+                    · {label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* COMPOSITIONAL DEPTH nav item */}
+            <button
+              onClick={() => { setActiveSection("compositional"); document.getElementById("section-compositional")?.scrollIntoView({ behavior: "smooth" }); }}
+              className={`flex items-center gap-2.5 px-3 py-3 rounded-xl border transition-all cursor-pointer text-left ${
+                activeSection === "compositional" 
+                  ? "bg-purple-500/10 border-purple-500/40 text-purple-400" 
+                  : "bg-neutral-900/50 border-white/5 text-slate-500 hover:text-slate-300 hover:border-white/10"
+              }`}
+            >
+              <div className="w-2 h-2 rounded-full bg-purple-500 flex-shrink-0" />
+              {!sidebarCollapsed && (
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-wider">Compositional</span>
+                  <span className="text-[9px] font-mono text-slate-500">Depth</span>
+                </div>
+              )}
+            </button>
+
+            {/* Sub-links for compositional */}
+            {activeSection === "compositional" && !sidebarCollapsed && (
+              <div className="flex flex-col gap-1 pl-4 border-l border-purple-500/20 ml-3">
+                {["Artistic Impact", "Songwriting Quality", "Song Architecture"].map((label, i) => (
+                  <button
+                    key={i}
+                    onClick={() => document.getElementById(`sidebar-link-compositional-${i}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                    className="text-[9px] font-mono text-slate-500 hover:text-purple-400 transition-colors text-left py-0.5 cursor-pointer"
+                  >
+                    · {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* MAIN CONTENT AREA */}
+          <div className="flex-1 min-w-0 flex flex-col gap-4">
+            
+            {/* SECTION: STREAMING READINESS */}
+            <div id="section-streaming" className="flex flex-col gap-4">
+              <div className="flex items-center gap-3 px-1 py-2 border-b border-blue-500/20">
+                <div className="w-1 h-6 bg-blue-500 rounded-full" />
+                <span className="text-[11px] font-mono font-bold text-blue-400 uppercase tracking-widest">Streaming Readiness</span>
+                <span className="text-[9px] font-mono text-slate-500 ml-auto">Algorithmic curation & discovery potential</span>
+              </div>
+
+              {/* Card 1: Mainstream Radio Formatting (blue) */}
+              <div className="flex flex-col w-full gap-4" id="sidebar-link-streaming-0">
           <button
             onClick={() => handleCategoryChange("mainstream")}
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
@@ -4765,7 +4894,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         </div>
 
         {/* Card 5: Spotify Algorithm Compatibility Panel & Discovery Readiness Scorecard */}
-        <div className="flex flex-col w-full gap-4 relative z-10" id="spotify-metric-card-wrapper">
+        <div className="flex flex-col w-full gap-4 relative z-10" id="sidebar-link-streaming-1">
           
           {/* Button A: Spotify Algorithm Compatibility */}
           <button
@@ -4905,7 +5034,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         </div>
 
         {/* Card 2: Algotorial Playlist Sandbox Button/Shortcut (amber) */}
-        <div className="flex flex-col w-full gap-4" id="sandbox-metric-card-wrapper">
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-streaming-2">
           <button
             onClick={() => {
               if (activeCategory === "sandbox") {
@@ -5021,6 +5150,15 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             )}
           </AnimatePresence>
         </div>
+      </div> {/* End of section-streaming */}
+
+      {/* SECTION: SONIC SOUNDPRINT */}
+      <div id="section-sonic" className="flex flex-col gap-4 mt-8">
+        <div className="flex items-center gap-3 px-1 py-2 border-b border-[#46F4CD]/20">
+          <div className="w-1 h-6 bg-[#46F4CD] rounded-full" />
+          <span className="text-[11px] font-mono font-bold text-[#46F4CD] uppercase tracking-widest">Sonic Soundprint</span>
+          <span className="text-[9px] font-mono text-slate-500 ml-auto">Technical mix architecture & engineering diagnostics</span>
+        </div>
 
         {/* The prominent blue line element moved here dynamically */}
         <div className="my-[18px] border-b-4 border-blue-500/80 shadow-[0_0_12px_rgba(59,130,246,0.6)] rounded-full w-full" />
@@ -5031,7 +5169,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             if (onNavigateToEngineeringStudio) onNavigateToEngineeringStudio();
           }}
           className="group relative bg-[#13161C] border-[1.2px] border-[#2563EB] rounded-3xl p-6.5 shadow-[0_4px_30px_rgba(0,0,0,0.4)] flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-[0_0_40px_rgba(37,99,235,0.12)] hover:scale-[1.005]"
-          id="engineering-studio-invite-banner"
+          id="sidebar-link-sonic-0"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-blue-500/[0.015] to-[#2563EB]/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
           <div className="absolute top-0 right-0 w-[320px] h-[320px] bg-[#2563EB]/[0.02] rounded-full blur-[80px] pointer-events-none" />
@@ -5065,9 +5203,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             </button>
           </div>
         </div>
+      </div> {/* End of section-sonic */}
 
         {/* Card: Production Quality (Turquoise-Lime #46F4CD) */}
-        <div className="flex flex-col w-full gap-4 mt-6">
+        <div className="flex flex-col w-full gap-4 mt-6" id="sidebar-link-streaming-3">
           <button
             onClick={() => setProductionQualityExpanded(!productionQualityExpanded)}
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
@@ -5298,7 +5437,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         </div>
 
         {/* Card: Artist & Audience Positioning (Powder Blue #44CDF4) */}
-        <div className="flex flex-col w-full gap-4 mt-6">
+        <div className="flex flex-col w-full gap-4 mt-6" id="sidebar-link-streaming-4">
           <button
             onClick={() => setArtistAudienceExpanded(!artistAudienceExpanded)}
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
@@ -5438,7 +5577,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Sonic Peer Group</div>
                       <div className="flex flex-wrap gap-2">
                         {(() => {
-                          const universe = critique?.streamingAlignment?.artistUniverse ?? "";
+                          const universe = (critique?.streamingAlignment as any)?.artistUniverse ?? "";
                           const genre = critique?.vibe?.genre ?? "";
                           const subgenre = critique?.vibe?.subgenre ?? "";
                           const artistMap: { [key: string]: string[] } = {
@@ -5518,16 +5657,24 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </AnimatePresence>
         </div>
 
-        {/* Copy of the 3rd div selected (blue line) placed below the moved 1st div */}
-        <div className="my-[18px] border-b-4 border-blue-500/80 shadow-[0_0_12px_rgba(59,130,246,0.6)] rounded-full w-full" />
+        {/* SECTION: COMPOSITIONAL DEPTH */}
+        <div id="section-compositional" className="flex flex-col gap-4 mt-8">
+          <div className="flex items-center gap-3 px-1 py-2 border-b border-purple-500/20">
+            <div className="w-1 h-6 bg-purple-500 rounded-full" />
+            <span className="text-[11px] font-mono font-bold text-purple-400 uppercase tracking-widest">Compositional Depth</span>
+            <span className="text-[9px] font-mono text-slate-500 ml-auto">Songwriting craft, theory & artistic merit</span>
+          </div>
 
-        {/* Descriptive div above the Artistic Impact button */}
-        <div className="pl-5 pr-5 pt-[5px] pb-[5px] rounded-2xl bg-[#0e1115]/80 border border-white/5 text-white text-xs md:text-[13px] leading-relaxed shadow-sm font-sans mb-1">
-          The below metrics contain a host of sub metrics and provide you with a deep dive look at the creative and harmonic depth of your songs construction, how it might compare to other songs in your subgenre, and how the mix quality can be corrected if needed.
-        </div>
+          {/* Copy of the 3rd div selected (blue line) placed below the moved 1st div */}
+          <div className="my-[18px] border-b-4 border-blue-500/80 shadow-[0_0_12px_rgba(59,130,246,0.6)] rounded-full w-full" />
 
-        {/* Card 3: Artistic Integrity (purple/pink) */}
-        <div className="flex flex-col w-full gap-4">
+          {/* Descriptive div above the Artistic Impact button */}
+          <div className="pl-5 pr-5 pt-[5px] pb-[5px] rounded-2xl bg-[#0e1115]/80 border border-white/5 text-white text-xs md:text-[13px] leading-relaxed shadow-sm font-sans mb-1">
+            The below metrics contain a host of sub metrics and provide you with a deep dive look at the creative and harmonic depth of your songs construction, how it might compare to other songs in your subgenre, and how the mix quality can be corrected if needed.
+          </div>
+
+          {/* Card 3: Artistic Integrity (purple/pink) */}
+          <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-0">
           <button
             onClick={() => handleCategoryChange("artistic")}
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
@@ -5675,7 +5822,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         </div>
 
         {/* Card 4: Songwriting DNA & Potential (emerald) */}
-        <div className="flex flex-col w-full gap-4">
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-1">
           <button
             onClick={() => handleCategoryChange("dna")}
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
@@ -5795,7 +5942,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         </div>
 
         {/* Card 5: Song Architecture (violet) */}
-        <div className="flex flex-col w-full gap-4">
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-2">
           <button
             onClick={() => handleCategoryChange("architecture")}
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
@@ -6248,9 +6395,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             )}
           </AnimatePresence>
         </div>
+      </div> {/* End of section-compositional */}
 
         {/* Card: Technical and Diagnostic Blueprints (cyan) */}
-        <div className="flex flex-col w-full gap-4">
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-sonic-1">
           <button
             onClick={() => handleCategoryChange("blueprints")}
             id="blueprint-category-selector"
@@ -6391,6 +6539,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             )}
           </AnimatePresence>
         </div>
+
+          </div> {/* End of MAIN CONTENT AREA */}
+        </div> {/* End of critique-page-layout */}
       </div>
 
       {/* Old duplicate Spotify and Sandbox metrics layout containers */}
