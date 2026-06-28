@@ -320,6 +320,73 @@ export const REPRESENTATIVES = [
   }
 ];
 
+interface PQMetricCardProps {
+  label: string;
+  score: number;
+  desc: string;
+  improve: string;
+  idx: number;
+}
+
+function PQMetricCard({ label, score, desc, improve, idx }: PQMetricCardProps) {
+  const [expanded, setExpanded] = React.useState(false);
+  const pct = score;
+  const gradientColor = pct >= 80 ? "#268cff" : pct >= 60 ? "#59ffce" : pct >= 40 ? "#c5f63f" : "#a3d55a";
+  const endY = 30 - (pct * 0.26);
+
+  return (
+    <div
+      className="bg-[#050608] border border-white/8 rounded-2xl p-4 flex flex-col gap-2.5 cursor-pointer hover:border-white/15 transition-all"
+      onClick={() => setExpanded(!expanded)}
+    >
+      <div className="flex justify-between items-center">
+        <span className="text-[11px] font-mono font-bold text-slate-300 uppercase tracking-wide">{label}</span>
+        <span className="text-[12px] font-mono font-black" style={{ color: gradientColor }}>{pct} / 100</span>
+      </div>
+      <div className="w-full overflow-visible" style={{ height: "32px" }}>
+        <svg width="100%" height="32" viewBox="0 0 200 32" preserveAspectRatio="none" style={{ display: "block" }}>
+          <defs>
+            <linearGradient id={`pqgrad-${idx}`} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#a3d55a" />
+              <stop offset="40%" stopColor="#c5f63f" />
+              <stop offset="70%" stopColor="#59ffce" />
+              <stop offset="100%" stopColor="#268cff" />
+            </linearGradient>
+          </defs>
+          <path d="M 0 30 L 200 30" stroke="rgba(255,255,255,0.06)" strokeWidth="1" fill="none" />
+          <path
+            d={`M 0 30 C 60 30, 80 28, ${pct * 2} ${endY} L ${pct * 2} 32 L 0 32 Z`}
+            fill={`url(#pqgrad-${idx})`}
+            opacity="0.35"
+          />
+          <path
+            d={`M 0 30 C 60 30, 80 28, ${pct * 2} ${endY}`}
+            stroke={`url(#pqgrad-${idx})`}
+            strokeWidth="2"
+            fill="none"
+            style={{ filter: `drop-shadow(0 0 4px ${gradientColor}80)` }}
+          />
+          <circle
+            cx={pct * 2}
+            cy={endY}
+            r="3"
+            fill={gradientColor}
+            style={{ filter: `drop-shadow(0 0 6px ${gradientColor})` }}
+          />
+        </svg>
+      </div>
+      <p className="text-[10px] text-slate-400 leading-relaxed">{desc}</p>
+      {expanded && (
+        <div className="border-t border-white/5 pt-2.5 flex flex-col gap-1 animate-fadeIn">
+          <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider">How to improve</span>
+          <p className="text-[10px] text-slate-400 leading-relaxed">{improve}</p>
+        </div>
+      )}
+      <span className="text-[8px] font-mono text-slate-600 self-end">{expanded ? "CLOSE ↑" : "TAP FOR TIPS ↓"}</span>
+    </div>
+  );
+}
+
 export default function CritiqueDisplay({ critique, trackInfo, onClear, localFileBlobUrl, onViewDefinition, onOpenArConsult, onNavigateToRabbitHole, onNavigateToEngineeringStudio }: CritiqueDisplayProps) {
   const [activeTab, setActiveTab] = useState<"mix" | "execution" | "arrangement" | "azimuth">("mix");
   const [isPlaying, setIsPlaying] = useState(false);
@@ -5174,52 +5241,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         <>
                           {/* Two-column six-metric card grid */}
                           {(() => {
-                            const MetricCard = ({ m }: { m: any }) => {
-                              const [expanded, setExpanded] = useState(false);
-                              const pct = m.score;
-                              const gradientColor = pct >= 80
-                                ? "#268cff"
-                                : pct >= 60
-                                ? "#59ffce"
-                                : pct >= 40
-                                ? "#c5f63f"
-                                : "#a3d55a";
-                              const gradientBar = `linear-gradient(to right, #a3d55a, #c5f63f ${Math.round(pct * 0.4)}%, #59ffce ${Math.round(pct * 0.7)}%, #268cff)`;
-                              return (
-                                <div
-                                  className="bg-[#050608] border border-white/8 rounded-2xl p-4 flex flex-col gap-2.5 cursor-pointer hover:border-white/15 transition-all"
-                                  onClick={() => setExpanded(!expanded)}
-                                >
-                                  {/* Header row */}
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-[11px] font-mono font-bold text-slate-300 uppercase tracking-wide">{m.label}</span>
-                                    <span className="text-[12px] font-mono font-black" style={{ color: gradientColor }}>{pct} / 100</span>
-                                  </div>
-                                  {/* Gradient bar */}
-                                  <div className="w-full h-[6px] bg-neutral-900 rounded-full overflow-hidden border border-white/5">
-                                    <div
-                                      className="h-full rounded-full transition-all duration-700"
-                                      style={{
-                                        width: `${pct}%`,
-                                        background: gradientBar,
-                                        boxShadow: `0 0 8px ${gradientColor}60`
-                                      }}
-                                    />
-                                  </div>
-                                  {/* Description */}
-                                  <p className="text-[10px] text-slate-400 leading-relaxed">{m.desc}</p>
-                                  {/* Expand/collapse improve section */}
-                                  {expanded && (
-                                    <div className="border-t border-white/5 pt-2.5 flex flex-col gap-1 animate-fadeIn">
-                                      <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider">How to improve</span>
-                                      <p className="text-[10px] text-slate-400 leading-relaxed">{m.improve}</p>
-                                    </div>
-                                  )}
-                                  <span className="text-[8px] font-mono text-slate-600 self-end">{expanded ? "CLOSE ↑" : "TAP FOR TIPS ↓"}</span>
-                                </div>
-                              );
-                            };
-
                             const metricsList = [
                               {
                                 label: "Arrangement Density",
@@ -5262,7 +5283,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             return (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
                                 {metricsList.map((m, idx) => (
-                                  <MetricCard key={idx} m={m} />
+                                  <PQMetricCard
+                                    key={idx}
+                                    idx={idx}
+                                    label={m.label}
+                                    score={m.score}
+                                    desc={m.desc}
+                                    improve={m.improve}
+                                  />
                                 ))}
                               </div>
                             );
