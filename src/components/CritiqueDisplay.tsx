@@ -5195,16 +5195,56 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                                     <span className="text-[11px] font-mono font-bold text-slate-300 uppercase tracking-wide">{m.label}</span>
                                     <span className="text-[12px] font-mono font-black" style={{ color: gradientColor }}>{pct} / 100</span>
                                   </div>
-                                  {/* Gradient bar */}
-                                  <div className="w-full h-[6px] bg-neutral-900 rounded-full overflow-hidden border border-white/5">
-                                    <div
-                                      className="h-full rounded-full transition-all duration-700"
-                                      style={{
-                                        width: `${pct}%`,
-                                        background: gradientBar,
-                                        boxShadow: `0 0 8px ${gradientColor}60`
-                                      }}
-                                    />
+                                  {/* Gradient bar — ascending curve SVG */}
+                                  <div className="w-full overflow-visible" style={{ height: "32px" }}>
+                                    <svg
+                                      width="100%"
+                                      height="32"
+                                      viewBox="0 0 200 32"
+                                      preserveAspectRatio="none"
+                                      style={{ display: "block" }}
+                                    >
+                                      <defs>
+                                        <linearGradient id={`grad-${idx}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                                          <stop offset="0%" stopColor="#a3d55a" />
+                                          <stop offset="40%" stopColor="#c5f63f" />
+                                          <stop offset="70%" stopColor="#59ffce" />
+                                          <stop offset="100%" stopColor="#268cff" />
+                                        </linearGradient>
+                                        <clipPath id={`clip-${idx}`}>
+                                          <rect x="0" y="0" width={pct * 2} height="32" />
+                                        </clipPath>
+                                      </defs>
+                                      {/* Track baseline */}
+                                      <path
+                                        d={`M 0 30 L 200 30`}
+                                        stroke="rgba(255,255,255,0.06)"
+                                        strokeWidth="1"
+                                        fill="none"
+                                      />
+                                      {/* Ascending curve shape — filled */}
+                                      <path
+                                        d={`M 0 30 C 60 30, 80 28, ${pct * 2} ${30 - (pct * 0.26)} L ${pct * 2} 32 L 0 32 Z`}
+                                        fill={`url(#grad-${idx})`}
+                                        opacity="0.35"
+                                      />
+                                      {/* Ascending curve stroke line */}
+                                      <path
+                                        d={`M 0 30 C 60 30, 80 28, ${pct * 2} ${30 - (pct * 0.26)}`}
+                                        stroke={`url(#grad-${idx})`}
+                                        strokeWidth="2"
+                                        fill="none"
+                                        style={{ filter: `drop-shadow(0 0 4px ${gradientColor}80)` }}
+                                      />
+                                      {/* Score endpoint dot */}
+                                      <circle
+                                        cx={pct * 2}
+                                        cy={30 - (pct * 0.26)}
+                                        r="3"
+                                        fill={gradientColor}
+                                        style={{ filter: `drop-shadow(0 0 6px ${gradientColor})` }}
+                                      />
+                                    </svg>
                                   </div>
                                   {/* Description */}
                                   <p className="text-[10px] text-slate-400 leading-relaxed">{m.desc}</p>
