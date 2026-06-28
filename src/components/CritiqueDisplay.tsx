@@ -332,7 +332,7 @@ function PQMetricCard({ label, score, desc, improve, idx }: PQMetricCardProps) {
   const [expanded, setExpanded] = React.useState(false);
   const pct = score;
   const gradientColor = pct >= 80 ? "#268cff" : pct >= 60 ? "#59ffce" : pct >= 40 ? "#c5f63f" : "#a3d55a";
-  const endY = 30 - (pct * 0.26);
+  const endY = 62 - (pct * 0.52);
 
   return (
     <div
@@ -343,8 +343,8 @@ function PQMetricCard({ label, score, desc, improve, idx }: PQMetricCardProps) {
         <span className="text-[11px] font-mono font-bold text-slate-300 uppercase tracking-wide">{label}</span>
         <span className="text-[12px] font-mono font-black" style={{ color: gradientColor }}>{pct} / 100</span>
       </div>
-      <div className="w-full overflow-visible" style={{ height: "32px" }}>
-        <svg width="100%" height="32" viewBox="0 0 200 32" preserveAspectRatio="none" style={{ display: "block" }}>
+      <div className="w-full overflow-visible" style={{ height: "64px" }}>
+        <svg width="100%" height="64" viewBox="0 0 200 64" preserveAspectRatio="none" style={{ display: "block" }}>
           <defs>
             <linearGradient id={`pqgrad-${idx}`} x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="#a3d55a" />
@@ -352,26 +352,18 @@ function PQMetricCard({ label, score, desc, improve, idx }: PQMetricCardProps) {
               <stop offset="70%" stopColor="#59ffce" />
               <stop offset="100%" stopColor="#268cff" />
             </linearGradient>
+            <linearGradient id={`pqgradfill-${idx}`} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#a3d55a" stopOpacity="0.9" />
+              <stop offset="40%" stopColor="#c5f63f" stopOpacity="0.9" />
+              <stop offset="70%" stopColor="#59ffce" stopOpacity="0.9" />
+              <stop offset="100%" stopColor="#268cff" stopOpacity="0.9" />
+            </linearGradient>
           </defs>
-          <path d="M 0 30 L 200 30" stroke="rgba(255,255,255,0.06)" strokeWidth="1" fill="none" />
+          {/* Bright filled ascending curve only — no stroke line, no dot */}
           <path
-            d={`M 0 30 C 60 30, 80 28, ${pct * 2} ${endY} L ${pct * 2} 32 L 0 32 Z`}
-            fill={`url(#pqgrad-${idx})`}
-            opacity="0.35"
-          />
-          <path
-            d={`M 0 30 C 60 30, 80 28, ${pct * 2} ${endY}`}
-            stroke={`url(#pqgrad-${idx})`}
-            strokeWidth="2"
-            fill="none"
-            style={{ filter: `drop-shadow(0 0 4px ${gradientColor}80)` }}
-          />
-          <circle
-            cx={pct * 2}
-            cy={endY}
-            r="3"
-            fill={gradientColor}
-            style={{ filter: `drop-shadow(0 0 6px ${gradientColor})` }}
+            d={`M 0 62 C 60 62, 80 55, ${pct * 2} ${62 - (pct * 0.52)} L ${pct * 2} 64 L 0 64 Z`}
+            fill={`url(#pqgradfill-${idx})`}
+            style={{ filter: `drop-shadow(0 0 6px ${gradientColor}90)` }}
           />
         </svg>
       </div>
