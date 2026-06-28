@@ -5172,122 +5172,101 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                       return (
                         <>
-                          {/* Radar Chart */}
-                          <div className="flex justify-center">
-                            <svg width="320" height="310" viewBox="0 0 320 310">
-                              {/* Grid rings */}
-                              {gridLevels.map((level) => {
-                                const gpts = angles.map(a => ({
-                                  x: cx + r * (level / 100) * Math.cos(a),
-                                  y: cy + r * (level / 100) * Math.sin(a),
-                                }));
-                                return (
-                                  <polygon
-                                    key={level}
-                                    points={gpts.map(p => `${p.x},${p.y}`).join(" ")}
-                                    fill="none"
-                                    stroke="rgba(255,255,255,0.06)"
-                                    strokeWidth="1"
-                                  />
-                                );
-                              })}
-                              {/* Axis lines */}
-                              {angles.map((a, i) => (
-                                <line
-                                  key={i}
-                                  x1={cx} y1={cy}
-                                  x2={cx + r * Math.cos(a)}
-                                  y2={cy + r * Math.sin(a)}
-                                  stroke="rgba(255,255,255,0.06)"
-                                  strokeWidth="1"
-                                />
-                              ))}
-                              {/* Score polygon */}
-                              <polygon
-                                points={points.map(p => `${p.x},${p.y}`).join(" ")}
-                                fill="rgba(70,244,205,0.12)"
-                                stroke="#46F4CD"
-                                strokeWidth="1.5"
-                              />
-                              {/* Axis points — clickable */}
-                              {pqMetrics.map((m, i) => {
-                                const px = cx + r * Math.cos(angles[i]);
-                                const py = cy + r * Math.sin(angles[i]);
-                                const spx = cx + r * (m.score / 100) * Math.cos(angles[i]);
-                                const spy = cy + r * (m.score / 100) * Math.sin(angles[i]);
-                                const isSelected = selectedPQMetric === m.key;
-                                const dotColor = m.score >= 80 ? "#34d399" : m.score >= 60 ? "#fbbf24" : "#f87171";
-                                return (
-                                  <g key={m.key} onClick={() => setSelectedPQMetric(isSelected ? null : m.key)} style={{ cursor: "pointer" }}>
-                                    {/* Outer axis label hit area */}
-                                    <circle cx={px} cy={py} r={18} fill="transparent" />
-                                    {/* Score dot */}
-                                    <circle
-                                      cx={spx} cy={spy} r={isSelected ? 7 : 5}
-                                      fill={dotColor}
-                                      stroke={isSelected ? "white" : "rgba(0,0,0,0.5)"}
-                                      strokeWidth={isSelected ? 2 : 1}
+                          {/* Two-column six-metric card grid */}
+                          {(() => {
+                            const MetricCard = ({ m }: { m: any }) => {
+                              const [expanded, setExpanded] = useState(false);
+                              const pct = m.score;
+                              const gradientColor = pct >= 80
+                                ? "#268cff"
+                                : pct >= 60
+                                ? "#59ffce"
+                                : pct >= 40
+                                ? "#c5f63f"
+                                : "#a3d55a";
+                              const gradientBar = `linear-gradient(to right, #a3d55a, #c5f63f ${Math.round(pct * 0.4)}%, #59ffce ${Math.round(pct * 0.7)}%, #268cff)`;
+                              return (
+                                <div
+                                  className="bg-[#050608] border border-white/8 rounded-2xl p-4 flex flex-col gap-2.5 cursor-pointer hover:border-white/15 transition-all"
+                                  onClick={() => setExpanded(!expanded)}
+                                >
+                                  {/* Header row */}
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-[11px] font-mono font-bold text-slate-300 uppercase tracking-wide">{m.label}</span>
+                                    <span className="text-[12px] font-mono font-black" style={{ color: gradientColor }}>{pct} / 100</span>
+                                  </div>
+                                  {/* Gradient bar */}
+                                  <div className="w-full h-[6px] bg-neutral-900 rounded-full overflow-hidden border border-white/5">
+                                    <div
+                                      className="h-full rounded-full transition-all duration-700"
+                                      style={{
+                                        width: `${pct}%`,
+                                        background: gradientBar,
+                                        boxShadow: `0 0 8px ${gradientColor}60`
+                                      }}
                                     />
-                                    {/* Label */}
-                                    {m.label.split("\n").map((line, li) => (
-                                      <text
-                                        key={li}
-                                        x={px + (Math.cos(angles[i]) > 0.1 ? 10 : Math.cos(angles[i]) < -0.1 ? -10 : 0)}
-                                        y={py + (Math.sin(angles[i]) > 0.1 ? 14 : Math.sin(angles[i]) < -0.1 ? -8 : 0) + li * 12}
-                                        textAnchor={Math.cos(angles[i]) > 0.1 ? "start" : Math.cos(angles[i]) < -0.1 ? "end" : "middle"}
-                                        fill={isSelected ? dotColor : "rgba(255,255,255,0.55)"}
-                                        fontSize="9"
-                                        fontFamily="monospace"
-                                        fontWeight={isSelected ? "bold" : "normal"}
-                                      >
-                                        {line}
-                                      </text>
-                                    ))}
-                                    {/* Score label */}
-                                    <text
-                                      x={px + (Math.cos(angles[i]) > 0.1 ? 10 : Math.cos(angles[i]) < -0.1 ? -10 : 0)}
-                                      y={py + (Math.sin(angles[i]) > 0.1 ? 14 : Math.sin(angles[i]) < -0.1 ? -8 : 0) + 24}
-                                      textAnchor={Math.cos(angles[i]) > 0.1 ? "start" : Math.cos(angles[i]) < -0.1 ? "end" : "middle"}
-                                      fill={dotColor}
-                                      fontSize="8"
-                                      fontFamily="monospace"
-                                      fontWeight="bold"
-                                    >
-                                      {m.score}
-                                    </text>
-                                  </g>
-                                );
-                              })}
-                              {/* Center label */}
-                              <text x={cx} y={cy - 8} textAnchor="middle" fill="rgba(255,255,255,0.2)" fontSize="8" fontFamily="monospace">PRODUCTION</text>
-                              <text x={cx} y={cy + 4} textAnchor="middle" fill="rgba(255,255,255,0.2)" fontSize="8" fontFamily="monospace">QUALITY</text>
-                            </svg>
-                          </div>
+                                  </div>
+                                  {/* Description */}
+                                  <p className="text-[10px] text-slate-400 leading-relaxed">{m.desc}</p>
+                                  {/* Expand/collapse improve section */}
+                                  {expanded && (
+                                    <div className="border-t border-white/5 pt-2.5 flex flex-col gap-1 animate-fadeIn">
+                                      <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider">How to improve</span>
+                                      <p className="text-[10px] text-slate-400 leading-relaxed">{m.improve}</p>
+                                    </div>
+                                  )}
+                                  <span className="text-[8px] font-mono text-slate-600 self-end">{expanded ? "CLOSE ↑" : "TAP FOR TIPS ↓"}</span>
+                                </div>
+                              );
+                            };
 
-                          {/* Click-to-expand detail panel */}
-                          {selectedPQMetric && (() => {
-                            const m = pqMetrics.find(x => x.key === selectedPQMetric);
-                            if (!m) return null;
-                            const dotColor = m.score >= 80 ? "text-emerald-400" : m.score >= 60 ? "text-amber-400" : "text-red-400";
-                            const borderColor = m.score >= 80 ? "border-emerald-500/30" : m.score >= 60 ? "border-amber-500/30" : "border-red-500/30";
+                            const metricsList = [
+                              {
+                                label: "Arrangement Density",
+                                score: Math.min(100, Math.round((critique?.arrangement?.flowScore ?? 72) * 1.0)),
+                                desc: critique?.arrangement?.transitionsAndArc ?? "Arrangement transitions and dynamic arc data unavailable.",
+                                improve: "Try introducing a new element (pad, counter-melody, or percussion layer) in the second verse to prevent listener fatigue. In your DAW, automate a subtle filter sweep on a background element to maintain movement. Plugin suggestion: Soundtoys Crystallizer or a simple frequency shifter on a parallel bus."
+                              },
+                              {
+                                label: "Sonic Texture & Sound Design",
+                                score: Math.min(100, Math.round((critique?.scores?.overallProduction ?? 68) * 0.9)),
+                                desc: [critique?.vibe?.aesthetic, critique?.mixQuality?.dominanceIssues].filter(v => v && v.trim().toLowerCase() !== "none" && v.trim() !== "").join(" ") || "Sonic texture data unavailable.",
+                                improve: "Add harmonic saturation to your lead elements to give them character. Run a parallel saturation bus — send 20–30% of your mix to a saturator like Decapitator or RC-20 Retro Color, blend subtly. Plugin suggestion: Decapitator or RC-20 Retro Color."
+                              },
+                              {
+                                label: "Low-End Power",
+                                score: Math.min(100, Math.round(50 + ((liveMetrics?.calculatedBassEnergy ?? 0.3) * 100))),
+                                desc: critique?.mixQuality?.frequencyBalance?.lowEnd ?? "Low-end frequency data unavailable.",
+                                improve: "Sidechain your bass guitar or synth bass to the kick drum at a 3:1 ratio, 10ms attack, 80ms release. High-pass everything above 80Hz in the side channel (M/S EQ) to keep low end tight and mono. Plugin suggestion: Trackspacer or standard sidechain compression."
+                              },
+                              {
+                                label: "Width & Dimension",
+                                score: Math.min(100, Math.round(50 + ((liveMetrics?.calculatedStereoCorrelation ?? 0.5) * 45))),
+                                desc: critique?.mixQuality?.stereoField ?? "Stereo field data unavailable.",
+                                improve: "Apply mid-side EQ to your master bus: cut 200–300Hz in the sides to tighten the center, boost 8–12kHz in the sides for air. Plugin suggestion: Ozone Imager or MSED."
+                              },
+                              {
+                                label: "Vocal Production",
+                                score: Math.min(100, critique?.performance?.vocalScore ?? 65),
+                                desc: critique?.performance?.vocalsCritique ?? "Vocal production data unavailable.",
+                                improve: "Double your lead vocal with a pitch-shifted copy (detune ±8–12 cents) panned 30% left and right. Add a short plate reverb (pre-delay 18–22ms, decay 1.2s) at 12–15% wet. Plugin suggestion: FabFilter Pro-DS, Valhalla Plate."
+                              },
+                              {
+                                label: "Energy Management",
+                                score: Math.min(100, Math.round(50 + ((liveMetrics?.calculatedLra ?? 6) * 3))),
+                                desc: critique?.mixQuality?.frequencyBalance?.midrange ?? critique?.arrangement?.transitionsAndArc ?? "Energy management data unavailable.",
+                                improve: "Automate your master bus compressor threshold — open it up in verses (raise threshold 2–3dB) and tighten in choruses. Plugin suggestion: Waves SSL G-Bus Compressor or Klanghelm MJUC."
+                              },
+                            ];
+
                             return (
-                              <div className={`bg-[#050608] border ${borderColor} rounded-2xl p-4 flex flex-col gap-3 animate-fadeIn`}>
-                                <div className="flex justify-between items-center">
-                                  <span className="text-[12px] font-bold text-white uppercase tracking-wide">{m.key}</span>
-                                  <span className={`text-[12px] font-mono font-bold ${dotColor}`}>{m.score} / 100</span>
-                                </div>
-                                <p className="text-[11px] text-slate-300 leading-relaxed">{m.desc}</p>
-                                <div className="border-t border-white/5 pt-3 flex flex-col gap-1">
-                                  <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider">How to improve</span>
-                                  <p className="text-[11px] text-slate-400 leading-relaxed">{m.improve}</p>
-                                </div>
-                                <button onClick={() => setSelectedPQMetric(null)} className="self-end text-[9px] font-mono text-slate-600 hover:text-slate-400 transition-colors">CLOSE ✕</button>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                                {metricsList.map((m, idx) => (
+                                  <MetricCard key={idx} m={m} />
+                                ))}
                               </div>
                             );
                           })()}
-
-                          {/* Tap prompt */}
-                          <p className="text-[9px] text-slate-600 font-mono text-center">TAP ANY METRIC POINT TO SEE DETAILS & IMPROVEMENT TIPS</p>
                         </>
                       );
                     })()}
