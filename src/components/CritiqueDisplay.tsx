@@ -4713,7 +4713,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </button>
         </div>
 
-        <div className="flex gap-0 relative mt-4" id="critique-page-layout">
+        <div className="flex relative mt-4" id="critique-page-layout">
           
           {/* SIDEBAR */}
           <div 
@@ -4721,12 +4721,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             style={{ height: 'fit-content' }}
           >
             {/* Collapse toggle */}
-            <button
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="self-end mb-2 p-1.5 rounded-lg bg-neutral-900 border border-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
-            >
-              {sidebarCollapsed ? '→' : '←'}
-            </button>
+            <div className="relative flex justify-end mb-1">
+              <button
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                className="p-1 rounded-md bg-neutral-900/80 border border-white/5 text-slate-600 hover:text-slate-300 transition-colors cursor-pointer text-[10px] font-mono"
+              >
+                {sidebarCollapsed ? '→' : '←'}
+              </button>
+            </div>
 
             {/* STREAMING READINESS nav item */}
             <button
@@ -4869,72 +4871,72 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 {/* Streaming Readiness card */}
                 <div
                   onClick={() => setExpandedCategory("streaming")}
-                  className="group relative bg-[#090b0e] border border-blue-500/30 hover:border-blue-500/60 rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:shadow-[0_0_25px_rgba(59,130,246,0.15)] flex items-center justify-between gap-6 overflow-hidden"
+                  className="relative cursor-pointer rounded-2xl overflow-hidden border border-blue-500/30 hover:border-blue-400/60 transition-all duration-300 hover:shadow-[0_0_40px_rgba(59,130,246,0.2)]"
+                  style={{ minHeight: "170px", background: "linear-gradient(135deg, #020818 0%, #0a1628 40%, #0d1f3c 100%)" }}
                 >
-                  <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-blue-500 rounded-r" />
-                  <div className="flex flex-col gap-2 pl-3">
-                    <span className="text-[10px] font-mono text-blue-400 uppercase tracking-widest font-bold">Streaming Readiness</span>
-                    <h3 className="text-lg font-black text-white uppercase tracking-wide">Algorithmic Curation & Discovery</h3>
-                    <p className="text-[11px] text-slate-400 leading-relaxed max-w-lg">Commercial impact, streaming alignment, algorithmic sandbox, artist positioning — how streaming services find, categorize, and promote your song.</p>
-                    <div className="flex gap-2 mt-1 flex-wrap">
+                  {/* Glow circle arc */}
+                  <div className="absolute right-[-40px] top-[-40px] w-[220px] h-[220px] rounded-full border-[3px] border-blue-400/40 shadow-[0_0_60px_rgba(59,130,246,0.5),inset_0_0_60px_rgba(59,130,246,0.1)] pointer-events-none" />
+                  <div className="absolute right-[-20px] top-[-20px] w-[160px] h-[160px] rounded-full border-[2px] border-blue-300/20 pointer-events-none" />
+                  {/* Left accent bar */}
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-blue-400 to-blue-600" />
+                  {/* Content */}
+                  <div className="relative z-10 p-7 flex flex-col gap-3">
+                    <span className="text-[10px] font-mono font-bold text-blue-400 uppercase tracking-[0.2em]">Category</span>
+                    <h2 className="text-[32px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Streaming Readiness</h2>
+                    <p className="text-[12px] text-slate-400 leading-relaxed max-w-lg mt-1">Commercial impact, streaming alignment, algorithmic sandbox, artist positioning — how streaming services find, categorize, and promote your song.</p>
+                    <div className="flex gap-2 mt-2 flex-wrap">
                       {["Commercial Impact", "Streaming Alignment", "Algo Sandbox", "Artist & Audience"].map(tag => (
-                        <span key={tag} className="text-[8px] font-mono text-blue-400/60 border border-blue-500/15 px-2 py-0.5 rounded-full">{tag}</span>
+                        <span key={tag} className="text-[9px] font-mono text-blue-400/70 border border-blue-500/25 px-2.5 py-1 rounded-full">{tag}</span>
                       ))}
                     </div>
-                  </div>
-                  <div className="flex-shrink-0 flex flex-col items-center gap-1">
-                    <div className="w-16 h-16 rounded-full border-2 border-blue-500/40 flex items-center justify-center bg-blue-500/5">
-                      <span className="text-xl font-black font-mono text-blue-400">{streamingScore}</span>
-                    </div>
-                    <span className="text-[8px] font-mono text-slate-500 uppercase">Open ↓</span>
                   </div>
                 </div>
 
                 {/* Sonic Soundprint card */}
                 <div
                   onClick={() => setExpandedCategory("sonic")}
-                  className="group relative bg-[#090b0e] border border-[#46F4CD]/30 hover:border-[#46F4CD]/60 rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:shadow-[0_0_25px_rgba(70,244,205,0.15)] flex items-center justify-between gap-6 overflow-hidden"
+                  className="relative cursor-pointer rounded-2xl overflow-hidden border border-[#46F4CD]/30 hover:border-[#46F4CD]/60 transition-all duration-300 hover:shadow-[0_0_40px_rgba(70,244,205,0.2)]"
+                  style={{ minHeight: "170px", background: "linear-gradient(135deg, #020f0c 0%, #061a14 40%, #0a2a1e 100%)" }}
                 >
-                  <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#46F4CD] rounded-r" />
-                  <div className="flex flex-col gap-2 pl-3">
-                    <span className="text-[10px] font-mono text-[#46F4CD] uppercase tracking-widest font-bold">Sonic Soundprint</span>
-                    <h3 className="text-lg font-black text-white uppercase tracking-wide">Technical Mix Architecture</h3>
-                    <p className="text-[11px] text-slate-400 leading-relaxed max-w-lg">Engineering studio, production quality, and technical diagnostic blueprints — whether your mix sounds finished and competitive.</p>
-                    <div className="flex gap-2 mt-1 flex-wrap">
+                  {/* Glow circle arc */}
+                  <div className="absolute right-[-40px] top-[-40px] w-[220px] h-[220px] rounded-full border-[3px] border-[#46F4CD]/40 shadow-[0_0_60px_rgba(70,244,205,0.5),inset_0_0_60px_rgba(70,244,205,0.1)] pointer-events-none" />
+                  <div className="absolute right-[-20px] top-[-20px] w-[160px] h-[160px] rounded-full border-[2px] border-[#46F4CD]/20 pointer-events-none" />
+                  {/* Left accent bar */}
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-[#46F4CD] to-[#2dd4bf]" />
+                  {/* Content */}
+                  <div className="relative z-10 p-7 flex flex-col gap-3">
+                    <span className="text-[10px] font-mono font-bold text-[#46F4CD] uppercase tracking-[0.2em]">Category</span>
+                    <h2 className="text-[32px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Sonic Soundprint</h2>
+                    <p className="text-[12px] text-slate-400 leading-relaxed max-w-lg mt-1">Engineering studio, production quality, and technical diagnostic blueprints — whether your mix sounds finished and competitive.</p>
+                    <div className="flex gap-2 mt-2 flex-wrap">
                       {["Engineering Studio", "Production Quality", "Tech Blueprints"].map(tag => (
-                        <span key={tag} className="text-[8px] font-mono text-[#46F4CD]/60 border border-[#46F4CD]/15 px-2 py-0.5 rounded-full">{tag}</span>
+                        <span key={tag} className="text-[9px] font-mono text-[#46F4CD]/70 border border-[#46F4CD]/25 px-2.5 py-1 rounded-full">{tag}</span>
                       ))}
                     </div>
-                  </div>
-                  <div className="flex-shrink-0 flex flex-col items-center gap-1">
-                    <div className="w-16 h-16 rounded-full border-2 border-[#46F4CD]/40 flex items-center justify-center bg-[#46F4CD]/5">
-                      <span className="text-xl font-black font-mono text-[#46F4CD]">{sonicScore}</span>
-                    </div>
-                    <span className="text-[8px] font-mono text-slate-500 uppercase">Open ↓</span>
                   </div>
                 </div>
 
                 {/* Compositional Depth card */}
                 <div
                   onClick={() => setExpandedCategory("compositional")}
-                  className="group relative bg-[#090b0e] border border-purple-500/30 hover:border-purple-500/60 rounded-2xl p-6 cursor-pointer transition-all duration-300 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)] flex items-center justify-between gap-6 overflow-hidden"
+                  className="relative cursor-pointer rounded-2xl overflow-hidden border border-purple-500/30 hover:border-purple-400/60 transition-all duration-300 hover:shadow-[0_0_40px_rgba(168,85,247,0.2)]"
+                  style={{ minHeight: "170px", background: "linear-gradient(135deg, #0a0414 0%, #130820 40%, #1a0a2e 100%)" }}
                 >
-                  <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-purple-500 rounded-r" />
-                  <div className="flex flex-col gap-2 pl-3">
-                    <span className="text-[10px] font-mono text-purple-400 uppercase tracking-widest font-bold">Compositional Depth</span>
-                    <h3 className="text-lg font-black text-white uppercase tracking-wide">Songwriting Craft & Artistic Merit</h3>
-                    <p className="text-[11px] text-slate-400 leading-relaxed max-w-lg">Artistic impact, songwriting quality, and song architecture — the human elements that make a song worth remembering.</p>
-                    <div className="flex gap-2 mt-1 flex-wrap">
+                  {/* Glow circle arc */}
+                  <div className="absolute right-[-40px] top-[-40px] w-[220px] h-[220px] rounded-full border-[3px] border-purple-400/40 shadow-[0_0_60px_rgba(168,85,247,0.5),inset_0_0_60px_rgba(168,85,247,0.1)] pointer-events-none" />
+                  <div className="absolute right-[-20px] top-[-20px] w-[160px] h-[160px] rounded-full border-[2px] border-purple-300/20 pointer-events-none" />
+                  {/* Left accent bar */}
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-purple-400 to-purple-600" />
+                  {/* Content */}
+                  <div className="relative z-10 p-7 flex flex-col gap-3">
+                    <span className="text-[10px] font-mono font-bold text-purple-400 uppercase tracking-[0.2em]">Category</span>
+                    <h2 className="text-[32px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Compositional Depth</h2>
+                    <p className="text-[12px] text-slate-400 leading-relaxed max-w-lg mt-1">Artistic impact, songwriting quality, and song architecture — the human elements that make a song worth remembering.</p>
+                    <div className="flex gap-2 mt-2 flex-wrap">
                       {["Artistic Impact", "Songwriting Quality", "Song Architecture"].map(tag => (
-                        <span key={tag} className="text-[8px] font-mono text-purple-400/60 border border-purple-500/15 px-2 py-0.5 rounded-full">{tag}</span>
+                        <span key={tag} className="text-[9px] font-mono text-purple-400/70 border border-purple-500/25 px-2.5 py-1 rounded-full">{tag}</span>
                       ))}
                     </div>
-                  </div>
-                  <div className="flex-shrink-0 flex flex-col items-center gap-1">
-                    <div className="w-16 h-16 rounded-full border-2 border-purple-500/40 flex items-center justify-center bg-purple-500/5">
-                      <span className="text-xl font-black font-mono text-purple-400">{compositionalScore}</span>
-                    </div>
-                    <span className="text-[8px] font-mono text-slate-500 uppercase">Open ↓</span>
                   </div>
                 </div>
               </div>
