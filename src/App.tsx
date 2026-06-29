@@ -946,44 +946,46 @@ export default function App() {
                 <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
               </button>
               {showQuickTestDropdown && (
-                <div className="absolute right-0 sm:right-auto sm:left-0 mt-2 w-72 bg-[#0d0f14] border border-amber-500/30 rounded-2xl shadow-[0_10px_35px_rgba(0,0,0,0.8)] p-2.5 z-50 flex flex-col gap-1 text-left">
-                  <div className="px-3 py-2 border-b border-white/5">
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-amber-500 font-bold block">
-                      Developer Sandbox
-                    </span>
-                    <span className="text-[9px] text-slate-400 mt-0.5 block leading-tight">
-                      Instantly populate high-fidelity mock audits to test score gauges, DAW checklists & tabs.
-                    </span>
-                  </div>
-                  {TEST_SONG_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.id}
-                      onClick={() => {
-                        setCritiqueResult({
-                          ...opt.data,
-                          critique: applyGenreOverride(opt.data.critique)
-                        });
-                        setShowQuickTestDropdown(false);
-                        setViewingDefinitions(false);
-                        setViewingAboutPage(false);
-                        setViewingWhatItDoesPage(false);
-                        setViewingUsefulTools(false);
-                      }}
-                      className="w-full text-left p-2 rounded-xl hover:bg-amber-500/15 hover:text-white transition-all text-xs flex flex-col gap-1 group cursor-pointer border border-transparent hover:border-amber-500/20"
-                    >
-                      <div className="flex justify-between items-center w-full">
-                        <span className="font-extrabold text-[#E2E8F0] group-hover:text-amber-300">
-                          {opt.name}
-                        </span>
-                        <span className="text-[8px] font-mono px-1.5 py-0.5 rounded-md bg-white/5 border border-white/15 text-slate-400">
-                          {opt.artist}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 group-hover:text-slate-300 line-clamp-2 leading-relaxed">
-                        {opt.description}
+                <div className="absolute right-0 sm:right-auto sm:left-0 top-full pt-2 w-72 z-50">
+                  <div className="bg-[#0d0f14] border border-amber-500/30 rounded-2xl shadow-[0_10px_35px_rgba(0,0,0,0.8)] p-2.5 flex flex-col gap-1 text-left">
+                    <div className="px-3 py-2 border-b border-white/5">
+                      <span className="text-[10px] font-mono uppercase tracking-widest text-amber-500 font-bold block">
+                        Developer Sandbox
                       </span>
-                    </button>
-                  ))}
+                      <span className="text-[9px] text-slate-400 mt-0.5 block leading-tight">
+                        Instantly populate high-fidelity mock audits to test score gauges, DAW checklists & tabs.
+                      </span>
+                    </div>
+                    {TEST_SONG_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        onClick={() => {
+                          setCritiqueResult({
+                            ...opt.data,
+                            critique: applyGenreOverride(opt.data.critique)
+                          });
+                          setShowQuickTestDropdown(false);
+                          setViewingDefinitions(false);
+                          setViewingAboutPage(false);
+                          setViewingWhatItDoesPage(false);
+                          setViewingUsefulTools(false);
+                        }}
+                        className="w-full text-left p-2 rounded-xl hover:bg-amber-500/15 hover:text-white transition-all text-xs flex flex-col gap-1 group cursor-pointer border border-transparent hover:border-amber-500/20"
+                      >
+                        <div className="flex justify-between items-center w-full">
+                          <span className="font-extrabold text-[#E2E8F0] group-hover:text-amber-300">
+                            {opt.name}
+                          </span>
+                          <span className="text-[8px] font-mono px-1.5 py-0.5 rounded-md bg-white/5 border border-white/15 text-slate-400">
+                            {opt.artist}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 group-hover:text-slate-300 line-clamp-2 leading-relaxed">
+                          {opt.description}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -1009,68 +1011,70 @@ export default function App() {
                 </button>
 
                 {showLibraryDropdown && (
-                  <div className="absolute left-0 mt-2 w-48 bg-[#0d0f14] border border-blue-500/30 rounded-2xl shadow-[0_10px_35px_rgba(0,0,0,0.8)] p-2 z-50 flex flex-col gap-1 text-left">
-                    <button
-                      onClick={() => {
-                        setViewingAboutPage(!viewingAboutPage);
-                        setViewingWhatItDoesPage(false);
-                        setViewingDefinitions(false);
-                        setViewingUsefulTools(false);
-                        setViewingArRep(false);
-                        setViewingEngineeringDetails(false);
-                        setShowLibraryDropdown(false);
-                      }}
-                      className={`flex items-center gap-2 text-[11px] font-mono w-full text-left p-2 rounded-xl transition-all cursor-pointer ${
-                        viewingAboutPage 
-                          ? "bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold"
-                          : "hover:bg-blue-500/10 text-slate-300 hover:text-blue-300 border border-transparent"
-                      }`}
-                    >
-                      <HelpCircle className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                      <span>What YSS is</span>
-                    </button>
+                  <div className="absolute left-0 top-full pt-2 w-48 z-50">
+                    <div className="bg-[#0d0f14] border border-blue-500/30 rounded-2xl shadow-[0_10px_35px_rgba(0,0,0,0.8)] p-2 flex flex-col gap-1 text-left">
+                      <button
+                        onClick={() => {
+                          setViewingAboutPage(!viewingAboutPage);
+                          setViewingWhatItDoesPage(false);
+                          setViewingDefinitions(false);
+                          setViewingUsefulTools(false);
+                          setViewingArRep(false);
+                          setViewingEngineeringDetails(false);
+                          setShowLibraryDropdown(false);
+                        }}
+                        className={`flex items-center gap-2 text-[11px] font-mono w-full text-left p-2 rounded-xl transition-all cursor-pointer ${
+                          viewingAboutPage 
+                            ? "bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold"
+                            : "hover:bg-blue-500/10 text-slate-300 hover:text-blue-300 border border-transparent"
+                        }`}
+                      >
+                        <HelpCircle className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                        <span>What YSS is</span>
+                      </button>
 
-                    <button
-                      onClick={() => {
-                        setViewingWhatItDoesPage(!viewingWhatItDoesPage);
-                        setViewingAboutPage(false);
-                        setViewingDefinitions(false);
-                        setViewingUsefulTools(false);
-                        setViewingArRep(false);
-                        setViewingEngineeringDetails(false);
-                        setShowLibraryDropdown(false);
-                      }}
-                      className={`flex items-center gap-2 text-[11px] font-mono w-full text-left p-2 rounded-xl transition-all cursor-pointer ${
-                        viewingWhatItDoesPage 
-                          ? "bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold"
-                          : "hover:bg-blue-500/10 text-slate-300 hover:text-blue-300 border border-transparent"
-                      }`}
-                    >
-                      <Gauge className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
-                      <span>What YSS does</span>
-                    </button>
+                      <button
+                        onClick={() => {
+                          setViewingWhatItDoesPage(!viewingWhatItDoesPage);
+                          setViewingAboutPage(false);
+                          setViewingDefinitions(false);
+                          setViewingUsefulTools(false);
+                          setViewingArRep(false);
+                          setViewingEngineeringDetails(false);
+                          setShowLibraryDropdown(false);
+                        }}
+                        className={`flex items-center gap-2 text-[11px] font-mono w-full text-left p-2 rounded-xl transition-all cursor-pointer ${
+                          viewingWhatItDoesPage 
+                            ? "bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold"
+                            : "hover:bg-blue-500/10 text-slate-300 hover:text-blue-300 border border-transparent"
+                        }`}
+                      >
+                        <Gauge className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                        <span>What YSS does</span>
+                      </button>
 
-                    <button
-                      onClick={() => {
-                        setSelectedDefinitionTerm(undefined);
-                        setViewingDefinitions(!viewingDefinitions);
-                        setViewingAboutPage(false);
-                        setViewingWhatItDoesPage(false);
-                        setViewingUsefulTools(false);
-                        setViewingDashboard(false);
-                        setViewingArRep(false);
-                        setViewingEngineeringDetails(false);
-                        setShowLibraryDropdown(false);
-                      }}
-                      className={`flex items-center gap-2 text-[11px] font-mono w-full text-left p-2 rounded-xl transition-all cursor-pointer ${
-                        viewingDefinitions 
-                          ? "bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold"
-                          : "hover:bg-blue-500/10 text-slate-300 hover:text-blue-300 border border-transparent"
-                      }`}
-                    >
-                      <BookOpen className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                      <span>Glossary</span>
-                    </button>
+                      <button
+                        onClick={() => {
+                          setSelectedDefinitionTerm(undefined);
+                          setViewingDefinitions(!viewingDefinitions);
+                          setViewingAboutPage(false);
+                          setViewingWhatItDoesPage(false);
+                          setViewingUsefulTools(false);
+                          setViewingDashboard(false);
+                          setViewingArRep(false);
+                          setViewingEngineeringDetails(false);
+                          setShowLibraryDropdown(false);
+                        }}
+                        className={`flex items-center gap-2 text-[11px] font-mono w-full text-left p-2 rounded-xl transition-all cursor-pointer ${
+                          viewingDefinitions 
+                            ? "bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold"
+                            : "hover:bg-blue-500/10 text-slate-300 hover:text-blue-300 border border-transparent"
+                        }`}
+                      >
+                        <BookOpen className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                        <span>Glossary</span>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1338,13 +1342,14 @@ export default function App() {
                 <p className="text-slate-400 text-sm leading-relaxed mb-6">
                   Get commercial viability feedback and high-end mixing advice from a hybrid AI/Human coded and created A&R juggernaut analysis engine.  Upload your song and prepare to have your mind blown.
                 </p>
-                <div className="flex flex-col gap-3.5" id="benefit-points">
+                <div className="flex flex-col gap-1.5" id="benefit-points">
                   <div className="flex items-start gap-3">
                     <div className="w-6 h-6 bg-blue-500/10 border border-blue-500/15 text-blue-400 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 shadow-[0_0_8px_rgba(59,130,246,0.1)]">
                       <Radar className="w-3.5 h-3.5 text-blue-400 animate-spin-strobe" style={{ animationDuration: "2.4s" }} />
                     </div>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      <span className="font-semibold text-slate-200">Unbiased Assessment:</span> An AI driven analysis of how your song compares to the best music in your genre.
+                      <span className="font-semibold text-slate-200 block mb-0.5">Multi-Dimensional Studio Audit:</span>
+                      High-level engineering and A&R critiques of your song across seven core musical and technical dimensions to instantly evaluate its commercial viability.
                     </p>
                   </div>
                   <div className="flex items-start gap-3">
@@ -1352,7 +1357,8 @@ export default function App() {
                       <Radar className="w-3.5 h-3.5 text-blue-400 animate-spin-strobe" style={{ animationDuration: "3.6s" }} />
                     </div>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      <span className="font-semibold text-slate-200">Streaming Algotorial Gatekeeper Assessment:</span> Determine how your track fits in the decision structures of streaming services.
+                      <span className="font-semibold text-slate-200 block mb-0.5">Streaming Readiness/Algorithm Simulation:</span>
+                      Navigate critical gatekeeping filters on major streaming services by predicting how streaming services’ (Spotify) algorithmic analyses will index and route your track.
                     </p>
                   </div>
                   <div className="flex items-start gap-3">
@@ -1360,7 +1366,8 @@ export default function App() {
                       <Radar className="w-3.5 h-3.5 text-blue-400 animate-spin-strobe" style={{ animationDuration: "1.8s" }} />
                     </div>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      <span className="font-semibold text-slate-200">Spectral Analysis:</span> Detailed frequency critiques pointing out mud, harsh sibilance, or panning drops.
+                      <span className="font-semibold text-slate-200 block mb-0.5">Precision Engineering Studio & DAW-Optimized Engineering Checklists:</span>
+                      Nine diagnostic modules analyze a broad array of measurements that guide step-by-step, plugin setting specific mix correction blueprints.
                     </p>
                   </div>
                   <div className="flex items-start gap-3">
@@ -1368,15 +1375,17 @@ export default function App() {
                       <Radar className="w-3.5 h-3.5 text-blue-400 animate-spin-strobe" style={{ animationDuration: "4.5s" }} />
                     </div>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      <span className="font-semibold text-slate-200">A&amp;R AI Advisors:</span> Specialized AI A&amp;R Reps provide on demand targeted playlist strategies, marketing guidance, and production help.
+                      <span className="font-semibold text-slate-200 block mb-0.5">Genre Specific Assessment & Alignments:</span>
+                      High-level production analyses measure the similarities of your track to curated hit playlists to forecast target audience fits based on the standards of your genre.
                     </p>
                   </div>
                   <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-[#13161C] border border-blue-500/30 text-blue-400 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 shadow-[0_0_8px_rgba(59,130,246,0.15)]">
+                    <div className="w-6 h-6 bg-blue-500/10 border border-blue-500/15 text-blue-400 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 shadow-[0_0_8px_rgba(59,130,246,0.1)]">
                       <Radar className="w-3.5 h-3.5 text-blue-400 animate-spin-strobe" style={{ animationDuration: "2.8s" }} />
                     </div>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      <span className="font-semibold text-slate-200">DAW Engineering Checklist:</span> Custom, step-by-step target EQ values you can plug straight into your mixing project.
+                      <span className="font-semibold text-slate-200 block mb-0.5">Artist & Audience Positioning:</span>
+                      Know which algorithmic box your song gets sorted into with our one of a kind distinctiveness analysis showing if you own a niche or disappear into the crowd.
                     </p>
                   </div>
                 </div>
