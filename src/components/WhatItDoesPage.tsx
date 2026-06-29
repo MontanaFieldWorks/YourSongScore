@@ -3,7 +3,7 @@ import {
   ArrowLeft, BookOpen, Clock, Code, ShieldCheck, HelpCircle,
   Rabbit, Activity, Compass, Music, FileMusic, AudioLines, Headphones,
   Layers, Radio, Wrench, LineChart, BarChart3, Sparkles,
-  ChevronDown, ChevronUp, ChevronsUp, Volume2, ChevronsRight
+  ChevronDown, ChevronUp, ChevronsUp, Volume2, ChevronsRight, Cog
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -68,6 +68,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
   const [isAlgorithmicAlignmentOpen, setIsAlgorithmicAlignmentOpen] = React.useState(false);
   const [isAlgorithmicSandboxOpen, setIsAlgorithmicSandboxOpen] = React.useState(false);
   const [isEngineeringStudioOpen, setIsEngineeringStudioOpen] = React.useState(false);
+  const [isProductionQualityOpen, setIsProductionQualityOpen] = React.useState(false);
 
   React.useEffect(() => {
     window.scrollTo(0, 0);
@@ -775,25 +776,156 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                     )}
                   </AnimatePresence>
 
-                  <div className="border border-purple-500/30 bg-purple-500/[0.07] p-3.5 rounded-xl">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <Music className="w-4 h-4 text-purple-400 shrink-0" />
-                      <h4 className="text-xs font-bold text-slate-200">PRODUCTION INDEX</h4>
+                  <div 
+                    id="production-quality-toggle-btn"
+                    onClick={() => setIsProductionQualityOpen(!isProductionQualityOpen)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIsProductionQualityOpen(!isProductionQualityOpen);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isProductionQualityOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-[#46F4CD]/50 ${
+                      isProductionQualityOpen 
+                        ? "border-[#46F4CD]/60 bg-[#46F4CD]/[0.12] shadow-[0_0_15px_rgba(70,244,205,0.15)]" 
+                        : "border-[#46F4CD]/30 bg-[#46F4CD]/[0.07] hover:border-[#46F4CD]/50 hover:bg-[#46F4CD]/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Cog className="w-4 h-4 text-[#46F4CD] shrink-0 animate-spin" style={{ animationDuration: '6s' }} />
+                        <h4 className="text-xs font-bold text-slate-200 tracking-wider">PRODUCTION QUALITY</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isProductionQualityOpen ? "rotate-180 text-[#46F4CD]" : "group-hover/btn:text-slate-200"}`} />
                     </div>
+                    <h3 className="text-xs font-bold text-[#46F4CD] mb-1 leading-snug">Production & Arrangement Diagnostic</h3>
                     <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
-                      Evaluates the physical alignment, tracking quality, and engineering polish applied to the final mix and master.
+                      A diagnostic of whether your track sounds finished - evaluating the production decisions that separate a competitive release from a home recording. <span className="text-[10px] text-[#46F4CD] font-semibold block mt-1 hover:underline">Click to {isProductionQualityOpen ? "collapse details" : "expand details"}</span>
                     </p>
                   </div>
-                  
-                  <div className="border border-cyan-500/30 bg-cyan-500/[0.07] p-3.5 rounded-xl">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <FileMusic className="w-4 h-4 text-cyan-400 shrink-0" />
-                      <h4 className="text-xs font-bold text-slate-200">MIX BALANCE QUALITY</h4>
-                    </div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed font-sans">
-                      Audits the relative power and distribution of bass, mid, and high frequencies across the stereo output to provide an actionable mixing correction plan.
-                    </p>
-                  </div>
+
+                  <AnimatePresence>
+                    {isProductionQualityOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="border border-[#46F4CD]/15 bg-neutral-900/40 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-xs shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-[#46F4CD]/5 rounded-full blur-[20px] pointer-events-none" />
+                          
+                          <div className="flex flex-col gap-1 relative z-10">
+                            <div className="flex items-center gap-2 pb-1 border-b border-white/5">
+                              <GlowingLoader color="#46F4CD" glowColor="rgba(70, 244, 205, 0.4)" className="text-[#46F4CD] shrink-0" />
+                              <h5 className="text-[10.5px] font-mono tracking-wider font-extrabold text-[#46F4CD] uppercase">
+                                PRODUCTION QUALITY DIAGNOSTICS
+                              </h5>
+                            </div>
+                            
+                            <p className="text-[11px] text-slate-200 leading-[1.4] mt-2 font-medium">
+                              Streaming algorithms don't hear your mix — but your listeners do. Poor production drives early skips, and early skips tank your algorithmic reach.
+                            </p>
+
+                            <div className="p-3 bg-[#0A0B0E]/60 border border-white/5 rounded-lg my-1.5">
+                              <p className="text-[10px] text-slate-400 leading-relaxed italic">
+                                <strong className="text-[#46F4CD] not-italic font-bold">NOTE:</strong> Some of these metrics share data with other YSS modules. PRODUCTION QUALITY combines them here with a single focus: not whether your mix is technically correct, but whether it sounds like a finished, competitive record.
+                              </p>
+                            </div>
+                            
+                            <div className="flex flex-col gap-3.5 pl-[6px] mt-1.5">
+                              <div className="flex gap-2">
+                                <span className="text-[#46F4CD] font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Arrangement Density</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    How effectively your song layers instruments and elements across its runtime to maintain listener engagement without sounding cluttered or thin.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-[#46F4CD] font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Sonic Texture &amp; Sound Design</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    Whether your instrument tones, synth choices, and sound selection have character and intentionality, or sound generic and unprocessed.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-[#46F4CD] font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Low-End Power</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    The physical punch and definition of your bass and kick relationship — whether your track hits with authority on speakers and headphones alike.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-[#46F4CD] font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Width &amp; Dimension</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    How far your mix extends across the stereo field and front-to-back depth, creating the sense of space that separates professional productions from flat recordings.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-[#46F4CD] font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Vocal Production</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    The quality of the vocal chain, treatment, and placement — including doubles, effects, and whether the voice commands attention or gets lost in the mix.
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                <span className="text-[#46F4CD] font-mono text-[10px] select-none shrink-0 mt-0.5">○</span>
+                                <div className="flex flex-col">
+                                  <span className="text-[11px] font-bold text-slate-200 leading-[1.375]">Energy Management</span>
+                                  <span className="text-[10.5px] text-slate-400 leading-[1.375] mt-0.5">
+                                    Whether your track's dynamic arc builds, breathes, and releases across its runtime, or stays flat and fatiguing from start to finish.
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Collapse button inside the dropdown container at the bottom */}
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-2 relative z-10">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsProductionQualityOpen(false);
+                                setTimeout(() => {
+                                  const toggleBtn = document.getElementById("production-quality-toggle-btn");
+                                  if (toggleBtn) {
+                                    toggleBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                                    toggleBtn.focus();
+                                  }
+                                }, 100);
+                              }}
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#46F4CD]/10 hover:bg-[#46F4CD]/20 border border-[#46F4CD]/20 hover:border-[#46F4CD]/40 text-[#46F4CD] hover:text-white text-[10px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-[#46F4CD]/50 w-full"
+                              title="Collapse details"
+                            >
+                              <ChevronsUp className="w-3.5 h-3.5" />
+                              <span>Collapse Details</span>
+                            </button>
+                          </div>
+
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   <div className="border border-cyan-500/30 bg-cyan-500/[0.07] p-3.5 rounded-xl">
                     <div className="flex items-center gap-2 mb-1.5">
