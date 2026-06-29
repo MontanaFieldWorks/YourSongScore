@@ -4721,12 +4721,15 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             style={{ height: 'fit-content' }}
           >
             {/* Collapse toggle */}
-            <div className="relative flex justify-end mb-1">
+            <div className="flex items-center justify-between px-2 py-1 mb-2">
+              <span className="text-[10px] font-mono text-slate-600 tracking-widest uppercase">
+                {sidebarCollapsed ? '' : 'Menu'}
+              </span>
               <button
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                className="p-1 rounded-md bg-neutral-900/80 border border-white/5 text-slate-600 hover:text-slate-300 transition-colors cursor-pointer text-[10px] font-mono"
+                className="p-1 rounded-md bg-neutral-900/80 border border-white/5 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer text-[11px] font-mono leading-none"
               >
-                {sidebarCollapsed ? '→' : '←'}
+                {sidebarCollapsed ? '»' : '«'}
               </button>
             </div>
 
@@ -4749,8 +4752,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 {!sidebarCollapsed && (
                   <>
                     <div className="flex flex-col min-w-0 truncate">
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-widest leading-none">STREAMING READINESS</span>
-                      <span className="text-[8.5px] font-mono text-slate-500 mt-1">Curation & Discovery</span>
+                      <span className="text-[11px] font-mono font-bold uppercase tracking-widest leading-none">STREAMING READINESS</span>
                     </div>
                   </>
                 )}
@@ -4765,9 +4767,16 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     key={i}
                     onClick={() => {
                       const ids = ["sidebar-link-streaming-0", "sidebar-link-streaming-1", "sidebar-link-streaming-2", "sidebar-link-streaming-4"];
-                      document.getElementById(ids[i])?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      setExpandedCategory('streaming');
+                      setTimeout(() => {
+                        const el = document.getElementById(ids[i]);
+                        if (el) {
+                          const top = el.getBoundingClientRect().top + window.scrollY - 80;
+                          window.scrollTo({ top, behavior: 'smooth' });
+                        }
+                      }, 150);
                     }}
-                    className="text-[9px] font-mono text-slate-500 hover:text-blue-400 hover:bg-blue-500/5 px-2 py-1 rounded-md transition-all text-left cursor-pointer truncate w-full"
+                    className="text-[12px] font-display font-normal text-slate-500 hover:text-blue-400 hover:bg-blue-500/5 px-2 py-1 rounded-md transition-all text-left cursor-pointer truncate w-full"
                   >
                     · {label}
                   </button>
@@ -4794,8 +4803,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 {!sidebarCollapsed && (
                   <>
                     <div className="flex flex-col min-w-0 truncate">
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-widest leading-none">SONIC SOUNDPRINT</span>
-                      <span className="text-[8.5px] font-mono text-slate-500 mt-1">Mix Diagnostics</span>
+                      <span className="text-[11px] font-mono font-bold uppercase tracking-widest leading-none">SONIC SOUNDPRINT</span>
                     </div>
                   </>
                 )}
@@ -4810,9 +4818,16 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     key={i}
                     onClick={() => {
                       const ids = ["sidebar-link-sonic-0", "sidebar-link-sonic-2", "sidebar-link-sonic-1"];
-                      document.getElementById(ids[i])?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      setExpandedCategory('sonic');
+                      setTimeout(() => {
+                        const el = document.getElementById(ids[i]);
+                        if (el) {
+                          const top = el.getBoundingClientRect().top + window.scrollY - 80;
+                          window.scrollTo({ top, behavior: 'smooth' });
+                        }
+                      }, 150);
                     }}
-                    className="text-[9px] font-mono text-slate-500 hover:text-[#46F4CD] hover:bg-[#46F4CD]/5 transition-colors text-left py-1 px-2 rounded cursor-pointer"
+                    className="text-[12px] font-display font-normal text-slate-500 hover:text-[#46F4CD] hover:bg-[#46F4CD]/5 transition-colors text-left py-1 px-2 rounded cursor-pointer"
                   >
                     · {label}
                   </button>
@@ -4839,8 +4854,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 {!sidebarCollapsed && (
                   <>
                     <div className="flex flex-col min-w-0 truncate">
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-widest leading-none">COMPOSITIONAL DEPTH</span>
-                      <span className="text-[8.5px] font-mono text-slate-500 mt-1">Theory & Craft</span>
+                      <span className="text-[11px] font-mono font-bold uppercase tracking-widest leading-none">COMPOSITIONAL DEPTH</span>
                     </div>
                   </>
                 )}
@@ -4853,8 +4867,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 {["Artistic Impact", "Songwriting Quality", "Song Architecture"].map((label, i) => (
                   <button
                     key={i}
-                    onClick={() => document.getElementById(`sidebar-link-compositional-${i}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
-                    className="text-[9px] font-mono text-slate-500 hover:text-purple-400 hover:bg-purple-500/5 px-2 py-1 rounded-md transition-all text-left cursor-pointer truncate w-full"
+                    onClick={() => {
+                      setExpandedCategory('compositional');
+                      setTimeout(() => {
+                        const el = document.getElementById(`sidebar-link-compositional-${i}`);
+                        if (el) {
+                          const top = el.getBoundingClientRect().top + window.scrollY - 80;
+                          window.scrollTo({ top, behavior: 'smooth' });
+                        }
+                      }, 150);
+                    }}
+                    className="text-[12px] font-display font-normal text-slate-500 hover:text-purple-400 hover:bg-purple-500/5 px-2 py-1 rounded-md transition-all text-left cursor-pointer truncate w-full"
                   >
                     · {label}
                   </button>
@@ -4872,11 +4895,25 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div
                   onClick={() => setExpandedCategory("streaming")}
                   className="relative cursor-pointer rounded-2xl overflow-hidden border border-blue-500/30 hover:border-blue-400/60 transition-all duration-300 hover:shadow-[0_0_40px_rgba(59,130,246,0.2)]"
-                  style={{ minHeight: "170px", background: "linear-gradient(135deg, #020818 0%, #0a1628 40%, #0d1f3c 100%)" }}
+                  style={{ minHeight: "170px", background: "linear-gradient(135deg, #090b0e 0%, #090b0e 60%, #0d1628 100%)" }}
                 >
-                  {/* Glow circle arc */}
-                  <div className="absolute right-[-40px] top-[-40px] w-[220px] h-[220px] rounded-full border-[3px] border-blue-400/40 shadow-[0_0_60px_rgba(59,130,246,0.5),inset_0_0_60px_rgba(59,130,246,0.1)] pointer-events-none" />
-                  <div className="absolute right-[-20px] top-[-20px] w-[160px] h-[160px] rounded-full border-[2px] border-blue-300/20 pointer-events-none" />
+                  {/* Atmospheric gradient glow — bleeds left from circle */}
+                  <div className="absolute inset-0 pointer-events-none rounded-2xl overflow-hidden">
+                    <div className="absolute inset-0" style={{
+                      background: "linear-gradient(to left, #2f65be 0%, #2b5cac 4%, #1c3c73 12%, #152d56 20%, #102241 28%, #0a162a 38%, #040911 52%, #000000 65%)",
+                      opacity: 0.9
+                    }} />
+                  </div>
+                  {/* Thick white circle — center positioned below-right of card */}
+                  <div className="absolute pointer-events-none" style={{
+                    width: "600px",
+                    height: "600px",
+                    borderRadius: "50%",
+                    border: "20px solid rgba(255,255,255,0.95)",
+                    right: "-320px",
+                    bottom: "-320px",
+                    boxShadow: "0 0 30px rgba(59,130,246,1), 0 0 60px rgba(59,130,246,0.8), 0 0 100px rgba(59,130,246,0.5), inset 0 0 30px rgba(59,130,246,0.8), inset 0 0 60px rgba(59,130,246,0.4)"
+                  }} />
                   {/* Left accent bar */}
                   <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-blue-400 to-blue-600" />
                   {/* Content */}
@@ -4896,11 +4933,25 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div
                   onClick={() => setExpandedCategory("sonic")}
                   className="relative cursor-pointer rounded-2xl overflow-hidden border border-[#46F4CD]/30 hover:border-[#46F4CD]/60 transition-all duration-300 hover:shadow-[0_0_40px_rgba(70,244,205,0.2)]"
-                  style={{ minHeight: "170px", background: "linear-gradient(135deg, #020f0c 0%, #061a14 40%, #0a2a1e 100%)" }}
+                  style={{ minHeight: "170px", background: "linear-gradient(135deg, #090b0e 0%, #090b0e 60%, #091a14 100%)" }}
                 >
-                  {/* Glow circle arc */}
-                  <div className="absolute right-[-40px] top-[-40px] w-[220px] h-[220px] rounded-full border-[3px] border-[#46F4CD]/40 shadow-[0_0_60px_rgba(70,244,205,0.5),inset_0_0_60px_rgba(70,244,205,0.1)] pointer-events-none" />
-                  <div className="absolute right-[-20px] top-[-20px] w-[160px] h-[160px] rounded-full border-[2px] border-[#46F4CD]/20 pointer-events-none" />
+                  {/* Atmospheric gradient glow — bleeds left from circle */}
+                  <div className="absolute inset-0 pointer-events-none rounded-2xl overflow-hidden">
+                    <div className="absolute inset-0" style={{
+                      background: "linear-gradient(to left, #168ba0 0%, #0c7490 4%, #094d60 12%, #083e4b 20%, #09313b 28%, #072228 38%, #030809 52%, #000000 65%)",
+                      opacity: 0.9
+                    }} />
+                  </div>
+                  {/* Thick white circle — center positioned below-right, showing 9:00 to 10:20 arc */}
+                  <div className="absolute pointer-events-none" style={{
+                    width: "600px",
+                    height: "600px",
+                    borderRadius: "50%",
+                    border: "20px solid rgba(255,255,255,0.95)",
+                    right: "-380px",
+                    bottom: "-280px",
+                    boxShadow: "0 0 30px rgba(70,244,205,1), 0 0 60px rgba(70,244,205,0.8), 0 0 100px rgba(70,244,205,0.5), inset 0 0 30px rgba(70,244,205,0.8), inset 0 0 60px rgba(70,244,205,0.4)"
+                  }} />
                   {/* Left accent bar */}
                   <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-[#46F4CD] to-[#2dd4bf]" />
                   {/* Content */}
@@ -4920,11 +4971,25 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div
                   onClick={() => setExpandedCategory("compositional")}
                   className="relative cursor-pointer rounded-2xl overflow-hidden border border-purple-500/30 hover:border-purple-400/60 transition-all duration-300 hover:shadow-[0_0_40px_rgba(168,85,247,0.2)]"
-                  style={{ minHeight: "170px", background: "linear-gradient(135deg, #0a0414 0%, #130820 40%, #1a0a2e 100%)" }}
+                  style={{ minHeight: "170px", background: "linear-gradient(135deg, #090b0e 0%, #090b0e 60%, #12091e 100%)" }}
                 >
-                  {/* Glow circle arc */}
-                  <div className="absolute right-[-40px] top-[-40px] w-[220px] h-[220px] rounded-full border-[3px] border-purple-400/40 shadow-[0_0_60px_rgba(168,85,247,0.5),inset_0_0_60px_rgba(168,85,247,0.1)] pointer-events-none" />
-                  <div className="absolute right-[-20px] top-[-20px] w-[160px] h-[160px] rounded-full border-[2px] border-purple-300/20 pointer-events-none" />
+                  {/* Atmospheric gradient glow — bleeds left from circle */}
+                  <div className="absolute inset-0 pointer-events-none rounded-2xl overflow-hidden">
+                    <div className="absolute inset-0" style={{
+                      background: "linear-gradient(to left, #7e3ac7 0%, #7436b7 4%, #50267e 12%, #401f64 20%, #331a4e 28%, #241435 38%, #160d20 52%, #000000 65%)",
+                      opacity: 0.9
+                    }} />
+                  </div>
+                  {/* Thick white circle — center positioned below-right, showing 9:00 to 10:20 arc, shifted further right */}
+                  <div className="absolute pointer-events-none" style={{
+                    width: "600px",
+                    height: "600px",
+                    borderRadius: "50%",
+                    border: "20px solid rgba(255,255,255,0.95)",
+                    right: "-460px",
+                    bottom: "-240px",
+                    boxShadow: "0 0 30px rgba(168,85,247,1), 0 0 60px rgba(168,85,247,0.8), 0 0 100px rgba(168,85,247,0.5), inset 0 0 30px rgba(168,85,247,0.8), inset 0 0 60px rgba(168,85,247,0.4)"
+                  }} />
                   {/* Left accent bar */}
                   <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-purple-400 to-purple-600" />
                   {/* Content */}
