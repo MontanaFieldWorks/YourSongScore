@@ -236,107 +236,70 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   const highPerc = Math.max(5, Math.min(50, Math.round((highEnergy / totalSpectralPower) * 100)));
   const midPerc = 100 - bassPerc - highPerc;
 
-  // 6. Envelope-Based Beat / BPM Detection
-  // Apply a low-pass filter simulation (< 150 Hz) to isolate kick drum energy
-  // This is the standard technique: filter first, then detect peaks
-  // We simulate a low-pass by averaging blocks — high frequencies cancel, low frequencies survive
+  // 6. Autocorrelation-Based BPM Detection
+  // Build onset strength envelope in 10ms hops across the full signal
   let detectedBpm = 120;
-  const lpBlockSize = Math.floor(sampleRate / 150 / hop); // ~one cycle of 150Hz
-  const lpFiltered: number[] = [];
-  for (let i = 0; i < filteredLength; i++) {
+  const hopSize = Math.floor(sampleRate * 0.01); // 10ms hop
+  const envLength = Math.floor(fCh0.length / hopSize);
+  const envelope: number[] = [];
+
+  for (let i = 0; i < envLength; i++) {
+    let energy = 0;
+    const start = i * hopSize;
+    const end = Math.min(fCh0.length, start + hopSize);
+    for (let j = start; j < end; j++) {
+      energy += fCh0[j] * fCh0[j];
+    }
+    envelope.push(Math.sqrt(energy / hopSize));
+  }
+
+  // Compute onset strength: positive first-order difference of envelope
+  const onsetStrength: number[] = [0];
+  for (let i = 1; i < envelope.length; i++) {
+    onsetStrength.push(Math.max(0, envelope[i] - envelope[i - 1]));
+  }
+
+  // Autocorrelate the onset strength signal
+  // Lag range covers 60 BPM (1.0s) down to 200 BPM (0.3s)
+  const minLag = Math.floor((60 / 200) * (sampleRate / hopSize)); // 200 BPM
+  const maxLag = Math.floor((60 / 60) * (sampleRate / hopSize));  // 60 BPM
+  const acf: number[] = [];
+
+  for (let lag = minLag; lag <= maxLag; lag++) {
     let sum = 0;
-    let count = 0;
-    for (let j = Math.max(0, i - lpBlockSize); j <= Math.min(filteredLength - 1, i + lpBlockSize); j++) {
-      sum += fCh0[j];
-      count++;
+    for (let i = 0; i < onsetStrength.length - lag; i++) {
+      sum += onsetStrength[i] * onsetStrength[i + lag];
     }
-    lpFiltered.push(sum / count);
+    acf.push(sum);
   }
 
-  // Compute envelope energy on low-pass filtered signal only
-  const envelopeBlockSize = Math.floor((sampleRate * 0.05) / hop); // 50ms blocks
-  const envelopePoints: number[] = [];
-  for (let i = 0; i < filteredLength; i += envelopeBlockSize) {
-    let energySum = 0;
-    const blockEnd = Math.min(filteredLength, i + envelopeBlockSize);
-    for (let j = i; j < blockEnd; j++) {
-      energySum += lpFiltered[j] * lpFiltered[j];
-    }
-    envelopePoints.push(Math.sqrt(energySum / envelopeBlockSize));
-  }
-
-  // Find transient onsets where envelope surges upwards
-  const onsets: number[] = [];
-  for (let k = 1; k < envelopePoints.length - 1; k++) {
-    const prev = envelopePoints[k - 1];
-    const curr = envelopePoints[k];
-    const next = envelopePoints[k + 1];
-    
-    // We detect local maxima which are significantly elevated (onset threshold)
-    if (curr > prev && curr > next && (curr - prev) > 0.012) {
-      onsets.push(k * 0.05); // time of onset in seconds
+  // Find the lag with peak autocorrelation — that lag = beat period
+  let bestAcf = 0;
+  let bestLag = minLag;
+  for (let i = 0; i < acf.length; i++) {
+    if (acf[i] > bestAcf) {
+      bestAcf = acf[i];
+      bestLag = minLag + i;
     }
   }
 
-  // Measure delta intervals between subsequent drum/vocal beats
-  const intervalCounts: { [bpm: number]: number } = {};
-  for (let a = 0; a < onsets.length; a++) {
-    for (let b = a + 1; b < Math.min(onsets.length, a + 5); b++) {
-      const delta = onsets[b] - onsets[a];
-      const tempo = Math.round(60 / delta);
-      // Group bpms into standard range of 70 to 180bpm
-      if (tempo >= 70 && tempo <= 180) {
-        intervalCounts[tempo] = (intervalCounts[tempo] || 0) + 1;
-      } else if (tempo > 180) {
-        // Fold high tempos down into range (standard beat detection technique)
-        let t = tempo;
-        while (t > 180) t = Math.round(t / 2);
-        if (t >= 60 && t <= 180) {
-          intervalCounts[t] = (intervalCounts[t] || 0) + 0.8;
-        }
-      } else if (tempo < 60) {
-        // Fold low tempos up into range
-        let t = tempo;
-        while (t < 60) t *= 2;
-        if (t >= 60 && t <= 180) {
-          intervalCounts[t] = (intervalCounts[t] || 0) + 0.8;
-        }
-      }
-    }
-  }
+  // Convert lag (in envelope frames) to BPM
+  const lagSeconds = bestLag / (sampleRate / hopSize);
+  const rawBpm = 60 / lagSeconds;
 
-  // Cluster BPM votes within ±3 BPM bins to prevent phantom outliers winning
-  const clustered: { [bpm: number]: number } = {};
-  for (const bpmKey in intervalCounts) {
-    const bpm = parseInt(bpmKey);
-    const count = intervalCounts[bpmKey];
-    let found = false;
-    for (const cKey in clustered) {
-      if (Math.abs(parseInt(cKey) - bpm) <= 3) {
-        clustered[parseInt(cKey)] += count;
-        found = true;
-        break;
-      }
-    }
-    if (!found) clustered[bpm] = count;
-  }
+  // Fold into 60–180 BPM range
+  let foldedBpm = rawBpm;
+  while (foldedBpm > 180) foldedBpm /= 2;
+  while (foldedBpm < 60) foldedBpm *= 2;
+  const candidateBpm = Math.round(foldedBpm);
 
-  let bestBpm = 118;
-  let maxCount = 0;
-  for (const cKey in clustered) {
-    const countC = clustered[parseInt(cKey)];
-    if (countC > maxCount) {
-      maxCount = countC;
-      bestBpm = parseInt(cKey);
-    }
-  }
-  // Only use detected value if cluster had meaningful support
-  if (maxCount > 3) {
-    detectedBpm = bestBpm;
+  // Accept autocorrelation result if signal had meaningful onset energy
+  const meanOnset = onsetStrength.reduce((a, b) => a + b, 0) / onsetStrength.length;
+  if (meanOnset > 0.001 && bestAcf > 0) {
+    detectedBpm = candidateBpm;
   } else {
-    // Graceful fallback — RMS-derived heuristic
-    const rmsEstimate = Math.min(1.0, Math.sqrt(maxAbsSample));
-    detectedBpm = Math.round(90 + rmsEstimate * 40);
+    // Fallback for near-silent or purely ambient tracks
+    detectedBpm = 120;
   }
 
   // 7. Pitch and Musical Key Estimation (Krumhansl-Schmuckler method)
