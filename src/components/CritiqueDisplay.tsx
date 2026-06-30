@@ -422,6 +422,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const [liveValence, setLiveValence] = useState<number>(critique?.userValence ?? 0.5);
   const [liveEnergy, setLiveEnergy] = useState<number>(critique?.userEnergy ?? 0.5);
   const [isDraggingCircumplex, setIsDraggingCircumplex] = useState(false);
+  const hasUserSetMood = critique?.userValence !== undefined && critique?.userEnergy !== undefined;
 
   React.useEffect(() => {
     setLiveValence(critique?.userValence ?? 0.5);
@@ -3303,6 +3304,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none">
                   <span className="text-pink-400 font-mono text-[14px]">B</span>
                   Circumplex Mood Space Plotter
+                  {!hasUserSetMood && (
+                    <span className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-mono uppercase tracking-wide">
+                      Needs Your Input
+                    </span>
+                  )}
                 </span>
                 <span className="text-[10px] font-mono text-slate-500 flex items-center gap-1">Valence-Energy Affect Space</span>
               </div>
@@ -3368,7 +3374,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                   {/* Glowing Pulsing Point for Your Song */}
                   <div 
-                    className="absolute w-3 h-3 rounded-full bg-cyan-400 border border-white shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse pointer-events-none"
+                    className={hasUserSetMood 
+                      ? "absolute w-3 h-3 rounded-full bg-cyan-400 border border-white shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse cursor-grab active:cursor-grabbing"
+                      : "absolute w-4 h-4 rounded-full bg-transparent border-2 border-dashed border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.6)] animate-pulse cursor-grab active:cursor-grabbing"
+                    }
                     style={{ 
                       left: `${inferredValence * 100}%`, 
                       bottom: `${inferredEnergy * 100}%`,
