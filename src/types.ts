@@ -99,6 +99,8 @@ export interface CritiqueData {
     };
   };
   liveMetrics?: LiveAudioMetrics;
+  userValence?: number;
+  userEnergy?: number;
 }
 
 export interface TrackInfo {
@@ -107,6 +109,7 @@ export interface TrackInfo {
   coverArt?: string;
   hasAudio?: boolean;
   statusMessage?: string;
+  id?: string;
 }
 
 export interface CritiqueResponse {
