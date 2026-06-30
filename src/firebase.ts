@@ -639,7 +639,7 @@ export const saveUserTrack = async (track: StoredTrack): Promise<void> => {
   }
 };
 
-// 7. Update Track (e.g. state transitions)
+// 7. Update Track (e.g. state transitions or user-defined Circumplex valence/energy coordinates)
 export const updateTrackFields = async (trackId: string, updates: Partial<StoredTrack>): Promise<void> => {
   // Recursively clean undefined/null values out of the updates object to avoid Firestore write errors
   const cleanUpdates = deepCleanFirestoreObject(updates);
