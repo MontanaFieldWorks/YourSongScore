@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { 
-  ArrowLeft, Tag, RefreshCw, Sparkles, Sliders, Check, Copy, Disc, Rabbit, Radar, Flame, Play, Pause, Lock, Earth, Spotlight 
+  ArrowLeft, Tag, RefreshCw, Sparkles, Sliders, Check, Copy, Disc, Rabbit, Radar, Flame, Play, Pause, Lock, Earth, Spotlight, LibraryBig 
 } from "lucide-react";
 import { getGenreIcon } from "./CritiqueDisplay";
 
@@ -28,9 +28,10 @@ interface UsefulToolsPageProps {
   critique: any;
   trackInfo: any;
   localFileBlobUrl: string | null;
+  onNavigateToStacks?: () => void;
 }
 
-export default function UsefulToolsPage({ onBack, critique, trackInfo, localFileBlobUrl }: UsefulToolsPageProps) {
+export default function UsefulToolsPage({ onBack, critique, trackInfo, localFileBlobUrl, onNavigateToStacks }: UsefulToolsPageProps) {
   const [isMobile, setIsMobile] = useState(false);
   React.useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -320,9 +321,9 @@ export default function UsefulToolsPage({ onBack, critique, trackInfo, localFile
           <div className="text-center relative z-10 border-b border-white/5 pb-2.5">
             <h3 
               style={{ fontSize: "16px" }} 
-              className="font-mono font-black tracking-widest text-[#bd93f9] uppercase font-sans"
+              className="font-mono font-black tracking-widest text-[#bd93f9] uppercase font-sans animate-fadeIn"
             >
-              THE DARK DEEP - A TOOL BOX FOR THE LABYRINTH OF RABBIT HOLES
+              The Deep Dark - a Tool Box for the Labyrinthian Music Industry "Rabbit Hole".
             </h3>
           </div>
 
@@ -333,8 +334,8 @@ export default function UsefulToolsPage({ onBack, critique, trackInfo, localFile
               className="w-full text-left p-2.5 rounded-xl bg-neutral-950/80 hover:bg-neutral-950 border border-white/5 hover:border-[#bd93f9]/30 text-xs font-mono font-bold text-slate-300 hover:text-white flex items-center justify-between transition-all cursor-pointer group"
             >
               <span className="flex items-center gap-2">
-                <Rabbit className="w-4 h-4 text-[#bd93f9] group-hover:rotate-6 transition-transform" />
-                <span className="font-sans font-bold">The Streaming Rabbit Hole</span>
+                <Rabbit className="text-[#bd93f9] group-hover:rotate-6 transition-transform" style={{ width: "18px", height: "18px" }} />
+                <span className="font-sans font-bold" style={{ fontSize: "16px" }}>The Streaming Rabbit Hole</span>
               </span>
               <span className="text-[9px] uppercase tracking-widest text-[#bd93f9] opacity-75 group-hover:opacity-100 font-extrabold flex items-center gap-1 font-sans">
                 ENTER ➔
@@ -346,8 +347,8 @@ export default function UsefulToolsPage({ onBack, critique, trackInfo, localFile
               className="w-full text-left p-2.5 rounded-xl bg-neutral-950/80 hover:bg-neutral-950 border border-white/5 hover:border-[#bd93f9]/30 text-xs font-mono font-bold text-slate-300 hover:text-white flex items-center justify-between transition-all cursor-pointer group"
             >
               <span className="flex items-center gap-2">
-                <Tag className="w-4 h-4 text-[#bd93f9] group-hover:rotate-12 transition-transform" />
-                <span className="font-sans font-bold">Song Metadata Stash</span>
+                <Tag className="text-[#bd93f9] group-hover:rotate-12 transition-transform" style={{ width: "18px", height: "18px" }} />
+                <span className="font-sans font-bold" style={{ fontSize: "16px" }}>Song Metadata Stash</span>
               </span>
               <span className="text-[9px] uppercase tracking-widest text-[#bd93f9] opacity-75 group-hover:opacity-100 font-extrabold flex items-center gap-1 font-sans">
                 PUSH TO ⬇
@@ -359,8 +360,22 @@ export default function UsefulToolsPage({ onBack, critique, trackInfo, localFile
               className="w-full text-left p-2.5 rounded-xl bg-neutral-950/80 hover:bg-neutral-950 border border-white/5 hover:border-[#bd93f9]/30 text-xs font-mono font-bold text-slate-300 hover:text-white flex items-center justify-between transition-all cursor-pointer group"
             >
               <span className="flex items-center gap-2">
-                <Birdhouse className="w-4 h-4 text-[#bd93f9] group-hover:rotate-12 transition-transform" />
-                <span className="font-sans font-bold">The Echo Nest Rabbit Hole</span>
+                <Birdhouse className="text-[#bd93f9] group-hover:rotate-12 transition-transform" style={{ width: "18px", height: "18px" }} />
+                <span className="font-sans font-bold" style={{ fontSize: "16px" }}>The Echo Nest Rabbit Hole</span>
+              </span>
+              <span className="text-[9px] uppercase tracking-widest text-[#bd93f9] opacity-75 group-hover:opacity-100 font-extrabold flex items-center gap-1 font-sans">
+                ENTER ➔
+              </span>
+            </button>
+
+            {/* Short #2.5: The Stacks - The Blind Tunnel (LibraryBig icon, links to Stacks page) */}
+            <button
+              onClick={onNavigateToStacks}
+              className="w-full text-left p-2.5 rounded-xl bg-[#0F0A18]/80 hover:bg-[#1A0F2C]/80 border border-[#bd93f9]/20 hover:border-[#bd93f9]/50 text-xs font-mono font-bold text-slate-300 hover:text-white flex items-center justify-between transition-all cursor-pointer group shadow-[0_0_15px_rgba(189,147,249,0.05)] hover:shadow-[0_0_20px_rgba(189,147,249,0.15)]"
+            >
+              <span className="flex items-center gap-2">
+                <LibraryBig className="text-[#bd93f9] group-hover:rotate-6 transition-transform" style={{ width: "18px", height: "18px" }} />
+                <span className="font-sans font-bold text-purple-200 group-hover:text-purple-100" style={{ fontSize: "16px" }}>The Blind Tunnel: The Misunderstood -14.0</span>
               </span>
               <span className="text-[9px] uppercase tracking-widest text-[#bd93f9] opacity-75 group-hover:opacity-100 font-extrabold flex items-center gap-1 font-sans">
                 ENTER ➔
@@ -372,8 +387,8 @@ export default function UsefulToolsPage({ onBack, critique, trackInfo, localFile
               className="w-full text-left p-2.5 rounded-xl bg-neutral-950/80 hover:bg-neutral-950 border border-white/5 hover:border-[#bd93f9]/30 text-xs font-mono font-bold text-slate-300 hover:text-white flex items-center justify-between transition-all cursor-pointer group"
             >
               <span className="flex items-center gap-2">
-                <Earth className="w-4 h-4 text-[#bd93f9] group-hover:rotate-6 transition-transform" />
-                <span className="font-sans font-bold">The Listener Map Rabbit Hole</span>
+                <Earth className="text-[#bd93f9] group-hover:rotate-6 transition-transform" style={{ width: "18px", height: "18px" }} />
+                <span className="font-sans font-bold" style={{ fontSize: "16px" }}>The Listener Map Rabbit Hole</span>
               </span>
               <span className="text-[9px] uppercase tracking-widest text-[#bd93f9] opacity-75 group-hover:opacity-100 font-extrabold flex items-center gap-1 font-sans">
                 EXPLORE ➔
@@ -385,8 +400,8 @@ export default function UsefulToolsPage({ onBack, critique, trackInfo, localFile
               className="w-full text-left p-2.5 rounded-xl bg-neutral-950/80 hover:bg-neutral-950 border border-white/5 hover:border-[#bd93f9]/30 text-xs font-mono font-bold text-slate-300 hover:text-white flex items-center justify-between transition-all cursor-pointer group"
             >
               <span className="flex items-center gap-2">
-                <Spotlight className="w-4 h-4 text-[#bd93f9] group-hover:rotate-12 transition-transform" />
-                <span className="font-sans font-bold">Spotify Artist Profile Analyzer</span>
+                <Spotlight className="text-[#bd93f9] group-hover:rotate-12 transition-transform" style={{ width: "18px", height: "18px" }} />
+                <span className="font-sans font-bold" style={{ fontSize: "16px" }}>Spotify Artist Profile Analyzer</span>
               </span>
               <span className="text-[9px] uppercase tracking-widest text-[#bd93f9] opacity-75 group-hover:opacity-100 font-extrabold flex items-center gap-1 font-sans">
                 ANALYZE ➔
