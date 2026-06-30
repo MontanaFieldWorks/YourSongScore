@@ -13,6 +13,7 @@ import DefinitionsPage from "./components/DefinitionsPage";
 import WhatIsPage from "./components/WhatIsPage";
 import WhatItDoesPage from "./components/WhatItDoesPage";
 import UsefulToolsPage from "./components/UsefulToolsPage";
+import StacksPage from "./components/StacksPage";
 import EngineeringStudioPage from "./components/EngineeringStudioPage";
 import EngineeringDetailsPage from "./components/EngineeringDetailsPage";
 import Dashboard, { MOCK_GENERATED_CRITIQUE_TEMPLATE } from "./components/Dashboard";
@@ -54,6 +55,7 @@ export default function App() {
   const [viewingAboutPage, setViewingAboutPage] = useState(false);
   const [viewingWhatItDoesPage, setViewingWhatItDoesPage] = useState(false);
   const [viewingUsefulTools, setViewingUsefulTools] = useState(false);
+  const [viewingStacks, setViewingStacks] = useState(false);
   const [viewingEngineeringStudio, setViewingEngineeringStudio] = useState(false);
   const [viewingEngineeringDetails, setViewingEngineeringDetails] = useState(false);
   const [engineeringDetailsSource, setEngineeringDetailsSource] = useState<"what-it-does" | "studio">("what-it-does");
@@ -1019,6 +1021,7 @@ export default function App() {
                           setViewingWhatItDoesPage(false);
                           setViewingDefinitions(false);
                           setViewingUsefulTools(false);
+                          setViewingStacks(false);
                           setViewingArRep(false);
                           setViewingEngineeringDetails(false);
                           setShowLibraryDropdown(false);
@@ -1039,6 +1042,7 @@ export default function App() {
                           setViewingAboutPage(false);
                           setViewingDefinitions(false);
                           setViewingUsefulTools(false);
+                          setViewingStacks(false);
                           setViewingArRep(false);
                           setViewingEngineeringDetails(false);
                           setShowLibraryDropdown(false);
@@ -1060,6 +1064,7 @@ export default function App() {
                           setViewingAboutPage(false);
                           setViewingWhatItDoesPage(false);
                           setViewingUsefulTools(false);
+                          setViewingStacks(false);
                           setViewingDashboard(false);
                           setViewingArRep(false);
                           setViewingEngineeringDetails(false);
@@ -1074,6 +1079,28 @@ export default function App() {
                         <BookOpen className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                         <span>Glossary</span>
                       </button>
+
+                      <button
+                        onClick={() => {
+                          setViewingStacks(!viewingStacks);
+                          setViewingAboutPage(false);
+                          setViewingWhatItDoesPage(false);
+                          setViewingDefinitions(false);
+                          setViewingUsefulTools(false);
+                          setViewingDashboard(false);
+                          setViewingArRep(false);
+                          setViewingEngineeringDetails(false);
+                          setShowLibraryDropdown(false);
+                        }}
+                        className={`flex items-center gap-2 text-[11px] font-mono w-full text-left p-2 rounded-xl transition-all cursor-pointer ${
+                          viewingStacks 
+                            ? "bg-blue-600/30 text-blue-300 border border-blue-500/30 font-bold"
+                            : "hover:bg-blue-500/10 text-slate-300 hover:text-blue-300 border border-transparent"
+                        }`}
+                      >
+                        <Library className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                        <span>the Stacks</span>
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1085,6 +1112,7 @@ export default function App() {
                   setViewingAboutPage(false);
                   setViewingWhatItDoesPage(false);
                   setViewingDefinitions(false);
+                  setViewingStacks(false);
                   setViewingArRep(false);
                   setViewingDashboard(false);
                   setViewingEngineeringDetails(false);
@@ -1108,6 +1136,7 @@ export default function App() {
                   setViewingWhatItDoesPage(false);
                   setViewingDefinitions(false);
                   setViewingUsefulTools(false);
+                  setViewingStacks(false);
                   setViewingEngineeringDetails(false);
                 }}
                 className={`${showMoreNav ? "flex" : "hidden lg:flex"} items-center gap-1.5 text-[11px] font-mono py-1.5 px-3.5 rounded-full border transition-all cursor-pointer flex-shrink-0 ${
@@ -1130,6 +1159,7 @@ export default function App() {
                   setViewingWhatItDoesPage(false);
                   setViewingDefinitions(false);
                   setViewingUsefulTools(false);
+                  setViewingStacks(false);
                   setViewingArRep(false);
                   setViewingEngineeringDetails(false);
                   if (targetState && selectedFile) {
@@ -1157,7 +1187,7 @@ export default function App() {
             </div>
             {critiqueResult && (
               <div className="flex gap-2">
-                {(viewingDefinitions || viewingAboutPage || viewingWhatItDoesPage || viewingDashboard || viewingArRep || viewingUsefulTools || viewingEngineeringDetails) && (
+                {(viewingDefinitions || viewingAboutPage || viewingWhatItDoesPage || viewingDashboard || viewingArRep || viewingUsefulTools || viewingEngineeringDetails || viewingStacks) && (
                   <button
                     onClick={() => {
                       setViewingDefinitions(false);
@@ -1167,6 +1197,7 @@ export default function App() {
                       setViewingArRep(false);
                       setViewingUsefulTools(false);
                       setViewingEngineeringDetails(false);
+                      setViewingStacks(false);
                     }}
                     className="px-3.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-white/10 text-slate-300 text-[10px] uppercase font-bold tracking-widest rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
                   >
@@ -1285,6 +1316,17 @@ export default function App() {
             critique={critiqueResult ? critiqueResult.critique : null}
             trackInfo={critiqueResult ? critiqueResult.trackInfo : null}
             localFileBlobUrl={localFileBlobUrl}
+            onNavigateToStacks={() => {
+              setViewingUsefulTools(false);
+              setViewingStacks(true);
+            }}
+          />
+        ) : viewingStacks ? (
+          <StacksPage 
+            onBack={() => {
+              setViewingStacks(false);
+              setViewingUsefulTools(true);
+            }}
           />
         ) : critiqueResult ? (
           // Active view: Display completed Studio Critique
