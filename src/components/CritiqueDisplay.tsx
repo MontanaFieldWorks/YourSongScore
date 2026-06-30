@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { CritiqueData, TrackInfo, LiveAudioMetrics } from "../types";
 import { getSubgenreProfile, getVectorTargets, getCritiqueAndFix } from "../data/musicData";
+import { updateTrackFields } from "../firebase";
 import { 
   Play, Pause, RefreshCw, Layers, Sliders, Mic,
   Volume2, Disc, ArrowLeft, ArrowRight, CheckCircle, Flame, Sparkles, CheckSquare, Square,
@@ -417,6 +418,15 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const [vibeTransitionTheme, setVibeTransitionTheme] = useState<"uniform" | "upbeat" | "sudden">("uniform");
   const [sandboxPlaying, setSandboxPlaying] = useState(false);
   const [sandboxProgress, setSandboxProgress] = useState(0);
+
+  const [liveValence, setLiveValence] = useState<number>(critique?.userValence ?? 0.5);
+  const [liveEnergy, setLiveEnergy] = useState<number>(critique?.userEnergy ?? 0.5);
+  const [isDraggingCircumplex, setIsDraggingCircumplex] = useState(false);
+
+  React.useEffect(() => {
+    setLiveValence(critique?.userValence ?? 0.5);
+    setLiveEnergy(critique?.userEnergy ?? 0.5);
+  }, [critique?.userValence, critique?.userEnergy]);
 
   // --- Spotify Algorithmic Target Matches calculations ---
   const overallProductionVal = critique?.scores?.overallProduction ?? 75;
@@ -2922,53 +2932,35 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   };
 
   const renderAlgotorialSandbox = () => {
-    // A. Estimate Valence and Energy based on live audio analyzer metrics if available, otherwise fallback
-    const overallProductionVal = critique?.scores?.overallProduction ?? 75;
-    const commercialReadinessVal = critique?.scores?.commercialReadiness ?? 75;
-    const theoryScoreVal = critique?.musicTheory?.score ?? 72;
-    const lyricsScoreVal = critique?.lyricalImpact?.score ?? 70;
+    const trackId = trackInfo?.id;
+    const inferredValence = liveValence;
+    const inferredEnergy = liveEnergy;
 
-    let inferredValence = 0.5;
-    let inferredEnergy = 0.6;
+    const handleCircumplexInteraction = (e: React.MouseEvent<HTMLDivElement>) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      const y = Math.min(1, Math.max(0, 1 - (e.clientY - rect.top) / rect.height));
+      const val = parseFloat(x.toFixed(2));
+      const nrg = parseFloat(y.toFixed(2));
+      setLiveValence(val);
+      setLiveEnergy(nrg);
+      return { val, nrg };
+    };
 
-    if (critique?.liveMetrics) {
-      const { calculatedKey, calculatedBpm, calculatedLufs, calculatedBassEnergy, calculatedMidEnergy, calculatedHighEnergy } = critique.liveMetrics;
-      
-      // Modality is now a MINOR factor — small swing only
-      const keyLower = (calculatedKey || "").toLowerCase();
-      const isMajorKey = keyLower.includes("major") ? true : keyLower.includes("minor") ? false : null;
-      const modalityFactor = isMajorKey === true ? 0.55 : isMajorKey === false ? 0.45 : 0.5;
-
-      // Tempo factor — slow tempo pulls valence down, fast tempo pushes up
-      // Maps 60-180 BPM to a -0.15 to +0.15 swing
-      const tempoNorm = Math.min(1.0, Math.max(0.0, (calculatedBpm - 60) / 120));
-      const tempoValenceFactor = (tempoNorm - 0.5) * 0.3;
-
-      // Production darkness/sparsity factor — quiet, spacious mixes pull toward melancholy
-      // Maps -22 to -6 LUFS to a -0.15 to +0.15 swing (quieter = lower valence)
-      const lufsNorm = Math.min(1.0, Math.max(0.0, (calculatedLufs + 22) / 16));
-      const lufsValenceFactor = (lufsNorm - 0.5) * 0.3;
-
-      // Spectral brightness — smaller influence than before
-      const trebleRatio = (calculatedHighEnergy ?? 30) / Math.max(1, (calculatedBassEnergy ?? 30));
-      const brightnessFactor = (trebleRatio - 1.0) * 0.08;
-
-      let baseVal = modalityFactor + tempoValenceFactor + lufsValenceFactor + brightnessFactor;
-      inferredValence = Math.min(0.95, Math.max(0.05, parseFloat(baseVal.toFixed(2))));
-
-      // Energy based on tempo (60-180 mapped to 0.2-0.9) and loudness (-22 to -6 LUFS mapped to 0.2-0.9)
-      const bpmFactor = Math.min(1.0, Math.max(0.0, (calculatedBpm - 60) / 120));
-      const lufsFactor = Math.min(1.0, Math.max(0.0, (calculatedLufs + 22) / 16));
-      
-      let estEnergy = 0.2 + (bpmFactor * 0.35) + (lufsFactor * 0.3);
-      const spectralFactor = (calculatedHighEnergy ?? 30) / 100;
-      estEnergy += (spectralFactor - 0.3) * 0.15;
-      
-      inferredEnergy = Math.min(0.95, Math.max(0.15, parseFloat(estEnergy.toFixed(2))));
-    } else {
-      inferredValence = Math.min(0.95, Math.max(0.12, Math.round(((theoryScoreVal * 0.45) + (lyricsScoreVal * 0.45) + 10)) / 100));
-      inferredEnergy = Math.min(0.95, Math.max(0.15, Math.round(((overallProductionVal * 0.70) + (commercialReadinessVal * 0.30))) / 100));
-    }
+    const saveCircumplexPosition = async (val: number, nrg: number) => {
+      if (!trackId) return;
+      try {
+        await updateTrackFields(trackId, {
+          critique: {
+            ...critique,
+            userValence: val,
+            userEnergy: nrg,
+          }
+        });
+      } catch (err) {
+        console.error('Failed to save Circumplex position:', err);
+      }
+    };
 
     // Target playlists coordinate dictionary dynamically adjusted to match the song's predicted genre
     const getPlaylistCoords = (playlistId: string) => {
@@ -3317,34 +3309,66 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <p className="text-xs text-slate-400 leading-relaxed mb-4 text-left">
                 Defines the song's musical emotion quadrant (Russell's model of affect) derived from theory and lyrics.
               </p>
+              <p className="text-[11px] text-slate-500 leading-relaxed mb-3 text-left">
+                Mood is subjective — audio alone can't reliably measure how a song feels. You know your track better than any algorithm. Click or drag the dot below to place it where it actually sits.
+              </p>
             </div>
 
             {/* Circumplex Quad Drawing - Centered Vertically */}
             <div className="flex-1 flex flex-col justify-center">
               <div className="grid grid-cols-2 gap-2 pr-1 relative my-1">
                 {/* Visual 2D Grid Representation */}
-                <div className="relative aspect-square w-full max-w-[130px] border border-white/10 rounded-lg overflow-hidden bg-black/40 flex-shrink-0 flex self-center mx-auto">
+                <div 
+                  className={`relative aspect-square w-full max-w-[130px] border border-white/10 rounded-lg overflow-hidden bg-black/40 flex-shrink-0 flex self-center mx-auto cursor-pointer select-none ${isDraggingCircumplex ? 'border-cyan-500/50 shadow-[0_0_8px_rgba(34,211,238,0.2)]' : ''}`}
+                  onClick={(e) => {
+                    const { val, nrg } = handleCircumplexInteraction(e);
+                    saveCircumplexPosition(val, nrg);
+                  }}
+                  onMouseDown={(e) => {
+                    setIsDraggingCircumplex(true);
+                    handleCircumplexInteraction(e);
+                  }}
+                  onMouseMove={(e) => {
+                    if (isDraggingCircumplex) {
+                      handleCircumplexInteraction(e);
+                    }
+                  }}
+                  onMouseUp={(e) => {
+                    if (isDraggingCircumplex) {
+                      setIsDraggingCircumplex(false);
+                      const { val, nrg } = handleCircumplexInteraction(e);
+                      saveCircumplexPosition(val, nrg);
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (isDraggingCircumplex) {
+                      setIsDraggingCircumplex(false);
+                      const { val, nrg } = handleCircumplexInteraction(e);
+                      saveCircumplexPosition(val, nrg);
+                    }
+                  }}
+                >
                   {/* Axes and Grid */}
-                  <div className="absolute inset-x-0 top-1/2 h-px bg-white/10" />
-                  <div className="absolute inset-y-0 left-1/2 w-px bg-white/10" />
+                  <div className="absolute inset-x-0 top-1/2 h-px bg-white/10 pointer-events-none" />
+                  <div className="absolute inset-y-0 left-1/2 w-px bg-white/10 pointer-events-none" />
                   
                   {/* 4 Quadrants colored backgrounds */}
-                  <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-amber-500/[0.03] flex items-center justify-center">
+                  <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-amber-500/[0.03] flex items-center justify-center pointer-events-none">
                     <span className="text-[7.5px] font-mono text-amber-500/50 tracking-widest font-bold">EUPHORIC</span>
                   </div>
-                  <div className="absolute top-0 left-0 w-1/2 h-1/2 bg-red-500/[0.03] flex items-center justify-center">
+                  <div className="absolute top-0 left-0 w-1/2 h-1/2 bg-red-500/[0.03] flex items-center justify-center pointer-events-none">
                     <span className="text-[7.5px] font-mono text-red-500/50 tracking-widest font-bold">INTENSE</span>
                   </div>
-                  <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-violet-500/[0.03] flex items-center justify-center">
+                  <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-violet-500/[0.03] flex items-center justify-center pointer-events-none">
                     <span className="text-[7.5px] font-mono text-violet-500/50 tracking-widest font-bold">MELANCHOLY</span>
                   </div>
-                  <div className="absolute bottom-0 right-0 w-1/2 h-1/2 bg-emerald-500/[0.03] flex items-center justify-center">
+                  <div className="absolute bottom-0 right-0 w-1/2 h-1/2 bg-emerald-500/[0.03] flex items-center justify-center pointer-events-none">
                     <span className="text-[7.5px] font-mono text-emerald-500/50 tracking-widest font-bold">SERENE</span>
                   </div>
 
                   {/* Glowing Pulsing Point for Your Song */}
                   <div 
-                    className="absolute w-3 h-3 rounded-full bg-cyan-400 border border-white shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse"
+                    className="absolute w-3 h-3 rounded-full bg-cyan-400 border border-white shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse pointer-events-none"
                     style={{ 
                       left: `${inferredValence * 100}%`, 
                       bottom: `${inferredEnergy * 100}%`,
@@ -3374,6 +3398,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <p className="text-[9.5px] text-slate-500 leading-normal mt-1">
                     Valence maps the chord scale harmonic mood, while energy models transient complexity. Evaluators query this vector to schedule mood alignment playlists.
                   </p>
+                  
+                  <button
+                    onClick={() => {
+                      setLiveValence(0.5);
+                      setLiveEnergy(0.5);
+                      saveCircumplexPosition(0.5, 0.5);
+                    }}
+                    className="text-[10px] text-slate-600 hover:text-slate-400 underline transition-colors mt-2 text-left block w-fit"
+                  >
+                    Reset to center
+                  </button>
                 </div>
               </div>
             </div>
