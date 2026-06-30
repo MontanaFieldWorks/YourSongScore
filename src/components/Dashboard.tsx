@@ -118,7 +118,7 @@ export const MOCK_GENERATED_CRITIQUE_TEMPLATE = (title: string, format: string, 
 
 interface DashboardProps {
   onBack: () => void;
-  onLoadCritique: (critique: CritiqueData, trackInfo: { name: string; artist: string; hasAudio: boolean; coverArt?: string }) => void;
+  onLoadCritique: (critique: CritiqueData, trackInfo: { name: string; artist: string; hasAudio: boolean; coverArt?: string; id?: string }) => void;
   activeUploadFile: File | null;
   activeUploadTitle?: string | null;
   activeUploadArtist?: string | null;
@@ -600,7 +600,8 @@ export default function Dashboard({
         name: track.metaTitle || track.name, 
         artist: track.metaArtist || currentUser!.displayName || "Artist", 
         hasAudio: true,
-        coverArt: track.coverArt
+        coverArt: track.coverArt,
+        id: track.id
       });
     } catch (e: any) {
       setErrorMsg(`Analysis failed: ${e.message || e}`);
@@ -647,7 +648,8 @@ export default function Dashboard({
         name: track.metaTitle || track.name,
         artist: track.metaArtist || currentUser?.displayName || "Artist",
         hasAudio: true,
-        coverArt: track.coverArt
+        coverArt: track.coverArt,
+        id: track.id
       });
     } else {
       // If it is in the pending waitlist and clicked, trigger analysis immediately to view it
