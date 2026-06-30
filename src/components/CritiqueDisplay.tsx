@@ -1063,9 +1063,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       isGold: true,
       hoverText: "Measures artistic alignment, atmospheric depth, chord progressional intrigue, and palette synergy completely independent of pop formula speed-bumps.",
       subParams: [
-        { name: "Atmospheric Depth", desc: "Three-dimensional acoustic landscape, vintage reverbs, texture layering, and world-building depth." },
-        { name: "Harmonic Intrigue", desc: "Non-standard chord dynamics, open tunings (like DADGAD), polymetric drift, and structural resolution surprises." },
-        { name: "Palette Synergy", desc: "Sonic gluing between contrasting instrument arrays to sound like a cohesive work of art." }
+        { name: "Atmospheric Depth", desc: "Rates the physical sense of dimension of the acoustic landscape, reverb imaging, and stage placement within the production." },
+        { name: "Harmonic Intrigue", desc: "Scores the creative implementation of chord patterns and modulations to test composition uniqueness, polymetric drift, and structural resolution." },
+        { name: "Palette Synergy", desc: "Inspects the overall tonal alignment of active instruments to confirm they serve a unified artistic direction." }
       ],
       callout: "This Metric is not included in the Total Score as it has no effect on how streaming algorithms view a song",
       description: "Designed for masterpieces that transcend pop constraints. While standard radio formula rewards immediate 0:30 hooks, epics are built on atmospheric tension, complex harmony, and palette synergy. Focus on these parameters if you are writing timeless art outside the commercial box.",
@@ -1172,7 +1172,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       isGold: true,
       hoverText: "Measures chord predictability vs dynamic intervals, interval repetition, and commercial stickiness of vocal pitches.",
       subParams: [
-        { name: "Interval Memory", desc: "The ease of hummability and interval leaps that trigger neural recognition on first listen." },
+        { name: "Interval Memory", desc: "Measures for memory hooks and interval leaps..." },
         { name: "Syllabic Placement", desc: "Syncopation and rhyme patterns aligning exactly with transient downbeats to drill the melody home." }
       ],
       callout: "Your hooks have high commercial memory; the pre-chorus/chorus resolution is instantly memorable.",
@@ -1240,7 +1240,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       hoverText: "Evaluates harmonic progressions, scale interest, voice leading, leading tone resolutions, and rhythmic architecture.",
       subParams: [
         { name: "Chord Dynamics (25%)", desc: "Analyzes chord sequences, leading tones, and voice leading interest." },
-        { name: "Harmonic Variety (25%)", desc: "Tension resolution, scale consistency, and mdoulations." },
+        { name: "Harmonic Variety (25%)", desc: "Tension resolution, scale consistency, and modulations." },
         { name: "Rhythmic Meter (25%)", desc: "Audits rhythmic meter choice, polymetric syncopation, and tempo subdivisions." },
         { name: "Form & Structure (25%)", desc: "Checks layout blueprints, sectional loop lengths, and motif repetition." }
       ],
@@ -1502,7 +1502,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             style={{ color: "#50a2ff", fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: "13px", fontWeight: "bold" }}
             className="block select-none mb-0.5"
           >
-            A&amp;R DIAGNOSTIC FOCUS: {metric.subtitle || `The ${metric.name} Parameters`}
+            {metric.id === "dna-melodic" ? "Signature Hooks..." : `A&R DIAGNOSTIC FOCUS: ${metric.subtitle || `The ${metric.name} Parameters`}`}
           </span>
           <h3 className="text-lg font-extrabold text-[#E2E8F0] tracking-tight leading-snug uppercase">
             {metric.name}
@@ -2934,8 +2934,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     if (critique?.liveMetrics) {
       const { calculatedKey, calculatedBpm, calculatedLufs, calculatedBassEnergy, calculatedMidEnergy, calculatedHighEnergy } = critique.liveMetrics;
       // Key modality impact on Valence
-      const isMajorKey = (calculatedKey || "").toLowerCase().includes("major") || !(calculatedKey || "").toLowerCase().includes("minor");
-      let baseVal = isMajorKey ? 0.62 : 0.38;
+      const keyLower = (calculatedKey || "").toLowerCase();
+      const isMajorKey = keyLower.includes("major") ? true : keyLower.includes("minor") ? false : null;
+      let baseVal = isMajorKey === true ? 0.62 : isMajorKey === false ? 0.38 : 0.5;
       
       // Spectral balance: High/Mid compared to Bass energy can increase valence (brightness)
       const trebleRatio = (calculatedHighEnergy ?? 30) / Math.max(1, (calculatedBassEnergy ?? 30));
@@ -6367,7 +6368,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         activeCategory === "architecture" ? "text-white" : "text-[#8b5cf6] group-hover:text-white"
                       }`}
                     >
-                      SONG ARCHITECTURE
+                      SONG STRUCTURE & SECTIONS OUTLINE
                     </span>
                     <span className="text-[10px] text-slate-500 font-medium">Structural Timeline & Section Map</span>
                   </div>
