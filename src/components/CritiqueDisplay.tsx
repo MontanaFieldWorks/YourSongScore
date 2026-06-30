@@ -2933,23 +2933,34 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
     if (critique?.liveMetrics) {
       const { calculatedKey, calculatedBpm, calculatedLufs, calculatedBassEnergy, calculatedMidEnergy, calculatedHighEnergy } = critique.liveMetrics;
-      // Key modality impact on Valence
+      
+      // Modality is now a MINOR factor — small swing only
       const keyLower = (calculatedKey || "").toLowerCase();
       const isMajorKey = keyLower.includes("major") ? true : keyLower.includes("minor") ? false : null;
-      let baseVal = isMajorKey === true ? 0.62 : isMajorKey === false ? 0.38 : 0.5;
-      
-      // Spectral balance: High/Mid compared to Bass energy can increase valence (brightness)
-      const trebleRatio = (calculatedHighEnergy ?? 30) / Math.max(1, (calculatedBassEnergy ?? 30));
-      baseVal = baseVal + (trebleRatio - 1.0) * 0.15;
-      
-      inferredValence = Math.min(0.95, Math.max(0.12, parseFloat(baseVal.toFixed(2))));
+      const modalityFactor = isMajorKey === true ? 0.55 : isMajorKey === false ? 0.45 : 0.5;
 
-      // Energy based on tempo (60-160 mapped to 0.25-0.85) and loudness (-20 to -6 LUFS mapped to 0.2-0.9)
-      const bpmFactor = Math.min(1.0, Math.max(0.0, (calculatedBpm - 60) / 100));
+      // Tempo factor — slow tempo pulls valence down, fast tempo pushes up
+      // Maps 60-180 BPM to a -0.15 to +0.15 swing
+      const tempoNorm = Math.min(1.0, Math.max(0.0, (calculatedBpm - 60) / 120));
+      const tempoValenceFactor = (tempoNorm - 0.5) * 0.3;
+
+      // Production darkness/sparsity factor — quiet, spacious mixes pull toward melancholy
+      // Maps -22 to -6 LUFS to a -0.15 to +0.15 swing (quieter = lower valence)
+      const lufsNorm = Math.min(1.0, Math.max(0.0, (calculatedLufs + 22) / 16));
+      const lufsValenceFactor = (lufsNorm - 0.5) * 0.3;
+
+      // Spectral brightness — smaller influence than before
+      const trebleRatio = (calculatedHighEnergy ?? 30) / Math.max(1, (calculatedBassEnergy ?? 30));
+      const brightnessFactor = (trebleRatio - 1.0) * 0.08;
+
+      let baseVal = modalityFactor + tempoValenceFactor + lufsValenceFactor + brightnessFactor;
+      inferredValence = Math.min(0.95, Math.max(0.05, parseFloat(baseVal.toFixed(2))));
+
+      // Energy based on tempo (60-180 mapped to 0.2-0.9) and loudness (-22 to -6 LUFS mapped to 0.2-0.9)
+      const bpmFactor = Math.min(1.0, Math.max(0.0, (calculatedBpm - 60) / 120));
       const lufsFactor = Math.min(1.0, Math.max(0.0, (calculatedLufs + 22) / 16));
       
-      let estEnergy = 0.25 + (bpmFactor * 0.35) + (lufsFactor * 0.3);
-      // High/Low energy influence standard deviation
+      let estEnergy = 0.2 + (bpmFactor * 0.35) + (lufsFactor * 0.3);
       const spectralFactor = (calculatedHighEnergy ?? 30) / 100;
       estEnergy += (spectralFactor - 0.3) * 0.15;
       
