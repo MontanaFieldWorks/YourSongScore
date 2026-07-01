@@ -295,6 +295,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
 
   // Accept autocorrelation result if signal had meaningful onset energy
   const meanOnset = onsetStrength.reduce((a, b) => a + b, 0) / onsetStrength.length;
+  const bpmConfidence = parseFloat(Math.min(1, Math.max(0, meanOnset > 0.001 && bestAcf > 0 ? Math.min(1, bestAcf / (onsetStrength.length * 0.1)) : 0)).toFixed(3));
   if (meanOnset > 0.001 && bestAcf > 0) {
     detectedBpm = candidateBpm;
   } else {
@@ -387,6 +388,10 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     }
   }
 
+  // Key and mode confidence: bestCorrelation is the Pearson r of the winning key match (0-1)
+  // Mode confidence is the margin between the best major and best minor correlation
+  const keyConfidence = parseFloat(Math.min(1, Math.max(0, bestCorrelation)).toFixed(3));
+
   const estimatedKeyName = keyNames[estimatedKeyIndex];
 
   // 8. Generate 100-point wave amplitude timeline points
@@ -433,6 +438,9 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     calculatedHighEnergy: highPerc,
     calculatedWaveformPoints: waveTimeline,
     calculatedWaveformPointsHD: waveTimelineHD,
-    calculatedDuration: parseFloat(duration.toFixed(2))
+    calculatedDuration: parseFloat(duration.toFixed(2)),
+    calculatedKeyConfidence: keyConfidence,
+    calculatedModeConfidence: parseFloat(Math.min(1, Math.max(0, bestCorrelation)).toFixed(3)),
+    calculatedBpmConfidence: bpmConfidence
   };
 }
