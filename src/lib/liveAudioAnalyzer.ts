@@ -426,6 +426,72 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     waveTimelineHD.push(scaledHD);
   }
 
+  // Fade-in detection: scan first 10% of HD waveform for sustained low amplitude
+  const fadeInScanLength = Math.floor(waveTimelineHD.length * 0.10);
+  let fadeInEndIndex = 0;
+  const fadeThreshold = 15; // below this amplitude = effectively silent/fading in
+  for (let f = 0; f < fadeInScanLength; f++) {
+    if (waveTimelineHD[f] < fadeThreshold) {
+      fadeInEndIndex = f + 1;
+    } else {
+      break;
+    }
+  }
+  const endOfFadeIn = parseFloat(((fadeInEndIndex / 400) * duration).toFixed(2));
+
+  // Fade-out detection: scan last 15% of HD waveform for sustained low amplitude
+  const fadeOutScanStart = Math.floor(waveTimelineHD.length * 0.85);
+  let fadeOutStartIndex = waveTimelineHD.length;
+  for (let f = waveTimelineHD.length - 1; f >= fadeOutScanStart; f--) {
+    if (waveTimelineHD[f] < fadeThreshold) {
+      fadeOutStartIndex = f;
+    } else {
+      break;
+    }
+  }
+  const startOfFadeOut = parseFloat(((fadeOutStartIndex / 400) * duration).toFixed(2));
+
+  // Time signature detection via beat interval regularity
+  // Uses the onset strength signal already computed for BPM
+  // Analyzes groupings of beat intervals to distinguish 4/4, 3/4, and 6/8
+  let detectedTimeSignature = 4; // default to 4/4
+  let timeSignatureConfidence = 0.5;
+
+  if (onsetStrength.length > 0 && detectedBpm > 0) {
+    const beatInterval = (60 / detectedBpm) * (sampleRate / 100); // in envelope frames (10ms hops)
+    
+    // Sample beat-aligned onset strength at 3 and 4 beat multiples
+    const test3 = Math.round(beatInterval * 3);
+    const test4 = Math.round(beatInterval * 4);
+    const test6 = Math.round(beatInterval * 6);
+    
+    let score3 = 0, score4 = 0, score6 = 0;
+    const testPoints = Math.min(8, Math.floor(onsetStrength.length / test4));
+    
+    for (let p = 0; p < testPoints; p++) {
+      const idx3 = Math.min(onsetStrength.length - 1, p * test3);
+      const idx4 = Math.min(onsetStrength.length - 1, p * test4);
+      const idx6 = Math.min(onsetStrength.length - 1, p * test6);
+      score3 += onsetStrength[idx3] || 0;
+      score4 += onsetStrength[idx4] || 0;
+      score6 += onsetStrength[idx6] || 0;
+    }
+
+    const maxScore = Math.max(score3, score4, score6);
+    if (maxScore > 0) {
+      if (score4 >= score3 && score4 >= score6) {
+        detectedTimeSignature = 4;
+        timeSignatureConfidence = parseFloat(Math.min(0.95, score4 / maxScore).toFixed(2));
+      } else if (score3 >= score4 && score3 >= score6) {
+        detectedTimeSignature = 3;
+        timeSignatureConfidence = parseFloat(Math.min(0.95, score3 / maxScore).toFixed(2));
+      } else {
+        detectedTimeSignature = 6;
+        timeSignatureConfidence = parseFloat(Math.min(0.95, score6 / maxScore).toFixed(2));
+      }
+    }
+  }
+
   return {
     calculatedLufs: parseFloat(lufsValue.toFixed(1)),
     calculatedTruePeak: parseFloat(truePeak.toFixed(2)),
@@ -441,6 +507,10 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     calculatedDuration: parseFloat(duration.toFixed(2)),
     calculatedKeyConfidence: keyConfidence,
     calculatedModeConfidence: parseFloat(Math.min(1, Math.max(0, bestCorrelation)).toFixed(3)),
-    calculatedBpmConfidence: bpmConfidence
+    calculatedBpmConfidence: bpmConfidence,
+    calculatedEndOfFadeIn: endOfFadeIn,
+    calculatedStartOfFadeOut: startOfFadeOut,
+    calculatedTimeSignature: detectedTimeSignature,
+    calculatedTimeSignatureConfidence: timeSignatureConfidence
   };
 }
