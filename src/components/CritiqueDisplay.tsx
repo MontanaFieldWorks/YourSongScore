@@ -3145,6 +3145,22 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       };
     };
 
+    const getSkipRateLabel = (rate: number): { label: string; color: string } => {
+      if (rate <= 20) return { label: "▲ EXCELLENT", color: "text-emerald-400" };
+      if (rate <= 32) return { label: "▲ GOOD", color: "text-green-400" };
+      if (rate <= 45) return { label: "◆ AVERAGE", color: "text-yellow-400" };
+      if (rate <= 60) return { label: "▼ ELEVATED RISK", color: "text-orange-400" };
+      return { label: "▼ HIGH RISK", color: "text-rose-400" };
+    };
+
+    const getCompletionRateLabel = (rate: number): { label: string; color: string } => {
+      if (rate >= 75) return { label: "▲ OPTIMIZED", color: "text-teal-400" };
+      if (rate >= 60) return { label: "▲ GOOD", color: "text-green-400" };
+      if (rate >= 45) return { label: "◆ AVERAGE", color: "text-yellow-400" };
+      if (rate >= 30) return { label: "▼ BELOW TARGET", color: "text-orange-400" };
+      return { label: "▼ POOR", color: "text-rose-400" };
+    };
+
     const liveStats = getLiveSimFeedback(sandboxProgress);
 
     return (
@@ -3305,7 +3321,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <span className="text-pink-400 font-mono text-[14px]">B</span>
                   Circumplex Mood Space Plotter
                   {!hasUserSetMood && (
-                    <span className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-mono uppercase tracking-wide">
+                    <span 
+                      className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-mono uppercase tracking-wide inline-block truncate"
+                      style={{ width: "61.225px", paddingRight: "9px" }}
+                    >
                       Needs Your Input
                     </span>
                   )}
@@ -3376,12 +3395,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <div 
                     className={hasUserSetMood 
                       ? "absolute w-3 h-3 rounded-full bg-cyan-400 border border-white shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse cursor-grab active:cursor-grabbing"
-                      : "absolute w-4 h-4 rounded-full bg-transparent border-2 border-dashed border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.6)] animate-pulse cursor-grab active:cursor-grabbing"
+                      : "absolute w-4 h-4 rounded-full bg-transparent border-2 border-solid border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.6)] animate-pulse cursor-grab active:cursor-grabbing"
                     }
                     style={{ 
                       left: `${inferredValence * 100}%`, 
                       bottom: `${inferredEnergy * 100}%`,
-                      transform: "translate(-50%, 50%)" 
+                      transform: "translate(-50%, 50%)",
+                      borderStyle: "solid"
                     }}
                   />
                 </div>
@@ -3588,7 +3608,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest leading-none">PREDICTED SKIP RATE (SR)</span>
                 <span className="text-lg font-black text-white font-mono mt-1 flex items-baseline gap-1">
                   {predictedSkipRate}%
-                  <span className="text-[10px] text-emerald-400 font-sans font-bold uppercase tracking-wider">▲ EXCELLENT</span>
+                  <span className={`text-[10px] font-sans font-bold uppercase tracking-wider ${getSkipRateLabel(predictedSkipRate).color}`}>
+                    {getSkipRateLabel(predictedSkipRate).label}
+                  </span>
                 </span>
                 <p className="text-[8.5px] text-slate-500 leading-snug mt-0.5 leading-normal">
                   Typical threshold target: &lt; 32% within 30s. Perfect for early playlist preservation.
@@ -3599,7 +3621,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest leading-none">PREDICTED COMPLETION (CR)</span>
                 <span className="text-lg font-black text-cyan-400 font-mono mt-1 flex items-baseline gap-1">
                   {predictedCompletionRate}%
-                  <span className="text-[10px] text-teal-400 font-sans font-bold uppercase tracking-wider">▲ OPTIMIZED</span>
+                  <span className={`text-[10px] font-sans font-bold uppercase tracking-wider ${getCompletionRateLabel(predictedCompletionRate).color}`}>
+                    {getCompletionRateLabel(predictedCompletionRate).label}
+                  </span>
                 </span>
                 <p className="text-[8.5px] text-slate-500 leading-snug mt-0.5 leading-normal">
                   Probability of full track completion. Indicates structural engagement alignment.
@@ -4791,7 +4815,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
             {/* STREAMING READINESS nav item */}
             <button
-              onClick={() => { setActiveSection("streaming"); document.getElementById("section-streaming")?.scrollIntoView({ behavior: "smooth" }); }}
+              onClick={() => {
+                setActiveSection("streaming");
+                setExpandedCategory("streaming");
+                setTimeout(() => {
+                  const el = document.getElementById("section-streaming");
+                  if (el) {
+                    const top = el.getBoundingClientRect().top + window.scrollY - 80;
+                    window.scrollTo({ top, behavior: "smooth" });
+                  }
+                }, 150);
+              }}
               className={`relative flex items-center justify-between gap-2.5 min-h-[58px] px-3.5 py-3 rounded-xl border transition-all cursor-pointer text-left ${
                 activeSection === "streaming" 
                   ? "bg-blue-500/10 border-blue-500/30 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.05)]" 
@@ -4842,7 +4876,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
             {/* SONIC SOUNDPRINT nav item */}
             <button
-              onClick={() => { setActiveSection("sonic"); document.getElementById("section-sonic")?.scrollIntoView({ behavior: "smooth" }); }}
+              onClick={() => {
+                setActiveSection("sonic");
+                setExpandedCategory("sonic");
+                setTimeout(() => {
+                  const el = document.getElementById("section-sonic");
+                  if (el) {
+                    const top = el.getBoundingClientRect().top + window.scrollY - 80;
+                    window.scrollTo({ top, behavior: "smooth" });
+                  }
+                }, 150);
+              }}
               className={`relative flex items-center justify-between gap-2.5 min-h-[58px] px-3.5 py-3 rounded-xl border transition-all cursor-pointer text-left ${
                 activeSection === "sonic" 
                   ? "bg-[#46F4CD]/10 border-[#46F4CD]/30 text-[#46F4CD] shadow-[0_0_15px_rgba(70,244,205,0.05)]" 
@@ -4893,7 +4937,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
             {/* COMPOSITIONAL DEPTH nav item */}
             <button
-              onClick={() => { setActiveSection("compositional"); document.getElementById("section-compositional")?.scrollIntoView({ behavior: "smooth" }); }}
+              onClick={() => {
+                setActiveSection("compositional");
+                setExpandedCategory("compositional");
+                setTimeout(() => {
+                  const el = document.getElementById("section-compositional");
+                  if (el) {
+                    const top = el.getBoundingClientRect().top + window.scrollY - 80;
+                    window.scrollTo({ top, behavior: "smooth" });
+                  }
+                }, 150);
+              }}
               className={`relative flex items-center justify-between gap-2.5 min-h-[58px] px-3.5 py-3 rounded-xl border transition-all cursor-pointer text-left ${
                 activeSection === "compositional" 
                   ? "bg-purple-500/10 border-purple-500/30 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.05)]" 
@@ -5076,10 +5130,27 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             {/* SECTION: STREAMING READINESS */}
             {(expandedCategory === "streaming" || expandedCategory === null) && expandedCategory === "streaming" && (
               <div id="section-streaming" className="flex flex-col gap-4">
-              <div className="flex items-center gap-3 px-1 py-2.5 border-t border-t-blue-500/30 border-b border-blue-500/20">
-                <div className="w-1 h-6 bg-blue-500 rounded-full" />
-                <span className="text-[11px] font-mono font-bold text-blue-400 uppercase tracking-widest">Streaming Readiness</span>
-                <span className="text-[9px] font-mono text-slate-500 ml-auto">Algorithmic curation & discovery potential</span>
+              <div className="relative overflow-hidden flex items-center gap-4 px-5 py-3 border-t border-b border-blue-500/20" style={{ background: "linear-gradient(to right, #090b0e 0%, #090b0e 55%, #0d1628 100%)" }}>
+                {/* Atmospheric glow */}
+                <div className="absolute inset-0 pointer-events-none" style={{
+                  background: "linear-gradient(to left, #2f65be 0%, #1c3c73 15%, #040911 50%, #000000 75%)",
+                  opacity: 0.5
+                }} />
+                {/* Mini circle arc */}
+                <div className="absolute pointer-events-none" style={{
+                  width: "200px", height: "200px", borderRadius: "50%",
+                  border: "8px solid rgba(255,255,255,0.9)",
+                  right: "-120px", bottom: "-100px",
+                  boxShadow: "0 0 15px rgba(59,130,246,1), 0 0 30px rgba(59,130,246,0.6), inset 0 0 15px rgba(59,130,246,0.4)"
+                }} />
+                {/* Left accent bar */}
+                <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-blue-400 to-blue-600" />
+                {/* Content */}
+                <div className="relative z-10 flex flex-col gap-0.5">
+                  <span className="text-[9px] font-mono font-bold text-blue-400 uppercase tracking-[0.2em]">Category</span>
+                  <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Streaming Readiness</span>
+                </div>
+                <span className="relative z-10 text-[9px] font-mono text-slate-500 ml-auto">Algorithmic curation & discovery potential</span>
               </div>
 
               {/* Card 1: Mainstream Radio Formatting (blue) */}
@@ -5688,10 +5759,23 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       {/* SECTION: SONIC SOUNDPRINT */}
       {expandedCategory === "sonic" && (
         <div id="section-sonic" className="flex flex-col gap-4 mt-8">
-        <div className="flex items-center gap-3 px-1 py-2.5 border-t border-t-[#46F4CD]/30 border-b border-[#46F4CD]/20">
-          <div className="w-1 h-6 bg-[#46F4CD] rounded-full" />
-          <span className="text-[11px] font-mono font-bold text-[#46F4CD] uppercase tracking-widest">Sonic Soundprint</span>
-          <span className="text-[9px] font-mono text-slate-500 ml-auto">Technical mix architecture & engineering diagnostics</span>
+        <div className="relative overflow-hidden flex items-center gap-4 px-5 py-3 border-t border-b border-[#46F4CD]/20" style={{ background: "linear-gradient(to right, #090b0e 0%, #090b0e 55%, #091a14 100%)" }}>
+          <div className="absolute inset-0 pointer-events-none" style={{
+            background: "linear-gradient(to left, #168ba0 0%, #094d60 15%, #030809 50%, #000000 75%)",
+            opacity: 0.5
+          }} />
+          <div className="absolute pointer-events-none" style={{
+            width: "200px", height: "200px", borderRadius: "50%",
+            border: "8px solid rgba(255,255,255,0.9)",
+            right: "-120px", bottom: "-100px",
+            boxShadow: "0 0 15px rgba(70,244,205,1), 0 0 30px rgba(70,244,205,0.6), inset 0 0 15px rgba(70,244,205,0.4)"
+          }} />
+          <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-[#46F4CD] to-[#2dd4bf]" />
+          <div className="relative z-10 flex flex-col gap-0.5">
+            <span className="text-[9px] font-mono font-bold text-[#46F4CD] uppercase tracking-[0.2em]">Category</span>
+            <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Sonic Soundprint</span>
+          </div>
+          <span className="relative z-10 text-[9px] font-mono text-slate-500 ml-auto">Technical mix architecture & engineering diagnostics</span>
         </div>
 
         {/* The engineering studio invite banner moved here with blue border */}
@@ -6114,10 +6198,23 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         {/* SECTION: COMPOSITIONAL DEPTH */}
         {expandedCategory === "compositional" && (
           <div id="section-compositional" className="flex flex-col gap-4 mt-8">
-          <div className="flex items-center gap-3 px-1 py-2.5 border-t border-t-purple-500/30 border-b border-purple-500/20">
-            <div className="w-1 h-6 bg-purple-500 rounded-full" />
-            <span className="text-[11px] font-mono font-bold text-purple-400 uppercase tracking-widest">Compositional Depth</span>
-            <span className="text-[9px] font-mono text-slate-500 ml-auto">Songwriting craft, theory & artistic merit</span>
+          <div className="relative overflow-hidden flex items-center gap-4 px-5 py-3 border-t border-b border-purple-500/20" style={{ background: "linear-gradient(to right, #090b0e 0%, #090b0e 55%, #12091e 100%)" }}>
+            <div className="absolute inset-0 pointer-events-none" style={{
+              background: "linear-gradient(to left, #7e3ac7 0%, #50267e 15%, #160d20 50%, #000000 75%)",
+              opacity: 0.5
+            }} />
+            <div className="absolute pointer-events-none" style={{
+              width: "200px", height: "200px", borderRadius: "50%",
+              border: "8px solid rgba(255,255,255,0.9)",
+              right: "-120px", bottom: "-100px",
+              boxShadow: "0 0 15px rgba(168,85,247,1), 0 0 30px rgba(168,85,247,0.6), inset 0 0 15px rgba(168,85,247,0.4)"
+            }} />
+            <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-purple-400 to-purple-600" />
+            <div className="relative z-10 flex flex-col gap-0.5">
+              <span className="text-[9px] font-mono font-bold text-purple-400 uppercase tracking-[0.2em]">Category</span>
+              <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Compositional Depth</span>
+            </div>
+            <span className="relative z-10 text-[9px] font-mono text-slate-500 ml-auto">Songwriting craft, theory & artistic merit</span>
           </div>
 
           {/* Card 3: Artistic Integrity (purple/pink) */}
