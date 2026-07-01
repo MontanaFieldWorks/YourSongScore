@@ -75,6 +75,10 @@ export interface LiveAudioMetrics {
   calculatedKeyConfidence?: number;
   calculatedModeConfidence?: number;
   calculatedBpmConfidence?: number;
+  calculatedEndOfFadeIn?: number;
+  calculatedStartOfFadeOut?: number;
+  calculatedTimeSignature?: number;
+  calculatedTimeSignatureConfidence?: number;
 }
 
 export interface CritiqueData {
