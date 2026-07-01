@@ -72,6 +72,9 @@ export interface LiveAudioMetrics {
   calculatedWaveformPoints: number[];
   calculatedWaveformPointsHD: number[];
   calculatedDuration?: number;
+  calculatedKeyConfidence?: number;
+  calculatedModeConfidence?: number;
+  calculatedBpmConfidence?: number;
 }
 
 export interface CritiqueData {
