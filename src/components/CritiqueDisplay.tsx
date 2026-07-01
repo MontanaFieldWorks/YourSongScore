@@ -490,33 +490,69 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const baseLiveness = Math.round(((profile.liveMin + profile.liveMax) / 2) * 100);
   const baseTempo = Math.round((profile.bpmMin + profile.bpmMax) / 2);
 
-  // Acousticness
+  // Acousticness — driven by actual spectral balance when live metrics available
+  // High bass + low highs = acoustic; high highs + low bass = electronic
   const acousticnessOffset = Math.round(((instrumentalScoreVal || 70) % 15) - 7);
-  const acousticness = critique?.spotifyOverrides?.acousticness ?? Math.max(5, Math.min(95, baseAcousticness + acousticnessOffset));
+  const acousticness = critique?.spotifyOverrides?.acousticness ?? (() => {
+    if (liveMetrics?.calculatedBassEnergy !== undefined && liveMetrics?.calculatedHighEnergy !== undefined) {
+      const bassRatio = liveMetrics.calculatedBassEnergy / Math.max(1, liveMetrics.calculatedHighEnergy);
+      const audioAcousticness = Math.round(Math.min(95, Math.max(5, (bassRatio / 3) * 100)));
+      return audioAcousticness;
+    }
+    return Math.max(5, Math.min(95, baseAcousticness + acousticnessOffset));
+  })();
 
-  // Danceability
-  const danceabilityOffset = Math.round(((flowScoreVal || 70) % 15) - 5);
+  // Danceability — linear mapping from flowScore (arrangement/rhythmic groove quality)
+  // Maps flowScoreVal range 50-95 linearly onto the subgenre target range
+  const danceabilityOffset = Math.round(((flowScoreVal || 70) - 72) * 0.4);
   const danceability = critique?.spotifyOverrides?.danceability ?? Math.max(15, Math.min(95, baseDanceability + danceabilityOffset));
 
-  // Energy
+  // Energy — driven by LUFS loudness and high-frequency spectral content when live metrics available
   const energyOffset = Math.round(((overallProductionVal || 75) % 15) - 4);
-  const energy = Math.max(10, Math.min(96, baseEnergy + energyOffset));
+  const energy = (() => {
+    if (liveMetrics?.calculatedLufs !== undefined && liveMetrics?.calculatedHighEnergy !== undefined) {
+      const lufsFactor = Math.min(1, Math.max(0, (liveMetrics.calculatedLufs + 22) / 16));
+      const highFactor = Math.min(1, liveMetrics.calculatedHighEnergy / 50);
+      const audioEnergy = Math.round(Math.min(96, Math.max(10, (lufsFactor * 0.6 + highFactor * 0.4) * 100)));
+      return audioEnergy;
+    }
+    return Math.max(10, Math.min(96, baseEnergy + energyOffset));
+  })();
 
-  // Valence
-  const valenceOffset = Math.round(((theoryScoreVal || 72) % 20) - 10);
+  // Valence — linear mapping from theoryScore (harmonic sophistication)
+  // No reliable audio signal available; linear mapping is more consistent than modulo
+  const valenceOffset = Math.round(((theoryScoreVal || 72) - 72) * 0.3);
   const valence = critique?.spotifyOverrides?.valence ?? Math.max(8, Math.min(95, baseValence + valenceOffset));
 
-  // Instrumentalness
-  const instrumentalnessOffset = Math.round(((instrumentalScoreVal || 75) % 12) - 6);
-  const instrumentalness = Math.max(1, Math.min(98, baseInstrumentalness + instrumentalnessOffset));
+  // Instrumentalness — partially audio-driven via mid/high energy balance
+  // High mid energy relative to high energy suggests vocal presence (lower instrumentalness)
+  const instrumentalnessOffset = Math.round(((instrumentalScoreVal || 75) - 75) * 0.3);
+  const instrumentalness = (() => {
+    if (liveMetrics?.calculatedMidEnergy !== undefined && liveMetrics?.calculatedHighEnergy !== undefined) {
+      const vocalPresenceProxy = Math.min(1, liveMetrics.calculatedMidEnergy / Math.max(1, liveMetrics.calculatedHighEnergy));
+      // High mid/high ratio suggests vocals — lower instrumentalness
+      const audioInstrumentalness = Math.round(Math.min(98, Math.max(1, (1 - vocalPresenceProxy) * 80)));
+      return audioInstrumentalness;
+    }
+    return Math.max(1, Math.min(98, baseInstrumentalness + instrumentalnessOffset));
+  })();
 
-  // Speechiness
-  const speechinessOffset = Math.round(((lyricsScoreVal || 70) % 10) - 5);
+  // Speechiness — linear mapping from lyricsScore (lyrical density/cadence)
+  // No reliable audio signal available; linear mapping is more consistent than modulo
+  const speechinessOffset = Math.round(((lyricsScoreVal || 70) - 70) * 0.2);
   const speechiness = Math.max(2, Math.min(92, baseSpeechiness + speechinessOffset));
 
-  // Liveness
+  // Liveness — driven by stereo correlation when live metrics available
+  // Studio recordings have high correlation (near 1.0); live/room recordings have lower correlation
   const livenessOffset = Math.round(((mixScoreVal || 75) % 10) - 4);
-  const liveness = critique?.spotifyOverrides?.liveness ?? Math.max(5, Math.min(95, baseLiveness + livenessOffset));
+  const liveness = critique?.spotifyOverrides?.liveness ?? (() => {
+    if (liveMetrics?.calculatedStereoCorrelation !== undefined) {
+      // Invert correlation: high correlation = studio (low liveness), low correlation = live (high liveness)
+      const livenessFromCorrelation = Math.round(Math.min(95, Math.max(5, (1 - liveMetrics.calculatedStereoCorrelation) * 100)));
+      return livenessFromCorrelation;
+    }
+    return Math.max(5, Math.min(95, baseLiveness + livenessOffset));
+  })();
 
   // Tempo (make completely dynamic and live!)
   const tempoOffset = Math.round(((flowScoreVal || 75) % 30) - 15);
@@ -3748,7 +3784,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         match: danceabilityMatch,
         idealDesc: "rhythm syncopation and beat grids.",
         overDesc: "The track's groove is hyperactive/complex for the intended playlist neighborhood.",
-        underDesc: "Rhythm is too uniform or static to engage target listenership profiles."
+        underDesc: "Rhythm is too uniform or static to engage target listenership profiles.",
+        source: "score"
       },
       {
         key: "energy",
@@ -3760,7 +3797,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         match: energyMatch,
         idealDesc: "perceptual loudness and transient speed.",
         overDesc: "Dynamics are over-compressed/crushed, prompting automated level clamps and listener fatigue.",
-        underDesc: "Overall intensity is flat or hollow, failing playback impact criteria."
+        underDesc: "Overall intensity is flat or hollow, failing playback impact criteria.",
+        source: liveMetrics ? "audio" : "score"
       },
       {
         key: "acousticness",
@@ -3772,7 +3810,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         match: acousticnessMatch,
         idealDesc: "organic vs electronic structural density.",
         overDesc: "Timber profile is excessively organic/dry for the intended synthetic production target.",
-        underDesc: "Artificial elements override the genre's expected warm or wooden acoustics."
+        underDesc: "Artificial elements override the genre's expected warm or wooden acoustics.",
+        source: liveMetrics ? "audio" : "score"
       },
       {
         key: "valence",
@@ -3784,7 +3823,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         match: valenceMatch,
         idealDesc: "musical sunlight and emotional brightness.",
         overDesc: "Harmony/chord scale is overly upbeat or bright, contradicting the target playlist mood vector.",
-        underDesc: "Vibe is too dark or somber, mismatching happy or energetic listener filters."
+        underDesc: "Vibe is too dark or somber, mismatching happy or energetic listener filters.",
+        source: "score"
       },
       {
         key: "speechiness",
@@ -3796,7 +3836,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         match: speechinessMatch,
         idealDesc: "spoken word presence over musical singing.",
         overDesc: "Vocal tracks lean toward spoken text or monologue, disrupting playlist music flow.",
-        underDesc: "Spoken presence is overly attenuated or missing for a speech-focused style target."
+        underDesc: "Spoken presence is overly attenuated or missing for a speech-focused style target.",
+        source: "score"
       },
       {
         key: "instrumentalness",
@@ -3808,7 +3849,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         match: instrumentalnessMatch,
         idealDesc: "vocal-to-instrumental ratio.",
         overDesc: "The track lacks clear vocal focus points required for artist neighborhood playlists.",
-        underDesc: "Vocal files occupy too much front focus, overriding the expected ambient background style."
+        underDesc: "Vocal files occupy too much front focus, overriding the expected ambient background style.",
+        source: liveMetrics ? "audio" : "score"
       },
       {
         key: "liveness",
@@ -3820,7 +3862,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         match: livenessMatch,
         idealDesc: "reflections of live venue acoustics and ambient room noise.",
         overDesc: "Audience reflection/mic bleed feels like an unpolished bootleg, failing clean studio standards.",
-        underDesc: "Performance contains insufficient room reflections to establish live venue authenticity."
+        underDesc: "Performance contains insufficient room reflections to establish live venue authenticity.",
+        source: liveMetrics ? "audio" : "score"
       }
     ];
 
@@ -3904,6 +3947,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             <p className="text-xs text-slate-400 leading-normal max-w-3xl">
               This panel shows an analysis of your song against all <strong className="text-white">7 Echo Nest sensory descriptors</strong>{" "}(<button onClick={() => onViewDefinition && onViewDefinition("Dual-Filtering Ingestion Target Compliance")} className="text-[#1ed760] font-sans font-black hover:underline cursor-pointer transition-colors hover:text-white" title="Click to view explanation inside Glossary">View Explanation</button>){" "}for your song's subgenre, mapping your track directly against content-based filtering ranges utilized in Spotify's recommender framework. (+/-5% confidence - Our targets are highly researched assumptions of the targets Spotify uses.)
             </p>
+            {(critique?.vibe?.genre || critique?.vibe?.subgenre) && (
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">Target Profile:</span>
+                <span className="text-[9px] font-mono font-bold text-emerald-400 uppercase tracking-widest px-2 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/5">
+                  {critique?.vibe?.subgenre || critique?.vibe?.genre || "—"}
+                </span>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               
@@ -3917,7 +3968,18 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <div key={item.key} className="bg-[#13161C] border border-white/5 p-4 rounded-xl flex flex-col justify-between hover:border-[#1ed760]/20 transition-all font-sans">
                     <div>
                       <div className="flex justify-between items-baseline mb-1">
-                        <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest font-semibold">{item.name}</span>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest font-semibold">{item.name}</span>
+                          {item.source === "audio" ? (
+                            <span className="text-[8px] font-mono text-cyan-500/70 border border-cyan-500/20 px-1 py-0.5 rounded uppercase tracking-wide ml-1 normal-case font-medium">
+                              ⬡ audio
+                            </span>
+                          ) : (
+                            <span className="text-[8px] font-mono text-slate-600 border border-white/5 px-1 py-0.5 rounded uppercase tracking-wide ml-1 normal-case font-medium">
+                              AI
+                            </span>
+                          )}
+                        </div>
                         <span className="text-xs font-mono font-black text-[#1ed760]">{item.value}%</span>
                       </div>
 
@@ -4110,6 +4172,50 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     )}
                   </strong>
                 </div>
+                {critique?.liveMetrics?.calculatedTimeSignature !== undefined && (
+                  <div className="flex items-center gap-1.5">
+                    <span>Time Signature:</span>
+                    <strong className="text-white bg-neutral-950 px-2.5 py-1 border border-white/10 rounded-md font-sans flex items-center">
+                      <span>
+                        {critique.liveMetrics.calculatedTimeSignature === 6 
+                          ? "6/8" 
+                          : `${critique.liveMetrics.calculatedTimeSignature}/4`}
+                      </span>
+                      {critique.liveMetrics.calculatedTimeSignatureConfidence !== undefined && (
+                        <span className={`text-[9px] font-mono ml-1 ${
+                          critique.liveMetrics.calculatedTimeSignatureConfidence >= 0.7
+                            ? "text-emerald-500"
+                            : "text-amber-500"
+                        }`}>
+                          ({Math.round(critique.liveMetrics.calculatedTimeSignatureConfidence * 100)}% conf.)
+                        </span>
+                      )}
+                    </strong>
+                  </div>
+                )}
+                {(critique?.liveMetrics?.calculatedEndOfFadeIn !== undefined || critique?.liveMetrics?.calculatedStartOfFadeOut !== undefined) && (
+                  <div className="flex items-center gap-1.5">
+                    <span>Fade:</span>
+                    <strong className="text-white bg-neutral-950 px-2.5 py-1 border border-white/10 rounded-md font-sans flex items-center gap-2">
+                      {critique?.liveMetrics?.calculatedEndOfFadeIn !== undefined && critique.liveMetrics.calculatedEndOfFadeIn > 0 && (
+                        <span className="text-[9px] font-mono text-cyan-400">
+                          In: {critique.liveMetrics.calculatedEndOfFadeIn}s
+                        </span>
+                      )}
+                      {critique?.liveMetrics?.calculatedEndOfFadeIn !== undefined && critique.liveMetrics.calculatedEndOfFadeIn === 0 && (
+                        <span className="text-[9px] font-mono text-slate-500">No fade-in</span>
+                      )}
+                      {critique?.liveMetrics?.calculatedStartOfFadeOut !== undefined && critique?.liveMetrics?.calculatedDuration !== undefined && critique.liveMetrics.calculatedStartOfFadeOut < critique.liveMetrics.calculatedDuration && (
+                        <span className="text-[9px] font-mono text-cyan-400">
+                          Out: {critique.liveMetrics.calculatedStartOfFadeOut}s
+                        </span>
+                      )}
+                      {critique?.liveMetrics?.calculatedStartOfFadeOut !== undefined && critique?.liveMetrics?.calculatedDuration !== undefined && critique.liveMetrics.calculatedStartOfFadeOut >= critique.liveMetrics.calculatedDuration && (
+                        <span className="text-[9px] font-mono text-slate-500">No fade-out</span>
+                      )}
+                    </strong>
+                  </div>
+                )}
               </div>
               <div className="text-[10px] text-slate-500 italic font-sans font-medium">
                 *Algorithmic triggers analyze raw BPM grid placement relative to transition indices.
