@@ -4083,11 +4083,33 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
             {/* Scorecard bottom info bar */}
             <div className="border-t border-white/5 pt-3.5 mt-2 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] font-mono text-slate-400">
-              <div className="flex items-center gap-1.5 animate-fadeIn">
-                <span>Estimated Song tempo:</span>
-                <strong className="text-white bg-neutral-950 px-2.5 py-1 border border-white/10 rounded-md font-sans">
-                  {tempo} BPM
-                </strong>
+              <div className="flex flex-wrap items-center gap-4 animate-fadeIn">
+                <div className="flex items-center gap-1.5">
+                  <span>Estimated Song tempo:</span>
+                  <strong className="text-white bg-neutral-950 px-2.5 py-1 border border-white/10 rounded-md font-sans flex items-center">
+                    <span>{critique?.liveMetrics?.calculatedBpm ?? "—"} BPM</span>
+                    {critique?.liveMetrics?.calculatedBpmConfidence !== undefined && (
+                      <span className={`text-[9px] font-mono ml-1 ${
+                        (critique.liveMetrics.calculatedBpmConfidence) >= 0.5 
+                          ? "text-emerald-500" 
+                          : "text-amber-500"
+                      }`}>
+                        ({Math.round((critique.liveMetrics.calculatedBpmConfidence) * 100)}% conf.)
+                      </span>
+                    )}
+                  </strong>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span>Estimated Song Key:</span>
+                  <strong className="text-white bg-neutral-950 px-2.5 py-1 border border-white/10 rounded-md font-sans flex items-center">
+                    <span>{critique?.liveMetrics?.calculatedKey ?? "—"}</span>
+                    {critique?.liveMetrics?.calculatedKeyConfidence !== undefined && (
+                      <span className="text-[9px] font-mono text-slate-500 ml-1">
+                        ({Math.round((critique.liveMetrics.calculatedKeyConfidence) * 100)}% conf.)
+                      </span>
+                    )}
+                  </strong>
+                </div>
               </div>
               <div className="text-[10px] text-slate-500 italic font-sans font-medium">
                 *Algorithmic triggers analyze raw BPM grid placement relative to transition indices.
