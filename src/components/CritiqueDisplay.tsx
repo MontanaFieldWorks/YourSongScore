@@ -1312,6 +1312,41 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     }
   ];
 
+  const downloadFullReport = () => {
+    const rows: string[][] = [["Category", "Metric Name", "Score", "Commentary"]];
+
+    METRICS_LIST.forEach((m) => {
+      rows.push([
+        "Core Metrics",
+        m.name,
+        String(m.score),
+        (m.feedback || "").replace(/\n/g, " ")
+      ]);
+    });
+
+    AUX_METRICS_LIST.forEach((m) => {
+      rows.push([
+        "Core Metrics",
+        m.name,
+        String(m.score),
+        (m.feedback || "").replace(/\n/g, " ")
+      ]);
+    });
+
+    const escapeCsv = (val: string) => `"${val.replace(/"/g, '""')}"`;
+    const csvContent = rows.map(row => row.map(escapeCsv).join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const safeName = (trackInfo?.name || "YSS_Report").replace(/[^a-z0-9]/gi, "_");
+    link.download = `${safeName}_YSS_Report.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const getFilteredMetrics = (cat: "mainstream" | "artistic" | "dna" | "sandbox" | "spotify" | "azimuth" | "blueprints" | "architecture" | null = activeCategory) => {
     if (cat === "mainstream") {
       return [
@@ -4769,6 +4804,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 by <span className="text-slate-300 font-medium">{artistName}</span>
               </p>
             </div>
+
+            <button
+              onClick={downloadFullReport}
+              className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-sm font-medium text-white/80 hover:text-white transition-colors"
+            >
+              Download Full Report (CSV)
+            </button>
           </div>
 
           {/* Key and BPM Row - Version 4 Harmonic Audit */}
