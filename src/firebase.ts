@@ -622,15 +622,15 @@ const deepCleanFirestoreObject = (val: any): any => {
 
 // 6. Save or Update User Track
 export const saveUserTrack = async (track: StoredTrack): Promise<void> => {
-  // Recursively clean undefined/null values out of the track object to avoid Firestore write errors on deep fields (like critique)
   const cleanTrack = deepCleanFirestoreObject(track);
 
-  // Always update in local tracks as well to ensure local robustness first!
+  // Always save to local storage first as fallback
   const allTracks = getLocalTracks().filter(t => t.id !== cleanTrack.id);
   allTracks.push(cleanTrack);
   saveLocalTracks(allTracks);
 
-  if (isFirebaseActive && dbInstance && !cleanTrack.userId.startsWith("usr_")) {
+  // Save to Firestore for all authenticated users regardless of userId format
+  if (isFirebaseActive && dbInstance && cleanTrack.userId && cleanTrack.userId.length > 0) {
     try {
       await setDoc(doc(dbInstance, "tracks", cleanTrack.id), cleanTrack);
     } catch (err) {
