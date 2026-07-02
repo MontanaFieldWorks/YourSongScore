@@ -926,7 +926,7 @@ export default function App() {
               <span className="font-display font-medium text-base text-white tracking-tight flex items-center gap-2" id="app-heading">
                 YourSongScore
                 <span className="px-2 py-0.5 text-[8px] uppercase tracking-widest font-mono bg-[#1C202A] border border-white/5 text-slate-400 rounded-md">
-                  v5
+                  v6
                 </span>
               </span>
               <span className="text-[10px] font-mono text-blue-400 uppercase tracking-widest leading-none mt-1">
@@ -1390,8 +1390,8 @@ export default function App() {
                       <Radar className="w-3.5 h-3.5 text-blue-400 animate-spin-strobe" style={{ animationDuration: "2.4s" }} />
                     </div>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      <span className="font-semibold text-slate-200 block mb-0.5">Multi-Dimensional Studio Audit:</span>
-                      High-level engineering and A&R critiques of your song across seven core musical and technical dimensions to instantly evaluate its commercial viability.
+                      <span className="font-semibold text-slate-200 block mb-0.5">Multi-Dimensional Analysis:</span>
+                      High-level engineering & A&R critiques of your song across 7 core musical & technical dimensions to instantly evaluate its commercial viability.
                     </p>
                   </div>
                   <div className="flex items-start gap-3">
@@ -1399,8 +1399,8 @@ export default function App() {
                       <Radar className="w-3.5 h-3.5 text-blue-400 animate-spin-strobe" style={{ animationDuration: "3.6s" }} />
                     </div>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      <span className="font-semibold text-slate-200 block mb-0.5">Streaming Readiness/Algorithm Simulation:</span>
-                      Navigate critical gatekeeping filters on major streaming services by predicting how streaming services’ (Spotify) algorithmic analyses will index and route your track.
+                      <span className="font-semibold text-slate-200 block mb-0.5">Algorithm Simulation:</span>
+                      Navigate critical gatekeeping filters on major streaming services by predicting how their algorithms will index and route your track.
                     </p>
                   </div>
                   <div className="flex items-start gap-3">
@@ -1408,7 +1408,7 @@ export default function App() {
                       <Radar className="w-3.5 h-3.5 text-blue-400 animate-spin-strobe" style={{ animationDuration: "1.8s" }} />
                     </div>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      <span className="font-semibold text-slate-200 block mb-0.5">Precision Engineering Studio & DAW-Optimized Engineering Checklists:</span>
+                      <span className="font-semibold text-slate-200 block mb-0.5">DAW-Optimized Studio Analysis</span>
                       Nine diagnostic modules analyze a broad array of measurements that guide step-by-step, plugin setting specific mix correction blueprints.
                     </p>
                   </div>
@@ -1417,17 +1417,8 @@ export default function App() {
                       <Radar className="w-3.5 h-3.5 text-blue-400 animate-spin-strobe" style={{ animationDuration: "4.5s" }} />
                     </div>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      <span className="font-semibold text-slate-200 block mb-0.5">Genre Specific Assessment & Alignments:</span>
-                      High-level production analyses measure the similarities of your track to curated hit playlists to forecast target audience fits based on the standards of your genre.
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-blue-500/10 border border-blue-500/15 text-blue-400 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 shadow-[0_0_8px_rgba(59,130,246,0.1)]">
-                      <Radar className="w-3.5 h-3.5 text-blue-400 animate-spin-strobe" style={{ animationDuration: "2.8s" }} />
-                    </div>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      <span className="font-semibold text-slate-200 block mb-0.5">Artist & Audience Positioning:</span>
-                      Know which algorithmic box your song gets sorted into with our one of a kind distinctiveness analysis showing if you own a niche or disappear into the crowd.
+                      <span className="font-semibold text-slate-200 block mb-0.5">Genre Specific Assessment:</span>
+                      High-level production analyses measure the similarities of your track to curated playlists to forecast target audience matching.
                     </p>
                   </div>
                 </div>
