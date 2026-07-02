@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowLeft, Library } from "lucide-react";
+import { ArrowLeft, Library, WalletMinimal } from "lucide-react";
 
 interface StacksPageProps {
   onBack: () => void;
@@ -52,8 +52,9 @@ export default function StacksPage({ onBack }: StacksPageProps) {
           <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-purple-500/5 rounded-full blur-[100px] pointer-events-none" />
           
           <div className="relative z-10 flex flex-col gap-4">
-            <h2 className="text-2xl font-black text-white tracking-tight font-sans">
-              The Blind Tunnel: The Misunderstood -14.0
+            <h2 className="text-2xl font-black text-white tracking-tight font-sans flex items-center gap-2.5">
+              <WalletMinimal className="w-6 h-6 text-[#bd93f9] shrink-0" />
+              <span>The Blind Tunnel: The Misunderstood -14.0</span>
             </h2>
             <h3 className="text-base font-bold text-[#bd93f9] tracking-tight">
               -14.0 Integrated Loudness — Normalization vs. Commercial Reality
