@@ -548,7 +548,7 @@ export const fetchUserTracks = async (userId: string): Promise<StoredTrack[]> =>
 
   const localTracks = getLocalTracks().filter(t => t.userId === userId);
 
-  if (isFirebaseActive && dbInstance && !userId.startsWith("usr_")) {
+  if (isFirebaseActive && dbInstance) {
     try {
       const q = query(collection(dbInstance, "tracks"), where("userId", "==", userId));
       const querySnapshot = await getDocs(q);
