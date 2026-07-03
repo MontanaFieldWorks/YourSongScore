@@ -1333,6 +1333,32 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ]);
     });
 
+    METRICS_LIST.forEach((m) => {
+      (m.subParams || []).forEach((param: any, idx: number) => {
+        const subScore = getSubScore(m.score, idx, m.subParams.length, m.id);
+        const subText = getSubScoreExplanationText(param.name, subScore);
+        rows.push([
+          "Sub-Metrics",
+          `${m.name} > ${param.name}`,
+          String(subScore),
+          (subText || "").replace(/\n/g, " ")
+        ]);
+      });
+    });
+
+    AUX_METRICS_LIST.forEach((m) => {
+      (m.subParams || []).forEach((param: any, idx: number) => {
+        const subScore = getSubScore(m.score, idx, m.subParams.length, m.id);
+        const subText = getSubScoreExplanationText(param.name, subScore);
+        rows.push([
+          "Sub-Metrics",
+          `${m.name} > ${param.name}`,
+          String(subScore),
+          (subText || "").replace(/\n/g, " ")
+        ]);
+      });
+    });
+
     const escapeCsv = (val: string) => `"${val.replace(/"/g, '""')}"`;
     const csvContent = rows.map(row => row.map(escapeCsv).join(",")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
