@@ -1315,26 +1315,23 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const downloadFullReport = () => {
     const rows: string[][] = [["Category", "Metric Name", "Score", "Commentary"]];
 
-    METRICS_LIST.forEach((m) => {
-      rows.push([
-        "Core Metrics",
-        m.name,
-        String(m.score),
-        (m.feedback || "").replace(/\n/g, " ")
-      ]);
-      (m.subParams || []).forEach((param: any, idx: number) => {
-        const subScore = getSubScore(m.score, idx, m.subParams.length, m.id);
-        const subText = getSubScoreExplanationText(param.name, subScore);
-        rows.push([
-          "Sub-Metrics",
-          `${m.name} > ${param.name}`,
-          String(subScore),
-          (subText || "").replace(/\n/g, " ")
-        ]);
-      });
-    });
+    const orderedMetrics = [
+      METRICS_LIST.find(m => m.id === "readiness"),
+      METRICS_LIST.find(m => m.id === "production"),
+      METRICS_LIST.find(m => m.id === "flow"),
+      METRICS_LIST.find(m => m.id === "mix"),
+      METRICS_LIST.find(m => m.id === "vocals"),
+      METRICS_LIST.find(m => m.id === "instrumental"),
+      AUX_METRICS_LIST.find(m => m.id === "searchability"),
+      METRICS_LIST.find(m => m.id === "artistic"),
+      AUX_METRICS_LIST.find(m => m.id === "lyrics"),
+      AUX_METRICS_LIST.find(m => m.id === "theory"),
+      METRICS_LIST.find(m => m.id === "dna-melodic"),
+      METRICS_LIST.find(m => m.id === "dna-tension"),
+      METRICS_LIST.find(m => m.id === "dna-density"),
+    ].filter(Boolean) as any[];
 
-    AUX_METRICS_LIST.forEach((m) => {
+    orderedMetrics.forEach((m: any) => {
       rows.push([
         "Core Metrics",
         m.name,
