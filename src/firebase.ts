@@ -5,6 +5,47 @@ import { StoredTrack, UserProfile } from "./types";
 import { safeLocalStorage } from "./lib/safeStorage";
 import firebaseConfig from "../firebase-applet-config.json";
 
+const downscaleCoverArt = (dataUrl: string, maxSize: number = 150, quality: number = 0.6): Promise<string> => {
+  return new Promise((resolve) => {
+    if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:image")) {
+      resolve(dataUrl);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      try {
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxSize) {
+            height = Math.round(height * (maxSize / width));
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = Math.round(width * (maxSize / height));
+            height = maxSize;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      } catch (e) {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+};
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
@@ -622,7 +663,16 @@ const deepCleanFirestoreObject = (val: any): any => {
 
 // 6. Save or Update User Track
 export const saveUserTrack = async (track: StoredTrack): Promise<void> => {
-  const cleanTrack = deepCleanFirestoreObject(track);
+  let workingTrack: StoredTrack = track;
+  if ((track as any).coverArt) {
+    try {
+      const smallCoverArt = await downscaleCoverArt((track as any).coverArt);
+      workingTrack = { ...track, coverArt: smallCoverArt } as StoredTrack;
+    } catch (e) {
+      console.warn("Cover art downscale failed, saving original:", e);
+    }
+  }
+  const cleanTrack = deepCleanFirestoreObject(workingTrack);
 
   // Always save to local storage first as fallback
   const allTracks = getLocalTracks().filter(t => t.id !== cleanTrack.id);
