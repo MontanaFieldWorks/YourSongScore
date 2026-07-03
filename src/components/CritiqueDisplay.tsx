@@ -1322,18 +1322,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         String(m.score),
         (m.feedback || "").replace(/\n/g, " ")
       ]);
-    });
-
-    AUX_METRICS_LIST.forEach((m) => {
-      rows.push([
-        "Core Metrics",
-        m.name,
-        String(m.score),
-        (m.feedback || "").replace(/\n/g, " ")
-      ]);
-    });
-
-    METRICS_LIST.forEach((m) => {
       (m.subParams || []).forEach((param: any, idx: number) => {
         const subScore = getSubScore(m.score, idx, m.subParams.length, m.id);
         const subText = getSubScoreExplanationText(param.name, subScore);
@@ -1347,6 +1335,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     });
 
     AUX_METRICS_LIST.forEach((m) => {
+      rows.push([
+        "Core Metrics",
+        m.name,
+        String(m.score),
+        (m.feedback || "").replace(/\n/g, " ")
+      ]);
       (m.subParams || []).forEach((param: any, idx: number) => {
         const subScore = getSubScore(m.score, idx, m.subParams.length, m.id);
         const subText = getSubScoreExplanationText(param.name, subScore);
