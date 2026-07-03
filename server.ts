@@ -60,7 +60,17 @@ CRITICAL ANALYSIS CRITERIA FOR MUSICALITY & GROOVE:
 * Respect Rhythmic Purpose: A solid, steady, uncluttered rhythmic grid is often the strongest foundation for a song. Do not recommend off-beat syncopation, complex tuplets, or polymetric fills unless the existing track actually suffers from clumsy timing or lacks a groove suited to its genre. Appreciate a beautifully timed, consistent pocket.
 * Value Authentic Composition: Rate progressions on their harmonic function, voice leading, and section-to-section handoffs. Standard chord formulas (like I-V-vi-IV) can be masterpieces when paired with great melodies. Look for deliberate emotional choices rather than requiring complex dissonance or random modulations to score high.
 
-You MUST return a JSON object match exactly with the requested schema. Ensure the mix scores, performance scores, arrangement scores, and action items are highly technical and precise. Identify specific frequency ranges (e.g., mud around 250Hz, sibilance at 6kHz) or pacing issues. If they uploaded a short preview, focus heavily on the mixing, vocal processing, and performance aspects visible. Code comments or descriptions should be tailored to DAWs (EQ, Compression, Panning).`;
+You MUST return a JSON object match exactly with the requested schema. Ensure the mix scores, performance scores, arrangement scores, and action items are highly technical and precise. Identify specific frequency ranges (e.g., mud around 250Hz, sibilance at 6kHz) or pacing issues. If they uploaded a short preview, focus heavily on the mixing, vocal processing, and performance aspects visible. Code comments or descriptions should be tailored to DAWs (EQ, Compression, Panning).
+
+CRITICAL ANTI-BIAS DIRECTIVE — FACT-TO-LOGIC SCORING:
+You must not exhibit two specific failure modes:
+1. Halo Effect / Label Bias: Do not artificially elevate scores because you recognize a track as a famous, historically significant, or culturally acclaimed work.
+2. Reverse Bias / Algorithmic Flinch: Do not systematically hedge scores downward, or pull toward a "safe" middle score, simply because a track is unverified, unknown, or anonymous.
+To eliminate both biases, follow this sequence for every scored dimension:
+STEP 1 - FACT: Identify the specific, measurable musical components actually present (e.g. chord complexity, rhythmic structure, harmonic movement, frequency balance, dynamic range).
+STEP 2 - LOGIC: Draw a conclusion strictly from those measured facts about the track's technical and compositional sophistication.
+STEP 3 - VALUE JUDGMENT: Assign your score based directly on that logical conclusion, not on reputation, familiarity, or caution.
+If an unverified or anonymous track exhibits the same measurable complexity as a canonical masterpiece, it must receive the same high score. Do not hedge. Do not flinch. Score boldly and defend the number strictly with the facts identified in Step 1.`;
 
 // Response Schema for Structured AI Output
 const CRITIQUE_SCHEMA = {
@@ -285,11 +295,11 @@ async function generateContentWithRetry(params: {
         throw err;
       }
 
-      // If the targeted model is gemini-3.5-flash and we hit a load/availability issue,
-      // fallback to the extremely high-availability gemini-3.1-flash-lite on subsequent attempts.
-      if (currentModel === "gemini-3.5-flash" && isUnavailable) {
-        console.log(`[Gemini API] Switching fallback model from gemini-3.5-flash to gemini-3.1-flash-lite due to high demand (503/UNAVAILABLE).`);
-        currentModel = "gemini-3.1-flash-lite";
+      // If the targeted model is gemini-2.0-flash and we hit a load/availability issue,
+      // fallback to gemini-2.0-flash on subsequent attempts.
+      if (currentModel === "gemini-2.0-flash" && isUnavailable) {
+        console.log(`[Gemini API] Switching fallback model from gemini-2.0-flash on retry due to high demand (503/UNAVAILABLE).`);
+        currentModel = "gemini-2.0-flash";
       }
 
       // Wait with backoff (1500ms, 3000ms, 4500ms)
@@ -335,7 +345,7 @@ async function performCritiqueAnalysis(
 
   const runSingle = async (temp: number) => {
     const response = await generateContentWithRetry({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.0-flash",
       contents: normalizedContents,
       config: {
         systemInstruction: systemInstruction,
@@ -492,14 +502,11 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
     };
 
     let userInstruction = "Listen to this songwriter's track and evaluate all aspects of performance, tracking, and mix distribution.";
-    if (metaTitle || metaArtist || metaGenre) {
+    if (metaGenre) {
       userInstruction += `\n\n[EMBEDDED FILE METADATA CONTEXT]`;
-      if (metaTitle) userInstruction += `\n- Track Title: "${metaTitle}"`;
-      if (metaArtist) userInstruction += `\n- Artist Name: "${metaArtist}"`;
-      if (metaGenre) {
-        userInstruction += `\n- Embedded Genre: "${metaGenre}". This is the explicit, ground-truth genre file tag. Analyze and score the track relative to this specific genre/style.`;
-      }
+      userInstruction += `\n- Embedded Genre: "${metaGenre}". This is the explicit, ground-truth genre file tag. Analyze and score the track relative to this specific genre/style.`;
     }
+    userInstruction += `\n\n[BLIND AUDITION MODE]\nYou are NOT being given the track title or artist name. Evaluate this track exactly as you would an anonymous submission with zero cultural context. Do not attempt to guess or identify the artist or song. Score strictly on what you hear.`;
 
     if (!metaGenre) {
       userInstruction += `\n\n- Genre Identification Directive: No explicit, valid genre metadata tag was found in the audio container. You MUST perform a deep acoustic and stylistic analysis of the track's drum/beat structures, lead instrumentation, tempo/timing, harmonic mood, and vocal delivery to identify the exact, laser-focused core genre and subgenre. Select from modern specific styles (e.g. Dream Pop, Synth-pop, Melodic Techno, Boom-Bap Hip Hop, Emo Rap, Cinematic Ambient, Progressive Metal, Americana, Indie Folk, UK Garage, UK Drill). Avoid generic tags like 'Unclassified', 'Demo', 'Acoustic', 'Vocal', or 'Electronic' without specific stylistic qualification. Check the frequency range structures and arrangement styles to see what type of playlist it fits best.`;
@@ -555,14 +562,11 @@ app.post("/api/critique-url", async (req, res) => {
     };
 
     let userInstruction = "Analyze this songwriters track from the direct URL stream. Critically review the production and deliver feedback.";
-    if (metaTitle || metaArtist || metaGenre) {
+    if (metaGenre) {
       userInstruction += `\n\n[EMBEDDED FILE METADATA CONTEXT]`;
-      if (metaTitle) userInstruction += `\n- Track Title: "${metaTitle}"`;
-      if (metaArtist) userInstruction += `\n- Artist Name: "${metaArtist}"`;
-      if (metaGenre) {
-        userInstruction += `\n- Embedded Genre: "${metaGenre}". This is the explicit, ground-truth genre file tag. Analyze and score the track relative to this specific genre/style.`;
-      }
+      userInstruction += `\n- Embedded Genre: "${metaGenre}". This is the explicit, ground-truth genre file tag. Analyze and score the track relative to this specific genre/style.`;
     }
+    userInstruction += `\n\n[BLIND AUDITION MODE]\nYou are NOT being given the track title or artist name. Evaluate this track exactly as you would an anonymous submission with zero cultural context. Do not attempt to guess or identify the artist or song. Score strictly on what you hear.`;
 
     if (!metaGenre) {
       userInstruction += `\n\n- Genre Identification Directive: No explicit, valid genre metadata tag was found in the audio container. You MUST perform a deep acoustic and stylistic analysis of the track's drum/beat structures, lead instrumentation, tempo/timing, harmonic mood, and vocal delivery to identify the exact, laser-focused core genre and subgenre. Select from modern specific styles (e.g. Dream Pop, Synth-pop, Melodic Techno, Boom-Bap Hip Hop, Emo Rap, Cinematic Ambient, Progressive Metal, Americana, Indie Folk, UK Garage, UK Drill). Avoid generic tags like 'Unclassified', 'Demo', 'Acoustic', 'Vocal', or 'Electronic' without specific stylistic qualification. Check the frequency range structures and arrangement styles to see what type of playlist it fits best.`;
@@ -823,7 +827,7 @@ app.post("/api/ar-consult", async (req, res) => {
     });
 
     const response = await generateContentWithRetry({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.0-flash",
       contents: contents,
       config: {
         systemInstruction: systemInstruction,
