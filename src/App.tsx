@@ -13,6 +13,7 @@ import DefinitionsPage from "./components/DefinitionsPage";
 import WhatIsPage from "./components/WhatIsPage";
 import WhatItDoesPage from "./components/WhatItDoesPage";
 import UsefulToolsPage from "./components/UsefulToolsPage";
+import RabbitHolePageV2 from "./components/RabbitHolePageV2";
 import StacksPage from "./components/StacksPage";
 import EngineeringStudioPage from "./components/EngineeringStudioPage";
 import EngineeringDetailsPage from "./components/EngineeringDetailsPage";
@@ -55,6 +56,7 @@ export default function App() {
   const [viewingAboutPage, setViewingAboutPage] = useState(false);
   const [viewingWhatItDoesPage, setViewingWhatItDoesPage] = useState(false);
   const [viewingUsefulTools, setViewingUsefulTools] = useState(false);
+  const [viewingRabbitHoleV2, setViewingRabbitHoleV2] = useState(false);
   const [viewingStacks, setViewingStacks] = useState(false);
   const [viewingEngineeringStudio, setViewingEngineeringStudio] = useState(false);
   const [viewingEngineeringDetails, setViewingEngineeringDetails] = useState(false);
@@ -1021,6 +1023,7 @@ export default function App() {
                           setViewingWhatItDoesPage(false);
                           setViewingDefinitions(false);
                           setViewingUsefulTools(false);
+                          setViewingRabbitHoleV2(false);
                           setViewingStacks(false);
                           setViewingArRep(false);
                           setViewingEngineeringDetails(false);
@@ -1042,6 +1045,7 @@ export default function App() {
                           setViewingAboutPage(false);
                           setViewingDefinitions(false);
                           setViewingUsefulTools(false);
+                          setViewingRabbitHoleV2(false);
                           setViewingStacks(false);
                           setViewingArRep(false);
                           setViewingEngineeringDetails(false);
@@ -1064,6 +1068,7 @@ export default function App() {
                           setViewingAboutPage(false);
                           setViewingWhatItDoesPage(false);
                           setViewingUsefulTools(false);
+                          setViewingRabbitHoleV2(false);
                           setViewingStacks(false);
                           setViewingDashboard(false);
                           setViewingArRep(false);
@@ -1087,6 +1092,7 @@ export default function App() {
                           setViewingWhatItDoesPage(false);
                           setViewingDefinitions(false);
                           setViewingUsefulTools(false);
+                          setViewingRabbitHoleV2(false);
                           setViewingDashboard(false);
                           setViewingArRep(false);
                           setViewingEngineeringDetails(false);
@@ -1109,6 +1115,7 @@ export default function App() {
               <button
                 onClick={() => {
                   setViewingUsefulTools(!viewingUsefulTools);
+                  setViewingRabbitHoleV2(false);
                   setViewingAboutPage(false);
                   setViewingWhatItDoesPage(false);
                   setViewingDefinitions(false);
@@ -1130,12 +1137,36 @@ export default function App() {
 
               <button
                 onClick={() => {
+                  setViewingRabbitHoleV2(!viewingRabbitHoleV2);
+                  setViewingUsefulTools(false);
+                  setViewingAboutPage(false);
+                  setViewingWhatItDoesPage(false);
+                  setViewingDefinitions(false);
+                  setViewingStacks(false);
+                  setViewingArRep(false);
+                  setViewingDashboard(false);
+                  setViewingEngineeringDetails(false);
+                }}
+                title="RH2Test"
+                className={`${showMoreNav ? "flex" : "hidden md:flex"} items-center gap-1.5 text-[11px] font-mono py-1.5 px-3.5 rounded-full border transition-all flex-shrink-0 cursor-pointer ${
+                  viewingRabbitHoleV2 
+                    ? "bg-[#bd93f9] text-white border-[#bd93f9] shadow-[0_0_15px_rgba(189,147,249,0.3)] font-bold"
+                    : "bg-[#13161C] hover:bg-[#1E232E] text-slate-300 hover:text-white border-white/5 hover:border-white/10"
+                }`}
+              >
+                <PackageOpen className={`w-3.5 h-3.5 ${viewingRabbitHoleV2 ? "text-white" : "text-[#bd93f9]"}`} />
+                <span>RH2Test</span>
+              </button>
+
+              <button
+                onClick={() => {
                   setViewingArRep(!viewingArRep);
                   setViewingDashboard(false);
                   setViewingAboutPage(false);
                   setViewingWhatItDoesPage(false);
                   setViewingDefinitions(false);
                   setViewingUsefulTools(false);
+                  setViewingRabbitHoleV2(false);
                   setViewingStacks(false);
                   setViewingEngineeringDetails(false);
                 }}
@@ -1159,6 +1190,7 @@ export default function App() {
                   setViewingWhatItDoesPage(false);
                   setViewingDefinitions(false);
                   setViewingUsefulTools(false);
+                  setViewingRabbitHoleV2(false);
                   setViewingStacks(false);
                   setViewingArRep(false);
                   setViewingEngineeringDetails(false);
@@ -1187,7 +1219,7 @@ export default function App() {
             </div>
             {critiqueResult && (
               <div className="flex gap-2">
-                {(viewingDefinitions || viewingAboutPage || viewingWhatItDoesPage || viewingDashboard || viewingArRep || viewingUsefulTools || viewingEngineeringDetails || viewingStacks) && (
+                {(viewingDefinitions || viewingAboutPage || viewingWhatItDoesPage || viewingDashboard || viewingArRep || viewingUsefulTools || viewingRabbitHoleV2 || viewingEngineeringDetails || viewingStacks) && (
                   <button
                     onClick={() => {
                       setViewingDefinitions(false);
@@ -1196,6 +1228,7 @@ export default function App() {
                       setViewingDashboard(false);
                       setViewingArRep(false);
                       setViewingUsefulTools(false);
+                      setViewingRabbitHoleV2(false);
                       setViewingEngineeringDetails(false);
                       setViewingStacks(false);
                     }}
@@ -1309,6 +1342,20 @@ export default function App() {
               setViewingEngineeringStudio(false);
               setViewingEngineeringDetails(true);
             }}
+          />
+        ) : viewingRabbitHoleV2 ? (
+          <RabbitHolePageV2
+            onBack={() => setViewingRabbitHoleV2(false)}
+            onNavigateToStacks={() => {
+              setViewingRabbitHoleV2(false);
+              setViewingStacks(true);
+            }}
+            onNavigateToSpotifyAnalyzer={() => {
+              setViewingRabbitHoleV2(false);
+              setViewingDashboard(false);
+              setActiveSource("spotify");
+            }}
+            trackInfo={critiqueResult ? critiqueResult.trackInfo : null}
           />
         ) : viewingUsefulTools ? (
           <UsefulToolsPage
