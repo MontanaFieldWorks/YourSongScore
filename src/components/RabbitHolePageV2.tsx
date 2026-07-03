@@ -350,7 +350,7 @@ export default function RabbitHolePageV2({
                   className="font-sans font-bold text-white"
                   style={{ fontSize: "18px" }}
                 >
-                  Streaming Foulest Secret
+                  The Streaming Industry's Foul Secret
                 </span>
               </div>
               <p 
