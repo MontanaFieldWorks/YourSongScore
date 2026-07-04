@@ -295,10 +295,10 @@ async function generateContentWithRetry(params: {
         throw err;
       }
 
-      // If the targeted model is gemini-2.0-flash and we hit a load/availability issue,
+      // If the targeted model is gemini-2.5-flash and we hit a load/availability issue,
       // fallback to gemini-2.0-flash on subsequent attempts.
-      if (currentModel === "gemini-2.0-flash" && isUnavailable) {
-        console.log(`[Gemini API] Switching fallback model from gemini-2.0-flash on retry due to high demand (503/UNAVAILABLE).`);
+      if (currentModel === "gemini-2.5-flash" && isUnavailable) {
+        console.log(`[Gemini API] Switching fallback model from gemini-2.5-flash to gemini-2.0-flash on retry due to high demand (503/UNAVAILABLE).`);
         currentModel = "gemini-2.0-flash";
       }
 
@@ -345,7 +345,7 @@ async function performCritiqueAnalysis(
 
   const runSingle = async (temp: number) => {
     const response = await generateContentWithRetry({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       contents: normalizedContents,
       config: {
         systemInstruction: systemInstruction,
@@ -827,7 +827,7 @@ app.post("/api/ar-consult", async (req, res) => {
     });
 
     const response = await generateContentWithRetry({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       contents: contents,
       config: {
         systemInstruction: systemInstruction,
