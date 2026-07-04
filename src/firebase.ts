@@ -1,5 +1,5 @@
 import { initializeApp, getApp, getApps } from "firebase/app";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, User } from "firebase/auth";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously, User } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc, getDocFromServer, deleteDoc } from "firebase/firestore";
 import { StoredTrack, UserProfile } from "./types";
 import { safeLocalStorage } from "./lib/safeStorage";
@@ -450,6 +450,21 @@ const initLocalBypass = (email: string, password: string, displayName: string): 
   return sessionProfile;
 };
 
+const initAnonymousBypass = async (email: string, displayName: string): Promise<UserProfile> => {
+  try {
+    const uCredential = await signInAnonymously(authInstance);
+    const fbUser = uCredential.user;
+    return {
+      uid: fbUser.uid,
+      email: email,
+      displayName: displayName
+    };
+  } catch (anonErr) {
+    console.warn("Firebase Anonymous sign-in failed, falling back to local-only bypass:", anonErr);
+    return initLocalBypass(email, "bypass", displayName);
+  }
+};
+
 export const loginOrRegisterBypass = async (): Promise<UserProfile> => {
   const email = "ezryn@yoursongscore.test";
   const password = "EzrynPassword123!";
@@ -485,8 +500,8 @@ export const loginOrRegisterBypass = async (): Promise<UserProfile> => {
     } catch (err: any) {
       const errCode = err.code || "";
       if (errCode === "auth/operation-not-allowed") {
-        console.warn("Firebase Email/Password login is not enabled in Firebase project. Falling back to robust local database mode for Ezryn Z.");
-        return initLocalBypass(email, password, displayName);
+        console.warn("Firebase Email/Password login is not enabled in Firebase project. Falling back to anonymous Firebase auth for Ezryn Z.");
+        return await initAnonymousBypass(email, displayName);
       }
 
       // If user does not exist or login failed for credential reasons, register new account
@@ -521,8 +536,8 @@ export const loginOrRegisterBypass = async (): Promise<UserProfile> => {
         } catch (regErr: any) {
           const regErrCode = regErr.code || "";
           if (regErrCode === "auth/operation-not-allowed") {
-            console.warn("Firebase Email/Password registration is not enabled in Firebase project. Falling back to robust local database mode for Ezryn Z.");
-            return initLocalBypass(email, password, displayName);
+            console.warn("Firebase Email/Password registration is not enabled in Firebase project. Falling back to anonymous Firebase auth for Ezryn Z.");
+            return await initAnonymousBypass(email, displayName);
           }
           // Fallback if there is a race condition where account was created in-between
           try {
