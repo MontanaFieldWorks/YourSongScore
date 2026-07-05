@@ -343,8 +343,72 @@ export default function Dashboard({
     await logoutUser();
   };
 
-  // Convert WAV File to high-quality MP3
-  const runWavToMp3Conversion = (file: File) => {
+  // Convert WAV File to a REAL high-quality MP3 using @breezystack/lamejs
+  const encodeWavToRealMp3 = async (
+    wavFile: File,
+    onProgress: (pct: number, log: string) => void
+  ): Promise<Blob> => {
+    onProgress(5, "🎤 Reading raw WAV audio data...");
+    const arrayBuffer = await wavFile.arrayBuffer();
+
+    onProgress(15, "🔍 Decoding PCM audio samples...");
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+
+    const { Mp3Encoder } = await import("@breezystack/lamejs");
+    const channels = Math.min(audioBuffer.numberOfChannels, 2);
+    const sampleRate = audioBuffer.sampleRate;
+    const kbps = 320;
+
+    const mp3encoder = new Mp3Encoder(channels, sampleRate, kbps);
+
+    const left = audioBuffer.getChannelData(0);
+    const right = channels === 2 ? audioBuffer.getChannelData(1) : left;
+
+    const floatTo16BitPCM = (input: Float32Array): Int16Array => {
+      const output = new Int16Array(input.length);
+      for (let i = 0; i < input.length; i++) {
+        const s = Math.max(-1, Math.min(1, input[i]));
+        output[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      }
+      return output;
+    };
+
+    const left16 = floatTo16BitPCM(left);
+    const right16 = floatTo16BitPCM(right);
+
+    const sampleBlockSize = 1152;
+    const mp3Chunks: any[] = [];
+    const totalBlocks = Math.ceil(left16.length / sampleBlockSize);
+
+    onProgress(30, "🎛️ Compressing spectral frame bits (CBR 320kbps)...");
+
+    for (let i = 0; i < left16.length; i += sampleBlockSize) {
+      const leftChunk = left16.subarray(i, i + sampleBlockSize);
+      const rightChunk = right16.subarray(i, i + sampleBlockSize);
+      const mp3buf =
+        channels === 2
+          ? mp3encoder.encodeBuffer(leftChunk, rightChunk)
+          : mp3encoder.encodeBuffer(leftChunk);
+      if (mp3buf.length > 0) mp3Chunks.push(mp3buf);
+
+      const blockIndex = i / sampleBlockSize;
+      if (blockIndex % 200 === 0) {
+        const pct = 30 + Math.floor((blockIndex / totalBlocks) * 55);
+        onProgress(Math.min(pct, 85), "⚡ Encoding audio frames...");
+      }
+    }
+
+    const finalBuf = mp3encoder.flush();
+    if (finalBuf.length > 0) mp3Chunks.push(finalBuf);
+
+    onProgress(95, "🖊️ Finalizing MP3 container...");
+    audioCtx.close();
+
+    return new Blob(mp3Chunks as BlobPart[], { type: "audio/mp3" });
+  };
+
+  const runWavToMp3Conversion = async (file: File) => {
     setErrorMsg(null);
     setSuccessMsg(null);
 
@@ -361,56 +425,36 @@ export default function Dashboard({
     try {
       setConverting(true);
       setConversionProgress(0);
-      setConversionLogs([]);
+      setConversionLogs([`📦 Starting real MP3 encode (${(file.size / (1024 * 1024)).toFixed(2)} MB source)...`]);
 
-      const logs = [
-        "🎤 Initializing YourSongScore Audio Conversion Pipeline...",
-        "🔍 Analyzing raw PCM container structure...",
-        `📦 Extracting WAV audio transients (${(file.size / (1024 * 1024)).toFixed(2)} MB)...`,
-      ];
-      setConversionLogs([...logs]);
+      const mp3Blob = await encodeWavToRealMp3(file, (pct, log) => {
+        setConversionProgress(pct);
+        setConversionLogs((prev) => [...prev, log]);
+      });
 
-      // Fast-stepped high-precision simulation logs
-      const stages = [
-        { prg: 15, log: "🎸 Running psychoacoustic model masking passes..." },
-        { prg: 35, log: "🎛️ Compressing spectral frame bits (CBR 320kbps target)..." },
-        { prg: 55, log: "⚡ Downsampling audio frequencies (preserving 20kHz ceiling)..." },
-        { prg: 75, log: "🖊️ Writing dynamic ID3 tags & mastering flags..." },
-        { prg: 90, log: "💾 Writing MP3 container directly to storage system..." },
-        { prg: 100, log: "🎉 Successfully compressed WAV container down to High-Quality 320kbps MP3!" }
-      ];
+      setConversionProgress(100);
+      setConversionLogs((prev) => [...prev, "🎉 Real MP3 encode complete!"]);
 
-      let currentStageIndex = 0;
-      const interval = setInterval(() => {
-        if (currentStageIndex < stages.length) {
-          const stage = stages[currentStageIndex];
-          setConversionProgress(stage.prg);
-          setConversionLogs(prev => [...prev, stage.log]);
-          currentStageIndex++;
-        } else {
-          clearInterval(interval);
-          finalizeConversion(file);
-        }
-      }, 900);
+      await finalizeConversion(file, mp3Blob);
     } catch (err: any) {
-      console.error("Critical error in WAV conversion setup:", err);
-      setErrorMsg(err.message || "An unexpected setup error prevented WAV compression.");
+      console.error("Critical error in WAV conversion:", err);
+      setErrorMsg(err.message || "An unexpected error prevented WAV compression.");
       setConverting(false);
     }
   };
 
-  const finalizeConversion = async (wavFile: File) => {
+  const finalizeConversion = async (wavFile: File, mp3Blob: Blob) => {
     if (!currentUser) return;
 
-    // Simulate an MP3 size reduction (e.g., WAVs are roughly 7x larger than high quality MP3s)
-    const convertedSize = parseFloat((wavFile.size / 1024 / 1024 / 7.2).toFixed(2));
-    
-    // Populate the title as it is reflected in the metatag, with elegant fallback
+    const convertedSize = parseFloat((mp3Blob.size / 1024 / 1024).toFixed(2));
+    const mp3ObjectUrl = URL.createObjectURL(mp3Blob);
+
     const titleFromMeta = wavTitle ? wavTitle.trim() : "";
     const convertedName = titleFromMeta ? `${titleFromMeta}_Mastered320.mp3` : wavFile.name.replace(/\.wav$/i, "") + "_Mastered320.mp3";
 
-    // Create a 100% unique ID based on timestamp and randomness
     const uniqueTrackId = "trk_" + Date.now().toString() + "_" + Math.random().toString(36).substr(2, 5);
+
+    const mp3File = new File([mp3Blob], convertedName, { type: "audio/mp3" });
 
     const newTrack: StoredTrack & { metaTitle?: string; metaArtist?: string; metaGenre?: string } = {
       id: uniqueTrackId,
@@ -420,15 +464,13 @@ export default function Dashboard({
       size: convertedSize,
       status: "pending_analysis",
       createdAt: new Date().toISOString(),
-      // Create a neat mock MP3 downloadable blob
-      convertedMp3Url: undefined,
+      convertedMp3Url: mp3ObjectUrl,
       coverArt: wavCoverArt || undefined,
       metaTitle: titleFromMeta || wavFile.name.replace(/\.wav$/i, ""),
       metaArtist: wavArtist ? wavArtist.trim() : "Independent Artist",
       metaGenre: wavGenre ? wavGenre.trim() : "Unclassified / Demo",
     };
 
-    // Append immediately to local state so the React UI updates instantly!
     setTracks((prev) => {
       const filtered = prev.filter((t) => t.id !== newTrack.id);
       return [newTrack, ...filtered];
@@ -437,16 +479,15 @@ export default function Dashboard({
     try {
       await saveUserTrack(newTrack);
       if (onRegisterLocalTrackFile) {
-        onRegisterLocalTrackFile(newTrack.id, wavFile);
+        onRegisterLocalTrackFile(newTrack.id, mp3File);
       }
       await loadUserTracks(currentUser.uid);
-      setSuccessMsg(`Successfully converted "${wavFile.name}" to "${convertedName}"! Saved to account history.`);
+      setSuccessMsg(`Successfully converted "${wavFile.name}" to "${convertedName}" (${convertedSize} MB)! Saved to account history.`);
       setSelectedWavFile(null);
       setWavTitle(null);
       setWavArtist(null);
       setWavGenre(null);
 
-      // Clear parent state if integrated (the custom callback is isolated and restricts state layout)
       if (onClearActiveUpload) {
         onClearActiveUpload();
       }
@@ -580,9 +621,6 @@ export default function Dashboard({
         }
       };
 
-      await saveUserTrack(updatedTrack);
-      await loadUserTracks(currentUser!.uid);
-      
       if ((track as any).localFileBlobUrl) {
         try {
           const liveMetrics = await analyzeAudioFile((track as any).localFileBlobUrl);
@@ -594,6 +632,9 @@ export default function Dashboard({
       } else {
         finalCritique.liveMetrics = (track as any).liveMetrics || null;
       }
+
+      await saveUserTrack(updatedTrack);
+      await loadUserTracks(currentUser!.uid);
 
       // Instantly load the detailed review display on screen
       onLoadCritique(finalCritique, { 
