@@ -295,12 +295,7 @@ async function generateContentWithRetry(params: {
         throw err;
       }
 
-      // If the targeted model is gemini-2.5-flash and we hit a load/availability issue,
-      // fallback to gemini-2.0-flash on subsequent attempts.
-      if (currentModel === "gemini-2.5-flash" && isUnavailable) {
-        console.log(`[Gemini API] Switching fallback model from gemini-2.5-flash to gemini-2.0-flash on retry due to high demand (503/UNAVAILABLE).`);
-        currentModel = "gemini-2.0-flash";
-      }
+
 
       // Wait with backoff (1500ms, 3000ms, 4500ms)
       const delay = attempts * 1500;
