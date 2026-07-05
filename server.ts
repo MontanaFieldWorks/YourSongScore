@@ -184,6 +184,65 @@ const CRITIQUE_SCHEMA = {
   ],
 };
 
+const SUBMETRICS_SCHEMA_1 = {
+  type: Type.OBJECT,
+  properties: {
+    lufsLoudness: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    spectralMatch: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    engagementPower: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    paletteCohesion: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    aestheticDesign: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    spaceAndDensity: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    mudPrevention: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    sibilanceShaving: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    lowEndDivision: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    midrangeSpacing: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    seoUniqueness: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    seoDiscoverability: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+  },
+  required: ["lufsLoudness", "spectralMatch", "engagementPower", "paletteCohesion", "aestheticDesign", "spaceAndDensity", "mudPrevention", "sibilanceShaving", "lowEndDivision", "midrangeSpacing", "seoUniqueness", "seoDiscoverability"],
+};
+
+const SUBMETRIC_SYSTEM_PROMPT = `You are a precise audio engineering sub-analyst. You will be given a parent category score and context that was already determined by a prior analysis pass. Your job is to break that parent judgment into its specific sub-components using a DEDUCTION-BASED scoring method.
+
+DEDUCTION METHOD - MANDATORY:
+For each sub-metric, start at a baseline of 100. Subtract points only for specific, real, named issues you actually identify in the audio (e.g. "-12 points: kick drum and bass overlap causing mud around 200Hz" or "-8 points: sibilance spike detected around 6.5kHz on vocal 's' sounds"). Your final score must be the direct mathematical result of the deductions you describe. Do not pick a score first and write text to match it afterward - the commentary must be the reason for the score, not a description of it after the fact.
+
+RULES:
+1. Every commentary must reference something specific and real about THIS audio file - an actual frequency range, an actual timing observation, an actual moment in the song. Do not write generic, reusable descriptions that could apply to any song.
+2. Never write the same commentary you might write for a different song. If two songs have similar scores, their commentary must still describe different specific details.
+3. Be consistent with the parent category's score and tone - if the parent MIX/MASTER INTEGRITY score was low, these sub-scores should reflect genuinely-found problems; if it was high, reflect genuinely-found strengths.
+4. Keep each commentary to 1-3 sentences, technical and actionable, in the same voice as a professional mixing engineer.`;
+
+async function performSubMetricsCall1(
+  audioPart: any,
+  parsedCritique: any
+): Promise<any> {
+  const contextSummary = `
+Parent category context already determined:
+- MIX/MASTER INTEGRITY score: ${parsedCritique?.mixQuality?.score}, notes: ${parsedCritique?.mixQuality?.dominanceIssues}
+- Production Index score: ${parsedCritique?.scores?.overallProduction}, genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
+- Mix Balance Quality frequency notes: low end: ${parsedCritique?.mixQuality?.frequencyBalance?.lowEnd}, midrange: ${parsedCritique?.mixQuality?.frequencyBalance?.midrange}, high end: ${parsedCritique?.mixQuality?.frequencyBalance?.highEnd}
+- Song Title Searchability score: ${parsedCritique?.titleSearchability?.score}, uniqueness: ${parsedCritique?.titleSearchability?.uniquenessLevel}
+
+Listen to the actual audio again and generate specific, deduction-based sub-metric scores and commentary for each of the 12 required fields, consistent with the above context but grounded in what you actually hear this time.`;
+
+  const response = await generateContentWithRetry({
+    model: "gemini-2.5-flash",
+    contents: {
+      parts: [audioPart, { text: contextSummary }],
+    },
+    config: {
+      systemInstruction: SUBMETRIC_SYSTEM_PROMPT,
+      responseMimeType: "application/json",
+      responseSchema: SUBMETRICS_SCHEMA_1,
+      temperature: 0.4,
+    },
+  });
+
+  return JSON.parse(response.text);
+}
+
 // Spotify API Helpers
 async function getSpotifyToken(): Promise<string | null> {
   const clientId = process.env.SPOTIFY_CLIENT_ID;
@@ -515,6 +574,15 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       SYSTEM_PROMPT,
       threeX
     );
+
+    try {
+      console.log("[Call 1] Starting Sub-Metrics Call 1...");
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique);
+      parsedCritique.subMetricsCall1 = subMetricsCall1;
+      console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
+    } catch (subErr: any) {
+      console.error("[Call 1] Sub-Metrics Call 1 failed, continuing without it:", subErr.message || subErr);
+    }
 
     res.json({ critique: parsedCritique });
   } catch (error: any) {
