@@ -130,6 +130,7 @@ interface DashboardProps {
   overrideThreeXMode?: boolean;
   onClearAutoStart?: () => void;
   onRegisterLocalTrackFile?: (trackId: string, file: File) => void;
+  knownCurrentUser: UserProfile | null;
 }
 
 export default function Dashboard({ 
@@ -145,9 +146,10 @@ export default function Dashboard({
   autoStartAuditTrack,
   overrideThreeXMode,
   onClearAutoStart,
-  onRegisterLocalTrackFile
+  onRegisterLocalTrackFile,
+  knownCurrentUser
 }: DashboardProps) {
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(knownCurrentUser);
   const [loading, setLoading] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
