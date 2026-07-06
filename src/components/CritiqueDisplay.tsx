@@ -1339,8 +1339,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         (m.feedback || "").replace(/\n/g, " ")
       ]);
       (m.subParams || []).forEach((param: any, idx: number) => {
-        const subScore = getSubScore(m.score, idx, m.subParams.length, m.id);
-        const subText = getSubScoreExplanationText(param.name, subScore);
+        const realSub = getRealSubMetric(critique, m.id, idx);
+        const subScore = realSub ? realSub.score : getSubScore(m.score, idx, m.subParams.length, m.id);
+        const subText = realSub ? realSub.commentary : getSubScoreExplanationText(param.name, subScore);
         rows.push([
           "Sub-Metrics",
           `${m.name} > ${param.name}`,
@@ -1406,6 +1407,22 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       setActiveCategory(category);
     }
     setExpandedMetric(null);
+  };
+
+  const CALL1_FIELD_MAP: Record<string, string[]> = {
+    readiness: ["lufsLoudness", "spectralMatch", "engagementPower"],
+    production: ["paletteCohesion", "aestheticDesign", "spaceAndDensity"],
+    mix: ["mudPrevention", "sibilanceShaving", "lowEndDivision", "midrangeSpacing"],
+    searchability: ["seoUniqueness", "seoDiscoverability"],
+  };
+
+  const getRealSubMetric = (critiqueData: any, id: string, index: number): { score: number; commentary: string } | null => {
+    const fields = CALL1_FIELD_MAP[id];
+    if (!fields || !critiqueData?.subMetricsCall1) return null;
+    const fieldName = fields[index];
+    const data = fieldName ? critiqueData.subMetricsCall1[fieldName] : null;
+    if (!data || typeof data.score !== "number") return null;
+    return { score: data.score, commentary: data.commentary || "" };
   };
 
   const getSubScore = (parentScore: number, index: number, total: number, metricId?: string): number => {
@@ -2621,7 +2638,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             {/* REQ: Sub Score Circular Items redesigned into a vertical stack layout */}
             <div className="flex flex-col gap-4 mt-5">
               {(selectedObj.subParams || []).map((param, index) => {
-                const subScore = getSubScore(selectedObj.score, index, selectedObj.subParams.length, selectedObj.id);
+                const realSub = getRealSubMetric(critique, selectedObj.id, index);
+                const subScore = realSub ? realSub.score : getSubScore(selectedObj.score, index, selectedObj.subParams.length, selectedObj.id);
                 
                 // Determine colors precisely matching the Rose Chart:
                 // index === 0: Structural Build -> yellow/orange (#fbbf24)
@@ -2891,7 +2909,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                           <span className="text-[9px] font-mono text-blue-400 font-bold uppercase tracking-widest block mb-1">
                             A&amp;R Deep-Dive Analysis
                           </span>
-                          {getSubScoreExplanationText(param.name, subScore)}
+                          {realSub ? realSub.commentary : getSubScoreExplanationText(param.name, subScore)}
                         </div>
                       </div>
                     </div>
@@ -2949,7 +2967,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Dynamic Nightingale Rose Chart reflecting the 4 sub-scores */}
               {(() => {
                 const roseData = (selectedObj.subParams || []).map((param, index) => {
-                  const subScore = getSubScore(selectedObj.score, index, selectedObj.subParams.length, selectedObj.id);
+                  const realSub = getRealSubMetric(critique, selectedObj.id, index);
+                  const subScore = realSub ? realSub.score : getSubScore(selectedObj.score, index, selectedObj.subParams.length, selectedObj.id);
                   let ringColor = "#3b82f6";
                   
                   if (selectedObj.id === "flow") {
