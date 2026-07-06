@@ -1251,7 +1251,7 @@ export default function App() {
       </header>
 
       {/* Main Container Layout */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-10 flex flex-col gap-8">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-4 flex flex-col gap-8">
         
         {viewingArRep ? (
           <ArConsultPage
@@ -1266,6 +1266,7 @@ export default function App() {
           />
         ) : viewingDashboard ? (
           <Dashboard
+            knownCurrentUser={currentUser}
             onBack={() => setViewingDashboard(false)}
             onLoadCritique={(crit, tInfo) => {
               setCritiqueResult({ critique: applyGenreOverride(crit), trackInfo: tInfo });
