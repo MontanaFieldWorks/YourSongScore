@@ -108,6 +108,8 @@ export interface CritiqueData {
   liveMetrics?: LiveAudioMetrics;
   userValence?: number;
   userEnergy?: number;
+  subMetricsCall1?: any;
+  subMetricsCall2?: any;
 }
 
 export interface TrackInfo {
