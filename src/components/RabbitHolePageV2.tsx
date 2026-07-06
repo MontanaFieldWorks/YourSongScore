@@ -2,45 +2,8 @@ import React, { useState } from "react";
 import { 
   ArrowLeft, Tag, Sparkles, Wrench, Globe, BookOpen, Library, 
   Compass, Check, Play, Pause, ChevronRight, Info, AlertTriangle, Music,
-  Rabbit, Earth, WalletMinimal
+  Rabbit, Earth, WalletMinimal, Spotlight, Bird
 } from "lucide-react";
-
-// Custom SVG Spotlight
-const Spotlight = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={props.className}
-    style={props.style}
-  >
-    <path d="M12 2a3 3 0 0 0-3 3v3h6V5a3 3 0 0 0-3-3z" />
-    <path d="M12 8v4" />
-    <path d="M5 21h14" />
-    <path d="M19 21c0-5-3-9-7-9s-7 4-7 9" />
-  </svg>
-);
-
-// Mirror of the custom Birdhouse SVG from UsefulToolsPage.tsx
-const Birdhouse = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={props.className}
-    style={props.style}
-  >
-    <path d="M12 2L2 11h3v10h14V11h3L12 2z" />
-    <circle cx="12" cy="14" r="3" />
-    <line x1="12" y1="17" x2="12" y2="20" />
-  </svg>
-);
 
 // Custom SVG Rabbit pointing the other way
 const MirrorRabbit = (props: React.SVGProps<SVGSVGElement>) => (
@@ -120,7 +83,7 @@ export default function RabbitHolePageV2({
   };
 
   return (
-    <div className="flex flex-col gap-8 font-sans animate-fadeIn max-w-6xl mx-auto relative select-none pb-12" id="rabbit-hole-v2-container">
+    <div className="flex flex-col gap-2.5 font-sans animate-fadeIn max-w-6xl mx-auto relative select-none py-4" id="rabbit-hole-v2-container">
       
       {/* Back Button Floater */}
       <div className="flex justify-start">
@@ -128,22 +91,22 @@ export default function RabbitHolePageV2({
           onClick={onBack}
           className="flex items-center gap-2 px-4 py-2 text-xs font-mono tracking-wider uppercase text-slate-400 hover:text-white bg-neutral-900/80 hover:bg-neutral-800 border border-white/5 hover:border-white/10 rounded-xl transition-all cursor-pointer shadow-lg"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-4 h-4 text-[#ad46ff]" />
           <span>Exit Rabbit Hole</span>
         </button>
       </div>
 
       {/* Centered STANDOUT TITLE with Rabbit logos flanking & Subheadline */}
-      <div className="flex flex-col items-center justify-center text-center mt-4 mb-4 z-10">
+      <div className="flex flex-col items-center justify-center text-center pt-1.5 pb-1 z-10">
         <div className="border border-white/10 bg-[#07080a]/90 px-8 py-5 rounded-2xl flex flex-col items-center justify-center text-center max-w-2xl mx-auto shadow-2xl relative">
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#bd93f9]/50 to-transparent" />
           
           <div className="flex items-center gap-4 justify-center mb-1">
-            <CustomRabbit className="w-8 h-8 text-[#bd93f9] animate-pulse" />
+            <Rabbit className="w-8 h-8 text-[#ad46ff] animate-pulse" />
             <h1 className="text-3xl md:text-4xl font-black text-white tracking-widest uppercase font-sans">
               The Rabbit Hole
             </h1>
-            <MirrorRabbit className="w-8 h-8 text-[#bd93f9] animate-pulse" />
+            <Rabbit className="w-8 h-8 text-[#ad46ff] animate-pulse" style={{ transform: "scaleX(-1)" }} />
           </div>
           <p className="text-[11px] md:text-xs text-[#bd93f9] font-mono tracking-wider font-extrabold uppercase opacity-90 mt-1">
             — THE HIDDEN WORLD OF MUSIC STREAMING GATEKEEPERS. —
@@ -152,7 +115,7 @@ export default function RabbitHolePageV2({
       </div>
 
       {/* Main Grid Wrapper with glowing lines and central neon circle */}
-      <div className="relative min-h-[600px] w-full grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-16 items-stretch px-4 z-10 mt-4">
+      <div className="relative min-h-[600px] w-full grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-5 items-stretch px-4 z-10 mt-2">
         
         {/* INTERSECTING CROSSHAIR COORDINATE GRID */}
         {/* Horizontal crosshair */}
@@ -160,44 +123,55 @@ export default function RabbitHolePageV2({
         {/* Vertical crosshair */}
         <div className="absolute top-0 bottom-0 left-1/2 w-[1px] bg-white/5 hidden md:block z-0 -translate-x-1/2 pointer-events-none" />
 
-        {/* MASSIVE GLOWING NEON CIRCLE (Centered) */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none hidden md:flex items-center justify-center z-10">
-          {/* Broad atmospheric deep purple/pink wash */}
-          <div className="absolute w-[440px] h-[440px] rounded-full bg-purple-600/10 blur-[90px]" />
-          <div className="absolute w-[300px] h-[300px] rounded-full bg-indigo-500/5 blur-[55px]" />
+        {/* MASSIVE GLOWING NEON CIRCLE (Centered on Row 2) */}
+        <div className="absolute top-[247px] left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none hidden md:flex items-center justify-center z-45">
+          {/* Radial atmospheric wash: dark center -> bright ring -> dark edge */}
+          <div 
+            className="absolute w-[387.2px] h-[387.2px] rounded-full blur-[61.6px]"
+            style={{
+              background: "radial-gradient(circle, #0b0a0e 0%, #331e50 20%, #57328c 32%, #7543bd 42%, #7342ba 48%, #57328c 58%, #412666 68%, #211532 82%, #0b0a0e 100%)"
+            }}
+          />
           
           {/* Main glowing white/purple outer border line */}
-          <div className="w-[300px] h-[300px] rounded-full border-[6px] border-white/95 shadow-[0_0_30px_rgba(255,255,255,0.4),0_0_60px_rgba(168,85,247,0.3)] relative flex items-center justify-center">
+          <div className="w-[264px] h-[264px] rounded-full border-[11.25px] border-white/95 shadow-[0_0_26.4px_rgba(255,255,255,0.4),0_0_52.8px_rgba(173,70,255,0.35)] relative flex items-center justify-center">
             {/* Inner accent halo */}
-            <div className="absolute inset-2 rounded-full border border-[#bd93f9]/15" />
+            <div className="absolute inset-[6.6px] rounded-full border border-[#ad46ff]/20" />
           </div>
         </div>
 
+        {/* Method 2: Rectangular blackout masks with pointer-events-none to block circle rendering in gaps */}
+        <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[24px] bg-[#0A0B0E] hidden md:block z-50 pointer-events-none" />
+        <div className="absolute top-[58px] -translate-y-1/2 left-1/2 -translate-x-1/2 w-[1024px] h-[16px] bg-[#0A0B0E] hidden md:block z-50 pointer-events-none" />
+        <div className="absolute top-[184px] -translate-y-1/2 left-1/2 -translate-x-1/2 w-[1024px] h-[16px] bg-[#0A0B0E] hidden md:block z-50 pointer-events-none" />
+        <div className="absolute top-[310px] -translate-y-1/2 left-1/2 -translate-x-1/2 w-[1024px] h-[16px] bg-[#0A0B0E] hidden md:block z-50 pointer-events-none" />
+        <div className="absolute top-[436px] -translate-y-1/2 left-1/2 -translate-x-1/2 w-[1024px] h-[16px] bg-[#0A0B0E] hidden md:block z-50 pointer-events-none" />
+
         {/* LEFT COLUMN: TOOLS */}
-        <div className="flex flex-col gap-6 relative z-20">
+        <div className="flex flex-col gap-4 relative z-20 md:justify-self-end" style={{ width: "500px" }}>
           
           {/* Column Header */}
-          <div className="flex flex-col text-left mb-2">
-            <h2 className="text-xl font-black text-white tracking-widest uppercase font-mono border-b border-white/10 pb-2 inline-flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#bd93f9] inline-block animate-ping" />
-              <span>Tools</span>
+          <div className="flex flex-col text-left h-[50px] justify-end pb-2 border-b border-white/10">
+            <h2 className="text-xl font-black text-white tracking-widest uppercase font-mono">
+              Tools
             </h2>
           </div>
 
           {/* Tool Card 1: Spotify Artist Profile Analyzer */}
           <div 
             onClick={onNavigateToSpotifyAnalyzer}
-            className="group relative flex items-start gap-4 p-5 bg-[#0a0b0f]/85 border border-white/10 rounded-2xl hover:border-[#bd93f9]/60 hover:shadow-[0_0_25px_rgba(189,147,249,0.15)] transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-md"
+            className="group relative flex items-start gap-4 p-4 bg-[#0d0e12] border border-[#bd93f9]/30 rounded-none hover:border-[#bd93f9]/50 transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-md h-[110px]"
+            style={{ width: "500px" }}
           >
             {/* Hover decorative overlay */}
             <div className="absolute inset-0 bg-gradient-to-r from-[#bd93f9]/0 to-[#bd93f9]/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             
-            <div className="p-3 bg-[#bd93f9]/10 rounded-xl text-[#bd93f9] shrink-0 border border-[#bd93f9]/20 group-hover:scale-105 transition-transform duration-300 shadow-lg">
-              <Spotlight className="w-6 h-6 animate-pulse" />
+            <div className="p-3 bg-[#bd93f9]/10 rounded-xl text-[#ad46ff] shrink-0 border border-[#bd93f9]/20 group-hover:scale-105 transition-transform duration-300 shadow-lg">
+              <Spotlight className="w-6 h-6" />
             </div>
             
             <div className="flex flex-col text-left">
-              <div className="flex flex-col items-start gap-1">
+              <div className="flex flex-col items-start gap-0.5">
                 <h3 
                   className="font-sans font-bold text-[#94a3b8] normal-case transition-colors"
                   style={{ fontSize: "22px", fontFamily: "Inter, sans-serif", lineHeight: "22px" }}
@@ -212,10 +186,10 @@ export default function RabbitHolePageV2({
                 </span>
               </div>
               <p 
-                className="text-slate-400 mt-1 leading-relaxed"
-                style={{ fontSize: "11px", lineHeight: "15.5px" }}
+                className="text-slate-400 leading-relaxed"
+                style={{ fontSize: "11px", lineHeight: "15.5px", width: "290px" }}
               >
-                Explore the hidden world of your own Spotify Artist Profile. What you are seeing when logged in is only 25% of your profile.
+                Explore the underworld of your own Spotify Artist Profile. What you see is only 25% of your profile.
               </p>
               
 
@@ -225,16 +199,17 @@ export default function RabbitHolePageV2({
           {/* Tool Card 2: Global Listener Map */}
           <div 
             onClick={() => setActiveListenerMapModal(true)}
-            className="group relative flex items-start gap-4 p-5 bg-[#0a0b0f]/85 border border-white/10 rounded-2xl hover:border-[#bd93f9]/60 hover:shadow-[0_0_25px_rgba(189,147,249,0.15)] transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-md"
+            className="group relative flex items-start gap-4 p-4 bg-[#0d0e12] border border-[#bd93f9]/30 rounded-none hover:border-[#bd93f9]/50 transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-md h-[110px]"
+            style={{ width: "500px" }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-[#bd93f9]/0 to-[#bd93f9]/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             
-            <div className="p-3 bg-[#bd93f9]/10 rounded-xl text-[#bd93f9] shrink-0 border border-[#bd93f9]/20 group-hover:scale-105 transition-transform duration-300 shadow-lg">
+            <div className="p-3 bg-[#bd93f9]/10 rounded-xl text-[#ad46ff] shrink-0 border border-[#bd93f9]/20 group-hover:scale-105 transition-transform duration-300 shadow-lg">
               <Earth className="w-6 h-6" />
             </div>
             
             <div className="flex flex-col text-left">
-              <div className="flex flex-col items-start gap-1">
+              <div className="flex flex-col items-start gap-0.5">
                 <h3 
                   className="font-sans font-bold text-[#94a3b8] normal-case transition-colors"
                   style={{ fontSize: "22px", fontFamily: "Inter, sans-serif", lineHeight: "22px" }}
@@ -249,10 +224,10 @@ export default function RabbitHolePageV2({
                 </span>
               </div>
               <p 
-                className="text-slate-400 mt-1 leading-relaxed"
-                style={{ fontSize: "11px", lineHeight: "15.5px" }}
+                className="text-slate-400 leading-relaxed"
+                style={{ fontSize: "11px", lineHeight: "15.5px", width: "290px" }}
               >
-                Regardless of your genre, or even your level of skill as a song writer. Chances are, there's an audience out there for you. This tool can help you find it.
+                Regardless of your skill as a song writer, there's an audience out there for you. This tool can help find it.
               </p>
               
 
@@ -262,16 +237,17 @@ export default function RabbitHolePageV2({
           {/* Tool Card 3: Song Metadata Generator */}
           <div 
             onClick={() => setActiveMetadataModal(true)}
-            className="group relative flex items-start gap-4 p-5 bg-[#0a0b0f]/85 border border-white/10 rounded-2xl hover:border-[#bd93f9]/60 hover:shadow-[0_0_25px_rgba(189,147,249,0.15)] transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-md"
+            className="group relative flex items-start gap-4 p-4 bg-[#0d0e12] border border-[#bd93f9]/30 rounded-none hover:border-[#bd93f9]/50 transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-md h-[110px]"
+            style={{ width: "500px" }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-[#bd93f9]/0 to-[#bd93f9]/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             
-            <div className="p-3 bg-[#bd93f9]/10 rounded-xl text-[#bd93f9] shrink-0 border border-[#bd93f9]/20 group-hover:scale-105 transition-transform duration-300 shadow-lg">
+            <div className="p-3 bg-[#bd93f9]/10 rounded-xl text-[#ad46ff] shrink-0 border border-[#bd93f9]/20 group-hover:scale-105 transition-transform duration-300 shadow-lg">
               <Tag className="w-6 h-6" />
             </div>
             
             <div className="flex flex-col text-left">
-              <div className="flex flex-col items-start gap-1">
+              <div className="flex flex-col items-start gap-0.5">
                 <h3 
                   className="font-sans font-bold text-[#94a3b8] normal-case transition-colors"
                   style={{ fontSize: "22px", fontFamily: "Inter, sans-serif", lineHeight: "22px" }}
@@ -286,10 +262,10 @@ export default function RabbitHolePageV2({
                 </span>
               </div>
               <p 
-                className="text-slate-400 mt-1 leading-relaxed"
-                style={{ fontSize: "11px", lineHeight: "15.5px" }}
+                className="text-slate-400 leading-relaxed"
+                style={{ fontSize: "11px", lineHeight: "15.5px", width: "290px" }}
               >
-                Song metadata is the digital ID card attached to an audio file. It contains critical text and numeric data. This tool generate descriptors specific to your song.
+                Song metadata is the digital ID card attached to an audio file. It contains critical text and numeric data.
               </p>
               
 
@@ -297,14 +273,17 @@ export default function RabbitHolePageV2({
           </div>
 
           {/* Nested Bottom Card: Other Tools in the Warren */}
-          <div className="mt-2 p-5 bg-[#050608]/95 border border-white/5 rounded-2xl flex items-center gap-5 text-left shadow-lg">
+          <div 
+            className="p-5 bg-[#0d0e12] border border-[#bd93f9]/20 rounded-none flex items-center gap-5 text-left shadow-[0_0_20px_rgba(189,147,249,0.05)] hover:border-[#bd93f9]/50 transition-all duration-300"
+            style={{ width: "500px" }}
+          >
             <div className="p-3 bg-neutral-900 border border-white/5 text-slate-400 rounded-xl shrink-0">
-              <Wrench className="w-5 h-5 text-purple-400" />
+              <Wrench className="w-5 h-5 text-[#ad46ff]" />
             </div>
             <div className="flex flex-col">
-              <h4 className="text-xs font-mono uppercase font-black tracking-wider text-slate-300 mb-1">
+              <h3 className="text-[22px] font-sans font-bold text-[#94a3b8] mb-1">
                 Other Tools in the Warren
-              </h4>
+              </h3>
               <ul className="text-xs text-slate-400 space-y-1 list-disc list-inside">
                 <li>Song Licensing Navigator</li>
                 <li>MP3-4 Tag Creator</li>
@@ -315,31 +294,25 @@ export default function RabbitHolePageV2({
         </div>
 
         {/* RIGHT COLUMN: KNOWLEDGE */}
-        <div className="flex flex-col gap-6 relative z-20">
+        <div className="flex flex-col gap-4 relative z-20 md:justify-self-start" style={{ width: "500px" }}>
           
           {/* Column Header */}
-          <div className="flex flex-col text-left mb-2">
-            <h2 className="text-xl font-black text-white tracking-widest uppercase font-mono border-b border-white/10 pb-2 inline-flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#bd93f9] inline-block animate-ping" />
-              <span>Knowledge</span>
+          <div className="flex flex-col text-left h-[50px] justify-end pb-2 border-b border-white/10 text-right">
+            <h2 className="text-xl font-black text-white tracking-widest uppercase font-mono">
+              Knowledge
             </h2>
           </div>
 
           {/* Knowledge Card 1: The Hidden Chamber (KEY READ) */}
           <div 
             onClick={() => setActiveSecretModal(true)}
-            className="group relative flex items-start gap-4 p-5 bg-[#0a0b0f]/85 border border-white/10 rounded-2xl hover:border-[#bd93f9]/60 hover:shadow-[0_0_25px_rgba(189,147,249,0.15)] transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-md text-left"
+            className="group relative flex items-start gap-4 p-4 bg-[#0d0e12] border border-[#bd93f9]/30 rounded-none hover:border-[#bd93f9]/50 transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-md text-right h-[110px]"
+            style={{ width: "500px" }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-[#bd93f9]/0 to-[#bd93f9]/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             
-            {/* Top-Right Pill Badge */}
-            <div className="absolute top-4 right-4 flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded text-[9px] font-mono font-black tracking-widest">
-              <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
-              <span>KEY READ</span>
-            </div>
-
-            <div className="flex flex-col flex-grow pr-16">
-              <div className="flex flex-col items-start gap-1">
+            <div className="flex flex-col flex-grow">
+              <div className="flex flex-col items-end gap-0.5">
                 <h3 
                   className="font-sans font-bold text-[#94a3b8] normal-case transition-colors"
                   style={{ fontSize: "22px", fontFamily: "Inter, sans-serif", lineHeight: "22px" }}
@@ -350,33 +323,42 @@ export default function RabbitHolePageV2({
                   className="font-sans font-bold text-white"
                   style={{ fontSize: "18px" }}
                 >
-                  The Streaming Industry's Foul Secret
+                  The Streaming Game is Rigged:
                 </span>
               </div>
               <p 
-                className="text-slate-400 mt-1 leading-relaxed"
-                style={{ fontSize: "11px", lineHeight: "15.5px" }}
+                className="text-slate-400 leading-relaxed text-right self-end"
+                style={{ fontSize: "11px", lineHeight: "15.5px", width: "290px" }}
               >
-                You know the game is rigged. But you have not idea just how bad it is... and that you can rig it too.
+                You know the game is rigged. But you have no idea just how bad it is... and that you can rig it too.
               </p>
               
 
             </div>
 
-            <div className="p-3 bg-[#bd93f9]/10 rounded-xl text-[#bd93f9] shrink-0 border border-[#bd93f9]/20 self-start group-hover:scale-105 transition-transform duration-300 shadow-lg">
-              <Rabbit className="w-6 h-6" />
+            <div className="flex flex-col items-center gap-1.5 self-start shrink-0">
+              <div className="flex items-center gap-1 justify-center">
+                <span className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: "#00d492" }} />
+                <span style={{ fontSize: "8pt", color: "#00d492", lineHeight: "8px" }} className="font-mono font-black tracking-widest uppercase">
+                  KEY READ
+                </span>
+              </div>
+              <div className="p-3 bg-[#bd93f9]/10 rounded-xl text-[#ad46ff] shrink-0 border border-[#bd93f9]/20 group-hover:scale-105 transition-transform duration-300 shadow-lg">
+                <Rabbit className="w-6 h-6" />
+              </div>
             </div>
           </div>
 
           {/* Knowledge Card 2: The Blind Tunnel (-14 LUFS) */}
           <div 
             onClick={onNavigateToStacks}
-            className="group relative flex items-start gap-4 p-5 bg-[#0a0b0f]/85 border border-white/10 rounded-2xl hover:border-[#bd93f9]/60 hover:shadow-[0_0_25px_rgba(189,147,249,0.15)] transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-md text-left"
+            className="group relative flex items-start gap-4 p-4 bg-[#0d0e12] border border-[#bd93f9]/30 rounded-none hover:border-[#bd93f9]/50 transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-md text-right h-[110px]"
+            style={{ width: "500px" }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-[#bd93f9]/0 to-[#bd93f9]/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             
             <div className="flex flex-col flex-grow">
-              <div className="flex flex-col items-start gap-1">
+              <div className="flex flex-col items-end gap-0.5">
                 <h3 
                   className="font-sans font-bold text-[#94a3b8] normal-case transition-colors"
                   style={{ fontSize: "22px", fontFamily: "Inter, sans-serif", lineHeight: "22px" }}
@@ -387,20 +369,20 @@ export default function RabbitHolePageV2({
                   className="font-sans font-bold text-white"
                   style={{ fontSize: "18px" }}
                 >
-                  The Misunderstood -14 LUFS Target
+                  The Misunderstood -14
                 </span>
               </div>
               <p 
-                className="text-slate-400 mt-1 leading-relaxed"
-                style={{ fontSize: "11px", lineHeight: "15.5px" }}
+                className="text-slate-400 leading-relaxed text-right self-end"
+                style={{ fontSize: "11px", lineHeight: "15.5px", width: "290px" }}
               >
-                You've targeted your master to hit -14 LUFS. So why does your track sound so weak compared to every other song?
+                You've targeted your master to hit -14 LUFS. So why does your track sound weak next to other songs?
               </p>
               
 
             </div>
 
-            <div className="p-3 bg-[#bd93f9]/10 rounded-xl text-[#bd93f9] shrink-0 border border-[#bd93f9]/20 self-start group-hover:scale-105 transition-transform duration-300 shadow-lg">
+            <div className="p-3 bg-[#bd93f9]/10 rounded-xl text-[#ad46ff] shrink-0 border border-[#bd93f9]/20 self-start group-hover:scale-105 transition-transform duration-300 shadow-lg">
               <WalletMinimal className="w-6 h-6" />
             </div>
           </div>
@@ -408,12 +390,13 @@ export default function RabbitHolePageV2({
           {/* Knowledge Card 3: The Nest (The Echo Nest) */}
           <div 
             onClick={() => setActiveEchoNestModal(true)}
-            className="group relative flex items-start gap-4 p-5 bg-[#0a0b0f]/85 border border-white/10 rounded-2xl hover:border-[#bd93f9]/60 hover:shadow-[0_0_25px_rgba(189,147,249,0.15)] transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-md text-left"
+            className="group relative flex items-start gap-4 p-4 bg-[#0d0e12] border border-[#bd93f9]/30 rounded-none hover:border-[#bd93f9]/50 transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-md text-right h-[110px]"
+            style={{ width: "500px" }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-[#bd93f9]/0 to-[#bd93f9]/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             
             <div className="flex flex-col flex-grow">
-              <div className="flex flex-col items-start gap-1">
+              <div className="flex flex-col items-end gap-0.5">
                 <h3 
                   className="font-sans font-bold text-[#94a3b8] normal-case transition-colors"
                   style={{ fontSize: "22px", fontFamily: "Inter, sans-serif", lineHeight: "22px" }}
@@ -428,39 +411,40 @@ export default function RabbitHolePageV2({
                 </span>
               </div>
               <p 
-                className="text-slate-400 mt-1 leading-relaxed"
-                style={{ fontSize: "11px", lineHeight: "15.5px" }}
+                className="text-slate-400 leading-relaxed text-right self-end"
+                style={{ fontSize: "11px", lineHeight: "15.5px", width: "290px" }}
               >
-                Spotify uses The Echo Nest's music intelligence and audio-analysis technology to power its entire algorithmic recommendation engine and discovery features.
+                Spotify uses The Echo Nest to power its algorithmic engine – knowing it can make a difference.
               </p>
               
 
             </div>
 
-            <div className="p-3 bg-[#bd93f9]/10 rounded-xl text-[#bd93f9] shrink-0 border border-[#bd93f9]/20 self-start group-hover:scale-105 transition-transform duration-300 shadow-lg">
-              <Birdhouse className="w-6 h-6" />
+            <div className="p-3 bg-[#bd93f9]/10 rounded-xl text-[#ad46ff] shrink-0 border border-[#bd93f9]/20 self-start group-hover:scale-105 transition-transform duration-300 shadow-lg">
+              <Bird className="w-6 h-6" />
             </div>
           </div>
 
           {/* Nested Bottom Card: The Stacks Shortcut */}
           <div 
             onClick={onNavigateToStacks}
-            className="group mt-2 p-5 bg-[#050608]/95 border border-white/5 hover:border-[#bd93f9]/30 rounded-2xl flex items-center justify-between gap-5 text-left shadow-lg cursor-pointer transition-all duration-300"
+            className="group p-5 bg-[#0d0e12] border border-[#bd93f9]/20 hover:border-[#bd93f9]/50 rounded-none flex items-center justify-between gap-5 text-left shadow-[0_0_20px_rgba(189,147,249,0.05)] cursor-pointer transition-all duration-300"
+            style={{ width: "500px" }}
           >
             <div className="flex items-center gap-5">
-              <div className="p-3 bg-neutral-900 border border-white/5 text-slate-400 rounded-xl shrink-0 group-hover:text-[#bd93f9] transition-colors">
-                <Library className="w-5 h-5 text-purple-400" />
+              <div className="p-3 bg-neutral-900 border border-white/5 text-slate-400 rounded-xl shrink-0 group-hover:text-[#ad46ff] transition-colors">
+                <Library className="w-5 h-5 text-[#ad46ff]" />
               </div>
               <div className="flex flex-col">
-                <h4 className="text-xs font-mono uppercase font-black tracking-wider text-slate-300 mb-0.5 group-hover:text-white transition-colors">
-                  The Stacks:
-                </h4>
+                <h3 className="text-[22px] font-sans font-bold text-[#94a3b8] mb-0.5 transition-colors">
+                  The Stacks
+                </h3>
                 <p className="text-xs text-slate-400">
                   YSS's Library of Music Industry Info
                 </p>
               </div>
             </div>
-            <div className="text-[#bd93f9] opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
+            <div className="text-[#ad46ff] opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
               <ChevronRight className="w-5 h-5" />
             </div>
           </div>
@@ -474,12 +458,12 @@ export default function RabbitHolePageV2({
         <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-[#0b0c0f] border border-[#bd93f9]/30 rounded-3xl p-6 max-w-lg w-full text-left flex flex-col gap-5 shadow-[0_0_50px_rgba(189,147,249,0.25)] relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
-              <CustomRabbit className="w-48 h-48 text-[#bd93f9]" />
+              <CustomRabbit className="w-48 h-48 text-[#ad46ff]" />
             </div>
             
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
-                <CustomRabbit className="w-5 h-5 text-[#bd93f9] animate-pulse" />
+                <CustomRabbit className="w-5 h-5 text-[#ad46ff] animate-pulse" />
                 <h3 className="text-lg font-black text-white uppercase tracking-tight">
                   Secret Intel unlocked
                 </h3>
@@ -514,7 +498,7 @@ export default function RabbitHolePageV2({
           <div className="bg-[#0b0c0f] border border-[#bd93f9]/30 rounded-3xl p-6 max-w-lg w-full text-left flex flex-col gap-5 shadow-[0_0_50px_rgba(189,147,249,0.25)] relative overflow-hidden">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
-                <Birdhouse className="w-5 h-5 text-[#bd93f9]" />
+                <Bird className="w-5 h-5 text-[#ad46ff]" />
                 <h3 className="text-lg font-black text-white uppercase tracking-tight">
                   Decoding The Echo Nest
                 </h3>
@@ -565,7 +549,7 @@ export default function RabbitHolePageV2({
           <div className="bg-[#0b0c0f] border border-[#bd93f9]/30 rounded-3xl p-6 max-w-lg w-full text-left flex flex-col gap-5 shadow-[0_0_50px_rgba(189,147,249,0.25)] relative">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
-                <Tag className="w-5 h-5 text-[#bd93f9]" />
+                <Tag className="w-5 h-5 text-[#ad46ff]" />
                 <h3 className="text-lg font-black text-white uppercase tracking-tight">
                   Song Metadata Stash Tool
                 </h3>
@@ -644,7 +628,7 @@ export default function RabbitHolePageV2({
             ) : (
               <div className="flex flex-col gap-4 animate-fadeIn">
                 <div className="p-4 bg-purple-600/10 border border-purple-500/20 text-[#bd93f9] text-xs rounded-xl flex items-center gap-2.5">
-                  <Check className="w-5 h-5 shrink-0" />
+                  <Check className="w-5 h-5 shrink-0 text-[#ad46ff]" />
                   <span>Metadata distribution payload successfully generated and formatted!</span>
                 </div>
 
@@ -684,7 +668,7 @@ export default function RabbitHolePageV2({
           <div className="bg-[#0b0c0f] border border-[#bd93f9]/30 rounded-3xl p-6 max-w-lg w-full text-left flex flex-col gap-5 shadow-[0_0_50px_rgba(189,147,249,0.25)] relative">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
-                <Globe className="w-5 h-5 text-[#bd93f9]" />
+                <Globe className="w-5 h-5 text-[#ad46ff]" />
                 <h3 className="text-lg font-black text-white uppercase tracking-tight">
                   Global Listener Map
                 </h3>
