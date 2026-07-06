@@ -1065,7 +1065,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const searchLevel = critique?.titleSearchability?.uniquenessLevel ?? "Moderately Unique Phrase";
   const searchFeedback = critique?.titleSearchability?.feedback ?? "Your song title is moderately unique. It avoids high-level congestion but should be paired with consistent meta tagging across streaming platforms.";
 
-  const artisticScore = Math.min(100, Math.round(theoryScore * 0.40 + (critique?.scores?.overallProduction ?? 75) * 0.60));
+  const artisticScore = critique?.subMetricsCall2?.artisticAnalysis?.score ?? Math.min(100, Math.round(theoryScore * 0.40 + (critique?.scores?.overallProduction ?? 75) * 0.60));
 
   // Dynamic calculations for Songwriting DNA & Impact metrics to prevent hardcoded flat 90 score
   const parentFlowScore = critique?.arrangement?.flowScore ?? 75;
@@ -1074,9 +1074,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const parentVocalScore = critique?.performance?.vocalScore ?? 75;
   const parentLyricalScore = critique?.lyricalImpact?.score ?? 78;
 
-  const dnaMelodicScore = Math.max(0, Math.min(100, Math.round(parentFlowScore * 0.7 + parentTheoryScore * 0.3)));
-  const dnaTensionScore = Math.max(0, Math.min(100, Math.round(parentFlowScore * 0.6 + parentInstrumentalScore * 0.4)));
-  const dnaDensityScore = Math.max(0, Math.min(100, Math.round(parentLyricalScore * 0.8 + parentVocalScore * 0.2)));
+  const dnaMelodicScore = critique?.subMetricsCall2?.melodicHooks?.score ?? Math.max(0, Math.min(100, Math.round(parentFlowScore * 0.7 + parentTheoryScore * 0.3)));
+  const dnaTensionScore = critique?.subMetricsCall2?.acousticTension?.score ?? Math.max(0, Math.min(100, Math.round(parentFlowScore * 0.6 + parentInstrumentalScore * 0.4)));
+  const dnaDensityScore = critique?.subMetricsCall2?.songwritingDensity?.score ?? Math.max(0, Math.min(100, Math.round(parentLyricalScore * 0.8 + parentVocalScore * 0.2)));
   const dnaScore = Math.round((dnaMelodicScore + dnaTensionScore + dnaDensityScore) / 3);
 
   // Metric definitions dictionary for breakdowns and hover states
@@ -1116,7 +1116,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ],
       callout: "This Metric is not included in the Total Score as it has no effect on how streaming algorithms view a song",
       description: "Designed for masterpieces that transcend pop constraints. While standard radio formula rewards immediate 0:30 hooks, epics are built on atmospheric tension, complex harmony, and palette synergy. Focus on these parameters if you are writing timeless art outside the commercial box.",
-      feedback: "Excellent artistic alignment. The track showcases outstanding atmospheric integrity and rich metaphorical choices that transcend formulaic boundaries."
+      feedback: critique?.subMetricsCall2?.artisticAnalysis?.feedback ?? "Excellent artistic alignment. The track showcases outstanding atmospheric integrity and rich metaphorical choices that transcend formulaic boundaries."
     },
     {
       id: "production",
@@ -1224,7 +1224,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ],
       callout: "Your hooks have high commercial memory; the pre-chorus/chorus resolution is instantly memorable.",
       description: "Examines the musical genetics that make a song catch fire. Highly memorable hooks have specific interval transitions (like major 6ths or root resolves) that trigger psychological expectation.",
-      feedback: "Outstanding hook potential. The core vocal lines in the chorus present an active, instantly hummable waveform that sticks in memory."
+      feedback: critique?.subMetricsCall2?.melodicHooks?.feedback ?? "Outstanding hook potential. The core vocal lines in the chorus present an active, instantly hummable waveform that sticks in memory."
     },
     {
       id: "dna-tension",
@@ -1241,7 +1241,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ],
       callout: "The track demonstrates strong somatic control, pulling viewers along an elegant storytelling trajectory.",
       description: "Evaluates structural dynamics. Ensures high levels of tension building, filtering out listening fatigue by using well-placed volume and spectral variations.",
-      feedback: "Superb arrangement balance. The energy accumulates cleanly, peaking exactly during the main chorus with robust authority."
+      feedback: critique?.subMetricsCall2?.acousticTension?.feedback ?? "Superb arrangement balance. The energy accumulates cleanly, peaking exactly during the main chorus with robust authority."
     },
     {
       id: "dna-density",
@@ -1258,7 +1258,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ],
       callout: "The phrasing density lets the main hook breathe, aligning masterfully with commercial pop benchmarks.",
       description: "Analyzes the poetic rhythm in singing. Tight vocal pocketing ensures the listener understands the message effortlessly without getting distracted by clumsy syllables.",
-      feedback: "Syllables are pocketed beautifully. The line phrasing allows the instruments to breathe while retaining a fast, modern commercial bounce."
+      feedback: critique?.subMetricsCall2?.songwritingDensity?.feedback ?? "Syllables are pocketed beautifully. The line phrasing allows the instruments to breathe while retaining a fast, modern commercial bounce."
     }
   ];
 
@@ -1416,13 +1416,32 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     searchability: ["seoUniqueness", "seoDiscoverability"],
   };
 
+  const CALL2_FIELD_MAP: Record<string, { parent: string; fields: string[] }> = {
+    artistic: { parent: "artisticAnalysis", fields: ["atmosphericDepth", "harmonicIntrigue", "paletteSynergy"] },
+    "dna-melodic": { parent: "melodicHooks", fields: ["intervalMemory", "syllabicPlacement"] },
+    "dna-tension": { parent: "acousticTension", fields: ["dynamicModulation", "climaxTrajectory"] },
+    "dna-density": { parent: "songwritingDensity", fields: ["vocalPocketing", "poeticBrevity"] },
+  };
+
   const getRealSubMetric = (critiqueData: any, id: string, index: number): { score: number; commentary: string } | null => {
     const fields = CALL1_FIELD_MAP[id];
-    if (!fields || !critiqueData?.subMetricsCall1) return null;
-    const fieldName = fields[index];
-    const data = fieldName ? critiqueData.subMetricsCall1[fieldName] : null;
-    if (!data || typeof data.score !== "number") return null;
-    return { score: data.score, commentary: data.commentary || "" };
+    if (fields && critiqueData?.subMetricsCall1) {
+      const fieldName = fields[index];
+      const data = fieldName ? critiqueData.subMetricsCall1[fieldName] : null;
+      if (data && typeof data.score === "number") {
+        return { score: data.score, commentary: data.commentary || "" };
+      }
+    }
+    const call2Entry = CALL2_FIELD_MAP[id];
+    if (call2Entry && critiqueData?.subMetricsCall2) {
+      const parentData = critiqueData.subMetricsCall2[call2Entry.parent];
+      const fieldName = call2Entry.fields[index];
+      const data = parentData && fieldName ? parentData[fieldName] : null;
+      if (data && typeof data.score === "number") {
+        return { score: data.score, commentary: data.commentary || "" };
+      }
+    }
+    return null;
   };
 
   const getSubScore = (parentScore: number, index: number, total: number, metricId?: string): number => {
