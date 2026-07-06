@@ -243,6 +243,97 @@ Listen to the actual audio again and generate specific, deduction-based sub-metr
   return JSON.parse(response.text);
 }
 
+const SUBMETRICS_SCHEMA_2 = {
+  type: Type.OBJECT,
+  properties: {
+    artisticAnalysis: {
+      type: Type.OBJECT,
+      properties: {
+        score: { type: Type.INTEGER },
+        feedback: { type: Type.STRING },
+        atmosphericDepth: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        harmonicIntrigue: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        paletteSynergy: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["score", "feedback", "atmosphericDepth", "harmonicIntrigue", "paletteSynergy"],
+    },
+    melodicHooks: {
+      type: Type.OBJECT,
+      properties: {
+        score: { type: Type.INTEGER },
+        feedback: { type: Type.STRING },
+        intervalMemory: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        syllabicPlacement: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["score", "feedback", "intervalMemory", "syllabicPlacement"],
+    },
+    acousticTension: {
+      type: Type.OBJECT,
+      properties: {
+        score: { type: Type.INTEGER },
+        feedback: { type: Type.STRING },
+        dynamicModulation: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        climaxTrajectory: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["score", "feedback", "dynamicModulation", "climaxTrajectory"],
+    },
+    songwritingDensity: {
+      type: Type.OBJECT,
+      properties: {
+        score: { type: Type.INTEGER },
+        feedback: { type: Type.STRING },
+        vocalPocketing: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        poeticBrevity: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["score", "feedback", "vocalPocketing", "poeticBrevity"],
+    },
+  },
+  required: ["artisticAnalysis", "melodicHooks", "acousticTension", "songwritingDensity"],
+};
+
+const SUBMETRIC_SYSTEM_PROMPT_2 = `You are a precise, artistically-literate music analyst. You are judging four categories that are NOT about commercial/streaming readiness - they measure pure artistic and songwriting craft, independent of pop formula or algorithm-friendliness. A song can score low on these categories and still be commercially successful, and vice versa - a three-chord pop song is not automatically bad here, it just may not score high on complexity.
+
+DEDUCTION METHOD - MANDATORY:
+For each sub-metric, start at a baseline of 100. Subtract points only for specific, real, named observations about THIS audio - an actual chord choice, an actual moment where tension builds or fails to build, an actual lyric or vocal rhythm pattern you hear. Your final score must be the direct mathematical result of the deductions you describe.
+
+For each of the 4 parent categories (artisticAnalysis, melodicHooks, acousticTension, songwritingDensity), also provide an overall score (which should reasonably reflect the average of its own sub-metrics, not be picked independently) and a feedback paragraph summarizing your specific findings for that category, referencing real details from the song.
+
+RULES:
+1. Every commentary must reference something specific and real about THIS audio file - do not write generic, reusable descriptions that could apply to any song.
+2. Never reuse the same commentary you might write for a different song, even if the scores are similar.
+3. Keep each sub-metric commentary to 1-3 sentences. Keep each parent feedback paragraph to 2-4 sentences.
+4. Be honest about genre-appropriate simplicity - a deliberately simple, repetitive hook is not automatically a flaw if it suits the genre; only deduct points for genuine lack of craft, not for simplicity itself.`;
+
+async function performSubMetricsCall2(
+  audioPart: any,
+  parsedCritique: any
+): Promise<any> {
+  const contextSummary = `
+Parent category context already determined:
+- Composition Flow score: ${parsedCritique?.arrangement?.flowScore}, notes: ${parsedCritique?.arrangement?.transitionsAndArc}
+- Music Theory score: ${parsedCritique?.musicTheory?.score}, chord structures: ${parsedCritique?.musicTheory?.chordStructures}
+- Lyrical Impact score: ${parsedCritique?.lyricalImpact?.score}, clarity: ${parsedCritique?.lyricalImpact?.meaningClarity}
+- Vocal Tracking score: ${parsedCritique?.performance?.vocalScore}, notes: ${parsedCritique?.performance?.vocalsCritique}
+- Genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
+
+Listen to the actual audio again and generate specific, deduction-based scores, feedback, and sub-metric commentary for all 4 categories and their 9 sub-fields, consistent with the above context but grounded in what you actually hear this time.`;
+
+  const response = await generateContentWithRetry({
+    model: "gemini-2.5-flash",
+    contents: {
+      parts: [audioPart, { text: contextSummary }],
+    },
+    config: {
+      systemInstruction: SUBMETRIC_SYSTEM_PROMPT_2,
+      responseMimeType: "application/json",
+      responseSchema: SUBMETRICS_SCHEMA_2,
+      temperature: 0.4,
+    },
+  });
+
+  return JSON.parse(response.text);
+}
+
 // Spotify API Helpers
 async function getSpotifyToken(): Promise<string | null> {
   const clientId = process.env.SPOTIFY_CLIENT_ID;
@@ -582,6 +673,15 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
     } catch (subErr: any) {
       console.error("[Call 1] Sub-Metrics Call 1 failed, continuing without it:", subErr.message || subErr);
+    }
+
+    try {
+      console.log("[Call 2] Starting Sub-Metrics Call 2...");
+      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique);
+      parsedCritique.subMetricsCall2 = subMetricsCall2;
+      console.log("[Call 2] Sub-Metrics Call 2 completed successfully.");
+    } catch (subErr: any) {
+      console.error("[Call 2] Sub-Metrics Call 2 failed, continuing without it:", subErr.message || subErr);
     }
 
     res.json({ critique: parsedCritique });
