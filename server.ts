@@ -414,7 +414,7 @@ async function generateContentWithRetry(params: {
   model: string;
   contents: any;
   config?: any;
-}, maxAttempts = 4): Promise<any> {
+}, maxAttempts = 6): Promise<any> {
   if (!ai) {
     throw new Error("Gemini API Client is not configured. Please supply a GEMINI_API_KEY in Secrets.");
   }
@@ -448,7 +448,7 @@ async function generateContentWithRetry(params: {
 
 
       // Wait with backoff (1500ms, 3000ms, 4500ms)
-      const delay = attempts * 1500;
+      const delay = attempts * 2000;
       console.log(`[Gemini API] Waiting ${delay}ms before retrying...`);
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
@@ -670,18 +670,22 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
+      parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
     } catch (subErr: any) {
       console.error("[Call 1] Sub-Metrics Call 1 failed, continuing without it:", subErr.message || subErr);
+      parsedCritique.subMetricsCall1Failed = true;
     }
 
     try {
       console.log("[Call 2] Starting Sub-Metrics Call 2...");
       const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique);
       parsedCritique.subMetricsCall2 = subMetricsCall2;
+      parsedCritique.subMetricsCall2Failed = false;
       console.log("[Call 2] Sub-Metrics Call 2 completed successfully.");
     } catch (subErr: any) {
       console.error("[Call 2] Sub-Metrics Call 2 failed, continuing without it:", subErr.message || subErr);
+      parsedCritique.subMetricsCall2Failed = true;
     }
 
     res.json({ critique: parsedCritique });
