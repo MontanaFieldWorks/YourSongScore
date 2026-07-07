@@ -1444,6 +1444,18 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     return null;
   };
 
+  const getFallbackWarning = (critiqueData: any, id: string): string => {
+    const isCall1Field = Object.prototype.hasOwnProperty.call(CALL1_FIELD_MAP, id);
+    const isCall2Field = Object.prototype.hasOwnProperty.call(CALL2_FIELD_MAP, id);
+    if (isCall1Field && critiqueData?.subMetricsCall1Failed) {
+      return "⚠️ LIVE ANALYSIS TEMPORARILY UNAVAILABLE (AI service was busy) - this is a fallback estimate, not fresh analysis. Please re-run this song. — ";
+    }
+    if (isCall2Field && critiqueData?.subMetricsCall2Failed) {
+      return "⚠️ LIVE ANALYSIS TEMPORARILY UNAVAILABLE (AI service was busy) - this is a fallback estimate, not fresh analysis. Please re-run this song. — ";
+    }
+    return "";
+  };
+
   const getSubScore = (parentScore: number, index: number, total: number, metricId?: string): number => {
     if (metricId === "theory") {
       const offsets = [1, -2, 3, -1];
