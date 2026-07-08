@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { CritiqueData, TrackInfo, LiveAudioMetrics } from "../types";
 import { getSubgenreProfile, getVectorTargets, getCritiqueAndFix } from "../data/musicData";
 import { updateTrackFields } from "../firebase";
+import ExcelJS from "exceljs";
 import { 
   Play, Pause, RefreshCw, Layers, Sliders, Mic,
   Volume2, Disc, ArrowLeft, ArrowRight, CheckCircle, Flame, Sparkles, CheckSquare, Square,
@@ -1312,8 +1313,154 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     }
   ];
 
-  const downloadFullReport = () => {
-    const rows: string[][] = [["Category", "Metric Name", "Score", "Commentary"]];
+  const downloadFullReport = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet("YSS Full Report", { views: [{ showGridLines: false }] });
+
+    const CATS: Record<string, { dark: string; agg: string; core: string }> = {
+      "STREAMING READINESS": { dark: "FF1E3A8A", agg: "FFA5B0D0", core: "FFD2D8E8" },
+      "SONIC SOUNDPRINT": { dark: "FF065F46", agg: "FF9BBFB5", core: "FFCDDFDA" },
+      "COMPOSITIONAL DEPTH": { dark: "FF5B21B6", agg: "FFBDA6E2", core: "FFDED3F0" },
+    };
+    const PLACEHOLDER = "FFFEF3C7";
+    const PLACEHOLDER_TEXT = "FF92400E";
+
+    const thinBorder = { style: "thin" as const, color: { argb: "FFCBD5E1" } };
+    const fullBorder = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder };
+
+    ws.getColumn(1).width = 4;
+    ws.getColumn(2).width = 11.5;
+    ws.getColumn(3).width = 8;
+    ws.getColumn(4).width = 13;
+    ws.getColumn(5).width = 30;
+    ws.getColumn(6).width = 9;
+    ws.getColumn(7).width = 136;
+
+    ws.getCell("B2").value = "YOURSONGSCORE REPORT";
+    ws.getCell("B2").font = { name: "Calibri", size: 14, bold: true };
+    ws.getCell("B3").value = "ARTIST:";
+    ws.getCell("C3").value = trackInfo?.artist || "Independent Artist";
+    ws.getCell("B4").value = "SONG TITLE:";
+    ws.getCell("C4").value = trackInfo?.name || "Untitled";
+    ws.getCell("B5").value = "GENRE:";
+    ws.getCell("C5").value = critique?.vibe?.genre || "Unclassified";
+    ws.getCell("B6").value = "SUBGENRE:";
+    ws.getCell("C6").value = critique?.vibe?.subgenre || "N/A";
+    ["B3", "B4", "B5", "B6"].forEach(coord => {
+      ws.getCell(coord).font = { name: "Calibri", size: 10, bold: true };
+    });
+    ["C3", "C4", "C5", "C6"].forEach(coord => {
+      ws.getCell(coord).font = { name: "Calibri", size: 10, bold: false };
+    });
+
+    const headerRow = ws.getRow(9);
+    headerRow.height = 36;
+    const headers = ["Category", "Agg. Metric", "Core Metric", "Sub-Metric", "Score", "Commentary"];
+    headers.forEach((h, i) => {
+      const cell = headerRow.getCell(i + 2);
+      cell.value = h;
+      cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F172A" } };
+      cell.alignment = { horizontal: "center", vertical: "middle", wrapText: i === 1 };
+      cell.border = fullBorder;
+    });
+
+    let currentRow = 10;
+
+    const addCategoryRow = (name: string) => {
+      const row = ws.getRow(currentRow);
+      row.height = 16;
+      const colors = CATS[name];
+      for (let col = 2; col <= 7; col++) {
+        const cell = row.getCell(col);
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: colors.dark } };
+        cell.border = fullBorder;
+      }
+      row.getCell(2).value = name;
+      row.getCell(2).font = { name: "Calibri", size: 13, bold: true, color: { argb: "FFFFFFFF" } };
+      currentRow++;
+      return colors;
+    };
+
+    const addAggRow = (colors: any, name: string, score: number | string | null, note: string, placeholder = false) => {
+      const row = ws.getRow(currentRow);
+      row.height = 16;
+      const fill = placeholder ? PLACEHOLDER : colors.agg;
+      const textColor = placeholder ? PLACEHOLDER_TEXT : "FF0F172A";
+      for (let col = 2; col <= 7; col++) {
+        const cell = row.getCell(col);
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: fill } };
+        cell.border = fullBorder;
+        cell.alignment = { wrapText: false, vertical: "middle" };
+      }
+      row.getCell(3).value = name;
+      row.getCell(3).font = { name: "Calibri", size: 11, bold: true, color: { argb: textColor } };
+      if (score !== null) row.getCell(6).value = score;
+      row.getCell(6).font = { name: "Calibri", size: 11, bold: true, color: { argb: textColor } };
+      row.getCell(6).alignment = { horizontal: "center", vertical: "middle" };
+      row.getCell(7).value = note;
+      row.getCell(7).font = { name: "Calibri", size: 9, italic: true, color: { argb: textColor } };
+      currentRow++;
+    };
+
+    const addCoreRow = (colors: any, name: string, score: number | string | null, commentary: string, placeholder = false) => {
+      const row = ws.getRow(currentRow);
+      row.height = 16;
+      const fill = placeholder ? PLACEHOLDER : colors.core;
+      const textColor = placeholder ? PLACEHOLDER_TEXT : "FF000000";
+      for (let col = 2; col <= 7; col++) {
+        const cell = row.getCell(col);
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: fill } };
+        cell.border = fullBorder;
+        cell.alignment = { wrapText: false, vertical: "middle" };
+      }
+      row.getCell(4).value = name;
+      row.getCell(4).font = { name: "Calibri", size: 11, bold: true, color: { argb: textColor } };
+      if (score !== null) row.getCell(6).value = score;
+      row.getCell(6).font = { name: "Calibri", size: 11, bold: true, color: { argb: textColor } };
+      row.getCell(6).alignment = { horizontal: "center", vertical: "middle" };
+      row.getCell(7).value = commentary;
+      row.getCell(7).font = { name: "Calibri", size: 9, italic: placeholder, color: { argb: textColor } };
+      currentRow++;
+    };
+
+    const addSubRow = (name: string, score: number | string, commentary: string, placeholder = false) => {
+      const row = ws.getRow(currentRow);
+      row.height = 16;
+      const fill = placeholder ? "FFFFFBEB" : "FFFFFFFF";
+      const textColor = placeholder ? PLACEHOLDER_TEXT : "FF000000";
+      for (let col = 2; col <= 7; col++) {
+        const cell = row.getCell(col);
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: fill } };
+        cell.border = fullBorder;
+        cell.alignment = { wrapText: false, vertical: "middle" };
+      }
+      row.getCell(5).value = name;
+      row.getCell(5).font = { name: "Calibri", size: 10, color: { argb: textColor } };
+      row.getCell(6).value = score;
+      row.getCell(6).font = { name: "Calibri", size: 10, color: { argb: textColor } };
+      row.getCell(6).alignment = { horizontal: "center", vertical: "middle" };
+      row.getCell(7).value = commentary;
+      row.getCell(7).font = { name: "Calibri", size: 9, italic: placeholder, color: { argb: textColor } };
+      currentRow++;
+    };
+
+    // Provisional Category/Aggregate grouping - PLACEHOLDER pending final decision, easy to adjust here later:
+    const groupMap: Record<string, { category: string; agg: string | null }> = {
+      readiness: { category: "STREAMING READINESS", agg: "COMMERCIAL IMPACT" },
+      production: { category: "STREAMING READINESS", agg: "COMMERCIAL IMPACT" },
+      flow: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
+      mix: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
+      vocals: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
+      instrumental: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
+      searchability: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
+      artistic: { category: "COMPOSITIONAL DEPTH", agg: null },
+      lyrics: { category: "COMPOSITIONAL DEPTH", agg: null },
+      theory: { category: "COMPOSITIONAL DEPTH", agg: null },
+      "dna-melodic": { category: "COMPOSITIONAL DEPTH", agg: null },
+      "dna-tension": { category: "COMPOSITIONAL DEPTH", agg: null },
+      "dna-density": { category: "COMPOSITIONAL DEPTH", agg: null },
+    };
 
     const orderedMetrics = [
       METRICS_LIST.find(m => m.id === "readiness"),
@@ -1331,34 +1478,44 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       METRICS_LIST.find(m => m.id === "dna-density"),
     ].filter(Boolean) as any[];
 
+    let lastCategory = "";
+    let lastAgg = "";
+    let colors: any = null;
+
     orderedMetrics.forEach((m: any) => {
-      rows.push([
-        "Core Metrics",
-        m.name,
-        String(m.score),
-        (m.feedback || "").replace(/\n/g, " ")
-      ]);
+      const group = groupMap[m.id];
+      if (group.category !== lastCategory) {
+        colors = addCategoryRow(group.category);
+        lastCategory = group.category;
+        lastAgg = "";
+      }
+      if (group.agg && group.agg !== lastAgg) {
+        addAggRow(colors, group.agg, null, "");
+        lastAgg = group.agg;
+      }
+      addCoreRow(colors, m.name, m.score, (m.feedback || "").replace(/\n/g, " "));
       (m.subParams || []).forEach((param: any, idx: number) => {
         const realSub = getRealSubMetric(critique, m.id, idx);
         const subScore = realSub ? realSub.score : getSubScore(m.score, idx, m.subParams.length, m.id);
         const subText = realSub ? realSub.commentary : getSubScoreExplanationText(param.name, subScore);
-        rows.push([
-          "Sub-Metrics",
-          `${m.name} > ${param.name}`,
-          String(subScore),
-          (subText || "").replace(/\n/g, " ")
-        ]);
+        addSubRow(param.name, subScore, (subText || "").replace(/\n/g, " "));
       });
     });
 
-    const escapeCsv = (val: string) => `"${val.replace(/"/g, '""')}"`;
-    const csvContent = rows.map(row => row.map(escapeCsv).join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    // Placeholder sections - not yet live, static labels only for now
+    addAggRow(CATS["STREAMING READINESS"], "STREAMING ALIGNMENT", null, "PLACEHOLDER - Echo Nest Scorecard fields are currently simulated client-side math, not live Gemini analysis.", true);
+    addAggRow(CATS["STREAMING READINESS"], "ALGO SANDBOX", null, "PLACEHOLDER - Cosine Similarity, Circumplex Mood Plotter, Skip Simulator not yet built/audited.", true);
+    addAggRow(CATS["STREAMING READINESS"], "ARTIST & AUDIENCE", null, "PLACEHOLDER - Artist positioning/audience mapping not yet built/audited.", true);
+    addAggRow(CATS["SONIC SOUNDPRINT"], "ENGINEERING STUDIO", null, "PLACEHOLDER - Harmonic Resolution, Signal & Levels, Dynamics Profile modules not yet audited.", true);
+    addAggRow(CATS["COMPOSITIONAL DEPTH"], "ARTISTIC IMPACT / SONGWRITING QUALITY / SONG ARCHITECTURE", null, "OPEN QUESTION - no confirmed aggregate formula found in code for these 3 pills yet.", true);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
     const safeName = (trackInfo?.name || "YSS_Report").replace(/[^a-z0-9]/gi, "_");
-    link.download = `${safeName}_YSS_Report.csv`;
+    link.download = `${safeName}_YSS_Report.xlsx`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -4897,7 +5054,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               onClick={downloadFullReport}
               className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-sm font-medium text-white/80 hover:text-white transition-colors"
             >
-              Download Full Report (CSV)
+              Download Full Report (Excel)
             </button>
           </div>
 
