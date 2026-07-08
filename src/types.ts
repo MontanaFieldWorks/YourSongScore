@@ -110,8 +110,10 @@ export interface CritiqueData {
   userEnergy?: number;
   subMetricsCall1?: any;
   subMetricsCall2?: any;
+  subMetricsCall3?: any;
   subMetricsCall1Failed?: boolean;
   subMetricsCall2Failed?: boolean;
+  subMetricsCall3Failed?: boolean;
 }
 
 export interface TrackInfo {
