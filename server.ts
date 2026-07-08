@@ -236,7 +236,7 @@ Listen to the actual audio again and generate specific, deduction-based sub-metr
       systemInstruction: SUBMETRIC_SYSTEM_PROMPT,
       responseMimeType: "application/json",
       responseSchema: SUBMETRICS_SCHEMA_1,
-      temperature: 0.4,
+      temperature: 0.1,
     },
   });
 
@@ -327,7 +327,7 @@ Listen to the actual audio again and generate specific, deduction-based scores, 
       systemInstruction: SUBMETRIC_SYSTEM_PROMPT_2,
       responseMimeType: "application/json",
       responseSchema: SUBMETRICS_SCHEMA_2,
-      temperature: 0.4,
+      temperature: 0.1,
     },
   });
 
@@ -427,7 +427,7 @@ Listen to the actual audio again and generate specific, deduction-based scores a
       systemInstruction: SUBMETRIC_SYSTEM_PROMPT_3,
       responseMimeType: "application/json",
       responseSchema: SUBMETRICS_SCHEMA_3,
-      temperature: 0.4,
+      temperature: 0.1,
     },
   });
 
@@ -851,7 +851,12 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       userInstruction += `\n\n[EMBEDDED FILE METADATA CONTEXT]`;
       userInstruction += `\n- Embedded Genre: "${metaGenre}". This is the explicit, ground-truth genre file tag. Analyze and score the track relative to this specific genre/style.`;
     }
-    userInstruction += `\n\n[BLIND AUDITION MODE]\nYou are NOT being given the track title or artist name. Evaluate this track exactly as you would an anonymous submission with zero cultural context. Do not attempt to guess or identify the artist or song. Score strictly on what you hear.`;
+    userInstruction += `\n\n[BLIND AUDITION MODE]\nYou are NOT being given the track title or artist name for the purposes of judging performance, mix quality, artistic merit, or any category other than Song Title Searchability. Evaluate all other categories exactly as you would an anonymous submission with zero cultural context. Do not attempt to guess or identify the artist or song for those categories. Score strictly on what you hear.`;
+    if (metaTitle && metaTitle.trim().length > 0) {
+      userInstruction += `\n\n[TITLE PROVIDED FOR SEARCHABILITY SCORING ONLY]\nThe user has provided this exact song title: "${metaTitle.trim()}". Use this exact title ONLY to score the Song Title Searchability category (SEO Uniqueness and SEO Discoverability). Do not use this title to identify, guess, or recognize the actual commercial artist or recording - continue blind audition mode for every other category.`;
+    } else {
+      userInstruction += `\n\n[NO TITLE PROVIDED]\nNo song title was provided for this upload. For the Song Title Searchability category ONLY, you MUST consistently report that title data is unavailable - do not invent, guess, or hypothesize a fictional title and score against it. Score both SEO Uniqueness and SEO Discoverability at exactly 50, with commentary stating that no title was provided so searchability cannot be genuinely assessed. Never fabricate a placeholder title.`;
+    }
 
     if (!metaGenre) {
       userInstruction += `\n\n- Genre Identification Directive: No explicit, valid genre metadata tag was found in the audio container. You MUST perform a deep acoustic and stylistic analysis of the track's drum/beat structures, lead instrumentation, tempo/timing, harmonic mood, and vocal delivery to identify the exact, laser-focused core genre and subgenre. Select from modern specific styles (e.g. Dream Pop, Synth-pop, Melodic Techno, Boom-Bap Hip Hop, Emo Rap, Cinematic Ambient, Progressive Metal, Americana, Indie Folk, UK Garage, UK Drill). Avoid generic tags like 'Unclassified', 'Demo', 'Acoustic', 'Vocal', or 'Electronic' without specific stylistic qualification. Check the frequency range structures and arrangement styles to see what type of playlist it fits best.`;
