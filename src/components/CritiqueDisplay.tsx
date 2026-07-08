@@ -1423,6 +1423,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     "dna-density": { parent: "songwritingDensity", fields: ["vocalPocketing", "poeticBrevity"] },
   };
 
+  const CALL3_FIELD_MAP: Record<string, { parent: string; fields: string[] }> = {
+    flow: { parent: "compositionFlowSubs", fields: ["structuralBuild", "melodicTension", "hookPlacement", "sectionalContrast"] },
+    vocals: { parent: "vocalTrackingSubs", fields: ["pitchAccuracy", "dynamicDelivery", "vocalLayerFit"] },
+    instrumental: { parent: "instrumentalStagingSubs", fields: ["timelineGridCohesion", "transientPunch", "melodicStaging"] },
+    lyrics: { parent: "lyricalImpactSubs", fields: ["meaningClarity", "clicheAvoidance"] },
+    theory: { parent: "musicTheorySubs", fields: ["chordDynamics", "harmonicVariety", "rhythmicMeter", "formAndStructure"] },
+  };
+
   const getRealSubMetric = (critiqueData: any, id: string, index: number): { score: number; commentary: string } | null => {
     const fields = CALL1_FIELD_MAP[id];
     if (fields && critiqueData?.subMetricsCall1) {
@@ -1441,16 +1449,29 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         return { score: data.score, commentary: data.commentary || "" };
       }
     }
+    const call3Entry = CALL3_FIELD_MAP[id];
+    if (call3Entry && critiqueData?.subMetricsCall3) {
+      const parentData = critiqueData.subMetricsCall3[call3Entry.parent];
+      const fieldName = call3Entry.fields[index];
+      const data = parentData && fieldName ? parentData[fieldName] : null;
+      if (data && typeof data.score === "number") {
+        return { score: data.score, commentary: data.commentary || "" };
+      }
+    }
     return null;
   };
 
   const getFallbackWarning = (critiqueData: any, id: string): string => {
     const isCall1Field = Object.prototype.hasOwnProperty.call(CALL1_FIELD_MAP, id);
     const isCall2Field = Object.prototype.hasOwnProperty.call(CALL2_FIELD_MAP, id);
+    const isCall3Field = Object.prototype.hasOwnProperty.call(CALL3_FIELD_MAP, id);
     if (isCall1Field && critiqueData?.subMetricsCall1Failed) {
       return "⚠️ LIVE ANALYSIS TEMPORARILY UNAVAILABLE (AI service was busy) - this is a fallback estimate, not fresh analysis. Please re-run this song. — ";
     }
     if (isCall2Field && critiqueData?.subMetricsCall2Failed) {
+      return "⚠️ LIVE ANALYSIS TEMPORARILY UNAVAILABLE (AI service was busy) - this is a fallback estimate, not fresh analysis. Please re-run this song. — ";
+    }
+    if (isCall3Field && critiqueData?.subMetricsCall3Failed) {
       return "⚠️ LIVE ANALYSIS TEMPORARILY UNAVAILABLE (AI service was busy) - this is a fallback estimate, not fresh analysis. Please re-run this song. — ";
     }
     return "";
