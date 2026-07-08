@@ -334,6 +334,206 @@ Listen to the actual audio again and generate specific, deduction-based scores, 
   return JSON.parse(response.text);
 }
 
+const SUBMETRICS_SCHEMA_3 = {
+  type: Type.OBJECT,
+  properties: {
+    compositionFlowSubs: {
+      type: Type.OBJECT,
+      properties: {
+        structuralBuild: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        melodicTension: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        hookPlacement: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        sectionalContrast: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["structuralBuild", "melodicTension", "hookPlacement", "sectionalContrast"],
+    },
+    vocalTrackingSubs: {
+      type: Type.OBJECT,
+      properties: {
+        pitchAccuracy: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        dynamicDelivery: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        vocalLayerFit: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["pitchAccuracy", "dynamicDelivery", "vocalLayerFit"],
+    },
+    instrumentalStagingSubs: {
+      type: Type.OBJECT,
+      properties: {
+        timelineGridCohesion: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        transientPunch: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        melodicStaging: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["timelineGridCohesion", "transientPunch", "melodicStaging"],
+    },
+    lyricalImpactSubs: {
+      type: Type.OBJECT,
+      properties: {
+        meaningClarity: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        clicheAvoidance: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["meaningClarity", "clicheAvoidance"],
+    },
+    musicTheorySubs: {
+      type: Type.OBJECT,
+      properties: {
+        chordDynamics: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        harmonicVariety: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        rhythmicMeter: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        formAndStructure: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["chordDynamics", "harmonicVariety", "rhythmicMeter", "formAndStructure"],
+    },
+  },
+  required: ["compositionFlowSubs", "vocalTrackingSubs", "instrumentalStagingSubs", "lyricalImpactSubs", "musicTheorySubs"],
+};
+
+const SUBMETRIC_SYSTEM_PROMPT_3 = `You are a precise music analyst breaking down five already-scored parent categories into their specific sub-components using a DEDUCTION-BASED scoring method.
+
+DEDUCTION METHOD - MANDATORY:
+For each sub-metric, start at a baseline of 100. Subtract points only for specific, real, named issues or observations you actually hear in THIS audio. Your final score must be the direct mathematical result of the deductions you describe. Do not pick a score first and write text to match it afterward.
+
+CRITICAL - ACTIVELY SCAN FOR REAL COMPLEXITY, DO NOT DEFAULT TO SURFACE-LEVEL DESCRIPTIONS:
+For musicTheorySubs and compositionFlowSubs especially: before settling on a score, actively scan for unusual time signatures or meter shifts, modal frameworks or alternate tunings, cross-rhythmic or polymetric layering, non-standard rhythmic groupings, and structurally unexpected transitions. Do not default to describing only the most obvious surface-level chord loop or verse-chorus pattern - dig into the full arrangement, including rhythmic structure and secondary instrumental layers, before scoring. If genuine sophistication is present, score and describe it accordingly - do not cap scores near 90 out of habit if the work genuinely earns higher.
+
+FAIRNESS RULE - DO NOT PENALIZE INTENTIONAL GENRE SIMPLICITY:
+A deliberately simple, repetitive, or stripped-down approach (e.g. punk power chords, minimal vocal layering) is not automatically a flaw if it suits the genre and is executed well. Only deduct points for genuine lack of craft or real technical problems, never for simplicity itself.
+
+RULES:
+1. Every commentary must reference something specific and real about THIS audio file - an actual moment, an actual lyric, an actual rhythmic or harmonic detail. Never write generic, reusable descriptions that could apply to any song.
+2. Never reuse the same commentary you might write for a different song, even if scores are similar.
+3. Keep each commentary to 1-3 sentences, technical and specific, in the voice of a professional music analyst.`;
+
+async function performSubMetricsCall3(
+  audioPart: any,
+  parsedCritique: any
+): Promise<any> {
+  const contextSummary = `
+Parent category context already determined:
+- Composition Flow score: ${parsedCritique?.arrangement?.flowScore}, notes: ${parsedCritique?.arrangement?.transitionsAndArc}
+- Vocal Tracking score: ${parsedCritique?.performance?.vocalScore}, notes: ${parsedCritique?.performance?.vocalsCritique}
+- Instrumental Staging score: ${parsedCritique?.performance?.instrumentalScore}
+- Lyrical Impact score: ${parsedCritique?.lyricalImpact?.score}, feedback: ${parsedCritique?.lyricalImpact?.feedback}
+- Music Theory score: ${parsedCritique?.musicTheory?.score}, chord structures: ${parsedCritique?.musicTheory?.chordStructures}
+- Genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
+
+Listen to the actual audio again and generate specific, deduction-based scores and commentary for all 16 sub-fields across these 5 categories, consistent with the above context but grounded in what you actually hear this time. Actively scan for genuine technical sophistication before defaulting to surface-level descriptions.`;
+
+  const response = await generateContentWithRetry({
+    model: "gemini-2.5-flash",
+    contents: {
+      parts: [audioPart, { text: contextSummary }],
+    },
+    config: {
+      systemInstruction: SUBMETRIC_SYSTEM_PROMPT_3,
+      responseMimeType: "application/json",
+      responseSchema: SUBMETRICS_SCHEMA_3,
+      temperature: 0.4,
+    },
+  });
+
+  return JSON.parse(response.text);
+}
+
+function reconcileParentScores(parsedCritique: any): void {
+  const weightedAvg = (pairs: Array<[number | undefined, number]>): number | null => {
+    const validPairs = pairs.filter(([score]) => typeof score === "number");
+    if (validPairs.length === 0) return null;
+    const totalWeight = validPairs.reduce((sum, [, w]) => sum + w, 0);
+    const weightedSum = validPairs.reduce((sum, [score, w]) => sum + (score as number) * w, 0);
+    return Math.round(weightedSum / totalWeight);
+  };
+
+  if (parsedCritique.subMetricsCall1 && !parsedCritique.subMetricsCall1Failed) {
+    const c1 = parsedCritique.subMetricsCall1;
+
+    const readiness = weightedAvg([
+      [c1.lufsLoudness?.score, 33],
+      [c1.spectralMatch?.score, 33],
+      [c1.engagementPower?.score, 34],
+    ]);
+    if (readiness !== null && parsedCritique.scores) {
+      parsedCritique.scores.commercialReadiness = readiness;
+    }
+
+    const production = weightedAvg([
+      [c1.paletteCohesion?.score, 33],
+      [c1.aestheticDesign?.score, 33],
+      [c1.spaceAndDensity?.score, 34],
+    ]);
+    if (production !== null && parsedCritique.scores) {
+      parsedCritique.scores.overallProduction = production;
+    }
+
+    const mixBalance = weightedAvg([
+      [c1.mudPrevention?.score, 25],
+      [c1.sibilanceShaving?.score, 25],
+      [c1.lowEndDivision?.score, 25],
+      [c1.midrangeSpacing?.score, 25],
+    ]);
+    if (mixBalance !== null && parsedCritique.mixQuality) {
+      parsedCritique.mixQuality.score = mixBalance;
+    }
+
+    const searchability = weightedAvg([
+      [c1.seoUniqueness?.score, 50],
+      [c1.seoDiscoverability?.score, 50],
+    ]);
+    if (searchability !== null && parsedCritique.titleSearchability) {
+      parsedCritique.titleSearchability.score = searchability;
+    }
+  }
+
+  if (parsedCritique.subMetricsCall3 && !parsedCritique.subMetricsCall3Failed) {
+    const c3 = parsedCritique.subMetricsCall3;
+
+    const flow = weightedAvg([
+      [c3.compositionFlowSubs?.structuralBuild?.score, 25],
+      [c3.compositionFlowSubs?.melodicTension?.score, 25],
+      [c3.compositionFlowSubs?.hookPlacement?.score, 25],
+      [c3.compositionFlowSubs?.sectionalContrast?.score, 25],
+    ]);
+    if (flow !== null && parsedCritique.arrangement) {
+      parsedCritique.arrangement.flowScore = flow;
+    }
+
+    const vocal = weightedAvg([
+      [c3.vocalTrackingSubs?.pitchAccuracy?.score, 33],
+      [c3.vocalTrackingSubs?.dynamicDelivery?.score, 33],
+      [c3.vocalTrackingSubs?.vocalLayerFit?.score, 34],
+    ]);
+    if (vocal !== null && parsedCritique.performance) {
+      parsedCritique.performance.vocalScore = vocal;
+    }
+
+    const instrumental = weightedAvg([
+      [c3.instrumentalStagingSubs?.timelineGridCohesion?.score, 33],
+      [c3.instrumentalStagingSubs?.transientPunch?.score, 33],
+      [c3.instrumentalStagingSubs?.melodicStaging?.score, 34],
+    ]);
+    if (instrumental !== null && parsedCritique.performance) {
+      parsedCritique.performance.instrumentalScore = instrumental;
+    }
+
+    const lyrical = weightedAvg([
+      [c3.lyricalImpactSubs?.meaningClarity?.score, 50],
+      [c3.lyricalImpactSubs?.clicheAvoidance?.score, 50],
+    ]);
+    if (lyrical !== null && parsedCritique.lyricalImpact) {
+      parsedCritique.lyricalImpact.score = lyrical;
+    }
+
+    const theory = weightedAvg([
+      [c3.musicTheorySubs?.chordDynamics?.score, 25],
+      [c3.musicTheorySubs?.harmonicVariety?.score, 25],
+      [c3.musicTheorySubs?.rhythmicMeter?.score, 25],
+      [c3.musicTheorySubs?.formAndStructure?.score, 25],
+    ]);
+    if (theory !== null && parsedCritique.musicTheory) {
+      parsedCritique.musicTheory.score = theory;
+    }
+  }
+}
+
 // Spotify API Helpers
 async function getSpotifyToken(): Promise<string | null> {
   const clientId = process.env.SPOTIFY_CLIENT_ID;
@@ -687,6 +887,19 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       console.error("[Call 2] Sub-Metrics Call 2 failed, continuing without it:", subErr.message || subErr);
       parsedCritique.subMetricsCall2Failed = true;
     }
+
+    try {
+      console.log("[Call 3] Starting Sub-Metrics Call 3...");
+      const subMetricsCall3 = await performSubMetricsCall3(audioPart, parsedCritique);
+      parsedCritique.subMetricsCall3 = subMetricsCall3;
+      parsedCritique.subMetricsCall3Failed = false;
+      console.log("[Call 3] Sub-Metrics Call 3 completed successfully.");
+    } catch (subErr: any) {
+      console.error("[Call 3] Sub-Metrics Call 3 failed, continuing without it:", subErr.message || subErr);
+      parsedCritique.subMetricsCall3Failed = true;
+    }
+
+    reconcileParentScores(parsedCritique);
 
     res.json({ critique: parsedCritique });
   } catch (error: any) {
