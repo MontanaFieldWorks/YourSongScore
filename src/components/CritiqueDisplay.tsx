@@ -5872,18 +5872,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   </div>
                 </div>
               </div>
-
-              {/* Right Score display */}
-              <div className="flex-shrink-0 flex items-center justify-center">
-                <ScoreCircle 
-                  score={Math.round((critique?.scores?.commercialReadiness ?? 75) * 0.5 + (critique?.scores?.overallProduction ?? 75) * 0.3 + (critique?.mixQuality?.score ?? 75) * 0.2)} 
-                  size={110} 
-                  strokeWidth={7} 
-                  color={activeCategory === "spotify" ? "#1ed760" : "rgba(30, 215, 96, 0.45)"} 
-                  glowColor={activeCategory === "spotify" ? "rgba(30, 215, 96, 0.65)" : "rgba(30, 215, 96, 0.15)"} 
-                  extraGlow={activeCategory === "spotify"}
-                />
-              </div>
             </div>
           </button>
 
@@ -7543,18 +7531,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     </span>
                   </div>
                 </div>
-              </div>
-
-              {/* Right Score display */}
-              <div className="flex-shrink-0 flex items-center justify-center">
-                <ScoreCircle 
-                  score={Math.round((critique?.scores?.commercialReadiness ?? 75) * 0.5 + (critique?.scores?.overallProduction ?? 75) * 0.3 + (critique?.mixQuality?.score ?? 75) * 0.2)} 
-                  size={110} 
-                  strokeWidth={7} 
-                  color={activeCategory === "spotify" ? "#1ed760" : "rgba(30, 215, 96, 0.45)"} 
-                  glowColor={activeCategory === "spotify" ? "rgba(30, 215, 96, 0.65)" : "rgba(30, 215, 96, 0.15)"} 
-                  extraGlow={activeCategory === "spotify"}
-                />
               </div>
             </div>
           </button>
