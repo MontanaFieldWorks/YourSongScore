@@ -2880,6 +2880,30 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               </p>
             </div>
 
+            {selectedObj.id === "readiness" && critique?.liveMetrics && (() => {
+              const bucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+              const lufs = critique.liveMetrics.calculatedLufs;
+              const lra = critique.liveMetrics.calculatedLra;
+              const lufsPass = lufs !== undefined && lufs >= bucket.lufsMin && lufs <= bucket.lufsMax;
+              const lraPass = lra !== undefined && lra >= bucket.lraMin && (bucket.lraMax === null || lra <= bucket.lraMax);
+              return (
+                <div className="mt-3 p-4 bg-[#020203] border border-white/10 rounded-xl">
+                  <span className="text-[10px] font-mono uppercase tracking-wider block mb-2 font-bold text-blue-400">
+                    Loudness & Dynamic Range Compliance ({bucket.label})
+                  </span>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className={`flex-1 px-3 py-2 rounded-lg border text-xs font-mono ${lufsPass ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-300" : "border-rose-500/40 bg-rose-500/5 text-rose-300"}`}>
+                      <span className="font-bold uppercase">{lufsPass ? "PASS" : "FAIL"}</span> — LUFS Loudness: {lufs ?? "--"} (target: {bucket.lufsMin} to {bucket.lufsMax})
+                    </div>
+                    <div className={`flex-1 px-3 py-2 rounded-lg border text-xs font-mono ${lraPass ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-300" : "border-rose-500/40 bg-rose-500/5 text-rose-300"}`}>
+                      <span className="font-bold uppercase">{lraPass ? "PASS" : "FAIL"}</span> — Dynamic Range: {lra ?? "--"} LU (target: {bucket.lraMin}{bucket.lraMax !== null ? `-${bucket.lraMax}` : "+"})
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-2">Compliance badges only - not scored, not weighted, does not factor into the Engagement Power score.</p>
+                </div>
+              );
+            })()}
+
             <p className="text-xs text-slate-450 mt-4 leading-relaxed italic">
               {selectedObj.description}
             </p>
@@ -3075,7 +3099,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 const sCircumference = 2 * Math.PI * sRadius;
                 const sOffset = sCircumference - (subScore / 100) * sCircumference;
 
-                const isLufsRow = selectedObj.id === "readiness" && index === 0;
+                const isLufsRow = false;
 
                 return (
                   <div key={index} className="flex flex-col gap-2.5 w-full">
@@ -3162,12 +3186,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         </div>
                       </div>
                     </div>
-
-                    {isLufsRow && lufsOpen && (
-                      <div className="w-full mt-1.5 pl-4 border-l-2 border-teal-500/30 animate-fadeIn flex flex-col gap-4">
-                        {renderMetricVisualizerFeature("readiness", selectedObj.score)}
-                      </div>
-                    )}
                   </div>
                 );
               })}
