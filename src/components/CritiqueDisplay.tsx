@@ -127,14 +127,13 @@ export function ScoreCircle({
   );
 }
 
-function RoseChart({ data }: { data: { name: string; score: number; color: string }[] }) {
+function RoseChart({ data }: { data: { name: string; score: number; color: string; weight?: number }[] }) {
   const size = 200;
   const cx = size / 2;
   const cy = size / 2;
   const maxR = 80;
 
-  const count = data.length || 4;
-  const anglePerWedge = 360 / count;
+  const totalWeight = data.reduce((sum, item) => sum + (item.weight ?? (100 / (data.length || 4))), 0);
 
   const getWedgePath = (startAngle: number, endAngle: number, currentScore: number) => {
     const r = maxR * (Math.max(10, currentScore) / 100);
@@ -172,8 +171,10 @@ function RoseChart({ data }: { data: { name: string; score: number; color: strin
           })}
 
           {data.map((item, idx) => {
-            const startAngle = -90 + idx * anglePerWedge;
-            const endAngle = startAngle + anglePerWedge;
+            const itemWeight = item.weight ?? (100 / (data.length || 4));
+            const precedingWeightSum = data.slice(0, idx).reduce((sum, d) => sum + (d.weight ?? (100 / (data.length || 4))), 0);
+            const startAngle = -90 + (precedingWeightSum / totalWeight) * 360;
+            const endAngle = startAngle + (itemWeight / totalWeight) * 360;
             const pathD = getWedgePath(startAngle, endAngle, item.score);
             
             return (
@@ -216,8 +217,9 @@ function RoseChart({ data }: { data: { name: string; score: number; color: strin
             );
           })}
 
-          {data.map((_, idx) => {
-            const angle = -90 + idx * anglePerWedge;
+          {data.map((item, idx) => {
+            const precedingWeightSum = data.slice(0, idx).reduce((sum, d) => sum + (d.weight ?? (100 / (data.length || 4))), 0);
+            const angle = -90 + (precedingWeightSum / totalWeight) * 360;
             const rad = Math.PI / 180;
             const tx = cx + maxR * Math.cos(angle * rad);
             const ty = cy + maxR * Math.sin(angle * rad);
@@ -3291,10 +3293,15 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     else ringColor = "#f43f5e";
                   }
                   
+                  const weightMatch = param.name.match(/\((\d+)%\)/);
+                  const parsedWeight = weightMatch 
+                    ? parseInt(weightMatch[1], 10) 
+                    : (selectedObj.id === "artistic" ? (param.name === "Harmonic Intrigue" ? 40 : 30) : (100 / (selectedObj.subParams?.length || 4)));
                   return {
                     name: param.name.split(" (")[0],
                     score: subScore,
-                    color: ringColor
+                    color: ringColor,
+                    weight: parsedWeight
                   };
                 });
                 return <RoseChart data={roseData} />;
