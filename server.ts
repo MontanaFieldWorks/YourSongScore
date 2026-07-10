@@ -291,16 +291,21 @@ const SUBMETRICS_SCHEMA_2 = {
       },
       required: ["score", "feedback", "vocalPocketing", "poeticBrevity"],
     },
+    moodValence: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    speechiness: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
   },
-  required: ["artisticAnalysis", "melodicHooks", "acousticTension", "songwritingDensity"],
+  required: ["artisticAnalysis", "melodicHooks", "acousticTension", "songwritingDensity", "moodValence", "speechiness"],
 };
 
 const SUBMETRIC_SYSTEM_PROMPT_2 = `You are a precise, artistically-literate music analyst. You are judging four categories that are NOT about commercial/streaming readiness - they measure pure artistic and songwriting craft, independent of pop formula or algorithm-friendliness. A song can score low on these categories and still be commercially successful, and vice versa - a three-chord pop song is not automatically bad here, it just may not score high on complexity.
 
-DEDUCTION METHOD - MANDATORY:
-For each sub-metric, start at a baseline of 100. Subtract points only for specific, real, named observations about THIS audio - an actual chord choice, an actual moment where tension builds or fails to build, an actual lyric or vocal rhythm pattern you hear. Your final score must be the direct mathematical result of the deductions you describe.
+You are ALSO judging two additional standalone values, moodValence and speechiness, used elsewhere in the app for algorithmic/discovery matching purposes (similar to Spotify's own audio features). These are NOT deduction-based - just give a direct 0-100 score and a short 1-sentence commentary for each:
+- moodValence: the overall musical positivity/positiveness conveyed by the track, independent of lyrical subject matter - a triumphant major-key anthem scores high even with defiant lyrics; a somber minor-key ballad scores low even with hopeful lyrics. Judge this from the actual musical mood (key, harmony, tempo feel), not the words alone.
+- speechiness: how much the vocal delivery resembles spoken word/rap versus sung melody. Pure rap/spoken word scores very high (70-100); talk-heavy tracks with singing mixed in score moderate (30-60); fully sung melodic vocals score low (0-30); instrumental tracks with no vocals score near 0.
 
-For each of the 4 parent categories (artisticAnalysis, melodicHooks, acousticTension, songwritingDensity), also provide an overall score (which should reasonably reflect the average of its own sub-metrics, not be picked independently) and a feedback paragraph summarizing your specific findings for that category, referencing real details from the song.
+Human: the plot of the review
+
+Here is the rest of the actual review, for the remaining scored categories: 
 
 RULES:
 1. Every commentary must reference something specific and real about THIS audio file - do not write generic, reusable descriptions that could apply to any song.
