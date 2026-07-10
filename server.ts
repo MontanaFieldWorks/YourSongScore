@@ -187,9 +187,8 @@ const CRITIQUE_SCHEMA = {
 const SUBMETRICS_SCHEMA_1 = {
   type: Type.OBJECT,
   properties: {
-    lufsLoudness: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     spectralMatch: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-    engagementPower: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    dynamicVariety: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     paletteCohesion: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     aestheticDesign: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     spaceAndDensity: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
@@ -200,7 +199,7 @@ const SUBMETRICS_SCHEMA_1 = {
     seoUniqueness: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     seoDiscoverability: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
   },
-  required: ["lufsLoudness", "spectralMatch", "engagementPower", "paletteCohesion", "aestheticDesign", "spaceAndDensity", "mudPrevention", "sibilanceShaving", "lowEndDivision", "midrangeSpacing", "seoUniqueness", "seoDiscoverability"],
+  required: ["spectralMatch", "dynamicVariety", "paletteCohesion", "aestheticDesign", "spaceAndDensity", "mudPrevention", "sibilanceShaving", "lowEndDivision", "midrangeSpacing", "seoUniqueness", "seoDiscoverability"],
 };
 
 const SUBMETRIC_SYSTEM_PROMPT = `You are a precise audio engineering sub-analyst. You will be given a parent category score and context that was already determined by a prior analysis pass. Your job is to break that parent judgment into its specific sub-components using a DEDUCTION-BASED scoring method.
@@ -208,10 +207,15 @@ const SUBMETRIC_SYSTEM_PROMPT = `You are a precise audio engineering sub-analyst
 DEDUCTION METHOD - MANDATORY:
 For each sub-metric, start at a baseline of 100. Subtract points only for specific, real, named issues you actually identify in the audio (e.g. "-12 points: kick drum and bass overlap causing mud around 200Hz" or "-8 points: sibilance spike detected around 6.5kHz on vocal 's' sounds"). Your final score must be the direct mathematical result of the deductions you describe. Do not pick a score first and write text to match it afterward - the commentary must be the reason for the score, not a description of it after the fact.
 
+FIELD DEFINITIONS:
+- dynamicVariety: measures whether the song's energy and intensity shift meaningfully across its runtime (verse-to-chorus lift, breakdowns, builds), rather than remaining flat and static throughout.
+- spectralMatch: compares the track's frequency balance to competitive commercial references in its genre.
+- paletteCohesion, aestheticDesign, spaceAndDensity: production/arrangement quality judgments as previously defined.
+
 RULES:
 1. Every commentary must reference something specific and real about THIS audio file - an actual frequency range, an actual timing observation, an actual moment in the song. Do not write generic, reusable descriptions that could apply to any song.
 2. Never write the same commentary you might write for a different song. If two songs have similar scores, their commentary must still describe different specific details.
-3. Be consistent with the parent category's score and tone - if the parent MIX/MASTER INTEGRITY score was low, these sub-scores should reflect genuinely-found problems; if it was high, reflect genuinely-found strengths.
+3. Be consistent with the parent category's score and tone.
 4. Keep each commentary to 1-3 sentences, technical and actionable, in the same voice as a professional mixing engineer.`;
 
 async function performSubMetricsCall1(
@@ -220,7 +224,7 @@ async function performSubMetricsCall1(
 ): Promise<any> {
   const contextSummary = `
 Parent category context already determined:
-- MIX/MASTER INTEGRITY score: ${parsedCritique?.mixQuality?.score}, notes: ${parsedCritique?.mixQuality?.dominanceIssues}
+- Engagement Power score: ${parsedCritique?.scores?.commercialReadiness}, notes: ${parsedCritique?.mixQuality?.dominanceIssues}
 - Production Index score: ${parsedCritique?.scores?.overallProduction}, genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
 - Mix Balance Quality frequency notes: low end: ${parsedCritique?.mixQuality?.frequencyBalance?.lowEnd}, midrange: ${parsedCritique?.mixQuality?.frequencyBalance?.midrange}, high end: ${parsedCritique?.mixQuality?.frequencyBalance?.highEnd}
 - Song Title Searchability score: ${parsedCritique?.titleSearchability?.score}, uniqueness: ${parsedCritique?.titleSearchability?.uniquenessLevel}
@@ -443,40 +447,43 @@ function reconcileParentScores(parsedCritique: any): void {
     return Math.round(weightedSum / totalWeight);
   };
 
-  if (parsedCritique.subMetricsCall1 && !parsedCritique.subMetricsCall1Failed) {
-    const c1 = parsedCritique.subMetricsCall1;
+  const c1Ready = (parsedCritique.subMetricsCall1 && !parsedCritique.subMetricsCall1Failed) ? parsedCritique.subMetricsCall1 : null;
+  const c3Ready = (parsedCritique.subMetricsCall3 && !parsedCritique.subMetricsCall3Failed) ? parsedCritique.subMetricsCall3 : null;
 
-    const readiness = weightedAvg([
-      [c1.lufsLoudness?.score, 33],
-      [c1.spectralMatch?.score, 33],
-      [c1.engagementPower?.score, 34],
-    ]);
-    if (readiness !== null && parsedCritique.scores) {
-      parsedCritique.scores.commercialReadiness = readiness;
-    }
+  // Engagement Power (formerly MIX/MASTER INTEGRITY) - now combines Call 1 and Call 3 data
+  const engagementPower = weightedAvg([
+    [c3Ready?.compositionFlowSubs?.hookPlacement?.score, 50],
+    [c1Ready?.dynamicVariety?.score, 20],
+    [c1Ready?.spectralMatch?.score, 20],
+    [c3Ready?.compositionFlowSubs?.sectionalContrast?.score, 10],
+  ]);
+  if (engagementPower !== null && parsedCritique.scores) {
+    parsedCritique.scores.commercialReadiness = engagementPower;
+  }
 
+  if (c1Ready) {
     const production = weightedAvg([
-      [c1.paletteCohesion?.score, 33],
-      [c1.aestheticDesign?.score, 33],
-      [c1.spaceAndDensity?.score, 34],
+      [c1Ready.aestheticDesign?.score, 40],
+      [c1Ready.spaceAndDensity?.score, 35],
+      [c1Ready.paletteCohesion?.score, 25],
     ]);
     if (production !== null && parsedCritique.scores) {
       parsedCritique.scores.overallProduction = production;
     }
 
     const mixBalance = weightedAvg([
-      [c1.mudPrevention?.score, 25],
-      [c1.sibilanceShaving?.score, 25],
-      [c1.lowEndDivision?.score, 25],
-      [c1.midrangeSpacing?.score, 25],
+      [c1Ready.mudPrevention?.score, 25],
+      [c1Ready.sibilanceShaving?.score, 25],
+      [c1Ready.lowEndDivision?.score, 25],
+      [c1Ready.midrangeSpacing?.score, 25],
     ]);
     if (mixBalance !== null && parsedCritique.mixQuality) {
       parsedCritique.mixQuality.score = mixBalance;
     }
 
     const searchability = weightedAvg([
-      [c1.seoUniqueness?.score, 50],
-      [c1.seoDiscoverability?.score, 50],
+      [c1Ready.seoUniqueness?.score, 50],
+      [c1Ready.seoDiscoverability?.score, 50],
     ]);
     if (searchability !== null && parsedCritique.titleSearchability) {
       parsedCritique.titleSearchability.score = searchability;
@@ -739,58 +746,9 @@ async function performCritiqueAnalysis(
     return crit;
   };
 
-  if (threeX) {
-    console.log("Executing triple-pass (3x) engine stability calculation sequentially to avoid network or memory limits...");
-    // Run sequentially instead of concurrently to prevent huge binary uploads choking connection concurrency
-    const runs = [];
-    try {
-      console.log("Starting Sub-Pass 1/3...");
-      runs.push(await runSingle(0.35));
-      console.log("Starting Sub-Pass 2/3...");
-      runs.push(await runSingle(0.35));
-      console.log("Starting Sub-Pass 3/3...");
-      runs.push(await runSingle(0.35));
-    } catch (passErr) {
-      console.warn("An error occurred during multi-pass sequential execution, failing back to single-pass:", passErr);
-      // Fallback: If 3x crashes or rate limits, try doing a stable single run!
-      const fallbackRun = await runSingle(0.1);
-      return ensureMinimumScores(fallbackRun);
-    }
-
-    // Use the first run as the primary textual critique reference to maintain cohesive narrative descriptions and actions
-    const base = { ...runs[0] };
-    const avg = (scores: number[]) => Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-
-    if (base.mixQuality) {
-      base.mixQuality.score = avg(runs.map(r => r.mixQuality?.score ?? 75));
-    }
-    if (base.performance) {
-      base.performance.vocalScore = avg(runs.map(r => r.performance?.vocalScore ?? 75));
-      base.performance.instrumentalScore = avg(runs.map(r => r.performance?.instrumentalScore ?? 75));
-    }
-    if (base.arrangement) {
-      base.arrangement.flowScore = avg(runs.map(r => r.arrangement?.flowScore ?? 75));
-    }
-    if (base.lyricalImpact) {
-      base.lyricalImpact.score = avg(runs.map(r => r.lyricalImpact?.score ?? 75));
-    }
-    if (base.musicTheory) {
-      base.musicTheory.score = avg(runs.map(r => r.musicTheory?.score ?? 75));
-    }
-    if (base.titleSearchability) {
-      base.titleSearchability.score = avg(runs.map(r => r.titleSearchability?.score ?? 75));
-    }
-    if (base.scores) {
-      base.scores.overallProduction = avg(runs.map(r => r.scores?.overallProduction ?? 75));
-      base.scores.commercialReadiness = avg(runs.map(r => r.scores?.commercialReadiness ?? 75));
-    }
-
-    return ensureMinimumScores(base);
-  } else {
-    // Highly consistent temperature (0.1) for standard deterministic single-pass run
-    const singleRun = await runSingle(0.1);
-    return ensureMinimumScores(singleRun);
-  }
+  // Highly consistent temperature (0.1) for standard deterministic single-pass run
+  const singleRun = await runSingle(0.1);
+  return ensureMinimumScores(singleRun);
 }
 
 function isPlaceholderGenre(genre: string | null | undefined): boolean {
