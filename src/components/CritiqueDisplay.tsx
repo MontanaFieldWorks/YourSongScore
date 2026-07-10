@@ -279,7 +279,7 @@ export const REPRESENTATIVES = [
     bio: "A veteran executive who transitioned classic formats into streaming algorithmic models. Experienced, sharp-tongued but constructive, with an ear tuned perfectly to radio frequencies.",
     avatarColor: "text-amber-400 border border-amber-500/30",
     glowColor: "rgba(255, 170, 88, 0.4)",
-    initialMsg: "Back in my day, we mixed for physical vinyl groove headroom. Now you're mixed for Spotify's dynamic ceiling of -14 LUFS. Your track is strong, but you're over-compressing and choking your vocal syncopation. Let's dig in.",
+    initialMsg: "Back in my day, we mixed for physical vinyl groove headroom. Now every genre has its own loudness lane - hip-hop runs loud, folk runs quiet, and both can be right. Your track is strong, but you're over-compressing and choking your vocal syncopation. Let's dig in.",
     chatAccent: "bg-amber-600 border-amber-500 text-amber-100",
     gradient: "from-[#ff9900]/10 via-transparent to-transparent",
     label: "Y"
@@ -382,6 +382,29 @@ function PQMetricCard({ label, score, desc, improve, idx }: PQMetricCardProps) {
   );
 }
 
+const GENRE_LOUDNESS_BUCKETS: Record<string, { label: string; lufsMin: number; lufsMax: number; lraMin: number; lraMax: number | null }> = {
+  hiphop: { label: "Hip-Hop / Trap / EDM", lufsMin: -10, lufsMax: -7, lraMin: 4, lraMax: 8 },
+  mainstream: { label: "Pop / Rock / Country", lufsMin: -12, lufsMax: -9, lraMin: 6, lraMax: 12 },
+  indie: { label: "Indie / Acoustic / Singer-Songwriter", lufsMin: -14, lufsMax: -11, lraMin: 10, lraMax: 15 },
+  classical: { label: "Classical / Jazz / Folk / Ambient", lufsMin: -18, lufsMax: -14, lraMin: 15, lraMax: null },
+};
+
+function getGenreLoudnessBucket(genre?: string, subgenre?: string): { key: string } & typeof GENRE_LOUDNESS_BUCKETS[string] {
+  const text = `${genre || ""} ${subgenre || ""}`.toLowerCase();
+  const hasAny = (words: string[]) => words.some(w => text.includes(w));
+
+  if (hasAny(["hip hop", "hip-hop", "trap", "rap", "edm", "electronic", "dance", "dubstep", "house", "techno", "drill"])) {
+    return { key: "hiphop", ...GENRE_LOUDNESS_BUCKETS.hiphop };
+  }
+  if (hasAny(["classical", "jazz", "ambient", "orchestral", "instrumental", "cinematic", "chamber"])) {
+    return { key: "classical", ...GENRE_LOUDNESS_BUCKETS.classical };
+  }
+  if (hasAny(["indie", "acoustic", "singer-songwriter", "singer songwriter", "americana", "folk", "dream pop", "shoegaze"])) {
+    return { key: "indie", ...GENRE_LOUDNESS_BUCKETS.indie };
+  }
+  return { key: "mainstream", ...GENRE_LOUDNESS_BUCKETS.mainstream };
+}
+
 export default function CritiqueDisplay({ critique, trackInfo, onClear, localFileBlobUrl, onViewDefinition, onOpenArConsult, onNavigateToRabbitHole, onNavigateToEngineeringStudio }: CritiqueDisplayProps) {
   const [activeTab, setActiveTab] = useState<"mix" | "execution" | "arrangement" | "azimuth">("mix");
   const [isPlaying, setIsPlaying] = useState(false);
@@ -405,14 +428,19 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   React.useEffect(() => {
     if (critique?.liveMetrics) {
       const liveLufs = critique.liveMetrics.calculatedLufs;
+      const liveLra = critique.liveMetrics.calculatedLra;
+      const bucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+      const lufsPass = liveLufs >= bucket.lufsMin && liveLufs <= bucket.lufsMax;
+      const lraPass = liveLra >= bucket.lraMin && (bucket.lraMax === null || liveLra <= bucket.lraMax);
       setSpotifyChecks({
         vocalEntrance: true,
         spectralWidth: true,
-        lufsConformity: liveLufs <= -13.0,
+        lufsConformity: lufsPass,
+        lraConformity: lraPass,
         transientStability: true,
       });
     }
-  }, [critique?.liveMetrics]);
+  }, [critique?.liveMetrics, critique?.vibe?.genre, critique?.vibe?.subgenre]);
 
   // Algotorial Sandbox: Spotify Simulation States
   const [selectedTargetPlaylist, setSelectedTargetPlaylist] = useState<"today-hits" | "chill-vibes" | "discover-weekly" | "indie">("today-hits");
@@ -1083,25 +1111,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   // Metric definitions dictionary for breakdowns and hover states
   const METRICS_LIST = [
     {
-      id: "flow",
-      name: "Composition Flow",
-      subtitle: "The Songwriting Blueprint",
-      score: critique?.arrangement?.flowScore ?? 75,
-      colorClass: "stroke-amber-400",
-      bgClass: "from-amber-400/5 to-slate-900 border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.05)]",
-      isGold: true,
-      hoverText: "Assesses structural builds, tension resolution, hook placement, and emotional arc completely separate from mix quality.",
-      subParams: [
-        { name: "Structural Build", desc: "Transitions and handoffs between verses, choruses, and the bridge." },
-        { name: "Melodic Tension", desc: "Build-up and release of harmonic interest to capture key moments." },
-        { name: "Hook Placement", desc: "Cadence, repetition, and immediate catchiness of the main sonic themes." },
-        { name: "Sectional Contrast", desc: "Energy variance between soft verses and explosive hook elements." }
-      ],
-      callout: "This Metric evaluates structural songwriting arrangements and emotional flows that keep listeners engaged through the entire track.",
-      description: "This is the fundamental metric of songwriting quality: 'Is this a compelling piece of music?'. Regardless of whether your track was recorded in an elite studio or in a bedroom, a high Composition Flow score highlights outstanding key hooks, transitions, and arrangement blueprints.",
-      feedback: critique?.arrangement?.transitionsAndArc ?? "Structural shifts and verses resolve cleanly."
-    },
-    {
       id: "artistic",
       name: "Artistic Analysis",
       subtitle: "The Creative-Artistic Index",
@@ -1129,9 +1138,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       isGold: false,
       hoverText: "Measures overall creative direction, sound design, instrument selection, and acoustic landscape cohesion.",
       subParams: [
-        { name: "Palette Cohesion (33%)", desc: "How well instrument textures, keys, and synths support the soundstage." },
-        { name: "Aesthetic Design (33%)", desc: "Appropriateness of instrumentation compared to leading professional releases." },
-        { name: "Space & Density (34%)", desc: "Use of negative space vs crowded tracks, avoiding instrument overload." }
+        { name: "Aesthetic Design (40%)", desc: "Appropriateness of instrumentation compared to leading professional releases." },
+        { name: "Space & Density (35%)", desc: "Use of negative space vs crowded tracks, avoiding instrument overload." },
+        { name: "Palette Cohesion (25%)", desc: "How well instrument textures, keys, and synths support the soundstage." }
       ],
       callout: "This Metric identifies key genre structures and creative arrangements that influence modern playlist curators.",
       description: "Evaluates whether your creative sonic layout, sound synthesis, sampling, and background orchestration fit your aesthetic genre target.",
@@ -1139,20 +1148,21 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     },
     {
       id: "readiness",
-      name: "MIX/MASTER INTEGRITY",
-      subtitle: "Digital streaming compliance",
+      name: "Engagement Power",
+      subtitle: "Listener Retention & Algorithmic Survival",
       score: critique?.scores?.commercialReadiness ?? 75,
       colorClass: "stroke-teal-500",
       bgClass: "from-teal-500/5 to-slate-900 border-white/5",
       isGold: false,
-      hoverText: "Assesses streaming level LUFS targets, average high-frequency spectrum, and curator appeal.",
+      hoverText: "Predicts how reliably a song holds listener focus and survives the critical early-skip window that drives algorithmic placement.",
       subParams: [
-        { name: "LUFS Loudness (33%)", desc: "Average level and integrated density targeting major streaming platforms." },
-        { name: "Spectral Match (33%)", desc: "How your master spectrum lines up with highly successful indie/modern hit blueprints." },
-        { name: "Engagement Power (34%)", desc: "Immediacy of the song's energy footprint in the first critical 15 seconds." }
+        { name: "Opening Hook Strength (50%)", desc: "Predicts listener retention through the song's first 30 seconds. Skip behavior in this window is one of the most heavily weighted signals in streaming algorithms." },
+        { name: "Dynamic Variety (20%)", desc: "Measures whether the song's energy and intensity shift meaningfully across its runtime, rather than remaining flat throughout." },
+        { name: "Spectral Match (20%)", desc: "Compares the track's frequency distribution to mainstream hits to ensure a balanced, commercially viable audio spectrum." },
+        { name: "Section Transitions (10%)", desc: "Evaluates whether shifts between verse, chorus, and bridge feel earned and well-built, rather than abrupt or disconnected." }
       ],
-      callout: "This Metric validates technical loudnesses and spectral footprints targeting direct curator compliance peaks.",
-      description: "Evaluates standard digital delivery criteria, giving you direct feedback on how easily curation teams can plug your track straight into active playlists.",
+      callout: "This Metric predicts listener retention and skip-resistance, the single most heavily weighted signal in modern streaming algorithms.",
+      description: "Evaluates whether your track holds a listener's attention long enough to survive the algorithm's early-skip window, and whether its dynamic arc gives listeners a reason to keep listening.",
       feedback: critique?.vibe?.commercialViability ?? "Ready for immediate curation and sync scheduling."
     },
     {
@@ -1567,11 +1577,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   };
 
   const CALL1_FIELD_MAP: Record<string, string[]> = {
-    readiness: ["lufsLoudness", "spectralMatch", "engagementPower"],
-    production: ["paletteCohesion", "aestheticDesign", "spaceAndDensity"],
+    production: ["aestheticDesign", "spaceAndDensity", "paletteCohesion"],
     mix: ["mudPrevention", "sibilanceShaving", "lowEndDivision", "midrangeSpacing"],
     searchability: ["seoUniqueness", "seoDiscoverability"],
   };
+
+  const READINESS_MIXED_MAP: Array<{ call: 1 | 3; parent?: string; field: string }> = [
+    { call: 3, parent: "compositionFlowSubs", field: "hookPlacement" },
+    { call: 1, field: "dynamicVariety" },
+    { call: 1, field: "spectralMatch" },
+    { call: 3, parent: "compositionFlowSubs", field: "sectionalContrast" },
+  ];
 
   const CALL2_FIELD_MAP: Record<string, { parent: string; fields: string[] }> = {
     artistic: { parent: "artisticAnalysis", fields: ["atmosphericDepth", "harmonicIntrigue", "paletteSynergy"] },
@@ -1589,6 +1605,24 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   };
 
   const getRealSubMetric = (critiqueData: any, id: string, index: number): { score: number; commentary: string } | null => {
+    if (id === "readiness") {
+      const entry = READINESS_MIXED_MAP[index];
+      if (!entry) return null;
+      if (entry.call === 1 && critiqueData?.subMetricsCall1) {
+        const data = critiqueData.subMetricsCall1[entry.field];
+        if (data && typeof data.score === "number") {
+          return { score: data.score, commentary: data.commentary || "" };
+        }
+      }
+      if (entry.call === 3 && critiqueData?.subMetricsCall3) {
+        const parentData = entry.parent ? critiqueData.subMetricsCall3[entry.parent] : critiqueData.subMetricsCall3;
+        const data = parentData ? parentData[entry.field] : null;
+        if (data && typeof data.score === "number") {
+          return { score: data.score, commentary: data.commentary || "" };
+        }
+      }
+      return null;
+    }
     const fields = CALL1_FIELD_MAP[id];
     if (fields && critiqueData?.subMetricsCall1) {
       const fieldName = fields[index];
@@ -1619,6 +1653,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   };
 
   const getFallbackWarning = (critiqueData: any, id: string): string => {
+    if (id === "readiness") {
+      if (critiqueData?.subMetricsCall1Failed || critiqueData?.subMetricsCall3Failed) {
+        return "⚠️ LIVE ANALYSIS TEMPORARILY UNAVAILABLE (AI service was busy) - this is a fallback estimate, not fresh analysis. Please re-run this song. — ";
+      }
+      return "";
+    }
     const isCall1Field = Object.prototype.hasOwnProperty.call(CALL1_FIELD_MAP, id);
     const isCall2Field = Object.prototype.hasOwnProperty.call(CALL2_FIELD_MAP, id);
     const isCall3Field = Object.prototype.hasOwnProperty.call(CALL3_FIELD_MAP, id);
@@ -4711,17 +4751,25 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 These parameters assess how your track's physical composition and early structure protects you from skip-out triggers to dynamically raise your simulated <strong>Discovery Feeder Distribution Probabilities ("03")</strong> above.
               </div>
               <div className="pt-2 border-t border-[#1DB954]/15 text-slate-300/90 font-normal">
-                {critique?.liveMetrics && critique.liveMetrics.calculatedLufs <= -13.0 ? (
-                  <>
-                    <span className="text-white font-extrabold font-sans uppercase text-[10px] block mb-1">Outstanding Compliance Success!</span>
-                    Your song completely conforms to Spotify's standard volume ceiling of <strong className="text-white">-14.0 LUFS</strong> with a real measured loudness of <strong className="text-white">{critique.liveMetrics.calculatedLufs} LUFS</strong>. No digital attenuation or limiter distortion will be applied to your track at upload.
-                  </>
-                ) : (
-                  <>
-                    <span className="text-white font-extrabold font-sans uppercase text-[10px] block mb-1">Why is "LUFS Normalization Compliance" the only unchecked item?</span>
-                    Your song has excellent transient punch and a competitive loudness of <strong className="text-white">{critique?.liveMetrics ? `${critique.liveMetrics.calculatedLufs} LUFS` : "-8.4 LUFS"}</strong>, which satisfies the first three parameters (hooks enter early, wide frequency spectrum, dynamic grid cohesion). However, because your master is significantly louder than Spotify's automated delivery platform baseline of <strong className="text-white">-14.0 LUFS</strong>, the platform is forced to apply automated digital attenuation ({critique?.liveMetrics ? `-${Math.max(0.1, critique.liveMetrics.calculatedLufs - (-14.0)).toFixed(1)} dB` : "-5.6 dB"} gain reduction) upon host upload, causing it to deviate from this conformity standard.
-                  </>
-                )}
+                {(() => {
+                  const bucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                  const lufs = critique?.liveMetrics?.calculatedLufs;
+                  const lra = critique?.liveMetrics?.calculatedLra;
+                  const lufsPass = lufs !== undefined && lufs >= bucket.lufsMin && lufs <= bucket.lufsMax;
+                  const lraPass = lra !== undefined && lra >= bucket.lraMin && (bucket.lraMax === null || lra <= bucket.lraMax);
+                  return (
+                    <>
+                      <span className="text-white font-extrabold font-sans uppercase text-[10px] block mb-1">
+                        Genre-Aware Loudness Assessment ({bucket.label})
+                      </span>
+                      Target window for this genre: <strong className="text-white">{bucket.lufsMin} to {bucket.lufsMax} LUFS</strong>, dynamic range window: <strong className="text-white">{bucket.lraMin}{bucket.lraMax !== null ? `-${bucket.lraMax}` : "+"} LU</strong>.
+                      <br />
+                      Measured loudness: <strong className="text-white">{lufs ?? "--"} LUFS</strong> ({lufsPass ? "within target window" : "outside target window for this genre"}).
+                      <br />
+                      Measured dynamic range: <strong className="text-white">{lra ?? "--"} LU</strong> ({lraPass ? "within target window" : "outside target window - track may sound over-compressed or under-produced for this genre"}).
+                    </>
+                  );
+                })()}
               </div>
             </div>
 
@@ -4739,8 +4787,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 },
                 {
                   id: "lufsConformity",
-                  title: "LUFS Normalization Compliance (-14 LUFS)",
-                  desc: "Conforms to Spotify's integrated loudness profiles. Prevents automated compressor clamping."
+                  title: "LUFS Loudness Compliance (Genre-Aware)",
+                  desc: "Loudness falls within the target window for this song's genre."
+                },
+                {
+                  id: "lraConformity",
+                  title: "Dynamic Range Compliance (Genre-Aware)",
+                  desc: "Dynamic range (LRA) falls within the target window for this song's genre - avoids over-compression or under-production."
                 },
                 {
                   id: "transientStability",
@@ -4749,10 +4802,15 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }
               ].map((check) => {
                 const checked = spotifyChecks[check.id];
+                const bucketForDesc = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
                 const displayDesc = check.id === "lufsConformity"
                   ? (checked 
-                      ? "Conforms to Spotify's integrated loudness profiles. Prevents automated compressor clamping." 
-                      : `Exceeds Spotify Coding guidelines of -14.0 LUFS (${critique?.liveMetrics ? `${critique.liveMetrics.calculatedLufs} LUFS` : "-8.4 LUFS"} master). Automated digital attenuation (-${critique?.liveMetrics ? Math.max(0.1, critique.liveMetrics.calculatedLufs - (-14.0)).toFixed(1) : "5.6"} dB volume reduction) will be applied.`)
+                      ? `Loudness (${critique?.liveMetrics?.calculatedLufs ?? "--"} LUFS) is within the ${bucketForDesc.lufsMin} to ${bucketForDesc.lufsMax} LUFS target window for ${bucketForDesc.label}.` 
+                      : `Loudness (${critique?.liveMetrics?.calculatedLufs ?? "--"} LUFS) falls outside the ${bucketForDesc.lufsMin} to ${bucketForDesc.lufsMax} LUFS target window for ${bucketForDesc.label}.`)
+                  : check.id === "lraConformity"
+                  ? (checked
+                      ? `Dynamic range (${critique?.liveMetrics?.calculatedLra ?? "--"} LU) is within the ${bucketForDesc.lraMin}${bucketForDesc.lraMax !== null ? `-${bucketForDesc.lraMax}` : "+"} LU target window for ${bucketForDesc.label}.`
+                      : `Dynamic range (${critique?.liveMetrics?.calculatedLra ?? "--"} LU) falls outside the ${bucketForDesc.lraMin}${bucketForDesc.lraMax !== null ? `-${bucketForDesc.lraMax}` : "+"} LU target window for ${bucketForDesc.label}.`)
                   : check.desc;
 
                 return (
