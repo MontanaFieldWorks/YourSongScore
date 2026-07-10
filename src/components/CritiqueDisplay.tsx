@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { CritiqueData, TrackInfo, LiveAudioMetrics } from "../types";
 import { getSubgenreProfile, getVectorTargets, getCritiqueAndFix } from "../data/musicData";
@@ -554,6 +554,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   // No reliable audio signal available; linear mapping is more consistent than modulo
   const valenceOffset = Math.round(((theoryScoreVal || 72) - 72) * 0.3);
   const valence = critique?.spotifyOverrides?.valence ?? critique?.subMetricsCall2?.moodValence?.score ?? Math.max(8, Math.min(95, baseValence + valenceOffset));
+
+  useEffect(() => {
+    if (critique?.userValence === undefined && critique?.userEnergy === undefined) {
+      if (typeof valence === "number") setLiveValence(Math.max(0, Math.min(1, valence / 100)));
+      if (typeof energy === "number") setLiveEnergy(Math.max(0, Math.min(1, energy / 100)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [critique?.userValence, critique?.userEnergy, valence, energy]);
 
   // Instrumentalness — partially audio-driven via mid/high energy balance
   // High mid energy relative to high energy suggests vocal presence (lower instrumentalness)
