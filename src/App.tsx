@@ -10,6 +10,7 @@ import SpotifySection from "./components/SpotifySection";
 import SamplesSection from "./components/SamplesSection";
 import CritiqueDisplay from "./components/CritiqueDisplay";
 import DefinitionsPage from "./components/DefinitionsPage";
+import MetaDataGenerator from "./components/MetaDataGenerator";
 import WhatIsPage from "./components/WhatIsPage";
 import WhatItDoesPage from "./components/WhatItDoesPage";
 import UsefulToolsPage from "./components/UsefulToolsPage";
@@ -57,6 +58,7 @@ export default function App() {
   const [viewingWhatItDoesPage, setViewingWhatItDoesPage] = useState(false);
   const [viewingUsefulTools, setViewingUsefulTools] = useState(false);
   const [viewingRabbitHoleV2, setViewingRabbitHoleV2] = useState(false);
+  const [viewingMetadataGenerator, setViewingMetadataGenerator] = useState(false);
   const [viewingStacks, setViewingStacks] = useState(false);
   const [viewingEngineeringStudio, setViewingEngineeringStudio] = useState(false);
   const [viewingEngineeringDetails, setViewingEngineeringDetails] = useState(false);
@@ -65,7 +67,7 @@ export default function App() {
   const [activeUploadFile, setActiveUploadFile] = useState<File | null>(null);
   const [localTrackFiles, setLocalTrackFiles] = useState<Record<string, File>>({});
   const [selectedDefinitionTerm, setSelectedDefinitionTerm] = useState<string | undefined>(undefined);
-  const [threeXMode, setThreeXMode] = useState(true);
+  const [threeXMode, setThreeXMode] = useState(false);
   const [showQuickTestDropdown, setShowQuickTestDropdown] = useState(false);
   const [showLibraryDropdown, setShowLibraryDropdown] = useState(false);
   const [showMoreNav, setShowMoreNav] = useState(false);
@@ -1114,29 +1116,6 @@ export default function App() {
 
               <button
                 onClick={() => {
-                  setViewingUsefulTools(!viewingUsefulTools);
-                  setViewingRabbitHoleV2(false);
-                  setViewingAboutPage(false);
-                  setViewingWhatItDoesPage(false);
-                  setViewingDefinitions(false);
-                  setViewingStacks(false);
-                  setViewingArRep(false);
-                  setViewingDashboard(false);
-                  setViewingEngineeringDetails(false);
-                }}
-                title="Enter The Rabbit Hole"
-                className={`${showMoreNav ? "flex" : "hidden md:flex"} items-center gap-1.5 text-[11px] font-mono py-1.5 px-3.5 rounded-full border transition-all flex-shrink-0 cursor-pointer ${
-                  viewingUsefulTools 
-                    ? "bg-[#bd93f9] text-white border-[#bd93f9] shadow-[0_0_15px_rgba(189,147,249,0.3)] font-bold"
-                    : "bg-[#13161C] hover:bg-[#1E232E] text-slate-300 hover:text-white border-white/5 hover:border-white/10"
-                }`}
-              >
-                <PackageOpen className={`w-3.5 h-3.5 ${viewingUsefulTools ? "text-white" : "text-[#bd93f9]"}`} />
-                <span>The Rabbit Hole</span>
-              </button>
-
-              <button
-                onClick={() => {
                   setViewingRabbitHoleV2(!viewingRabbitHoleV2);
                   setViewingUsefulTools(false);
                   setViewingAboutPage(false);
@@ -1147,7 +1126,7 @@ export default function App() {
                   setViewingDashboard(false);
                   setViewingEngineeringDetails(false);
                 }}
-                title="RH2Test"
+                title="Enter The Rabbit Hole"
                 className={`${showMoreNav ? "flex" : "hidden md:flex"} items-center gap-1.5 text-[11px] font-mono py-1.5 px-3.5 rounded-full border transition-all flex-shrink-0 cursor-pointer ${
                   viewingRabbitHoleV2 
                     ? "bg-[#bd93f9] text-white border-[#bd93f9] shadow-[0_0_15px_rgba(189,147,249,0.3)] font-bold"
@@ -1155,7 +1134,7 @@ export default function App() {
                 }`}
               >
                 <PackageOpen className={`w-3.5 h-3.5 ${viewingRabbitHoleV2 ? "text-white" : "text-[#bd93f9]"}`} />
-                <span>RH2Test</span>
+                <span>The Rabbit Hole</span>
               </button>
 
               <button
@@ -1219,7 +1198,7 @@ export default function App() {
             </div>
             {critiqueResult && (
               <div className="flex gap-2">
-                {(viewingDefinitions || viewingAboutPage || viewingWhatItDoesPage || viewingDashboard || viewingArRep || viewingUsefulTools || viewingRabbitHoleV2 || viewingEngineeringDetails || viewingStacks) && (
+                {(viewingDefinitions || viewingAboutPage || viewingWhatItDoesPage || viewingDashboard || viewingArRep || viewingUsefulTools || viewingRabbitHoleV2 || viewingMetadataGenerator || viewingEngineeringDetails || viewingStacks) && (
                   <button
                     onClick={() => {
                       setViewingDefinitions(false);
@@ -1229,6 +1208,7 @@ export default function App() {
                       setViewingArRep(false);
                       setViewingUsefulTools(false);
                       setViewingRabbitHoleV2(false);
+                      setViewingMetadataGenerator(false);
                       setViewingEngineeringDetails(false);
                       setViewingStacks(false);
                     }}
@@ -1300,7 +1280,7 @@ export default function App() {
             onBack={() => setViewingWhatItDoesPage(false)}
             onNavigateToRabbitHole={() => {
               setViewingWhatItDoesPage(false);
-              setViewingUsefulTools(true);
+              setViewingRabbitHoleV2(true);
             }}
             onNavigateToEngineeringDetails={() => {
               setEngineeringDetailsSource("what-it-does");
@@ -1329,7 +1309,7 @@ export default function App() {
             onNavigateToRabbitHole={() => {
               setViewingDefinitions(false);
               setSelectedDefinitionTerm(undefined);
-              setViewingUsefulTools(true);
+              setViewingRabbitHoleV2(true);
             }}
           />
         ) : viewingEngineeringStudio ? (
@@ -1356,7 +1336,22 @@ export default function App() {
               setViewingDashboard(false);
               setActiveSource("spotify");
             }}
+            onNavigateToMetadataGenerator={() => {
+              setViewingRabbitHoleV2(false);
+              setViewingMetadataGenerator(true);
+            }}
             trackInfo={critiqueResult ? critiqueResult.trackInfo : null}
+          />
+        ) : viewingMetadataGenerator ? (
+          <MetaDataGenerator
+            onBack={() => {
+              setViewingMetadataGenerator(false);
+              setViewingRabbitHoleV2(true);
+            }}
+            trackInfo={critiqueResult ? critiqueResult.trackInfo : null}
+            critique={critiqueResult ? critiqueResult.critique : null}
+            localFileBlobUrl={localFileBlobUrl}
+            currentUser={currentUser}
           />
         ) : viewingUsefulTools ? (
           <UsefulToolsPage
@@ -1373,7 +1368,7 @@ export default function App() {
           <StacksPage 
             onBack={() => {
               setViewingStacks(false);
-              setViewingUsefulTools(true);
+              setViewingRabbitHoleV2(true);
             }}
           />
         ) : critiqueResult ? (
@@ -1403,7 +1398,7 @@ export default function App() {
                 setViewingEngineeringStudio(false);
               }}
               onNavigateToRabbitHole={() => {
-                setViewingUsefulTools(true);
+                setViewingRabbitHoleV2(true);
                 setViewingDefinitions(false);
                 setViewingArRep(false);
                 setViewingDashboard(false);
@@ -1814,69 +1809,7 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* 3x Analysis Stability Tonal Engine Controller */}
-                    <div 
-                      onClick={() => setThreeXMode(true)}
-                      className={`flex items-start gap-4 p-3.5 border rounded-xl hover:bg-white/[0.04] transition-all cursor-pointer ${
-                        threeXMode 
-                          ? "bg-blue-500/5 border-blue-500/30" 
-                          : "bg-white/[0.03] border-white/5"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        id="three-x-toggle"
-                        name="analysis-stability-mode"
-                        checked={threeXMode}
-                        onChange={() => setThreeXMode(true)}
-                        className="mt-1.5 w-4 h-4 rounded border-blue-500/30 bg-[#13161C] text-blue-500 cursor-pointer"
-                      />
-                      <label htmlFor="three-x-toggle" className="flex flex-col cursor-pointer select-none">
-                        <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                          <Layers className={`w-3.5 h-3.5 text-blue-400 ${threeXMode ? "animate-pulse" : ""}`} />
-                          3x Analysis (High Stability Mode)
-                          <span className="px-1.5 py-0.5 text-[8px] font-mono tracking-wider font-bold uppercase bg-blue-500/20 text-blue-300 rounded border border-blue-500/30">
-                            STANDARD
-                          </span>
-                        </span>
-                        <span className="text-[10px] text-slate-400 mt-1 leading-normal">
-                          Runs the critique 3x in parallel and calculates mathematical averages of scores in order to reduce AI generation variance.
-                        </span>
-                      </label>
-                    </div>
-
-                    {/* Single Pass Analysis (Low Stability Mode) */}
-                    <div 
-                      onClick={() => setThreeXMode(false)}
-                      className={`flex items-start gap-4 p-3.5 border rounded-xl hover:bg-white/[0.04] transition-all cursor-pointer ${
-                        !threeXMode 
-                          ? "bg-blue-500/5 border-blue-500/30" 
-                          : "bg-white/[0.03] border-white/5"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        id="single-pass-toggle"
-                        name="analysis-stability-mode"
-                        checked={!threeXMode}
-                        onChange={() => setThreeXMode(false)}
-                        className="mt-1.5 w-4 h-4 rounded border-blue-500/30 bg-[#13161C] text-blue-500 cursor-pointer"
-                      />
-                      <label htmlFor="single-pass-toggle" className="flex flex-col cursor-pointer select-none">
-                        <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                          <Layers className={`w-3.5 h-3.5 text-blue-400 ${!threeXMode ? "animate-pulse" : ""}`} />
-                          Single Pass Analysis (Low Stability Mode)
-                          <span className="px-1.5 py-0.5 text-[8px] font-mono tracking-wider font-bold uppercase bg-amber-500/20 text-amber-300 rounded border border-amber-500/30">
-                            FAST
-                          </span>
-                        </span>
-                        <span className="text-[10px] text-slate-400 mt-1 leading-normal">
-                          Runs the critique through a single analysis. This is a faster process but will result in greater variances between re-runs.
-                        </span>
-                      </label>
-                    </div>
-
-                    <button
+<button
                       onClick={handleStartReview}
                       disabled={
                         loading ||
