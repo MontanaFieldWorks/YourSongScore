@@ -3166,9 +3166,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                               )}
                             </span>
                             <span className="text-[10px] text-blue-400 font-mono font-bold uppercase tracking-wider leading-none">
-                              Weight: {selectedObj.id === "artistic" 
-                                ? (param.name === "Harmonic Intrigue" ? "40%" : "30%") 
-                                : `${Math.round(100 / selectedObj.subParams.length)}%`}
+                              Weight: {(() => {
+                                const embeddedMatch = param.name.match(/\((\d+)%\)/);
+                                if (embeddedMatch) return `${embeddedMatch[1]}%`;
+                                if (selectedObj.id === "artistic") {
+                                  return param.name === "Harmonic Intrigue" ? "40%" : "30%";
+                                }
+                                return `${Math.round(100 / selectedObj.subParams.length)}%`;
+                              })()}
                             </span>
                           </div>
                           <p className="text-xs text-slate-400 mt-2 leading-relaxed">
