@@ -553,7 +553,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   // Valence — linear mapping from theoryScore (harmonic sophistication)
   // No reliable audio signal available; linear mapping is more consistent than modulo
   const valenceOffset = Math.round(((theoryScoreVal || 72) - 72) * 0.3);
-  const valence = critique?.spotifyOverrides?.valence ?? Math.max(8, Math.min(95, baseValence + valenceOffset));
+  const valence = critique?.spotifyOverrides?.valence ?? critique?.subMetricsCall2?.moodValence?.score ?? Math.max(8, Math.min(95, baseValence + valenceOffset));
 
   // Instrumentalness — partially audio-driven via mid/high energy balance
   // High mid energy relative to high energy suggests vocal presence (lower instrumentalness)
@@ -571,7 +571,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   // Speechiness — linear mapping from lyricsScore (lyrical density/cadence)
   // No reliable audio signal available; linear mapping is more consistent than modulo
   const speechinessOffset = Math.round(((lyricsScoreVal || 70) - 70) * 0.2);
-  const speechiness = Math.max(2, Math.min(92, baseSpeechiness + speechinessOffset));
+  const speechiness = critique?.subMetricsCall2?.speechiness?.score ?? Math.max(2, Math.min(92, baseSpeechiness + speechinessOffset));
 
   // Liveness — driven by stereo correlation when live metrics available
   // Studio recordings have high correlation (near 1.0); live/room recordings have lower correlation
