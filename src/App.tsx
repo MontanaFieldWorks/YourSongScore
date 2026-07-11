@@ -15,6 +15,7 @@ import WhatIsPage from "./components/WhatIsPage";
 import WhatItDoesPage from "./components/WhatItDoesPage";
 import UsefulToolsPage from "./components/UsefulToolsPage";
 import RabbitHolePageV2 from "./components/RabbitHolePageV2";
+import MarketingPage from "./components/MarketingPage";
 import StacksPage from "./components/StacksPage";
 import EngineeringStudioPage from "./components/EngineeringStudioPage";
 import EngineeringDetailsPage from "./components/EngineeringDetailsPage";
@@ -58,6 +59,7 @@ export default function App() {
   const [viewingWhatItDoesPage, setViewingWhatItDoesPage] = useState(false);
   const [viewingUsefulTools, setViewingUsefulTools] = useState(false);
   const [viewingRabbitHoleV2, setViewingRabbitHoleV2] = useState(false);
+  const [viewingMarketingPage, setViewingMarketingPage] = useState(false);
   const [viewingMetadataGenerator, setViewingMetadataGenerator] = useState(false);
   const [viewingStacks, setViewingStacks] = useState(false);
   const [viewingEngineeringStudio, setViewingEngineeringStudio] = useState(false);
@@ -1324,9 +1326,22 @@ export default function App() {
               setViewingEngineeringDetails(true);
             }}
           />
+        ) : viewingMarketingPage ? (
+          <MarketingPage
+            onBack={() => {
+              setViewingMarketingPage(false);
+              setViewingRabbitHoleV2(true);
+            }}
+            critique={critiqueResult?.critique ?? null}
+            trackInfo={critiqueResult?.trackInfo ?? null}
+          />
         ) : viewingRabbitHoleV2 ? (
           <RabbitHolePageV2
             onBack={() => setViewingRabbitHoleV2(false)}
+            onNavigateToMarketing={() => {
+              setViewingRabbitHoleV2(false);
+              setViewingMarketingPage(true);
+            }}
             onNavigateToStacks={() => {
               setViewingRabbitHoleV2(false);
               setViewingStacks(true);
