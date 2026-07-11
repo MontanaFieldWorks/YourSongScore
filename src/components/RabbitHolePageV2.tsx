@@ -50,6 +50,8 @@ interface RabbitHolePageV2Props {
   onBack: () => void;
   onNavigateToStacks?: () => void;
   onNavigateToSpotifyAnalyzer?: () => void;
+  onNavigateToMetadataGenerator?: () => void;
+  onNavigateToMarketing?: () => void;
   trackInfo?: any;
 }
 
@@ -57,30 +59,19 @@ export default function RabbitHolePageV2({
   onBack, 
   onNavigateToStacks, 
   onNavigateToSpotifyAnalyzer,
+  onNavigateToMetadataGenerator,
+  onNavigateToMarketing,
   trackInfo 
 }: RabbitHolePageV2Props) {
   
   // Local states for interactive modals or expanded insights
   const [activeSecretModal, setActiveSecretModal] = useState(false);
   const [activeEchoNestModal, setActiveEchoNestModal] = useState(false);
-  const [activeMetadataModal, setActiveMetadataModal] = useState(false);
   const [activeListenerMapModal, setActiveListenerMapModal] = useState(false);
-
-  // Simple state for Mock Metadata Tag Generator
-  const [metaTitle, setMetaTitle] = useState(trackInfo?.name || "");
-  const [metaArtist, setMetaArtist] = useState(trackInfo?.artist || "");
-  const [metaGenre, setMetaGenre] = useState("");
-  const [metaIsrc, setMetaIsrc] = useState("");
-  const [isGenerated, setIsGenerated] = useState(false);
 
   React.useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
-
-  const handleGenerateMetadata = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsGenerated(true);
-  };
 
   return (
     <div className="flex flex-col gap-2.5 font-sans animate-fadeIn max-w-6xl mx-auto relative select-none py-4" id="rabbit-hole-v2-container">
@@ -236,7 +227,7 @@ export default function RabbitHolePageV2({
 
           {/* Tool Card 3: Song Metadata Generator */}
           <div 
-            onClick={() => setActiveMetadataModal(true)}
+            onClick={onNavigateToMetadataGenerator}
             className="group relative flex items-start gap-4 p-4 bg-[#0d0e12] border border-[#bd93f9]/30 rounded-none hover:border-[#bd93f9]/50 transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-md h-[110px]"
             style={{ width: "500px" }}
           >
@@ -285,6 +276,12 @@ export default function RabbitHolePageV2({
                 Other Tools in the Warren
               </h3>
               <ul className="text-xs text-slate-400 space-y-1 list-disc list-inside">
+                <li 
+                  onClick={onNavigateToMarketing}
+                  className="cursor-pointer text-[#ad46ff] hover:text-[#c17aff] hover:underline transition-colors w-fit"
+                >
+                  Marketing
+                </li>
                 <li>Song Licensing Navigator</li>
                 <li>MP3-4 Tag Creator</li>
               </ul>
@@ -440,7 +437,10 @@ export default function RabbitHolePageV2({
                   The Stacks
                 </h3>
                 <p className="text-xs text-slate-400">
-                  YSS's Library of Music Industry Info
+                  • YSS's Library of Music Industry Info
+                </p>
+                <p className="text-xs text-slate-400">
+                  • How Spotify "Discovers" New Songs
                 </p>
               </div>
             </div>
@@ -539,125 +539,6 @@ export default function RabbitHolePageV2({
                 Note: YourSongScore integrates these same audio algorithms to pre-audit your track before submission!
               </p>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* INTERACTIVE MODAL: Song Metadata Tag Generator */}
-      {activeMetadataModal && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-[#0b0c0f] border border-[#bd93f9]/30 rounded-3xl p-6 max-w-lg w-full text-left flex flex-col gap-5 shadow-[0_0_50px_rgba(189,147,249,0.25)] relative">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2">
-                <Tag className="w-5 h-5 text-[#ad46ff]" />
-                <h3 className="text-lg font-black text-white uppercase tracking-tight">
-                  Song Metadata Stash Tool
-                </h3>
-              </div>
-              <button 
-                onClick={() => {
-                  setActiveMetadataModal(false);
-                  setIsGenerated(false);
-                }}
-                className="text-slate-400 hover:text-white font-mono text-xs cursor-pointer border border-white/5 px-2 py-1 rounded hover:bg-white/5"
-              >
-                CLOSE [X]
-              </button>
-            </div>
-
-            {!isGenerated ? (
-              <form onSubmit={handleGenerateMetadata} className="flex flex-col gap-4">
-                <p className="text-xs text-slate-400">
-                  Generate compliant metadata tags. Inject these identifiers into your master files before delivery.
-                </p>
-                
-                <div className="flex flex-col gap-1 text-xs">
-                  <label className="text-slate-300 font-bold">Track Name / Title</label>
-                  <input 
-                    type="text" 
-                    value={metaTitle}
-                    onChange={(e) => setMetaTitle(e.target.value)}
-                    required
-                    placeholder="e.g. My Awesome Demo"
-                    className="bg-[#07080a] border border-white/10 rounded-lg p-2 text-white focus:outline-none focus:border-[#bd93f9]"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1 text-xs">
-                  <label className="text-slate-300 font-bold">Primary Artist</label>
-                  <input 
-                    type="text" 
-                    value={metaArtist}
-                    onChange={(e) => setMetaArtist(e.target.value)}
-                    required
-                    placeholder="e.g. DJ Spark"
-                    className="bg-[#07080a] border border-white/10 rounded-lg p-2 text-white focus:outline-none focus:border-[#bd93f9]"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1 text-xs">
-                    <label className="text-slate-300 font-bold">Genre Profile</label>
-                    <input 
-                      type="text" 
-                      value={metaGenre}
-                      onChange={(e) => setMetaGenre(e.target.value)}
-                      placeholder="e.g. Synthwave"
-                      className="bg-[#07080a] border border-white/10 rounded-lg p-2 text-white focus:outline-none focus:border-[#bd93f9]"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1 text-xs">
-                    <label className="text-slate-300 font-bold">ISRC Code</label>
-                    <input 
-                      type="text" 
-                      value={metaIsrc}
-                      onChange={(e) => setMetaIsrc(e.target.value)}
-                      placeholder="e.g. US-AB1-23-45678"
-                      className="bg-[#07080a] border border-white/10 rounded-lg p-2 text-white focus:outline-none focus:border-[#bd93f9]"
-                    />
-                  </div>
-                </div>
-
-                <button 
-                  type="submit"
-                  className="mt-2 w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-mono text-xs uppercase font-extrabold tracking-widest rounded-xl transition-all cursor-pointer shadow-lg"
-                >
-                  Compile Metadata Tags
-                </button>
-              </form>
-            ) : (
-              <div className="flex flex-col gap-4 animate-fadeIn">
-                <div className="p-4 bg-purple-600/10 border border-purple-500/20 text-[#bd93f9] text-xs rounded-xl flex items-center gap-2.5">
-                  <Check className="w-5 h-5 shrink-0 text-[#ad46ff]" />
-                  <span>Metadata distribution payload successfully generated and formatted!</span>
-                </div>
-
-                <div className="bg-[#07080a] border border-white/10 rounded-xl p-4 flex flex-col gap-2 font-mono text-xs text-slate-300">
-                  <div><span className="text-purple-400">Title:</span> {metaTitle || "Unknown Track"}</div>
-                  <div><span className="text-purple-400">Artist:</span> {metaArtist || "Unknown Artist"}</div>
-                  <div><span className="text-purple-400">Genre:</span> {metaGenre || "Electronic"}</div>
-                  <div><span className="text-purple-400">ISRC:</span> {metaIsrc || "GENERIC_PAYLOAD"}</div>
-                  <div><span className="text-purple-400">Encoded_By:</span> YourSongScore Rabbit Hole Tool v2</div>
-                </div>
-
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(`Title: ${metaTitle}\nArtist: ${metaArtist}\nGenre: ${metaGenre}\nISRC: ${metaIsrc}\nEncoded_By: YourSongScore`);
-                    }}
-                    className="flex-1 py-2 bg-neutral-800 hover:bg-neutral-700 text-white font-mono text-xs uppercase font-bold tracking-widest rounded-lg transition-all cursor-pointer"
-                  >
-                    Copy Tag List
-                  </button>
-                  <button 
-                    onClick={() => setIsGenerated(false)}
-                    className="flex-1 py-2 bg-neutral-900 hover:bg-neutral-800 border border-white/5 text-slate-400 hover:text-white font-mono text-xs uppercase font-bold tracking-widest rounded-lg transition-all cursor-pointer"
-                  >
-                    Edit Tags
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
