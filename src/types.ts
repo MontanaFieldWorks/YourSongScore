@@ -199,7 +199,7 @@ export interface StoredTrack {
     overall: number;
     mix: number;
     performance: number;
-    flow: number;
+    engagement: number;
     lyric: number;
     theory: number;
     seo: number;
