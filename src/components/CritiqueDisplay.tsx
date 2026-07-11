@@ -5363,11 +5363,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             {/* Sub-links for streaming — only show when active and not collapsed */}
             {activeSection === "streaming" && !sidebarCollapsed && (
               <div className="flex flex-col gap-0.5 pl-3 border-l border-blue-500/20 ml-3.5 py-1">
-                {["Commercial Impact", "Streaming Alignment", "Algo Sandbox", "Artist & Audience"].map((label, i) => (
+                {["Commercial Impact", "Streaming Alignment", "Algo Sandbox"].map((label, i) => (
                   <button
                     key={i}
                     onClick={() => {
-                      const ids = ["sidebar-link-streaming-0", "sidebar-link-streaming-1", "sidebar-link-streaming-2", "sidebar-link-streaming-4"];
+                      const ids = ["sidebar-link-streaming-0", "sidebar-link-streaming-1", "sidebar-link-streaming-2"];
                       setExpandedCategory('streaming');
                       setTimeout(() => {
                         const el = document.getElementById(ids[i]);
@@ -5543,7 +5543,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <h2 className="text-[32px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Streaming Readiness</h2>
                     <p className="text-[12px] text-slate-400 leading-relaxed max-w-lg mt-1">Commercial impact, streaming alignment, algorithmic sandbox, artist positioning — how streaming services find, categorize, and promote your song.</p>
                     <div className="flex gap-2 mt-2 flex-wrap">
-                      {["Commercial Impact", "Streaming Alignment", "Algo Sandbox", "Artist & Audience"].map(tag => (
+                      {["Commercial Impact", "Streaming Alignment", "Algo Sandbox"].map(tag => (
                         <span key={tag} className="text-[9px] font-mono text-blue-400/70 border border-blue-500/25 px-2.5 py-1 rounded-full">{tag}</span>
                       ))}
                     </div>
@@ -6032,226 +6032,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </AnimatePresence>
         </div>
 
-        {/* Card: Artist & Audience Positioning (Powder Blue #44CDF4) */}
-        <div className="flex flex-col w-full gap-4 mt-6" id="sidebar-link-streaming-4">
-          <button
-            onClick={() => setArtistAudienceExpanded(!artistAudienceExpanded)}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
-              artistAudienceExpanded
-                ? "bg-[#090b0e] border-[#44CDF4] shadow-[0_0_35px_rgba(68,205,244,0.35)] ring-1 ring-[#44CDF4]/40 font-black"
-                : "bg-[#0A0B0E]/60 border-[#44CDF4]/40 hover:border-[#44CDF4] hover:bg-neutral-900/40 text-slate-400"
-            }`}
-          >
-            {/* Background ambient shade */}
-            {artistAudienceExpanded ? (
-              <div className="absolute inset-0 bg-gradient-to-br from-[#44CDF4]/5 via-neutral-950 to-[#030509] pointer-events-none" />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#030509] pointer-events-none" />
-            )}
 
-            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
-              {/* Left Content Column */}
-              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
-                {/* Header block */}
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
-                    artistAudienceExpanded
-                      ? "bg-[#44CDF4]/10 border-[#44CDF4]/30 text-[#44CDF4] shadow-[0_0_15px_rgba(68,205,244,0.25)]"
-                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-slate-300"
-                  }`}>
-                    <Users className="w-5 h-5 text-[#44CDF4]" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span 
-                      className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
-                        artistAudienceExpanded ? "text-white" : "text-slate-400 group-hover:text-slate-200"
-                      }`}
-                    >
-                      ARTIST & AUDIENCE POSITIONING
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Market Alignment & Demographic Fit</span>
-                  </div>
-                </div>
-
-                {/* Bottom info block */}
-                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
-                  artistAudienceExpanded ? "border-[#44CDF4]/15" : "border-white/5"
-                }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
-                    Demographic analysis, mood classification, sonic similarity grouping, and genre-wide distinctiveness.
-                    <span className="block mt-1 text-[#44CDF4]/90 font-mono text-[8.5px] uppercase tracking-wider">Useful for targeting campaigns and securing playlist placement.</span>
-                  </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
-                    artistAudienceExpanded
-                      ? "bg-[#44CDF4]/10 border-[#44CDF4]/20 text-[#44CDF4]"
-                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
-                  }`}>
-                    {artistAudienceExpanded ? "ACTIVE ⬇" : "VIEW POSITIONING"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Right Score display */}
-              <div className="flex-shrink-0 flex items-center justify-center">
-                <ScoreCircle 
-                  score={Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2))} 
-                  size={110} 
-                  strokeWidth={7} 
-                  color={artistAudienceExpanded ? "#44CDF4" : "rgba(68, 205, 244, 0.45)"} 
-                  glowColor={artistAudienceExpanded ? "rgba(68, 205, 244, 0.65)" : "rgba(68, 205, 244, 0.15)"} 
-                  extraGlow={artistAudienceExpanded}
-                />
-              </div>
-            </div>
-          </button>
-
-          <AnimatePresence initial={false}>
-            {artistAudienceExpanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0, marginTop: -8 }}
-                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
-                exit={{ height: 0, opacity: 0, marginTop: -8 }}
-                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                className="overflow-hidden w-full relative z-0"
-              >
-                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-black/80 border border-[#44CDF4] rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-6">
-                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }} className="uppercase tracking-wide">
-                    ARTIST & AUDIENCE POSITIONING DIAGNOSTICS
-                  </div>
-                  
-                  {/* Descriptor box */}
-                  <div className="p-4 bg-[#020203] border border-white/10 rounded-xl">
-                    <p className="text-xs text-slate-200 leading-relaxed font-semibold">
-                      Algorithms sort you whether you plan for it or not. This metric shows you which box you're being put in — and whether that box is the right one.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    {/* Section 1: Mood Tags */}
-                    <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3">
-                      <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Mood Tags</div>
-                      <div className="flex flex-wrap gap-2">
-                        {(() => {
-                          const aesthetic = critique?.vibe?.aesthetic ?? "";
-                          const viability = critique?.vibe?.commercialViability ?? "";
-                          const combined = `${aesthetic} ${viability}`;
-                          const tagMap: { [key: string]: string } = {
-                            "driv": "Driving", "energet": "High Energy", "anthем": "Anthemic", "anthem": "Anthemic",
-                            "raw": "Raw", "grit": "Gritty", "defian": "Defiant", "dark": "Dark", "melanchol": "Melancholic",
-                            "upbeat": "Upbeat", "euphori": "Euphoric", "cinematic": "Cinematic", "intense": "Intense",
-                            "aggress": "Aggressive", "late night": "Late Night", "atmospheric": "Atmospheric",
-                            "nostalgic": "Nostalgic", "haunting": "Haunting", "playful": "Playful", "fun": "Fun",
-                            "danc": "Danceable", "groov": "Groovy", "minimalist": "Minimalist", "epic": "Epic",
-                            "rebel": "Rebellious", "confident": "Confident", "emot": "Emotional", "power": "Powerful",
-                            "infectious": "Infectious", "feel-good": "Feel-Good", "feel good": "Feel-Good",
-                            "optimis": "Optimistic", "joyful": "Joyful", "celebrat": "Celebratory", "summer": "Summery",
-                            "retro": "Retro", "vintage": "Vintage", "soul": "Soulful", "motown": "Motown-Influenced",
-                            "funk": "Funky", "gospel": "Gospel-Tinged", "chart": "Chart-Ready", "crossover": "Crossover",
-                            "warm": "Warm", "bright": "Bright", "lush": "Lush", "modern": "Modern",
-                            "tension": "Tense", "build": "Building", "dramatic": "Dramatic", "soar": "Soaring",
-                            "vulnerable": "Vulnerable", "intimate": "Intimate", "honest": "Honest", "sincere": "Sincere"
-                          };
-                          const detected = Object.entries(tagMap)
-                            .filter(([key]) => combined.toLowerCase().includes(key))
-                            .map(([, label]) => label);
-                          const unique = [...new Set(detected)].slice(0, 7);
-                          const tags = unique.length > 0 ? unique : ["Driving", "Defiant", "High Energy", "Raw", "Anthemic"];
-                          return tags;
-                        })().map((tag) => (
-                          <span 
-                            key={tag} 
-                            className="px-3 py-1 bg-[#44CDF4]/5 border border-[#44CDF4]/20 rounded-full text-[11px] font-semibold text-[#44CDF4] tracking-wide"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Section 2: Sonic Peer Group */}
-                    <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3">
-                      <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Sonic Peer Group</div>
-                      <div className="flex flex-wrap gap-2">
-                        {(() => {
-                          const universe = (critique?.streamingAlignment as any)?.artistUniverse ?? "";
-                          const genre = critique?.vibe?.genre ?? "";
-                          const subgenre = critique?.vibe?.subgenre ?? "";
-                          const artistMap: { [key: string]: string[] } = {
-                            "hard rock": ["Royal Blood", "Wolfmother", "Rival Sons", "Greta Van Fleet"],
-                            "classic rock": ["The Black Keys", "Jack White", "The White Stripes", "Clutch"],
-                            "indie rock": ["Arctic Monkeys", "Interpol", "Editors", "Bloc Party"],
-                            "alternative": ["Foo Fighters", "Muse", "Placebo", "Nothing But Thieves"],
-                            "punk": ["The Gaslight Anthem", "Social Distortion", "The Hold Steady", "Frank Turner"],
-                            "blues rock": ["Gary Clark Jr.", "Joe Bonamassa", "Marcus King", "The Black Keys"],
-                            "garage rock": ["The Strokes", "Jack White", "The Hives", "The Vines"],
-                            "pop rock": ["OneRepublic", "Imagine Dragons", "The Killers", "Neon Trees"],
-                            "dance-pop": ["Bruno Mars", "Justin Timberlake", "Dua Lipa", "Lizzo", "Doja Cat"],
-                            "dance pop": ["Bruno Mars", "Justin Timberlake", "Dua Lipa", "Lizzo", "Doja Cat"],
-                            "retro soul": ["Bruno Mars", "Leon Bridges", "Anderson .Paak", "Silk Sonic"],
-                            "retro-soul": ["Bruno Mars", "Leon Bridges", "Anderson .Paak", "Silk Sonic"],
-                            "motown": ["Bruno Mars", "Leon Bridges", "Smokey Robinson", "Silk Sonic"],
-                            "soul": ["Leon Bridges", "Anderson .Paak", "Gary Clark Jr.", "H.E.R."],
-                            "funk": ["Bruno Mars", "Anderson .Paak", "Silk Sonic", "Cory Wong"],
-                            "pop": ["Bruno Mars", "Ed Sheeran", "Harry Styles", "Dua Lipa"],
-                            "r&b": ["H.E.R.", "Daniel Caesar", "SZA", "Anderson .Paak"],
-                            "electronic": ["Daft Punk", "Disclosure", "Calvin Harris", "Kaytranada"],
-                            "country": ["Morgan Wallen", "Tyler Childers", "Zach Bryan", "Kacey Musgraves"],
-                            "folk": ["Noah Kahan", "Phoebe Bridgers", "Bon Iver", "Iron & Wine"],
-                            "hip hop": ["Kendrick Lamar", "J. Cole", "Isaiah Rashad", "Joey Bada$$"],
-                            "metal": ["Tool", "Mastodon", "Gojira", "Baroness"],
-                            "ambient": ["Brian Eno", "Hammock", "Explosions in the Sky", "Stars of the Lid"],
-                          };
-                          const combined = `${genre} ${subgenre} ${universe}`.toLowerCase();
-                          let peers: string[] = ["The Black Keys", "Royal Blood", "Jack White", "Foo Fighters"];
-                          for (const [key, artists] of Object.entries(artistMap)) {
-                            if (combined.includes(key)) { peers = artists; break; }
-                          }
-                          return peers.slice(0, 5);
-                        })().map((artist) => (
-                          <span 
-                            key={artist} 
-                            className="px-3 py-1 bg-neutral-900 border border-white/10 rounded-full text-[11px] font-semibold text-slate-300"
-                          >
-                            {artist}
-                          </span>
-                        ))}
-                      </div>
-                      <span className="text-[10px] text-slate-500 font-medium">
-                        Listeners of these artists are your most likely first audience.
-                      </span>
-                    </div>
-
-                    {/* Section 3: Audience Profile */}
-                    <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3 md:col-span-2">
-                      <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Audience Profile</div>
-                      <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                        {critique?.vibe?.commercialViability 
-                          ? `${critique.vibe.commercialViability} Listener behavioral profile: tracks with this energy signature typically show high listen-through rates and moderate-to-high save rates among active music discovery users.`
-                          : "Male, 28–45. Most likely listening context: late night drive, workout, or background focus session. Behavioral profile: high listen-through rate, moderate save rate, low skip probability after the 30-second mark."}
-                      </p>
-                    </div>
-
-                    {/* Section 4: Distinctiveness Score */}
-                    <div className={`bg-[#050608] border ${getScoreBorderColor(Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2)))} rounded-2xl p-5 flex flex-col gap-3.5 md:col-span-2`}>
-                      <div className="flex justify-between items-center">
-                        <span className="text-[12px] font-mono text-slate-400 uppercase font-bold tracking-wider">Distinctiveness Score</span>
-                        <span className={`${getScoreColor(Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2)))} font-mono font-bold text-[12px]`}>{Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2))} / 100</span>
-                      </div>
-                      <div className="w-full h-1 bg-neutral-900 rounded-full overflow-hidden relative border border-white/5">
-                        {(() => { const ds = Math.min(100, Math.round(((critique?.scores?.overallProduction ?? 68) + (critique?.scores?.commercialReadiness ?? 70)) / 2)); return <div className="h-full rounded-full" style={{ width: `${ds}%`, backgroundColor: getScoreBarColor(ds), boxShadow: `0 0 10px ${getScoreBarColor(ds)}` }} />; })()}
-                      </div>
-                      <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                        {critique?.vibe?.aesthetic 
-                          ? `${critique.vibe.aesthetic} Your track's sonic identity within the ${critique?.vibe?.subgenre ?? critique?.vibe?.genre ?? "rock"} space is shaped by these characteristics relative to current commercial peers.`
-                          : "Your sonic fingerprint is moderately distinct within the rock genre. Strong identity in the low-mid energy range, but chorus texture overlaps with a crowded peer group."}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
       </div> /* End of section-streaming */
             )}
 
