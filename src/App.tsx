@@ -3,7 +3,6 @@ import jsmediatags from "jsmediatags";
 import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, StoredTrack, CritiqueData, UserProfile } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer } from "./lib/liveAudioAnalyzer";
-import { TEST_SONG_OPTIONS } from "./testMockSongs";
 import { safeLocalStorage } from "./lib/safeStorage";
 import UploadSection from "./components/UploadSection";
 import SpotifySection from "./components/SpotifySection";
@@ -70,7 +69,6 @@ export default function App() {
   const [localTrackFiles, setLocalTrackFiles] = useState<Record<string, File>>({});
   const [selectedDefinitionTerm, setSelectedDefinitionTerm] = useState<string | undefined>(undefined);
   const [threeXMode, setThreeXMode] = useState(false);
-  const [showQuickTestDropdown, setShowQuickTestDropdown] = useState(false);
   const [showLibraryDropdown, setShowLibraryDropdown] = useState(false);
   const [showMoreNav, setShowMoreNav] = useState(false);
   const [queuedTrack, setQueuedTrack] = useState<any | null>(null);
@@ -271,10 +269,10 @@ export default function App() {
           metaArtist: artistName,
           metaGenre: critique.vibe?.genre || undefined,
           metrics: {
-            overall: critique.scores?.overallProduction || 86,
+            overall: Math.round(((critique.scores?.commercialReadiness ?? 75) + (critique.scores?.overallProduction ?? 75) + (critique.mixQuality?.score ?? 75) + (critique.performance?.vocalScore ?? 75) + (critique.lyricalImpact?.score ?? 75) + (critique.musicTheory?.score ?? 75) + (critique.titleSearchability?.score ?? 75)) / 7),
             mix: critique.mixQuality?.score || 84,
             performance: critique.performance?.vocalScore || 88,
-            flow: critique.arrangement?.flowScore || 89,
+            engagement: critique.scores?.commercialReadiness || 89,
             lyric: critique.lyricalImpact?.score || 91,
             theory: critique.musicTheory?.score || 86,
             seo: critique.titleSearchability?.score || 95,
@@ -525,10 +523,10 @@ export default function App() {
             metaArtist: extractedArtist || undefined,
             metaGenre: finalCritique.vibe?.genre || extractedGenre || undefined,
             metrics: {
-              overall: finalCritique.scores?.overallProduction || 86,
+              overall: Math.round(((finalCritique.scores?.commercialReadiness ?? 75) + (finalCritique.scores?.overallProduction ?? 75) + (finalCritique.mixQuality?.score ?? 75) + (finalCritique.performance?.vocalScore ?? 75) + (finalCritique.lyricalImpact?.score ?? 75) + (finalCritique.musicTheory?.score ?? 75) + (finalCritique.titleSearchability?.score ?? 75)) / 7),
               mix: finalCritique.mixQuality?.score || 84,
               performance: finalCritique.performance?.vocalScore || 88,
-              flow: finalCritique.arrangement?.flowScore || 89,
+              engagement: finalCritique.scores?.commercialReadiness || 89,
               lyric: finalCritique.lyricalImpact?.score || 91,
               theory: finalCritique.musicTheory?.score || 86,
               seo: finalCritique.titleSearchability?.score || 95,
@@ -717,6 +715,7 @@ export default function App() {
         const cachedFile = localTrackFiles[track.id];
         if (cachedFile) {
           setLoadingStatus(threeXMode ? "Multi-pass analysis starting up..." : "Gemini is listening to your transients and harmonics...");
+          setLocalFileBlobUrl(URL.createObjectURL(cachedFile));
           
           const formData = new FormData();
           formData.append("audio", cachedFile);
@@ -844,10 +843,10 @@ export default function App() {
         status: "analyzed",
         critique: overriddenFinalCritique,
         metrics: {
-          overall: overriddenFinalCritique.scores?.overallProduction || 86,
+          overall: Math.round(((overriddenFinalCritique.scores?.commercialReadiness ?? 75) + (overriddenFinalCritique.scores?.overallProduction ?? 75) + (overriddenFinalCritique.mixQuality?.score ?? 75) + (overriddenFinalCritique.performance?.vocalScore ?? 75) + (overriddenFinalCritique.lyricalImpact?.score ?? 75) + (overriddenFinalCritique.musicTheory?.score ?? 75) + (overriddenFinalCritique.titleSearchability?.score ?? 75)) / 7),
           mix: overriddenFinalCritique.mixQuality?.score || 84,
           performance: overriddenFinalCritique.performance?.vocalScore || 88,
-          flow: overriddenFinalCritique.arrangement?.flowScore || 89,
+          engagement: overriddenFinalCritique.scores?.commercialReadiness || 89,
           lyric: overriddenFinalCritique.lyricalImpact?.score || 91,
           theory: overriddenFinalCritique.musicTheory?.score || 86,
           seo: overriddenFinalCritique.titleSearchability?.score || 95,
@@ -942,61 +941,6 @@ export default function App() {
           </div>
         
           <div className="flex flex-col sm:flex-row items-center sm:items-center gap-3 text-right">
-            {/* Quick Developer Test Dropdown - moved outside overflow container to prevent vertical clipping and overlap issues */}
-            <div 
-              className="relative flex-shrink-0 z-50"
-              onMouseLeave={() => setShowQuickTestDropdown(false)}
-            >
-              <button
-                onClick={() => setShowQuickTestDropdown(!showQuickTestDropdown)}
-                className="flex items-center gap-1.5 text-[11px] font-mono py-1.5 px-3.5 bg-amber-600/10 hover:bg-amber-600/20 border border-amber-500/30 hover:border-amber-500/50 text-amber-400 rounded-full transition-all cursor-pointer shadow-[0_0_15px_rgba(245,158,11,0.05)] font-semibold flex-shrink-0"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-              </button>
-              {showQuickTestDropdown && (
-                <div className="absolute right-0 sm:right-auto sm:left-0 top-full pt-2 w-72 z-50">
-                  <div className="bg-[#0d0f14] border border-amber-500/30 rounded-2xl shadow-[0_10px_35px_rgba(0,0,0,0.8)] p-2.5 flex flex-col gap-1 text-left">
-                    <div className="px-3 py-2 border-b border-white/5">
-                      <span className="text-[10px] font-mono uppercase tracking-widest text-amber-500 font-bold block">
-                        Developer Sandbox
-                      </span>
-                      <span className="text-[9px] text-slate-400 mt-0.5 block leading-tight">
-                        Instantly populate high-fidelity mock audits to test score gauges, DAW checklists & tabs.
-                      </span>
-                    </div>
-                    {TEST_SONG_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.id}
-                        onClick={() => {
-                          setCritiqueResult({
-                            ...opt.data,
-                            critique: applyGenreOverride(opt.data.critique)
-                          });
-                          setShowQuickTestDropdown(false);
-                          setViewingDefinitions(false);
-                          setViewingAboutPage(false);
-                          setViewingWhatItDoesPage(false);
-                          setViewingUsefulTools(false);
-                        }}
-                        className="w-full text-left p-2 rounded-xl hover:bg-amber-500/15 hover:text-white transition-all text-xs flex flex-col gap-1 group cursor-pointer border border-transparent hover:border-amber-500/20"
-                      >
-                        <div className="flex justify-between items-center w-full">
-                          <span className="font-extrabold text-[#E2E8F0] group-hover:text-amber-300">
-                            {opt.name}
-                          </span>
-                          <span className="text-[8px] font-mono px-1.5 py-0.5 rounded-md bg-white/5 border border-white/15 text-slate-400">
-                            {opt.artist}
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-slate-400 group-hover:text-slate-300 line-clamp-2 leading-relaxed">
-                          {opt.description}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
 
             <div className="flex items-center gap-2 flex-nowrap justify-center sm:justify-end overflow-x-auto sm:overflow-visible no-scrollbar max-w-full py-1">
 
