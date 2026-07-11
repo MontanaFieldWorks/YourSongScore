@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { 
   ArrowLeft, ArrowRight, Volume2, Sliders, Mic, CheckCircle, Square, Play, Pause, 
   Activity, Sparkles, Cpu, AlertTriangle, Check, RotateCcw, Compass, Layers, CheckSquare,
-  Radio, Waves, Settings, ShieldAlert, Info, BarChart2, Disc, Wand2
+  Radio, Waves, Settings, ShieldAlert, Info, BarChart2, Disc, Wand2,
+  AudioLines, Gauge, Speaker, Tags, Antenna, LayoutDashboard, DraftingCompass
 } from "lucide-react";
 
 // Helper to map genre icons
@@ -12,6 +13,28 @@ const getGenreIcon = (genre: string, className = "w-4 h-4") => {
   if (g.includes("hip") || g.includes("rap") || g.includes("pop")) return <Activity className={className} />;
   return <Sliders className={className} />;
 };
+
+const GENRE_LOUDNESS_BUCKETS: Record<string, { label: string; lufsMin: number; lufsMax: number; lraMin: number; lraMax: number | null }> = {
+  hiphop: { label: "Hip-Hop / Trap / EDM", lufsMin: -10, lufsMax: -7, lraMin: 4, lraMax: 8 },
+  mainstream: { label: "Pop / Rock / Country", lufsMin: -12, lufsMax: -9, lraMin: 6, lraMax: 12 },
+  indie: { label: "Indie / Acoustic / Singer-Songwriter", lufsMin: -14, lufsMax: -11, lraMin: 10, lraMax: 15 },
+  classical: { label: "Classical / Jazz / Folk / Ambient", lufsMin: -18, lufsMax: -14, lraMin: 15, lraMax: null },
+};
+
+function getGenreLoudnessBucket(genre?: string, subgenre?: string): { key: string } & typeof GENRE_LOUDNESS_BUCKETS[string] {
+  const text = `${genre || ""} ${subgenre || ""}`.toLowerCase();
+  const hasAny = (words: string[]) => words.some(w => text.includes(w));
+  if (hasAny(["hip hop", "hip-hop", "trap", "rap", "edm", "electronic", "dance", "dubstep", "house", "techno", "drill"])) {
+    return { key: "hiphop", ...GENRE_LOUDNESS_BUCKETS.hiphop };
+  }
+  if (hasAny(["classical", "jazz", "ambient", "orchestral", "instrumental", "cinematic", "chamber"])) {
+    return { key: "classical", ...GENRE_LOUDNESS_BUCKETS.classical };
+  }
+  if (hasAny(["indie", "acoustic", "singer-songwriter", "singer songwriter", "americana", "folk", "dream pop", "shoegaze"])) {
+    return { key: "indie", ...GENRE_LOUDNESS_BUCKETS.indie };
+  }
+  return { key: "mainstream", ...GENRE_LOUDNESS_BUCKETS.mainstream };
+}
 
 interface ActionItem {
   title: string;
@@ -253,7 +276,7 @@ const generateHarmonicNodes = () => {
     const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35;
     const mid = critique?.liveMetrics?.calculatedMidEnergy ?? 40;
     const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25;
-    const lufs = critique?.liveMetrics?.calculatedLufs ?? -14;
+    const lufs = critique?.liveMetrics?.calculatedLufs ?? getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre).lufsMin;
     const lowEndText = critique?.mixQuality?.frequencyBalance?.lowEnd ?? "";
     const midText = critique?.mixQuality?.frequencyBalance?.midrange ?? "";
     const highEndText = critique?.mixQuality?.frequencyBalance?.highEnd ?? "";
@@ -348,12 +371,13 @@ const generateHarmonicNodes = () => {
       : `High spectral ratio: ${high}%. Above 32% in a dense mix, this zone begins to introduce ear fatigue on headphones and consumer speakers.`;
 
     // Node 5: Air — driven by calculatedLufs + stereoField
-    const isOverLimited = lufs > -8;
-    const isUnderLimited = lufs < -16;
+    const b374 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+    const isOverLimited = lufs > b374.lufsMax;
+    const isUnderLimited = lufs < b374.lufsMin;
     const airSeverity: HarmonicNode["status"] = isOverLimited ? "warning"
       : isUnderLimited ? "warning"
       : "optimized";
-    const airDb = isOverLimited ? parseFloat(((lufs + 8) * 0.4).toFixed(1))
+    const airDb = isOverLimited ? parseFloat(((lufs - b374.lufsMax) * 0.4).toFixed(1))
       : isUnderLimited ? -1.8
       : -0.5;
     const airProblem = isOverLimited
@@ -366,7 +390,8 @@ const generateHarmonicNodes = () => {
       : isUnderLimited
       ? `Consider a gentle Baxandall high-shelf boost of +1.5dB at 13kHz, then bring the master up to -10 to -12 LUFS for streaming competitiveness.`
       : "Maintain current loudness profile. No air band correction needed.";
-    const airDetail = `Integrated loudness measured at ${lufs} LUFS. Streaming target is -14 LUFS normalized, but competitive masters typically land between -9 and -11 LUFS for density. True Peak: ${critique?.liveMetrics?.calculatedTruePeak ?? "N/A"} dBTP.`;
+    const lufsBucket369 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+    const airDetail = `Integrated loudness measured at ${lufs} LUFS. Target window for ${lufsBucket369.label}: ${lufsBucket369.lufsMin} to ${lufsBucket369.lufsMax} LUFS. True Peak: ${critique?.liveMetrics?.calculatedTruePeak ?? "N/A"} dBTP.`;
 
     const derivedNodes: HarmonicNode[] = [
       { id: "sub-rumble", frequency: bass > 45 ? "32 Hz" : bass < 22 ? "40 Hz" : "28 Hz", band: "Sub-Bass", dbOffset: subDbOffset, problem: subProblem, solution: subSolution, detail: subDetail, xPct: 15, yPct: bass > 45 ? 80 : bass < 22 ? 55 : 65, status: subStatus },
@@ -596,14 +621,14 @@ const generateHarmonicNodes = () => {
               
               {[
                 { id: "harmonic", label: "Harmonic Resolution", sub: "EQ Resonance Sweep", icon: Activity, color: "text-blue-400" },
-                { id: "signal", label: "Signal & Levels", sub: "Loudness & Peak", icon: Waves, color: "text-cyan-400" },
-                { id: "dynamics", label: "Dynamics Profile", sub: "PLR & Compression", icon: Cpu, color: "text-rose-400" },
+                { id: "signal", label: "Signal & Levels", sub: "Loudness & Peak", icon: Gauge, color: "text-cyan-400" },
+                { id: "dynamics", label: "Dynamics Profile", sub: "PLR & Compression", icon: AudioLines, color: "text-rose-400" },
                 { id: "frequency", label: "Frequency Balance", sub: "Spectral Octave Grid", icon: Sliders, color: "text-purple-400" },
-                { id: "stereo", label: "Stereo Field", sub: "M/S & Phase Corridor", icon: Compass, color: "text-pink-400" },
-                { id: "genre", label: "Genre Compliance", sub: "Streaming Standards", icon: BarChart2, color: "text-lime-300" },
-                { id: "noise", label: "Noise & Artifacts", sub: "DC Offset & Hiss", icon: Radio, color: "text-teal-400" },
-                { id: "arrangement", label: "Arrangement Patterns", sub: "Frequency Masking", icon: Settings, color: "text-slate-400" },
-                { id: "azimuth", label: "Stereo Azimuth Profile", sub: "Soundstage Panning Lineup", icon: Compass, color: "text-cyan-400 text-glow" }
+                { id: "stereo", label: "Stereo Field", sub: "M/S & Phase Corridor", icon: Speaker, color: "text-pink-400" },
+                { id: "genre", label: "Genre Compliance", sub: "Streaming Standards", icon: Tags, color: "text-lime-300" },
+                { id: "noise", label: "Noise & Artifacts", sub: "DC Offset & Hiss", icon: Antenna, color: "text-teal-400" },
+                { id: "arrangement", label: "Arrangement Patterns", sub: "Frequency Masking", icon: LayoutDashboard, color: "text-slate-400" },
+                { id: "azimuth", label: "Stereo Azimuth Profile", sub: "Soundstage Panning Lineup", icon: DraftingCompass, color: "text-cyan-400 text-glow" }
               ].map((tab) => {
                 const isSelected = activeView === tab.id;
                 const Icon = tab.icon;
@@ -855,7 +880,14 @@ const generateHarmonicNodes = () => {
                   )}
                   <div className="bg-[#0b1322] border border-amber-500/10 rounded-xl p-3.5 mt-2 text-[10px] text-slate-400 leading-relaxed">
                     <span className="font-mono font-bold text-amber-400 uppercase text-[9px] block mb-1">Analog Saturation Note:</span>
-                    {critique?.liveMetrics?.calculatedLufs !== undefined ? critique.liveMetrics.calculatedLufs > -9 ? "Master is heavily saturated. Ease limiter gain by 1.5dB and reduce harmonic drive to preserve transient clarity." : critique.liveMetrics.calculatedHighEnergy > 32 ? "High-mid harmonic content is elevated. A gentle tape emulation (30 ips, +0.3dB) would smooth sibilant peaks without losing presence." : critique.liveMetrics.calculatedBassEnergy > 42 ? "Low-end harmonic density is high. Tube saturation on the bass bus (+0.5dB even-order drive) would add warmth without muddying the mix." : "Harmonic profile is well balanced. Light vintage tape drive (+0.5dB, 30 ips) would add cohesion across the high-mid transient peaks." : "Light vintage tape drive (+0.5dB, 30 ips) recommended to add cohesion across the high-mid transient peaks."}
+                    {(() => {
+                      const b858 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                      if (critique?.liveMetrics?.calculatedLufs === undefined) return "Light vintage tape drive (+0.5dB, 30 ips) recommended to add cohesion across the high-mid transient peaks.";
+                      if (critique.liveMetrics.calculatedLufs > b858.lufsMax) return "Master is heavily saturated for this genre's target window. Ease limiter gain by 1.5dB and reduce harmonic drive to preserve transient clarity.";
+                      if (critique.liveMetrics.calculatedHighEnergy > 32) return "High-mid harmonic content is elevated. A gentle tape emulation (30 ips, +0.3dB) would smooth sibilant peaks without losing presence.";
+                      if (critique.liveMetrics.calculatedBassEnergy > 42) return "Low-end harmonic density is high. Tube saturation on the bass bus (+0.5dB even-order drive) would add warmth without muddying the mix.";
+                      return "Harmonic profile is well balanced. Light vintage tape drive (+0.5dB, 30 ips) would add cohesion across the high-mid transient peaks.";
+                    })()}
                   </div>
 
                   <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-4.5 flex flex-col gap-3 mt-2">
@@ -877,7 +909,7 @@ const generateHarmonicNodes = () => {
               {activeView === "signal" && (
                 <div className="bg-[#13161C] border border-[#2563EB]/25 rounded-3xl p-6 shadow-xl flex flex-col gap-5 text-left animate-fadeIn">
                   <div className="flex items-center gap-2.5 border-b border-white/5 pb-3">
-                    <Waves className="w-5 h-5 text-cyan-400 animate-pulse" />
+                    <Gauge className="w-5 h-5 text-cyan-400 animate-pulse" />
                     <h3 className="font-bold text-sm uppercase text-slate-200 tracking-wider">Loudness &amp; Signal Amplitude Audit</h3>
                   </div>
 
@@ -962,13 +994,13 @@ const generateHarmonicNodes = () => {
                           {critique?.liveMetrics?.calculatedLufs !== undefined ? `${critique.liveMetrics.calculatedLufs} LUFS` : "-11.4 LUFS"}
                         </div>
                         <p className="text-[9.5px] text-slate-400 mt-1 leading-relaxed">
-                          {critique?.liveMetrics?.calculatedLufs !== undefined
-                            ? critique.liveMetrics.calculatedLufs > -9
-                              ? "Master is heavily limited. Consider backing off the limiter by 1.5dB to restore dynamic headroom."
-                              : critique.liveMetrics.calculatedLufs < -16
-                              ? "Track is mastered conservatively. May sound quiet on streaming platforms compared to competitors."
-                              : "Nicely optimized for dense platform delivery. Within competitive streaming range."
-                            : "Streaming norms require ~-14 LUFS; your master is nicely optimized for dense platform delivery."}
+                          {(() => {
+                            const b965 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                            if (critique?.liveMetrics?.calculatedLufs === undefined) return `Target window for ${b965.label}: ${b965.lufsMin} to ${b965.lufsMax} LUFS.`;
+                            if (critique.liveMetrics.calculatedLufs > b965.lufsMax) return "Master is louder than this genre's target window. Consider backing off the limiter by 1.5dB to restore dynamic headroom.";
+                            if (critique.liveMetrics.calculatedLufs < b965.lufsMin) return "Track is quieter than this genre's target window. May sound weak on non-normalized playback compared to genre competitors.";
+                            return `Nicely optimized within the ${b965.lufsMin} to ${b965.lufsMax} LUFS target window for ${b965.label}.`;
+                          })()}
                         </p>
                       </div>
 
@@ -1018,9 +1050,9 @@ const generateHarmonicNodes = () => {
                     <div className="bg-neutral-900 border border-white/5 p-4.5 rounded-2xl flex flex-col gap-3 mt-2">
                       <span className="text-[9.5px] font-mono text-slate-500 uppercase font-bold tracking-wider border-b border-white/5 pb-1">Platform Delivery Normalization</span>
                       {[
-                        { platform: "Spotify Target", spec: "-14.0 LUFS", user: `${critique?.liveMetrics?.calculatedLufs ?? -11.4} LUFS`, status: `${parseFloat(((critique?.liveMetrics?.calculatedLufs ?? -11.4) - (-14.0)).toFixed(1))} dB Offset` },
-                        { platform: "Apple Music Target", spec: "-16.0 LUFS", user: `${critique?.liveMetrics?.calculatedLufs ?? -11.4} LUFS`, status: `${parseFloat(((critique?.liveMetrics?.calculatedLufs ?? -11.4) - (-16.0)).toFixed(1))} dB Offset` },
-                        { platform: "Tidal Target", spec: "-14.0 LUFS", user: `${critique?.liveMetrics?.calculatedLufs ?? -11.4} LUFS`, status: `${parseFloat(((critique?.liveMetrics?.calculatedLufs ?? -11.4) - (-14.0)).toFixed(1))} dB Offset` },
+                        { platform: "Spotify Target", spec: `${getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre).lufsMin} to ${getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre).lufsMax} LUFS`, user: `${critique?.liveMetrics?.calculatedLufs ?? -11.4} LUFS`, status: `${parseFloat(((critique?.liveMetrics?.calculatedLufs ?? -11.4) - getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre).lufsMax).toFixed(1))} dB Offset` },
+                        { platform: "Apple Music Target", spec: `${getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre).lufsMin - 2} LUFS`, user: `${critique?.liveMetrics?.calculatedLufs ?? -11.4} LUFS`, status: `${parseFloat(((critique?.liveMetrics?.calculatedLufs ?? -11.4) - (getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre).lufsMin - 2)).toFixed(1))} dB Offset` },
+                        { platform: "Tidal Target", spec: `${getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre).lufsMin} to ${getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre).lufsMax} LUFS`, user: `${critique?.liveMetrics?.calculatedLufs ?? -11.4} LUFS`, status: `${parseFloat(((critique?.liveMetrics?.calculatedLufs ?? -11.4) - getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre).lufsMax).toFixed(1))} dB Offset` },
                         { platform: "Club/DJ Master Target", spec: "-8.0 to -11.0 LUFS", user: `${critique?.liveMetrics?.calculatedLufs ?? -11.4} LUFS`, status: `${(critique?.liveMetrics?.calculatedLufs ?? -11.4) >= -11 && (critique?.liveMetrics?.calculatedLufs ?? -11.4) <= -8 ? "Perfect (Nominal Level)" : (critique?.liveMetrics?.calculatedLufs ?? -11.4) < -11 ? "Slightly Under Club Level" : "Over Club Target"}` }
                       ].map((item) => (
                         <div key={item.platform} className="flex justify-between items-center text-[11px] py-1 border-b border-white/[0.03]">
@@ -1104,7 +1136,7 @@ const generateHarmonicNodes = () => {
               {activeView === "dynamics" && (
                 <div className="bg-[#13161C] border border-[#2563EB]/25 rounded-3xl p-6 shadow-xl flex flex-col gap-5 text-left animate-fadeIn">
                   <div className="flex items-center gap-2.5 border-b border-white/5 pb-3">
-                    <Cpu className="w-5 h-5 text-rose-400" />
+                    <AudioLines className="w-5 h-5 text-rose-400" />
                     <h3 className="font-bold text-sm uppercase text-slate-200 tracking-wider">Dynamic Variance &amp; Compression Profile</h3>
                   </div>
 
@@ -1123,7 +1155,15 @@ const generateHarmonicNodes = () => {
 
                     <div className="bg-[#0A0B0E] p-4 rounded-xl border border-white/5 text-center">
                       <span className="text-[9.5px] font-mono text-slate-500 uppercase tracking-wider block">Compression Artifacts</span>
-                      <span className="text-2xl font-black text-emerald-400 mt-1.5 block font-mono text-glow">{critique?.liveMetrics?.calculatedLufs !== undefined ? critique.liveMetrics.calculatedLufs > -8 ? "Heavy Limiting" : critique.liveMetrics.calculatedLufs > -11 ? "Moderate" : "Clean" : "Clean"}</span>
+                      <span className="text-2xl font-black text-emerald-400 mt-1.5 block font-mono text-glow">
+                        {(() => {
+                          const b1158 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                          if (critique?.liveMetrics?.calculatedLufs === undefined) return "Clean";
+                          if (critique.liveMetrics.calculatedLufs > b1158.lufsMax) return "Heavy Limiting";
+                          if (critique.liveMetrics.calculatedLufs > b1158.lufsMin) return "Moderate";
+                          return "Clean";
+                        })()}
+                      </span>
                       <span className="text-[9px] text-slate-400 mt-1 block">No aggressive compressor breathing or transient smearing.</span>
                     </div>
                   </div>
@@ -1132,7 +1172,11 @@ const generateHarmonicNodes = () => {
                   <div className="bg-[#0A0B0E] border border-white/5 p-5 rounded-2xl">
                     <div className="flex items-center justify-between mb-4">
                       <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider">Acoustic Gain Reduction Timeline</span>
-                      <span className="text-[9px] font-mono text-rose-400">{critique?.liveMetrics?.calculatedLufs !== undefined ? `${parseFloat((critique.liveMetrics.calculatedLufs + 14).toFixed(1))} dB GR vs -14 LUFS Target` : "-1.8 dB Target GR"}</span>
+                      <span className="text-[9px] font-mono text-rose-400">{(() => {
+                        const b1135 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                        if (critique?.liveMetrics?.calculatedLufs === undefined) return "-1.8 dB Target GR";
+                        return `${parseFloat((critique.liveMetrics.calculatedLufs - b1135.lufsMax).toFixed(1))} dB GR vs ${b1135.lufsMax} LUFS Target (${b1135.label})`;
+                      })()}</span>
                     </div>
 
                     <div className="h-28 bg-neutral-950 rounded-xl relative overflow-hidden flex items-center justify-center border border-white/5">
@@ -1206,7 +1250,7 @@ const generateHarmonicNodes = () => {
                 <div className="bg-[#13161C] border border-[#2563EB]/25 rounded-3xl p-6 shadow-xl flex flex-col gap-5 text-left animate-fadeIn">
                   <div className="flex items-center justify-between border-b border-white/5 pb-3">
                     <div className="flex items-center gap-2.5">
-                      <Compass className="w-5 h-5 text-pink-400" />
+                      <Speaker className="w-5 h-5 text-pink-400" />
                       <h3 className="font-bold text-sm uppercase text-slate-200 tracking-wider">Stereo Field & Spatial Depth</h3>
                     </div>
                     <div className="flex gap-1.5">
@@ -1309,7 +1353,7 @@ const generateHarmonicNodes = () => {
               {activeView === "genre" && (
                 <div className="bg-[#13161C] border border-[#2563EB]/25 rounded-3xl p-6 shadow-xl flex flex-col gap-5 text-left animate-fadeIn">
                   <div className="flex items-center gap-2.5 border-b border-white/5 pb-3">
-                    <BarChart2 className="w-5 h-5 text-lime-400" />
+                    <Tags className="w-5 h-5 text-lime-400" />
                     <h3 className="font-bold text-sm uppercase text-slate-200 tracking-wider">Genre Match Rate &amp; Reference Audit</h3>
                   </div>
 
@@ -1320,14 +1364,14 @@ const generateHarmonicNodes = () => {
                         <div className="text-2xl font-black text-lime-400 mt-2 font-mono text-glow leading-tight">
                           {(() => {
                             const lufs = critique?.liveMetrics?.calculatedLufs;
-                            const genre = (critique?.vibe?.genre || "").toLowerCase();
                             if (lufs === undefined) return "Awaiting Analysis";
-                            const genreAvg = genre.includes("pop") ? -9 : genre.includes("hip") ? -8 : genre.includes("electronic") || genre.includes("dance") ? -9 : genre.includes("folk") || genre.includes("acoustic") || genre.includes("classical") ? -14 : genre.includes("rock") ? -11 : -12;
+                            const b1368 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                            const genreAvg = (b1368.lufsMin + b1368.lufsMax) / 2;
                             const diff = parseFloat((lufs - genreAvg).toFixed(1));
                             const diffAbs = Math.abs(diff);
-                            if (diff > 0) return `${diffAbs} dB louder than avg ${critique?.vibe?.genre || "genre"} master`;
-                            if (diff < 0) return `${diffAbs} dB quieter than avg ${critique?.vibe?.genre || "genre"} master`;
-                            return `Matches avg ${critique?.vibe?.genre || "genre"} master loudness`;
+                            if (diff > 0) return `${diffAbs} dB louder than avg ${b1368.label} master`;
+                            if (diff < 0) return `${diffAbs} dB quieter than avg ${b1368.label} master`;
+                            return `Matches avg ${b1368.label} master loudness`;
                           })()}
                         </div>
                         <p className="text-[11px] text-slate-400 mt-3.5 leading-relaxed">
@@ -1336,7 +1380,13 @@ const generateHarmonicNodes = () => {
                       </div>
                       <div className="bg-lime-500/5 border border-lime-500/15 p-3 rounded-xl mt-4 text-[10.5px] text-lime-400 leading-relaxed font-mono">
                         <span className="block text-slate-200 font-sans font-extrabold uppercase text-[9px] mb-1">A&amp;R Diagnostic:</span>
-                        {critique?.liveMetrics?.calculatedLufs !== undefined ? critique.liveMetrics.calculatedLufs > -9 ? "Master is heavily limited — streaming normalizers will reduce perceived punch. Back off the limiter for better platform performance." : critique.liveMetrics.calculatedLufs < -16 ? "Track is mastered conservatively and may sound quiet relative to competitors on streaming platforms." : "Spectral curves and transient punch densities align well with commercial master references for this genre." : "Spectral curves and transient punch densities successfully replicate commercial master records."}
+                        {(() => {
+                          const b1339 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                          if (critique?.liveMetrics?.calculatedLufs === undefined) return "Spectral curves and transient punch densities successfully replicate commercial master records.";
+                          if (critique.liveMetrics.calculatedLufs > b1339.lufsMax) return "Master is louder than this genre's target window — streaming normalizers will reduce perceived punch. Back off the limiter for better platform performance.";
+                          if (critique.liveMetrics.calculatedLufs < b1339.lufsMin) return "Track is quieter than this genre's target window and may sound weak relative to competitors on streaming platforms.";
+                          return "Spectral curves and transient punch densities align well with commercial master references for this genre.";
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -1347,13 +1397,26 @@ const generateHarmonicNodes = () => {
               {activeView === "noise" && (
                 <div className="bg-[#13161C] border border-[#2563EB]/25 rounded-3xl p-6 shadow-xl flex flex-col gap-5 text-left animate-fadeIn">
                   <div className="flex items-center gap-2.5 border-b border-white/5 pb-3">
-                    <Radio className="w-5 h-5 text-teal-400" />
+                    <Antenna className="w-5 h-5 text-teal-400" />
                     <h3 className="font-bold text-sm uppercase text-slate-200 tracking-wider">Background Noise Floor &amp; Codec Artifacts</h3>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     {[
-                      { metric: "Analog Noise Floor", text: "Hiss, hum, electrical interference floor", value: critique?.liveMetrics?.calculatedLufs !== undefined ? critique.liveMetrics.calculatedLufs < -14 ? `${Math.round(-82 + (critique.liveMetrics.calculatedLufs + 14) * 0.5)} dB` : "-84 dB" : "-84 dB", status: critique?.liveMetrics?.calculatedLufs !== undefined && critique.liveMetrics.calculatedLufs < -18 ? "Elevated Noise Risk" : "Pristine Room", color: critique?.liveMetrics?.calculatedLufs !== undefined && critique.liveMetrics.calculatedLufs < -18 ? "text-yellow-400" : "text-emerald-400" },
+                      { metric: "Analog Noise Floor", text: "Hiss, hum, electrical interference floor", value: (() => {
+                        const b1405 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                        const limit = b1405.lufsMin;
+                        if (critique?.liveMetrics?.calculatedLufs === undefined) return "-84 dB";
+                        return critique.liveMetrics.calculatedLufs < limit ? `${Math.round(-82 + (critique.liveMetrics.calculatedLufs - limit) * 0.5)} dB` : "-84 dB";
+                      })(), status: (() => {
+                        const b1405 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                        const threshold = b1405.lufsMin - 4;
+                        return critique?.liveMetrics?.calculatedLufs !== undefined && critique.liveMetrics.calculatedLufs < threshold ? "Elevated Noise Risk" : "Pristine Room";
+                      })(), color: (() => {
+                        const b1405 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                        const threshold = b1405.lufsMin - 4;
+                        return critique?.liveMetrics?.calculatedLufs !== undefined && critique.liveMetrics.calculatedLufs < threshold ? "text-yellow-400" : "text-emerald-400";
+                      })() },
                       { metric: "DC Offset Error", text: "Direct Current bias wasting storage headroom", value: critique?.liveMetrics?.calculatedTruePeak !== undefined ? Math.abs(critique.liveMetrics.calculatedTruePeak) < 0.5 ? "0.001%" : "0.003%" : "0.002%", status: "Zero Bias", color: "text-emerald-400" },
                       { metric: "Hum Sweep (50/60 Hz)", spec: "60Hz interference hum diagnostics", value: critique?.liveMetrics?.calculatedBassEnergy !== undefined && critique.liveMetrics.calculatedBassEnergy < 3 ? "Possible low-end hum" : "Not detected", status: critique?.liveMetrics?.calculatedBassEnergy !== undefined && critique.liveMetrics.calculatedBassEnergy < 3 ? "Monitor Sub Range" : "Clean Grid", color: critique?.liveMetrics?.calculatedBassEnergy !== undefined && critique.liveMetrics.calculatedBassEnergy < 3 ? "text-yellow-400" : "text-teal-400" },
                       { metric: "Codec Artifact Index", spec: "Lossy compression degradation spectrum", value: critique?.liveMetrics?.calculatedLra !== undefined ? critique.liveMetrics.calculatedLra > 15 ? "High Dynamic — WAV Recommended" : "WAV Lossless" : "WAV Lossless", status: critique?.liveMetrics?.calculatedTruePeak !== undefined && critique.liveMetrics.calculatedTruePeak > -0.3 ? "Peak Risk Detected" : "Perfect Integrity", color: critique?.liveMetrics?.calculatedTruePeak !== undefined && critique.liveMetrics.calculatedTruePeak > -0.3 ? "text-yellow-400" : "text-emerald-400" }
@@ -1377,7 +1440,7 @@ const generateHarmonicNodes = () => {
               {activeView === "arrangement" && (
                 <div className="bg-[#13161C] border border-[#2563EB]/25 rounded-3xl p-6 shadow-xl flex flex-col gap-5 text-left animate-fadeIn">
                   <div className="flex items-center gap-2.5 border-b border-white/5 pb-3">
-                    <Settings className="w-5 h-5 text-slate-400" />
+                    <LayoutDashboard className="w-5 h-5 text-slate-400" />
                     <h3 className="font-bold text-sm uppercase text-slate-200 tracking-wider">Acoustic Masking Conflicts &amp; Separation Grid</h3>
                   </div>
 
@@ -1415,12 +1478,12 @@ const generateHarmonicNodes = () => {
                   {/* Retro Sonic Lineup Header Interface */}
                   <div className="bg-[#0A0B0E] border border-cyan-500/15 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 select-none relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4 opacity-[0.03] pointer-events-none">
-                      <Compass className="w-24 h-24 text-cyan-500" />
+                      <DraftingCompass className="w-24 h-24 text-cyan-500" />
                     </div>
                     
                     <div className="flex items-center gap-3">
                       <div className="p-2 border border-cyan-500/25 bg-cyan-950/40 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(6,182,212,0.15)] text-cyan-400 animate-pulse">
-                        <Compass className="w-5 h-5 shadow-[0_0_10px_rgba(6,182,212,0.4)] text-[#06b6d4]" />
+                        <DraftingCompass className="w-5 h-5 shadow-[0_0_10px_rgba(6,182,212,0.4)] text-[#06b6d4]" />
                       </div>
                       <div className="text-left">
                         <h3 className="text-sm font-bold text-white tracking-wide">Sonic Lineup Azimuth Simulator v5.0</h3>
@@ -1604,7 +1667,7 @@ const generateHarmonicNodes = () => {
           </div>
 
           {/* Underneath Bottom Column: DAW Engineering Checklist spanning the entire page width */}
-          <div className="border-t border-white/5 pt-8" id="migrated-daw-checklist-section">
+          <div className="border-t border-white/5 pt-1" id="migrated-daw-checklist-section">
             <div className="bg-[#13161C] border border-[#2563EB]/20 rounded-3xl p-6.5 shadow-xl text-left">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2.5">
