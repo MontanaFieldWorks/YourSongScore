@@ -613,10 +613,10 @@ export default function Dashboard({
         critique: finalCritique,
         metaGenre: finalCritique.vibe?.genre || (track as any).metaGenre,
         metrics: {
-          overall: finalCritique.scores?.overallProduction || 86,
+          overall: Math.round(((finalCritique.scores?.commercialReadiness ?? 75) + (finalCritique.scores?.overallProduction ?? 75) + (finalCritique.mixQuality?.score ?? 75) + (finalCritique.performance?.vocalScore ?? 75) + (finalCritique.lyricalImpact?.score ?? 75) + (finalCritique.musicTheory?.score ?? 75) + (finalCritique.titleSearchability?.score ?? 75)) / 7),
           mix: finalCritique.mixQuality?.score || 84,
           performance: finalCritique.performance?.vocalScore || 88,
-          flow: finalCritique.arrangement?.flowScore || 89,
+          engagement: finalCritique.scores?.commercialReadiness || 89,
           lyric: finalCritique.lyricalImpact?.score || 91,
           theory: finalCritique.musicTheory?.score || 86,
           seo: finalCritique.titleSearchability?.score || 95,
@@ -672,7 +672,10 @@ export default function Dashboard({
           critiqueToUse.performance.vocalScore = track.metrics.performance;
         }
         if (critiqueToUse.arrangement) {
-          critiqueToUse.arrangement.flowScore = track.metrics.flow;
+          critiqueToUse.arrangement.flowScore = track.metrics.engagement;
+        }
+        if (critiqueToUse.scores) {
+          critiqueToUse.scores.commercialReadiness = track.metrics.engagement;
         }
         if (critiqueToUse.lyricalImpact) {
           critiqueToUse.lyricalImpact.score = track.metrics.lyric;
@@ -1358,7 +1361,7 @@ export default function Dashboard({
                         <th className="p-3 text-center font-semibold">Total Index</th>
                         <th className="p-3 text-center font-semibold hidden md:table-cell">Mix Qual</th>
                         <th className="p-3 text-center font-semibold hidden lg:table-cell">Voc / Inst</th>
-                        <th className="p-3 text-center font-semibold hidden md:table-cell">Arr Flow</th>
+                        <th className="p-3 text-center font-semibold hidden md:table-cell">Engage</th>
                         <th className="p-3 text-center font-semibold hidden lg:table-cell">Lyrical</th>
                         <th className="p-3 text-center font-semibold hidden xl:table-cell">Theory</th>
                         <th className="p-3 text-center font-semibold hidden lg:table-cell">SEO</th>
@@ -1449,7 +1452,7 @@ export default function Dashboard({
                           </td>
                           <td className="p-3 text-center font-mono text-slate-300 font-bold hidden md:table-cell">{track.metrics?.mix}%</td>
                           <td className="p-3 text-center font-mono text-slate-300 font-bold hidden lg:table-cell">{track.metrics?.performance}%</td>
-                          <td className="p-3 text-center font-mono text-slate-300 font-bold hidden md:table-cell">{track.metrics?.flow}%</td>
+                          <td className="p-3 text-center font-mono text-slate-300 font-bold hidden md:table-cell">{track.metrics?.engagement}%</td>
                           <td className="p-3 text-center font-mono text-slate-300 font-bold hidden lg:table-cell">{track.metrics?.lyric}%</td>
                           <td className="p-3 text-center font-mono text-slate-300 font-bold hidden xl:table-cell">{track.metrics?.theory}%</td>
                           <td className="p-3 text-center font-mono text-slate-300 font-bold hidden lg:table-cell">{track.metrics?.seo}%</td>
