@@ -762,6 +762,34 @@ export const SUBGENRE_PROFILES: Record<string, SubgenreProfile> = {
     acousticMin: 0.06, acousticMax: 0.35,
     instMin: 0, instMax: 0.1,
     liveMin: 0.05, liveMax: 0.18
+  },
+  "hip hop|trap / mainstream hip-hop": {
+    genre: "Hip-Hop",
+    subgenre: "Trap / Mainstream Hip-Hop",
+    archetype: "TRAP_808",
+    danceMin: 0.65, danceMax: 0.85,
+    bpmMin: 70, bpmMax: 150,
+    energyMin: 0.55, energyMax: 0.8,
+    crestMin: 5, crestMax: 8,
+    valenceMin: 0.25, valenceMax: 0.55,
+    speechMin: 0.15, speechMax: 0.4,
+    acousticMin: 0.02, acousticMax: 0.15,
+    instMin: 0, instMax: 0.05,
+    liveMin: 0.05, liveMax: 0.2
+  },
+  "electronic|edm / dance": {
+    genre: "Electronic",
+    subgenre: "EDM / Dance",
+    archetype: "FESTIVAL_EDM",
+    danceMin: 0.7, danceMax: 0.9,
+    bpmMin: 120, bpmMax: 140,
+    energyMin: 0.75, energyMax: 0.95,
+    crestMin: 4, crestMax: 7,
+    valenceMin: 0.2, valenceMax: 0.45,
+    speechMin: 0.03, speechMax: 0.1,
+    acousticMin: 0.01, acousticMax: 0.08,
+    instMin: 0.1, instMax: 0.4,
+    liveMin: 0.05, liveMax: 0.2
   }
 };
 
@@ -1211,7 +1239,36 @@ export function getSubgenreProfile(genreName: string, subgenreName: string): Sub
     }
   }
 
-  // 4. Default fallback pop top 40
+  // 3.5. Main-genre-level fallback - if we know the broad genre but not the specific subgenre,
+  // use a representative default for that genre rather than falling all the way to pop.
+  const GENRE_DEFAULT_PROFILE: Record<string, string> = {
+    "rock": "rock|heritage rock / mainstream rock",
+    "alternative": "alternative|alternative",
+    "r&b": "r&b|contemporary r&b / urban adult contemporary",
+    "country": "country|country airplay",
+    "latin": "latin|latin rhythm",
+    "jazz": "jazz|smooth jazz",
+    "blues": "blues|electric blues / chicago blues",
+    "classical": "classical|traditional classical",
+    "world music": "world music|k-pop / world digital song sales",
+    "hip hop": "hip hop|trap / mainstream hip-hop",
+    "hip-hop": "hip hop|trap / mainstream hip-hop",
+    "rap": "hip hop|trap / mainstream hip-hop",
+    "trap": "hip hop|trap / mainstream hip-hop",
+    "electronic": "electronic|edm / dance",
+    "edm": "electronic|edm / dance",
+    "dance": "electronic|edm / dance",
+    "house": "electronic|edm / dance",
+    "techno": "electronic|edm / dance",
+    "dubstep": "electronic|edm / dance",
+  };
+  for (const [genreWord, defaultKey] of Object.entries(GENRE_DEFAULT_PROFILE)) {
+    if (gKey.includes(genreWord) && SUBGENRE_PROFILES[defaultKey]) {
+      return SUBGENRE_PROFILES[defaultKey];
+    }
+  }
+
+  // 4. Default fallback pop top 40 (only reached if genre itself is unrecognized)
   return SUBGENRE_PROFILES["pop|mainstream top 40"];
 }
 
