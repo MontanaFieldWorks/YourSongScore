@@ -180,7 +180,7 @@ export default function EngineeringStudioPage({ onBack, critique, trackInfo, loc
   const [azimuthProgress, setAzimuthProgress] = useState(0);
   const [azimuthPlaying, setAzimuthPlaying] = useState(false);
   const [azimuthRefMode, setAzimuthRefMode] = useState<"user" | "benchmark" | "overlap">("user");
-  const [azimuthActiveTab, setAzimuthActiveTab] = useState<"outline" | "waveform" | "melodic" | "spectrogram" | "pitch" | "key" | "azimuth">("azimuth");
+  const [azimuthActiveTab, setAzimuthActiveTab] = useState<"outline" | "waveform" | "melodic" | "spectrogram" | "key" | "azimuth">("azimuth");
 
   // 2. Load checked items or default actions from critique
   const actionItems: ActionItem[] = critique?.actionItems || [
@@ -1607,7 +1607,6 @@ const generateHarmonicNodes = () => {
                           { id: "waveform", label: "Waveform envelope" },
                           { id: "melodic", label: "Melodic spectrum" },
                           { id: "spectrogram", label: "Spectrogram analysis" },
-                          { id: "pitch", label: "Sung Pitch" },
                           { id: "key", label: "Key Grid" },
                           { id: "azimuth", label: "Stereo Azimuth ★" }
                         ].map((t) => (
@@ -1845,98 +1844,32 @@ function StereoAzimuthCanvasRenderer({ activeTab, refMode, isPlaying, progress, 
       ctx.stroke();
     }
 
-    const markers = [
-      { percentage: 6, label: "Reference", chord: "Intro" },
-      { percentage: 18, label: "C Major", chord: "C" },
-      { percentage: 48, label: "A Minor 7", chord: "Am7" },
-      { percentage: 70, label: "G Major", chord: "G" },
-      { percentage: 88, label: "A Major", chord: "A" }
-    ];
-
-    markers.forEach((m) => {
-      const mx = (width * m.percentage) / 100;
-      ctx.strokeStyle = "rgba(38, 105, 160, 0.35)";
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(mx, 0);
-      ctx.lineTo(mx, height);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
-      ctx.font = "bold 10px sans-serif";
-      ctx.fillText(m.chord, mx + 5, 20);
-      ctx.fillStyle = "rgba(148, 163, 184, 0.45)";
-      ctx.font = "9px sans-serif";
-      ctx.fillText(m.label, mx + 5, 32);
-    });
-
     if (activeTab === "waveform" || activeTab === "outline") {
       ctx.lineWidth = activeTab === "outline" ? 2 : 1;
       const pts = liveMetrics?.calculatedWaveformPointsHD ?? liveMetrics?.calculatedWaveformPoints ?? [];
       const points = pts.length > 0 ? pts.length - 1 : 250;
-      
+      const maxVal = pts.length > 0 ? Math.max(...pts, 1) : 100;
+
+      const getRealAmp = (i: number): number => {
+        if (pts.length === 0) return (height * 0.15);
+        const idx = Math.min(pts.length - 1, i);
+        return (pts[idx] / maxVal) * (height * 0.4);
+      };
+
       if (activeTab === "waveform") ctx.fillStyle = "rgba(6, 182, 212, 0.12)";
       ctx.strokeStyle = "#06b6d4";
 
       ctx.beginPath();
       for (let i = 0; i <= points; i++) {
         const x = (width / points) * i;
-        const t = i / points;
-        let amp = 0.15;
-        if (t > 0.06 && t < 0.2) amp = 0.35 + Math.sin(t * 80) * 0.1;
-        if (t >= 0.2 && t < 0.48) amp = 0.25 + Math.cos(t * 100) * 0.08;
-        if (t >= 0.48 && t < 0.7) amp = 0.45 + Math.sin(t * 120) * 0.15;
-        if (t >= 0.7 && t < 0.88) amp = 0.65 + Math.sin(t * 50) * 0.18;
-        if (t >= 0.88) amp = 0.5 + Math.sin(t * 60) * 0.12;
-        
-        const finalAmp = Math.max(0.04, amp + Math.sin(i * 1.7) * 0.03) * (height * 0.35);
-        if (i === 0) ctx.moveTo(x, (height * 0.25) - finalAmp);
-        else ctx.lineTo(x, (height * 0.25) - finalAmp);
+        const finalAmp = getRealAmp(i);
+        if (i === 0) ctx.moveTo(x, (height * 0.5) - finalAmp);
+        else ctx.lineTo(x, (height * 0.5) - finalAmp);
       }
       for (let i = points; i >= 0; i--) {
         const x = (width / points) * i;
-        const t = i / points;
-        let amp = 0.15;
-        if (t > 0.06 && t < 0.2) amp = 0.35 + Math.sin(t * 80) * 0.1;
-        if (t >= 0.2 && t < 0.48) amp = 0.25 + Math.cos(t * 100) * 0.08;
-        if (t >= 0.48 && t < 0.7) amp = 0.45 + Math.sin(t * 120) * 0.15;
-        if (t >= 0.7 && t < 0.88) amp = 0.65 + Math.sin(t * 50) * 0.18;
-        if (t >= 0.88) amp = 0.5 + Math.sin(t * 60) * 0.12;
-        const finalAmp = Math.max(0.04, amp + Math.sin(i * 1.7) * 0.03) * (height * 0.35);
-        ctx.lineTo(x, (height * 0.25) + finalAmp);
-      }
-      ctx.closePath();
-      if (activeTab === "waveform") ctx.fill();
-      ctx.stroke();
-
-      ctx.beginPath();
-      if (activeTab === "waveform") ctx.fillStyle = "rgba(139, 92, 246, 0.1)";
-      ctx.strokeStyle = "#8b5cf6";
-      for (let i = 0; i <= points; i++) {
-        const x = (width / points) * i;
-        const t = i / points;
-        let amp = 0.15;
-        if (t > 0.06 && t < 0.2) amp = 0.32 + Math.sin(t * 70) * 0.08;
-        if (t >= 0.2 && t < 0.48) amp = 0.28 + Math.cos(t * 90) * 0.07;
-        if (t >= 0.48 && t < 0.7) amp = 0.42 + Math.sin(t * 110) * 0.12;
-        if (t >= 0.7 && t < 0.88) amp = 0.63 + Math.sin(t * 55) * 0.17;
-        if (t >= 0.88) amp = 0.48 + Math.sin(t * 65) * 0.1;
-        const finalAmp = Math.max(0.05, amp + Math.cos(i * 1.5) * 0.03) * (height * 0.35);
-        if (i === 0) ctx.moveTo(x, (height * 0.75) - finalAmp);
-        else ctx.lineTo(x, (height * 0.75) - finalAmp);
-      }
-      for (let i = points; i >= 0; i--) {
-        const x = (width / points) * i;
-        const t = i / points;
-        let amp = 0.15;
-        if (t > 0.06 && t < 0.2) amp = 0.32 + Math.sin(t * 70) * 0.08;
-        if (t >= 0.2 && t < 0.48) amp = 0.28 + Math.cos(t * 90) * 0.07;
-        if (t >= 0.48 && t < 0.7) amp = 0.42 + Math.sin(t * 110) * 0.12;
-        if (t >= 0.7 && t < 0.88) amp = 0.63 + Math.sin(t * 55) * 0.17;
-        if (t >= 0.88) amp = 0.48 + Math.sin(t * 65) * 0.1;
-        const finalAmp = Math.max(0.05, amp + Math.cos(i * 1.5) * 0.03) * (height * 0.35);
-        ctx.lineTo(x, (height * 0.75) + finalAmp);
+        const finalAmp = getRealAmp(i);
+        ctx.lineTo(x, (height * 0.5) + finalAmp);
       }
       ctx.closePath();
       if (activeTab === "waveform") ctx.fill();
@@ -1964,38 +1897,20 @@ function StereoAzimuthCanvasRenderer({ activeTab, refMode, isPlaying, progress, 
           ctx.fillRect(c * colWidth, height - (r * rowHeight) - rowHeight, colWidth + 0.5, rowHeight + 0.5);
         }
       }
-    } else if (activeTab === "pitch") {
-      ctx.strokeStyle = "#eab308";
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      for (let i = 0; i <= 200; i++) {
-        const x = (width / 200) * i;
-        const t = i / 200;
-        let pY = height * 0.55;
-        if (t > 0.06 && t < 0.4) pY = height * (0.6 + Math.sin(t * 30) * 0.1);
-        else if (t >= 0.4) pY = height * (0.4 + Math.cos(t * 22) * 0.1);
-        if (i === 0 || t < 0.06) ctx.moveTo(x, pY);
-        else ctx.lineTo(x, pY);
-      }
-      ctx.stroke();
     } else if (activeTab === "key") {
-      const segments = [
-        { start: 0, end: 18, key: "C Major", desc: "Intro Core", color: "rgba(59, 130, 246, 0.08)" },
-        { start: 18, end: 48, key: "A Minor 7", desc: "Pre-chorus Shift", color: "rgba(139, 92, 246, 0.12)" },
-        { start: 48, end: 70, key: "G Major", desc: "Bridge Dominant", color: "rgba(236, 72, 153, 0.1)" },
-        { start: 70, end: 100, key: "A Major Modulation", desc: "Chorus Modulation", color: "rgba(16, 185, 129, 0.12)" }
-      ];
-      segments.forEach((seg) => {
-        const sx = (width * seg.start) / 100;
-        const ex = (width * seg.end) / 100;
-        ctx.fillStyle = seg.color;
-        ctx.fillRect(sx, 0, ex - sx, height);
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-        ctx.strokeRect(sx, 0, ex - sx, height);
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 10px sans-serif";
-        ctx.fillText(seg.key, sx + 10, height * 0.4);
-      });
+      const realKey = liveMetrics?.calculatedKey || "Key Unavailable";
+      ctx.fillStyle = "rgba(59, 130, 246, 0.08)";
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+      ctx.strokeRect(0, 0, width, height);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 16px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(realKey, width / 2, height / 2);
+      ctx.font = "10px sans-serif";
+      ctx.fillStyle = "rgba(148, 163, 184, 0.6)";
+      ctx.fillText("Detected Key (Overall Track)", width / 2, height / 2 + 22);
+      ctx.textAlign = "left";
     } else if (activeTab === "azimuth") {
       const cols = 90;
       const rows = 24;
