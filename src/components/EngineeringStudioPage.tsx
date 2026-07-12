@@ -1279,13 +1279,14 @@ const generateHarmonicNodes = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                       <div className="bg-[#0A0B0E] p-4.5 rounded-2xl border border-white/5 flex flex-col items-center justify-center min-h-[220px]">
                         <span className="text-[9px] font-mono text-slate-500 uppercase font-bold tracking-wider mb-3">Stereo Soundstage Goniometer Target</span>
-                        <div className="w-32 h-32 rounded-full border border-pink-500/15 flex items-center justify-center relative bg-neutral-950 mb-3 overflow-hidden">
-                          <div className="absolute w-[1px] h-full bg-white/5" />
-                          <div className="absolute h-[1px] w-full bg-white/5" />
-                          <div className="absolute w-full h-[1px] bg-white/2 rotate-45" />
-                          <div className="absolute w-full h-[1px] bg-white/2 -rotate-45" />
-                          <div className={`absolute bg-pink-500/25 blur-xl rounded-full rotate-42 animate-pulse`} style={{ width: `${Math.round(60 + ((critique?.liveMetrics?.calculatedMidEnergy ?? 40) * 0.4))}px`, height: `${Math.round(80 + ((critique?.liveMetrics?.calculatedMidEnergy ?? 40) * 0.5))}px` }} />
-                          <div className={`absolute bg-blue-500/20 blur-md rounded-full -rotate-12`} style={{ width: `${Math.round(30 + ((critique?.liveMetrics?.calculatedBassEnergy ?? 35) * 0.5))}px`, height: `${Math.round(50 + ((critique?.liveMetrics?.calculatedBassEnergy ?? 35) * 0.7))}px` }} />
+                        <div className="w-32 h-32 rounded-full border border-pink-500/30 flex items-center justify-center relative bg-neutral-950 mb-3 overflow-hidden shadow-[0_0_25px_rgba(236,72,153,0.15)]">
+                          <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(236,72,153,0.10),rgba(0,0,0,0)_72%)]" />
+                          <div className="absolute w-[1px] h-full bg-white/10" />
+                          <div className="absolute h-[1px] w-full bg-white/10" />
+                          <div className="absolute w-full h-[1px] bg-white/5 rotate-45" />
+                          <div className="absolute w-full h-[1px] bg-white/5 -rotate-45" />
+                          <div className="absolute bg-gradient-to-br from-pink-400/70 via-fuchsia-500/50 to-transparent blur-lg rounded-full rotate-42 shadow-[0_0_30px_rgba(236,72,153,0.5)]" style={{ width: `${Math.round(60 + ((critique?.liveMetrics?.calculatedMidEnergy ?? 40) * 0.4))}px`, height: `${Math.round(80 + ((critique?.liveMetrics?.calculatedMidEnergy ?? 40) * 0.5))}px` }} />
+                          <div className="absolute bg-gradient-to-br from-cyan-400/60 via-blue-500/45 to-transparent blur-md rounded-full -rotate-12 shadow-[0_0_25px_rgba(59,130,246,0.4)]" style={{ width: `${Math.round(30 + ((critique?.liveMetrics?.calculatedBassEnergy ?? 35) * 0.5))}px`, height: `${Math.round(50 + ((critique?.liveMetrics?.calculatedBassEnergy ?? 35) * 0.7))}px` }} />
                         </div>
                         <span className="text-[10px] font-mono text-slate-400">{(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25; const width = Math.round(45 + (high * 0.8) - (bass * 0.3)); return `Total Spatial Breadth Index: ${width > 70 ? "wide" : width > 55 ? "moderate" : "narrow"} (${width}°)`; })()}</span>
                       </div>
@@ -1327,17 +1328,18 @@ const generateHarmonicNodes = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                       <div className="bg-[#0A0B0E] p-4.5 rounded-2xl border border-white/5 relative min-h-[200px] flex flex-col justify-between">
                         <span className="text-[9.5px] font-mono text-slate-500 font-bold uppercase tracking-wider block mb-4">Acoustic Spatial Positioning (Bird's-Eye Perspective)</span>
-                        <div className="flex-1 w-full relative border border-white/[0.04] p-3 rounded-xl bg-neutral-950 flex flex-col justify-end overflow-hidden pb-8">
-                          <div className="absolute inset-x-0 h-[1.5px] bg-white/2 top-11" />
-                          <div className="absolute inset-x-0 h-[1.5px] bg-white/2 top-24" />
-                          <div className="absolute top-1 left-1/2 -ml-22 w-44 h-10 border border-teal-500/10 bg-teal-500/[0.02] rounded-full blur-md flex items-center justify-center text-[9px] text-teal-400">
+                        <div className="flex-1 w-full relative border border-white/[0.08] p-3 rounded-xl bg-neutral-950 flex flex-col justify-end overflow-hidden pb-8 shadow-[inset_0_0_40px_rgba(0,0,0,0.4)]">
+                          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.06),rgba(0,0,0,0)_75%)]" />
+                          <div className="absolute inset-x-0 h-[1.5px] bg-white/8 top-11" />
+                          <div className="absolute inset-x-0 h-[1.5px] bg-white/8 top-24" />
+                          <div className="absolute top-1 left-1/2 -ml-22 w-44 h-10 border border-teal-400/40 bg-gradient-to-b from-teal-500/20 to-teal-500/5 rounded-full blur-[2px] flex items-center justify-center text-[9px] text-teal-300 font-semibold shadow-[0_0_18px_rgba(45,212,191,0.25)]">
                             Reverb Ambience / Side Delay Cloud
                           </div>
-                          <div className="absolute top-12 left-1/2 -ml-28 w-56 h-12 border border-[#2563EB]/15 bg-blue-500/[0.02] rounded-full flex items-center justify-between px-3 text-[9px] text-slate-500">
+                          <div className="absolute top-12 left-1/2 -ml-28 w-56 h-12 border border-blue-400/40 bg-gradient-to-b from-blue-500/18 to-blue-500/5 rounded-full flex items-center justify-between px-3 text-[9px] text-slate-200 font-medium shadow-[0_0_18px_rgba(59,130,246,0.2)]">
                             <span>{critique?.liveMetrics?.calculatedBassEnergy !== undefined && critique.liveMetrics.calculatedBassEnergy > 30 ? "Bass / Low-End (Left)" : critique?.liveMetrics?.calculatedHighEnergy !== undefined && critique.liveMetrics.calculatedHighEnergy > 35 ? "Synths / Keys (Left)" : "Rhythm Guitars (Left)"}</span>
                             <span>{critique?.liveMetrics?.calculatedHighEnergy !== undefined && critique.liveMetrics.calculatedHighEnergy > 35 ? "Percussion / Hi-Hats (Right)" : critique?.liveMetrics?.calculatedMidEnergy !== undefined && critique.liveMetrics.calculatedMidEnergy > 50 ? "Guitar Group (Right)" : "Ambient / Pads (Right)"}</span>
                           </div>
-                          <div className="absolute top-24 left-1/2 -ml-16 w-32 h-10 border border-purple-500/30 bg-purple-500/[0.04] rounded-full flex items-center justify-center text-[9.5px] font-bold text-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.1)]">
+                          <div className="absolute top-24 left-1/2 -ml-16 w-32 h-10 border border-purple-400/60 bg-gradient-to-b from-purple-500/25 to-purple-500/10 rounded-full flex items-center justify-center text-[9.5px] font-bold text-purple-200 shadow-[0_0_22px_rgba(168,85,247,0.35)]">
                             {critique?.liveMetrics?.calculatedMidEnergy !== undefined && critique.liveMetrics.calculatedMidEnergy > 50 ? "Lead Vocal / Snare" : critique?.liveMetrics?.calculatedBassEnergy !== undefined && critique.liveMetrics.calculatedBassEnergy > 30 ? "Kick / Bass Center" : "Lead Vocal / Center"}
                           </div>
                         </div>
