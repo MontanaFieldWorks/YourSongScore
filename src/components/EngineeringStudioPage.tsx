@@ -921,39 +921,37 @@ const generateHarmonicNodes = () => {
                           L / R True Peak Output Sweep (-60 dB to 0 dB)
                         </span>
                         
-                        {/* Left Channel */}
-                        <div className="flex items-center gap-3 mb-3.5">
-                          <span className="text-[9px] font-mono text-slate-400 w-3 font-semibold">L</span>
-                          <div className="flex-1 h-3.5 bg-neutral-950 rounded border border-white/5 overflow-hidden flex p-[1.5px] gap-[1px]">
-                            {Array.from({ length: 30 }).map((_, i) => {
-                              const value = i / 30;
-                              let color = "bg-teal-500 shadow-[0_0_5px_rgba(20,184,166,0.4)]";
-                              if (value > 0.8) color = "bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.6)]";
-                              else if (value > 0.65) color = "bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.5)]";
-                              const isActive = isPlaying ? (i < 24 + Math.round(Math.sin((azimuthProgress + i) * 0.4) * 3)) : (i < 22);
-                              return (
-                                <div key={i} className={`h-full flex-1 rounded-sm transition-opacity duration-150 ${color} ${isActive ? "opacity-100" : "opacity-10"}`} />
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Right Channel */}
-                        <div className="flex items-center gap-3">
-                          <span className="text-[9px] font-mono text-slate-400 w-3 font-semibold">R</span>
-                          <div className="flex-1 h-3.5 bg-neutral-950 rounded border border-white/5 overflow-hidden flex p-[1.5px] gap-[1px]">
-                            {Array.from({ length: 30 }).map((_, i) => {
-                              const value = i / 30;
-                              let color = "bg-teal-500 shadow-[0_0_5px_rgba(20,184,166,0.4)]";
-                              if (value > 0.8) color = "bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.6)]";
-                              else if (value > 0.65) color = "bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.5)]";
-                              const isActive = isPlaying ? (i < 25 + Math.round(Math.cos((azimuthProgress - i) * 0.5) * 3)) : (i < 21);
-                              return (
-                                <div key={i} className={`h-full flex-1 rounded-sm transition-opacity duration-150 ${color} ${isActive ? "opacity-100" : "opacity-10"}`} />
-                              );
-                            })}
-                          </div>
-                        </div>
+                        {(() => {
+                          const realTruePeak = critique?.liveMetrics?.calculatedTruePeak ?? -6;
+                          const baseActiveSegments = Math.max(0, Math.min(30, Math.round(((realTruePeak + 60) / 60) * 30)));
+                          const renderChannel = (label: string, jitterSeed: number) => {
+                            const liveJitter = isPlaying ? Math.round(Math.sin((azimuthProgress + jitterSeed) * 0.4) * 1.5) : 0;
+                            const activeSegments = Math.max(0, Math.min(30, baseActiveSegments + liveJitter));
+                            return (
+                              <div className="flex items-center gap-3 mb-3.5 last:mb-0">
+                                <span className="text-[9px] font-mono text-slate-400 w-3 font-semibold">{label}</span>
+                                <div className="flex-1 h-3.5 bg-neutral-950 rounded border border-white/5 overflow-hidden flex p-[1.5px] gap-[1px]">
+                                  {Array.from({ length: 30 }).map((_, i) => {
+                                    const value = i / 30;
+                                    let color = "bg-teal-500 shadow-[0_0_5px_rgba(20,184,166,0.4)]";
+                                    if (value > 0.8) color = "bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.6)]";
+                                    else if (value > 0.65) color = "bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.5)]";
+                                    const isActive = i < activeSegments;
+                                    return (
+                                      <div key={i} className={`h-full flex-1 rounded-sm transition-opacity duration-150 ${color} ${isActive ? "opacity-100" : "opacity-10"}`} />
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          };
+                          return (
+                            <>
+                              {renderChannel("L", 0)}
+                              {renderChannel("R", 4)}
+                            </>
+                          );
+                        })()}
                       </div>
 
                       {/* Clipping detection */}
@@ -1010,13 +1008,14 @@ const generateHarmonicNodes = () => {
                           {critique?.liveMetrics?.calculatedLra !== undefined ? `${critique.liveMetrics.calculatedLra} LU` : "6.2 LU"}
                         </div>
                         <p className="text-[9.5px] text-slate-400 mt-1 leading-relaxed">
-                          {critique?.liveMetrics?.calculatedLra !== undefined
-                            ? critique.liveMetrics.calculatedLra < 4
-                              ? "Narrow dynamic range — mix may feel flat. Verses and choruses are close in perceived volume."
-                              : critique.liveMetrics.calculatedLra > 12
-                              ? "Wide dynamic range — verify choruses hit hard enough on consumer playback systems."
-                              : "Healthy dynamic variation between quiet and loud sections detected."
-                            : "Healthy margin indicating dynamic variation between verse and chorus build-ups."}
+                          {(() => {
+                            const lraBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                            const lra = critique?.liveMetrics?.calculatedLra;
+                            if (lra === undefined) return `Target window for ${lraBucket.label}: ${lraBucket.lraMin}${lraBucket.lraMax !== null ? `-${lraBucket.lraMax}` : "+"} LU.`;
+                            if (lra < lraBucket.lraMin) return `Narrower than the ${lraBucket.lraMin}-${lraBucket.lraMax ?? "+"} LU target for ${lraBucket.label} — mix may feel flat, with verses and choruses too close in perceived volume.`;
+                            if (lraBucket.lraMax !== null && lra > lraBucket.lraMax) return `Wider than the ${lraBucket.lraMin}-${lraBucket.lraMax} LU target for ${lraBucket.label} — verify choruses hit hard enough on consumer playback systems.`;
+                            return `Healthy dynamic variation, within the ${lraBucket.lraMin}${lraBucket.lraMax !== null ? `-${lraBucket.lraMax}` : "+"} LU target for ${lraBucket.label}.`;
+                          })()}
                         </p>
                       </div>
 
@@ -1144,13 +1143,30 @@ const generateHarmonicNodes = () => {
                     <div className="bg-[#0A0B0E] p-4 rounded-xl border border-white/5 text-center">
                       <span className="text-[9.5px] font-mono text-slate-500 uppercase tracking-wider block">Peak-to-Loudness (PLR)</span>
                       <span className="text-2xl font-black text-white mt-1.5 block font-mono text-glow">{critique?.liveMetrics?.calculatedTruePeak !== undefined && critique?.liveMetrics?.calculatedLufs !== undefined ? `${Math.abs(parseFloat((critique.liveMetrics.calculatedTruePeak - critique.liveMetrics.calculatedLufs).toFixed(1)))} PLR` : "9.5 PLR"}</span>
-                      <span className="text-[9px] text-slate-400 mt-1 block">Ideal transient balance; no severe brickwalling detected.</span>
+                      <span className="text-[9px] text-slate-400 mt-1 block">
+                        {(() => {
+                          if (critique?.liveMetrics?.calculatedTruePeak === undefined || critique?.liveMetrics?.calculatedLufs === undefined) return "Ideal transient balance; no severe brickwalling detected.";
+                          const plr = Math.abs(critique.liveMetrics.calculatedTruePeak - critique.liveMetrics.calculatedLufs);
+                          if (plr < 5) return "Severe brickwalling detected - transients are being heavily compressed, reducing punch and dynamics.";
+                          if (plr < 8) return "Moderate transient compression - some brickwalling present, but within an acceptable range.";
+                          return "Ideal transient balance; no severe brickwalling detected.";
+                        })()}
+                      </span>
                     </div>
 
                     <div className="bg-[#0A0B0E] p-4 rounded-xl border border-white/5 text-center">
                       <span className="text-[9.5px] font-mono text-slate-500 uppercase tracking-wider block">Dynamic Range Score</span>
                       <span className="text-2xl font-black text-rose-400 mt-1.5 block font-mono text-glow">{critique?.liveMetrics?.calculatedLra !== undefined ? `DR${Math.round(critique.liveMetrics.calculatedLra)}` : "DR9"}</span>
-                      <span className="text-[9px] text-slate-400 mt-1 block">Highly safe dynamic index for commercial and digital delivery.</span>
+                      <span className="text-[9px] text-slate-400 mt-1 block">
+                        {(() => {
+                          const drBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                          const lra = critique?.liveMetrics?.calculatedLra;
+                          if (lra === undefined) return "Highly safe dynamic index for commercial and digital delivery.";
+                          if (lra < drBucket.lraMin) return `Below the ${drBucket.lraMin}-${drBucket.lraMax ?? "+"} DR target for ${drBucket.label} - mix may feel over-compressed for this genre.`;
+                          if (drBucket.lraMax !== null && lra > drBucket.lraMax) return `Above the ${drBucket.lraMin}-${drBucket.lraMax} DR target for ${drBucket.label} - verify sections still hit hard enough on consumer systems.`;
+                          return `Healthy dynamic index within the ${drBucket.lraMin}-${drBucket.lraMax ?? "+"} DR target for ${drBucket.label}.`;
+                        })()}
+                      </span>
                     </div>
 
                     <div className="bg-[#0A0B0E] p-4 rounded-xl border border-white/5 text-center">
@@ -1164,7 +1180,15 @@ const generateHarmonicNodes = () => {
                           return "Clean";
                         })()}
                       </span>
-                      <span className="text-[9px] text-slate-400 mt-1 block">No aggressive compressor breathing or transient smearing.</span>
+                      <span className="text-[9px] text-slate-400 mt-1 block">
+                        {(() => {
+                          const b1158b = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                          if (critique?.liveMetrics?.calculatedLufs === undefined) return "No aggressive compressor breathing or transient smearing.";
+                          if (critique.liveMetrics.calculatedLufs > b1158b.lufsMax) return "Aggressive limiting detected - likely compressor breathing and transient smearing at loud sections.";
+                          if (critique.liveMetrics.calculatedLufs > b1158b.lufsMin) return "Some compressor engagement present, but within a reasonable range for this genre.";
+                          return "No aggressive compressor breathing or transient smearing.";
+                        })()}
+                      </span>
                     </div>
                   </div>
 
