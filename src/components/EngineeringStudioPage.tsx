@@ -174,7 +174,7 @@ export default function EngineeringStudioPage({ onBack, critique, trackInfo, loc
     "harmonic" | "signal" | "frequency" | "dynamics" | "stereo" | "spatial" | "harmonicContent" | "genre" | "noise" | "arrangement" | "azimuth"
   >("harmonic");
 
-  const [stereoTab, setStereoTab] = useState<"phase" | "depth">("phase");
+
 
   // Azimuth Analyzer states
   const [azimuthProgress, setAzimuthProgress] = useState(0);
@@ -623,7 +623,7 @@ const generateHarmonicNodes = () => {
                 { id: "harmonic", label: "Harmonic Resolution", sub: "EQ Resonance Sweep", icon: Activity, color: "text-blue-400" },
                 { id: "signal", label: "Signal & Levels", sub: "Loudness & Peak", icon: Gauge, color: "text-cyan-400" },
                 { id: "dynamics", label: "Dynamics Profile", sub: "PLR & Compression", icon: AudioLines, color: "text-rose-400" },
-                { id: "stereo", label: "Stereo Field", sub: "M/S & Phase Corridor", icon: Speaker, color: "text-pink-400" },
+                { id: "stereo", label: "Visualizations", sub: "Spectrogram, Phase & Depth", icon: Speaker, color: "text-pink-400" },
                 { id: "genre", label: "Genre Compliance", sub: "Streaming Standards", icon: Tags, color: "text-lime-300" },
                 { id: "noise", label: "Noise & Artifacts", sub: "DC Offset & Hiss", icon: Antenna, color: "text-teal-400" },
                 { id: "arrangement", label: "Arrangement Patterns", sub: "Frequency Masking", icon: LayoutDashboard, color: "text-slate-400" },
@@ -948,18 +948,6 @@ const generateHarmonicNodes = () => {
                     })()}
                   </div>
 
-                  <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-4.5 flex flex-col gap-3 mt-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9.5px] font-mono text-slate-500 uppercase font-bold tracking-wider">Spectrogram View</span>
-                      <span className="text-[9px] font-mono text-slate-600">Frequency × Time Energy Map</span>
-                    </div>
-                    {localFileBlobUrl ? (
-                      <SpectrogramCanvas blobUrl={localFileBlobUrl} />
-                    ) : (
-                      <div className="h-[160px] flex items-center justify-center text-[10px] text-slate-600 font-mono">Upload a local file to enable spectrogram view.</div>
-                    )}
-                    <p className="text-[9px] text-slate-600">Horizontal axis: time. Vertical axis: frequency (low → high). Color intensity: energy (dark → bright).</p>
-                  </div>
                 </div>
               )}
 
@@ -1269,15 +1257,25 @@ const generateHarmonicNodes = () => {
                   <div className="flex items-center justify-between border-b border-white/5 pb-3">
                     <div className="flex items-center gap-2.5">
                       <Speaker className="w-5 h-5 text-pink-400" />
-                      <h3 className="font-bold text-sm uppercase text-slate-200 tracking-wider">Stereo Field & Spatial Depth</h3>
-                    </div>
-                    <div className="flex gap-1.5">
-                      <button onClick={() => setStereoTab("phase")} className={`text-[10px] font-mono px-3 py-1 rounded-lg border transition-all ${stereoTab === "phase" ? "bg-pink-500/15 border-pink-500/30 text-pink-400" : "bg-transparent border-white/5 text-slate-500 hover:text-slate-300"}`}>Phase Corridor</button>
-                      <button onClick={() => setStereoTab("depth")} className={`text-[10px] font-mono px-3 py-1 rounded-lg border transition-all ${stereoTab === "depth" ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400" : "bg-transparent border-white/5 text-slate-500 hover:text-slate-300"}`}>Depth Map</button>
+                      <h3 className="font-bold text-sm uppercase text-slate-200 tracking-wider">Visualizations</h3>
                     </div>
                   </div>
 
-                  {stereoTab === "phase" && (
+                  <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-4.5 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9.5px] font-mono text-slate-500 uppercase font-bold tracking-wider">Spectrogram View</span>
+                      <span className="text-[9px] font-mono text-slate-600">Frequency × Time Energy Map</span>
+                    </div>
+                    {localFileBlobUrl ? (
+                      <SpectrogramCanvas blobUrl={localFileBlobUrl} />
+                    ) : (
+                      <div className="h-[160px] flex items-center justify-center text-[10px] text-slate-600 font-mono">Upload a local file to enable spectrogram view.</div>
+                    )}
+                    <p className="text-[9px] text-slate-600">Horizontal axis: time. Vertical axis: frequency (low → high). Color intensity: energy (dark → bright).</p>
+                  </div>
+
+                  <span className="text-[10px] font-mono text-slate-500 uppercase font-bold tracking-wider border-b border-white/5 pb-2">Phase Corridor</span>
+                  {(
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                       <div className="bg-[#0A0B0E] p-4.5 rounded-2xl border border-white/5 flex flex-col items-center justify-center min-h-[220px]">
                         <span className="text-[9px] font-mono text-slate-500 uppercase font-bold tracking-wider mb-3">Stereo Soundstage Goniometer Target</span>
@@ -1324,7 +1322,8 @@ const generateHarmonicNodes = () => {
                     </div>
                   )}
 
-                  {stereoTab === "depth" && (
+                  <span className="text-[10px] font-mono text-slate-500 uppercase font-bold tracking-wider border-b border-white/5 pb-2">Depth Map</span>
+                  {(
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                       <div className="bg-[#0A0B0E] p-4.5 rounded-2xl border border-white/5 relative min-h-[200px] flex flex-col justify-between">
                         <span className="text-[9.5px] font-mono text-slate-500 font-bold uppercase tracking-wider block mb-4">Acoustic Spatial Positioning (Bird's-Eye Perspective)</span>
