@@ -623,7 +623,6 @@ const generateHarmonicNodes = () => {
                 { id: "harmonic", label: "Harmonic Resolution", sub: "EQ Resonance Sweep", icon: Activity, color: "text-blue-400" },
                 { id: "signal", label: "Signal & Levels", sub: "Loudness & Peak", icon: Gauge, color: "text-cyan-400" },
                 { id: "dynamics", label: "Dynamics Profile", sub: "PLR & Compression", icon: AudioLines, color: "text-rose-400" },
-                { id: "frequency", label: "Frequency Balance", sub: "Spectral Octave Grid", icon: Sliders, color: "text-purple-400" },
                 { id: "stereo", label: "Stereo Field", sub: "M/S & Phase Corridor", icon: Speaker, color: "text-pink-400" },
                 { id: "genre", label: "Genre Compliance", sub: "Streaming Standards", icon: Tags, color: "text-lime-300" },
                 { id: "noise", label: "Noise & Artifacts", sub: "DC Offset & Hiss", icon: Antenna, color: "text-teal-400" },
@@ -697,6 +696,65 @@ const generateHarmonicNodes = () => {
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Optimized
                       </span>
                     </div>
+                  </div>
+
+                  {/* At-a-glance 6-band energy strip, genre-aware targets */}
+                  <div className="grid grid-cols-3 md:grid-cols-6 gap-2.5">
+                    {(() => {
+                      const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35;
+                      const mid = critique?.liveMetrics?.calculatedMidEnergy ?? 40;
+                      const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25;
+                      const bandBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                      const BAND_IDEALS: Record<string, number[]> = {
+                        hiphop:     [65, 62, 55, 50, 48, 42],
+                        mainstream: [55, 60, 60, 55, 55, 50],
+                        indie:      [45, 50, 55, 58, 52, 45],
+                        classical:  [35, 40, 45, 48, 40, 35],
+                      };
+                      const ideals = BAND_IDEALS[bandBucket.key] ?? BAND_IDEALS.mainstream;
+                      const subBassVal = Math.min(99, Math.round(30 + (bass * 1.4)));
+                      const bassCorridorVal = Math.min(99, Math.round(35 + (bass * 1.2)));
+                      const lowMidVal = Math.min(99, Math.round(20 + (mid * 0.9)));
+                      const coreMidVal = Math.min(99, Math.round(15 + (mid * 0.8)));
+                      const presenceVal = Math.min(99, Math.round(15 + (high * 1.1)));
+                      const airVal = Math.min(99, Math.round(10 + (high * 0.95)));
+                      const getStatus = (v: number, ideal: number) =>
+                        v > ideal + 15 ? "Peak" : v > ideal + 7 ? "Slight Peak" : v < ideal - 15 ? "Deficit" : v < ideal - 7 ? "Slight Deficit" : "Nominal";
+                      const bands = [
+                        { band: "Sub-Bass", r: "20-64Hz", val: subBassVal, status: getStatus(subBassVal, ideals[0]), color: "from-blue-600 to-blue-400" },
+                        { band: "Bass", r: "64-250Hz", val: bassCorridorVal, status: getStatus(bassCorridorVal, ideals[1]), color: "from-indigo-600 to-indigo-400" },
+                        { band: "Low-Mids", r: "250Hz-1kHz", val: lowMidVal, status: getStatus(lowMidVal, ideals[2]), color: "from-purple-600 to-purple-400" },
+                        { band: "Core Mids", r: "1-4kHz", val: coreMidVal, status: getStatus(coreMidVal, ideals[3]), color: "from-pink-600 to-pink-400" },
+                        { band: "Presence", r: "4-8kHz", val: presenceVal, status: getStatus(presenceVal, ideals[4]), color: "from-rose-600 to-rose-400" },
+                        { band: "Air", r: "8-20kHz", val: airVal, status: getStatus(airVal, ideals[5]), color: "from-teal-600 to-teal-400" }
+                      ];
+                      return bands.map((band) => (
+                        <div key={band.band} className="bg-[#0A0B0E] border border-white/5 p-2.5 rounded-xl flex flex-col items-center justify-between min-h-[110px]">
+                          <span className="text-[9px] font-bold text-slate-200 tracking-wide text-center">{band.band}</span>
+                          <span className="text-[7px] font-mono text-slate-500 uppercase">{band.r}</span>
+                          <div className="w-3.5 h-12 bg-neutral-950 rounded-full flex flex-col justify-end p-[2px] border border-white/5 mt-1.5">
+                            <div
+                              className={`w-full rounded-full bg-gradient-to-t ${band.color} transition-all duration-300`}
+                              style={{ height: `${band.val}%` }}
+                            />
+                          </div>
+                          <span className="text-[8px] font-mono uppercase tracking-wider text-purple-400 font-bold mt-1.5">{band.status}</span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+
+                  {/* Spectral Tilt Indicator */}
+                  <div className="bg-neutral-900 border border-white/5 p-4 rounded-xl mt-1 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-left">
+                    <div className="text-left">
+                      <span className="text-[10px] font-mono text-slate-500 uppercase font-bold block mb-1">Spectral Tilt Indicator</span>
+                      <p className="text-[11.5px] text-slate-300">
+                        {(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25; const tilt = parseFloat((-2.0 - (bass * 0.08) + (high * 0.04)).toFixed(1)); return <>Your master registers a spectral tilt of <span className="text-purple-400 font-mono font-bold">{tilt}dB/oct</span>. {tilt < -5 ? "This indicates a bass-heavy, warm analog profile — common in classic rock and vintage recordings." : tilt < -3 ? "This translates to a balanced, natural spectral slope well-suited for modern streaming." : "This indicates a bright, high-energy mix — presence and air are elevated relative to the low end."}</>; })()}
+                      </p>
+                    </div>
+                    <span className="px-3.5 py-1.5 bg-[#0A0B0E] border border-purple-500/20 text-purple-400 font-mono tracking-widest text-[9.5px] rounded-lg uppercase whitespace-nowrap">
+                      {(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25; if (bass > 40) return "Bass-Heavy Tilt"; if (bass > 28 && high < 25) return "Slight Sub Bass Tilt"; if (high > 35) return "Bright High-End Tilt"; if (high > 28) return "Slight High-End Tilt"; return "Neutral Spectral Balance"; })()}
+                    </span>
                   </div>
 
                   {/* The SVG Canvas wrapper */}
@@ -1065,71 +1123,7 @@ const generateHarmonicNodes = () => {
                 </div>
               )}
 
-              {/* VIEW 3: Frequency Balance */}
-              {activeView === "frequency" && (
-                <div className="bg-[#13161C] border border-[#2563EB]/25 rounded-3xl p-6 shadow-xl flex flex-col gap-5 text-left animate-fadeIn">
-                  <div className="flex items-center gap-2.5 border-b border-white/5 pb-3">
-                    <Sliders className="w-5 h-5 text-purple-400" />
-                    <h3 className="font-bold text-sm uppercase text-slate-200 tracking-wider">Multi-Band Spectre Balance Analysis</h3>
-                  </div>
 
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Sweeping relative frequencies across major audio octaves. Below, the bar meters display energy matching industry-ideal densities.
-                  </p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-3 pt-2">
-                    {(() => {
-                      const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35;
-                      const mid = critique?.liveMetrics?.calculatedMidEnergy ?? 40;
-                      const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25;
-                      const subBassVal = Math.min(99, Math.round(30 + (bass * 1.4)));
-                      const bassCorridorVal = Math.min(99, Math.round(35 + (bass * 1.2)));
-                      const lowMidVal = Math.min(99, Math.round(20 + (mid * 0.9)));
-                      const coreMidVal = Math.min(99, Math.round(15 + (mid * 0.8)));
-                      const presenceVal = Math.min(99, Math.round(15 + (high * 1.1)));
-                      const airVal = Math.min(99, Math.round(10 + (high * 0.95)));
-                      const getStatus = (v: number, ideal: number) =>
-                        v > ideal + 15 ? "Peak" : v > ideal + 7 ? "Slight Peak" : v < ideal - 15 ? "Deficit" : v < ideal - 7 ? "Slight Deficit" : "Nominal";
-                      return [
-                        { band: "Sub-Bass", r: "20 - 64 Hz", val: subBassVal, status: getStatus(subBassVal, 55), color: "from-blue-600 to-blue-400" },
-                        { band: "Bass Corridor", r: "64 - 250 Hz", val: bassCorridorVal, status: getStatus(bassCorridorVal, 60), color: "from-indigo-600 to-indigo-400" },
-                        { band: "Low-Mids", r: "250 - 1000 Hz", val: lowMidVal, status: getStatus(lowMidVal, 60), color: "from-purple-600 to-purple-400" },
-                        { band: "Core Mids", r: "1kHz - 4kHz", val: coreMidVal, status: getStatus(coreMidVal, 55), color: "from-pink-600 to-pink-400" },
-                        { band: "Presence", r: "4kHz - 8kHz", val: presenceVal, status: getStatus(presenceVal, 55), color: "from-rose-600 to-rose-400" },
-                        { band: "Air", r: "8kHz - 20kHz", val: airVal, status: getStatus(airVal, 50), color: "from-teal-600 to-teal-400" }
-                      ];
-                    })().map((band) => (
-                      <div key={band.band} className="bg-[#0A0B0E] border border-white/5 p-3.5 rounded-2xl flex flex-col items-center justify-between min-h-[190px]">
-                        <span className="text-[10px] font-bold text-slate-200 tracking-wide">{band.band}</span>
-                        <span className="text-[8px] font-mono text-slate-500 uppercase">{band.r}</span>
-                        
-                        <div className="w-5 h-24 bg-neutral-950 rounded-full flex flex-col justify-end p-[2px] border border-white/5 mt-3">
-                          <div 
-                            className={`w-full rounded-full bg-gradient-to-t ${band.color} shadow-[0_0_10px_rgba(139,92,246,0.3)] transition-all duration-300`}
-                            style={{ height: `${band.val}%` }}
-                          />
-                        </div>
-
-                        <span className="text-[9px] font-mono uppercase tracking-wider text-purple-400 font-bold mt-3">
-                          {band.status}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="bg-neutral-900 border border-white/5 p-4 rounded-xl mt-2 flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
-                    <div className="text-left">
-                      <span className="text-[10px] font-mono text-slate-500 uppercase font-bold block mb-1">Spectral Tilt Indicator</span>
-                      <p className="text-[11.5px] text-slate-300">
-                        {(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25; const tilt = parseFloat((-2.0 - (bass * 0.08) + (high * 0.04)).toFixed(1)); return <>Your master registers a spectral tilt of <span className="text-purple-400 font-mono font-bold">{tilt}dB/oct</span>. {tilt < -5 ? "This indicates a bass-heavy, warm analog profile — common in classic rock and vintage recordings." : tilt < -3 ? "This translates to a balanced, natural spectral slope well-suited for modern streaming." : "This indicates a bright, high-energy mix — presence and air are elevated relative to the low end."}</>; })()}
-                      </p>
-                    </div>
-                    <span className="px-3.5 py-1.5 bg-[#0A0B0E] border border-purple-500/20 text-purple-400 font-mono tracking-widest text-[9.5px] rounded-lg uppercase whitespace-nowrap">
-                      {(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25; if (bass > 40) return "Bass-Heavy Tilt"; if (bass > 28 && high < 25) return "Slight Sub Bass Tilt"; if (high > 35) return "Bright High-End Tilt"; if (high > 28) return "Slight High-End Tilt"; return "Neutral Spectral Balance"; })()}
-                    </span>
-                  </div>
-                </div>
-              )}
 
               {/* VIEW 4: Dynamics Profile */}
               {activeView === "dynamics" && (
