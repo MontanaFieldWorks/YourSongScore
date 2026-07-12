@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import FFT from "fft.js";
 import { 
   ArrowLeft, ArrowRight, Volume2, Sliders, Mic, CheckCircle, Square, Play, Pause, 
   Activity, Sparkles, Cpu, AlertTriangle, Check, RotateCcw, Compass, Layers, CheckSquare,
@@ -88,10 +89,6 @@ function SpectrogramCanvas({ blobUrl }: { blobUrl: string }) {
         const height = canvas.height;
         const freqBins = fftSize / 2;
 
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = fftSize;
-        const freqData = new Uint8Array(analyser.frequencyBinCount);
-
         const offscreen = document.createElement('canvas');
         offscreen.width = width;
         offscreen.height = height;
@@ -100,26 +97,67 @@ function SpectrogramCanvas({ blobUrl }: { blobUrl: string }) {
 
         const colWidth = canvas.width / width;
 
+        const fft = new FFT(fftSize);
+        const complexOutput = fft.createComplexArray();
+
+        // Precompute a Hann window to reduce spectral leakage
+        const hannWindow = new Float32Array(fftSize);
+        for (let n = 0; n < fftSize; n++) {
+          hannWindow[n] = 0.5 * (1 - Math.cos((2 * Math.PI * n) / (fftSize - 1)));
+        }
+
         for (let i = 0; i < width; i++) {
           const frameStart = Math.floor((i / width) * (channelData.length - fftSize));
           const frame = channelData.slice(frameStart, frameStart + fftSize);
-          
-          // Simple magnitude approximation using chunks
-          const chunkSize = Math.floor(fftSize / height);
+
+          const windowedFrame = new Array(fftSize);
+          for (let n = 0; n < fftSize; n++) {
+            windowedFrame[n] = (frame[n] || 0) * hannWindow[n];
+          }
+
+          fft.realTransform(complexOutput, windowedFrame);
+          fft.completeSpectrum(complexOutput);
+
+          // Real FFT magnitude in dB for each frequency bin
+          const magnitudesDb = new Float32Array(freqBins);
+          for (let k = 0; k < freqBins; k++) {
+            const re = complexOutput[2 * k];
+            const im = complexOutput[2 * k + 1];
+            const mag = Math.sqrt(re * re + im * im) / fftSize;
+            magnitudesDb[k] = 20 * Math.log10(mag + 1e-9);
+          }
+
           for (let j = 0; j < height; j++) {
-            let sum = 0;
-            const start = j * chunkSize;
-            for (let k = start; k < start + chunkSize && k < frame.length; k++) {
-              sum += Math.abs(frame[k]);
-            }
-            const mag = Math.min(1, (sum / chunkSize) * 8);
             const invJ = height - 1 - j;
-            
-            // Color: dark blue → cyan → yellow → white
-            const r = mag < 0.5 ? 0 : Math.round((mag - 0.5) * 2 * 255);
-            const g = mag < 0.25 ? 0 : mag < 0.75 ? Math.round((mag - 0.25) * 4 * 255) : 255;
-            const b = mag < 0.5 ? Math.round(mag * 2 * 180) : Math.round((1 - mag) * 255);
-            
+
+            // Log-frequency scale: pixel row j (0=lowest, height-1=highest) maps to a log-scaled bin
+            const logMin = Math.log10(2);
+            const logMax = Math.log10(freqBins);
+            const logPos = logMin + (j / (height - 1)) * (logMax - logMin);
+            const binIndex = Math.min(freqBins - 1, Math.max(0, Math.round(Math.pow(10, logPos))));
+
+            const db = magnitudesDb[binIndex];
+            const norm = Math.min(1, Math.max(0, (db + 90) / 80));
+
+            // Color gradient: dark navy -> blue -> teal -> green -> yellow -> orange -> red
+            let r, g, b;
+            if (norm < 0.15) {
+              const t = norm / 0.15;
+              r = 5; g = Math.round(5 + t * 20); b = Math.round(20 + t * 60);
+            } else if (norm < 0.35) {
+              const t = (norm - 0.15) / 0.2;
+              r = 5; g = Math.round(25 + t * 90); b = Math.round(80 + t * 100);
+            } else if (norm < 0.55) {
+              const t = (norm - 0.35) / 0.2;
+              r = Math.round(5 + t * 20); g = Math.round(115 + t * 100); b = Math.round(180 - t * 100);
+            } else if (norm < 0.75) {
+              const t = (norm - 0.55) / 0.2;
+              r = Math.round(25 + t * 200); g = Math.round(215 + t * 40); b = Math.round(80 - t * 60);
+            } else {
+              const t = (norm - 0.75) / 0.25;
+              r = 255; g = Math.round(255 - t * 155); b = Math.max(0, Math.round(20 - t * 20));
+            }
+
             offCtx.fillStyle = `rgb(${r},${g},${b})`;
             offCtx.fillRect(i, invJ, 1, 1);
           }
