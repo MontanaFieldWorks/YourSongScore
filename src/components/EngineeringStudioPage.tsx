@@ -1645,8 +1645,6 @@ const generateHarmonicNodes = () => {
                         {[
                           { id: "outline", label: "Outline Waveform" },
                           { id: "waveform", label: "Waveform envelope" },
-                          { id: "melodic", label: "Melodic spectrum" },
-                          { id: "spectrogram", label: "Spectrogram analysis" },
                           { id: "key", label: "Key Grid" },
                           { id: "azimuth", label: "Stereo Azimuth ★" }
                         ].map((t) => (
@@ -1915,28 +1913,6 @@ function StereoAzimuthCanvasRenderer({ activeTab, refMode, isPlaying, progress, 
       if (activeTab === "waveform") ctx.fill();
       ctx.stroke();
 
-    } else if (activeTab === "spectrogram" || activeTab === "melodic") {
-      const cols = 100;
-      const rows = 20;
-      const colWidth = width / cols;
-      const rowHeight = height / rows;
-
-      for (let c = 0; c < cols; c++) {
-        const tc = c / cols;
-        for (let r = 0; r < rows; r++) {
-          const tr = r / rows;
-          let val = 0;
-          if (activeTab === "melodic") {
-            const isNoteFreq = (r === 4 || r === 8 || r === 12 || r === 15);
-            val = isNoteFreq ? (0.3 + Math.sin(tc * 14 + r) * 0.4) : (Math.random() * 0.1);
-          } else {
-            val = r > 14 ? (0.4 + Math.sin(tc * 18) * 0.3) : (0.15 + Math.random() * 0.15);
-          }
-          val = Math.max(0, Math.min(1, val));
-          ctx.fillStyle = `rgba(${Math.round(val * 42)}, ${Math.round(val * 155 + 22)}, ${Math.round(val * 215 + 42)}, ${val * 0.85})`;
-          ctx.fillRect(c * colWidth, height - (r * rowHeight) - rowHeight, colWidth + 0.5, rowHeight + 0.5);
-        }
-      }
     } else if (activeTab === "key") {
       const realKey = liveMetrics?.calculatedKey || "Key Unavailable";
       ctx.fillStyle = "rgba(59, 130, 246, 0.08)";
