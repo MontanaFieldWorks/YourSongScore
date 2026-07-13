@@ -882,17 +882,26 @@ const generateHarmonicNodes = () => {
                       })}
                     </svg>
 
-                    {activeSelectedNode && (
-                      <div 
-                        className="absolute font-mono text-[9px] text-[#2563EB] bg-[#0A0B0E] border border-[#2563EB]/40 px-2.5 py-1 rounded-xl shadow-lg pointer-events-none"
-                        style={{ 
-                          left: `calc(${activeSelectedNode.xPct}% - 45px)`, 
-                          top: "14px"
-                        }}
-                      >
-                        SELECT: {activeSelectedNode.frequency}
-                      </div>
-                    )}
+                    {harmonicNodes.map((node) => {
+                      const isThisSelected = selectedNodeId === node.id;
+                      return (
+                        <div
+                          key={`select-pill-${node.id}`}
+                          onClick={() => handleSelectNode(node)}
+                          className={`absolute font-mono text-[9px] px-2.5 py-1 rounded-xl shadow-lg cursor-pointer transition-all duration-200 ${
+                            isThisSelected
+                              ? "text-white bg-[#2563EB]/20 border border-[#2563EB] shadow-[0_0_12px_rgba(37,99,235,0.5)] scale-105"
+                              : "text-[#2563EB]/70 bg-[#0A0B0E] border border-[#2563EB]/30 hover:border-[#2563EB]/70 hover:text-[#2563EB]"
+                          }`}
+                          style={{
+                            left: `calc(${node.xPct}% - 45px)`,
+                            top: "14px"
+                          }}
+                        >
+                          SELECT: {node.frequency}
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Correction Solver */}
