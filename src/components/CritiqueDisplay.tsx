@@ -1547,7 +1547,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       return [
         METRICS_LIST.find(m => m.id === "readiness"),
         METRICS_LIST.find(m => m.id === "production"),
-        METRICS_LIST.find(m => m.id === "flow"),
         METRICS_LIST.find(m => m.id === "mix"),
         METRICS_LIST.find(m => m.id === "vocals"),
         METRICS_LIST.find(m => m.id === "instrumental"),
@@ -1555,7 +1554,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ].filter(Boolean);
     } else if (cat === "blueprints") {
       return [
-        METRICS_LIST.find(m => m.id === "flow"),
         METRICS_LIST.find(m => m.id === "mix"),
         METRICS_LIST.find(m => m.id === "vocals"),
         METRICS_LIST.find(m => m.id === "instrumental"),
