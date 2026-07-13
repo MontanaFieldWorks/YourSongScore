@@ -255,11 +255,12 @@ const SUBMETRICS_SCHEMA_2 = {
       properties: {
         score: { type: Type.INTEGER },
         feedback: { type: Type.STRING },
+        artisticAlignment: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
         atmosphericDepth: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
         harmonicIntrigue: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
         paletteSynergy: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
       },
-      required: ["score", "feedback", "atmosphericDepth", "harmonicIntrigue", "paletteSynergy"],
+      required: ["score", "feedback", "artisticAlignment", "atmosphericDepth", "harmonicIntrigue", "paletteSynergy"],
     },
     melodicHooks: {
       type: Type.OBJECT,
@@ -293,8 +294,9 @@ const SUBMETRICS_SCHEMA_2 = {
     },
     moodValence: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     speechiness: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    moodTags: { type: Type.ARRAY, items: { type: Type.STRING } },
   },
-  required: ["artisticAnalysis", "melodicHooks", "acousticTension", "songwritingDensity", "moodValence", "speechiness"],
+  required: ["artisticAnalysis", "melodicHooks", "acousticTension", "songwritingDensity", "moodValence", "speechiness", "moodTags"],
 };
 
 const SUBMETRIC_SYSTEM_PROMPT_2 = `You are a precise, artistically-literate music analyst. You are judging four categories that are NOT about commercial/streaming readiness - they measure pure artistic and songwriting craft, independent of pop formula or algorithm-friendliness. A song can score low on these categories and still be commercially successful, and vice versa - a three-chord pop song is not automatically bad here, it just may not score high on complexity.
@@ -302,6 +304,8 @@ const SUBMETRIC_SYSTEM_PROMPT_2 = `You are a precise, artistically-literate musi
 You are ALSO judging two additional standalone values, moodValence and speechiness, used elsewhere in the app for algorithmic/discovery matching purposes (similar to Spotify's own audio features). These are NOT deduction-based - just give a direct 0-100 score and a short 1-sentence commentary for each:
 - moodValence: the overall musical positivity/positiveness conveyed by the track, independent of lyrical subject matter - a triumphant major-key anthem scores high even with defiant lyrics; a somber minor-key ballad scores low even with hopeful lyrics. Judge this from the actual musical mood (key, harmony, tempo feel), not the words alone.
 - speechiness: how much the vocal delivery resembles spoken word/rap versus sung melody. Pure rap/spoken word scores very high (70-100); talk-heavy tracks with singing mixed in score moderate (30-60); fully sung melodic vocals score low (0-30); instrumental tracks with no vocals score near 0.
+- moodTags: provide exactly 5 single-or-two-word descriptive mood/vibe tags for this specific track (e.g. "Anthemic", "Melancholic", "Late Night", "Euphoric", "Defiant"). These should genuinely describe THIS song's actual mood and energy as you hear it - do not default to generic rock-coded words if they don't fit; a pop, R&B, folk, or electronic track should get tags that genuinely suit its real character.
+- artisticAlignment (part of artisticAnalysis): judges execution conviction and internal creative coherence - NOT whether you can verify the artist's original intent (impossible from audio alone), but whether the finished execution feels committed and internally consistent versus hedging between two different identities. A song can be genre-authentic and well-produced while still sounding like it's caught between competing directions; another can be raw and uncommercial but land with total conviction because every choice serves one clear vision. Listen for: does the arrangement, vocal delivery, and production all pull in the same direction, or do parts of the song feel like they belong to a different song entirely? Deduction-based scoring applies here same as other sub-metrics.
 
 Human: the plot of the review
 
