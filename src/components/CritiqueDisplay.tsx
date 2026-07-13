@@ -6407,52 +6407,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         <>
                           {/* Two-column six-metric card grid */}
                           {(() => {
-                            const metricsList = [
-                              {
-                                label: "Arrangement Density",
-                                score: Math.min(100, Math.round((critique?.arrangement?.flowScore ?? 72) * 1.0)),
-                                desc: critique?.arrangement?.transitionsAndArc ?? "Arrangement transitions and dynamic arc data unavailable.",
-                                improve: "Try introducing a new element (pad, counter-melody, or percussion layer) in the second verse to prevent listener fatigue. In your DAW, automate a subtle filter sweep on a background element to maintain movement. Plugin suggestion: Soundtoys Crystallizer or a simple frequency shifter on a parallel bus."
-                              },
-                              {
-                                label: "Sonic Texture & Sound Design",
-                                score: Math.min(100, Math.round((critique?.scores?.overallProduction ?? 68) * 0.9)),
-                                desc: [critique?.vibe?.aesthetic, critique?.mixQuality?.dominanceIssues].filter(v => v && v.trim().toLowerCase() !== "none" && v.trim() !== "").join(" ") || "Sonic texture data unavailable.",
-                                improve: "Add harmonic saturation to your lead elements to give them character. Run a parallel saturation bus — send 20–30% of your mix to a saturator like Decapitator or RC-20 Retro Color, blend subtly. Plugin suggestion: Decapitator or RC-20 Retro Color."
-                              },
-                              {
-                                label: "Low-End Power",
-                                score: Math.min(100, Math.round(50 + ((liveMetrics?.calculatedBassEnergy ?? 0.3) * 100))),
-                                desc: critique?.mixQuality?.frequencyBalance?.lowEnd ?? "Low-end frequency data unavailable.",
-                                improve: "Sidechain your bass guitar or synth bass to the kick drum at a 3:1 ratio, 10ms attack, 80ms release. High-pass everything above 80Hz in the side channel (M/S EQ) to keep low end tight and mono. Plugin suggestion: Trackspacer or standard sidechain compression."
-                              },
-                              {
-                                label: "Width & Dimension",
-                                score: Math.min(100, Math.round(50 + ((liveMetrics?.calculatedStereoCorrelation ?? 0.5) * 45))),
-                                desc: critique?.mixQuality?.stereoField ?? "Stereo field data unavailable.",
-                                improve: "Apply mid-side EQ to your master bus: cut 200–300Hz in the sides to tighten the center, boost 8–12kHz in the sides for air. Plugin suggestion: Ozone Imager or MSED."
-                              },
-                              {
-                                label: "Vocal Production",
-                                score: Math.min(100, critique?.performance?.vocalScore ?? 65),
-                                desc: critique?.performance?.vocalsCritique ?? "Vocal production data unavailable.",
-                                improve: "Double your lead vocal with a pitch-shifted copy (detune ±8–12 cents) panned 30% left and right. Add a short plate reverb (pre-delay 18–22ms, decay 1.2s) at 12–15% wet. Plugin suggestion: FabFilter Pro-DS, Valhalla Plate."
-                              },
-                              {
-                                label: "Energy Management",
-                                score: Math.min(100, Math.round(50 + ((liveMetrics?.calculatedLra ?? 6) * 3))),
-                                desc: critique?.mixQuality?.frequencyBalance?.midrange ?? critique?.arrangement?.transitionsAndArc ?? "Energy management data unavailable.",
-                                improve: "Automate your master bus compressor threshold — open it up in verses (raise threshold 2–3dB) and tighten in choruses. Plugin suggestion: Waves SSL G-Bus Compressor or Klanghelm MJUC."
-                              },
-                            ];
-
                             return (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                                {metricsList.map((m, idx) => (
+                                {pqMetrics.map((m, idx) => (
                                   <PQMetricCard
                                     key={idx}
                                     idx={idx}
-                                    label={m.label}
+                                    label={m.label.replace("\n", " ")}
                                     score={m.score}
                                     desc={m.desc}
                                     improve={m.improve}
