@@ -1291,13 +1291,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       subtitle: "Lyrical Depth & Phrasing Core",
       score: lyricsScore,
       colorClass: "stroke-cyan-400",
-      hoverText: "Checks lyric clarity, metaphorical depth, cliché levels, or if the lyric sounds overly scientific/academic.",
+      hoverText: "Checks lyric clarity and cliché levels - whether the message lands clearly and whether the phrasing feels fresh rather than overused.",
       subParams: [
         { name: "Meaning Clarity (50%)", desc: "Ensures the overall message or emotional vibe translates immediately to listeners." },
-        { name: "Cliché Avoidance (50%)", desc: "Checks if lines feel fresh and poetic versus overused rhyming trends or overly academic lines." }
+        { name: "Cliché Avoidance (50%)", desc: "Checks if lines feel fresh versus overused rhyming trends or generic phrasing." }
       ],
-      callout: "This Metric evaluates lyrical freshness and semantic focus to avoid flat phrasing and cliché structures.",
-      description: "Focuses entirely on lyrics, checking if theme message parameters are clear, poetically unique, or overly generic.",
+      callout: "This Metric evaluates lyrical clarity and freshness to avoid flat phrasing and cliché structures.",
+      description: "Focuses entirely on lyrics, checking if the theme and message are clear, and whether the phrasing feels fresh or overly generic.",
       feedback: `Meaning classification: ${lyricsClarity}. Detailed review: ${lyricsFeedback}`
     },
     {
@@ -1306,7 +1306,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       subtitle: "The Harmonic Foundation",
       score: theoryScore,
       colorClass: "stroke-indigo-400",
-      hoverText: "Evaluates harmonic progressions, scale interest, voice leading, leading tone resolutions, and rhythmic architecture.",
+      hoverText: "Evaluates harmonic progressions, scale interest, and rhythmic architecture.",
       subParams: [
         { name: "Chord Dynamics (25%)", desc: "Analyzes chord sequences, leading tones, and voice leading interest." },
         { name: "Harmonic Variety (25%)", desc: "Tension resolution, scale consistency, and modulations." },
