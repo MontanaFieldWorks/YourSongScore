@@ -1239,10 +1239,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       colorClass: "stroke-emerald-400",
       bgClass: "from-emerald-400/5 to-slate-900 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.05)]",
       isGold: true,
-      hoverText: "Measures chord predictability vs dynamic intervals, interval repetition, and commercial stickiness of vocal pitches.",
+      hoverText: "Measures interval repetition and the commercial stickiness of vocal pitches and melodic phrasing.",
       subParams: [
-        { name: "Interval Memory", desc: "Measures for memory hooks and interval leaps..." },
-        { name: "Syllabic Placement", desc: "Syncopation and rhyme patterns aligning exactly with transient downbeats to drill the melody home." }
+        { name: "Interval Memory (50%)", desc: "Measures for memory hooks and interval leaps..." },
+        { name: "Syllabic Placement (50%)", desc: "Syncopation and rhyme patterns aligning exactly with transient downbeats to drill the melody home." }
       ],
       callout: "Your hooks have high commercial memory; the pre-chorus/chorus resolution is instantly memorable.",
       description: "Examines the musical genetics that make a song catch fire. Highly memorable hooks have specific interval transitions (like major 6ths or root resolves) that trigger psychological expectation.",
@@ -1258,8 +1258,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       isGold: false,
       hoverText: "Measures the rate of energy accumulation across song sections (verse to chorus) and somatic tension release.",
       subParams: [
-        { name: "Dynamic Modulation", desc: "Contrast between quiet verses and explosive chorus walls designed to keep listeners transfixed." },
-        { name: "Climax Trajectory", desc: "How effectively the arrangement builds anticipation before landing the ultimate sonic payload." }
+        { name: "Dynamic Modulation (50%)", desc: "Contrast between quiet verses and explosive chorus walls designed to keep listeners transfixed." },
+        { name: "Climax Trajectory (50%)", desc: "How effectively the arrangement builds anticipation before landing the ultimate sonic payload." }
       ],
       callout: "The track demonstrates strong somatic control, pulling viewers along an elegant storytelling trajectory.",
       description: "Evaluates structural dynamics. Ensures high levels of tension building, filtering out listening fatigue by using well-placed volume and spectral variations.",
@@ -1267,16 +1267,16 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     },
     {
       id: "dna-density",
-      name: "Songwriting & Phrasing Density",
+      name: "Lyrics Analysis",
       subtitle: "Lyrical Velocity & Word Placement Balance",
       score: dnaDensityScore,
       colorClass: "stroke-indigo-400",
       bgClass: "from-indigo-400/5 to-slate-900 border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.05)]",
       isGold: false,
-      hoverText: "Audits text rhythm, vowel duration, and syncopated cadence flow relative to the tempo beat track.",
+      hoverText: "Audits text rhythm and syncopated cadence flow relative to the tempo beat track, and how efficiently the lyrics communicate within that pocket.",
       subParams: [
-        { name: "Vocal Pocketing", desc: "Alignment of sung syllables in the rhythm 'pocket', ensuring clear flow and rhythmic drive." },
-        { name: "Poetic Brevity", desc: "Efficiency of expression - communicating high emotional impact without over-crowding the vocal arrangement." }
+        { name: "Vocal Pocketing (50%)", desc: "Alignment of sung syllables in the rhythm 'pocket', ensuring clear flow and rhythmic drive." },
+        { name: "Poetic Brevity (50%)", desc: "Efficiency of expression - communicating high emotional impact without over-crowding the vocal arrangement." }
       ],
       callout: "The phrasing density lets the main hook breathe, aligning masterfully with commercial pop benchmarks.",
       description: "Analyzes the poetic rhythm in singing. Tight vocal pocketing ensures the listener understands the message effortlessly without getting distracted by clumsy syllables.",
