@@ -1147,7 +1147,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       colorClass: "stroke-amber-500",
       bgClass: "from-amber-500/5 to-slate-900 border-white/5",
       isGold: false,
-      hoverText: "Measures overall creative direction, sound design, instrument selection, and acoustic landscape cohesion.",
+      hoverText: "Measures overall creative direction, instrument selection, and acoustic landscape cohesion.",
       subParams: [
         { name: "Aesthetic Design (40%)", desc: "Appropriateness of instrumentation compared to leading professional releases." },
         { name: "Space & Density (35%)", desc: "Use of negative space vs crowded tracks, avoiding instrument overload." },
@@ -1167,9 +1167,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       isGold: false,
       hoverText: "Predicts how reliably a song holds listener focus and survives the critical early-skip window that drives algorithmic placement.",
       subParams: [
-        { name: "Opening Hook Strength (50%)", desc: "Predicts listener retention through the song's first 30 seconds. Skip behavior in this window is one of the most heavily weighted signals in streaming algorithms." },
+        { name: "Opening Hook Strength (60%)", desc: "Predicts listener retention through the song's first 30 seconds. Skip behavior in this window is one of the most heavily weighted signals in streaming algorithms." },
         { name: "Dynamic Variety (20%)", desc: "Measures whether the song's energy and intensity shift meaningfully across its runtime, rather than remaining flat throughout." },
-        { name: "Spectral Match (20%)", desc: "Compares the track's frequency distribution to mainstream hits to ensure a balanced, commercially viable audio spectrum." },
+        { name: "Spectral Match (10%)", desc: "Compares the track's frequency distribution to mainstream hits to ensure a balanced, commercially viable audio spectrum." },
         { name: "Section Transitions (10%)", desc: "Evaluates whether shifts between verse, chorus, and bridge feel earned and well-built, rather than abrupt or disconnected." }
       ],
       callout: "This Metric predicts listener retention and skip-resistance, the single most heavily weighted signal in modern streaming algorithms.",
