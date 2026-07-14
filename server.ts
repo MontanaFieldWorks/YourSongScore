@@ -472,6 +472,36 @@ function reconcileParentScores(parsedCritique: any): void {
     }
   }
 
+  if (c2Ready?.melodicHooks) {
+    const melodicHooksScore = weightedAvg([
+      [c2Ready.melodicHooks.intervalMemory?.score, 50],
+      [c2Ready.melodicHooks.syllabicPlacement?.score, 50],
+    ]);
+    if (melodicHooksScore !== null) {
+      parsedCritique.subMetricsCall2.melodicHooks.score = melodicHooksScore;
+    }
+  }
+
+  if (c2Ready?.acousticTension) {
+    const acousticTensionScore = weightedAvg([
+      [c2Ready.acousticTension.dynamicModulation?.score, 50],
+      [c2Ready.acousticTension.climaxTrajectory?.score, 50],
+    ]);
+    if (acousticTensionScore !== null) {
+      parsedCritique.subMetricsCall2.acousticTension.score = acousticTensionScore;
+    }
+  }
+
+  if (c2Ready?.songwritingDensity) {
+    const songwritingDensityScore = weightedAvg([
+      [c2Ready.songwritingDensity.vocalPocketing?.score, 50],
+      [c2Ready.songwritingDensity.poeticBrevity?.score, 50],
+    ]);
+    if (songwritingDensityScore !== null) {
+      parsedCritique.subMetricsCall2.songwritingDensity.score = songwritingDensityScore;
+    }
+  }
+
   // Engagement Power (formerly MIX/MASTER INTEGRITY) - now combines Call 1 and Call 3 data
   const engagementPower = weightedAvg([
     [c3Ready?.compositionFlowSubs?.hookPlacement?.score, 50],
