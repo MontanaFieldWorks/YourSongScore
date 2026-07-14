@@ -504,9 +504,9 @@ function reconcileParentScores(parsedCritique: any): void {
 
   // Engagement Power (formerly MIX/MASTER INTEGRITY) - now combines Call 1 and Call 3 data
   const engagementPower = weightedAvg([
-    [c3Ready?.compositionFlowSubs?.hookPlacement?.score, 50],
+    [c3Ready?.compositionFlowSubs?.hookPlacement?.score, 60],
     [c1Ready?.dynamicVariety?.score, 20],
-    [c1Ready?.spectralMatch?.score, 20],
+    [c1Ready?.spectralMatch?.score, 10],
     [c3Ready?.compositionFlowSubs?.sectionalContrast?.score, 10],
   ]);
   if (engagementPower !== null && parsedCritique.scores) {
