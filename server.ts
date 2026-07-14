@@ -457,7 +457,20 @@ function reconcileParentScores(parsedCritique: any): void {
   };
 
   const c1Ready = (parsedCritique.subMetricsCall1 && !parsedCritique.subMetricsCall1Failed) ? parsedCritique.subMetricsCall1 : null;
+  const c2Ready = (parsedCritique.subMetricsCall2 && !parsedCritique.subMetricsCall2Failed) ? parsedCritique.subMetricsCall2 : null;
   const c3Ready = (parsedCritique.subMetricsCall3 && !parsedCritique.subMetricsCall3Failed) ? parsedCritique.subMetricsCall3 : null;
+
+  if (c2Ready?.artisticAnalysis) {
+    const artisticAlignmentScore = weightedAvg([
+      [c2Ready.artisticAnalysis.artisticAlignment?.score, 30],
+      [c2Ready.artisticAnalysis.harmonicIntrigue?.score, 30],
+      [c2Ready.artisticAnalysis.atmosphericDepth?.score, 20],
+      [c2Ready.artisticAnalysis.paletteSynergy?.score, 20],
+    ]);
+    if (artisticAlignmentScore !== null) {
+      parsedCritique.subMetricsCall2.artisticAnalysis.score = artisticAlignmentScore;
+    }
+  }
 
   // Engagement Power (formerly MIX/MASTER INTEGRITY) - now combines Call 1 and Call 3 data
   const engagementPower = weightedAvg([
