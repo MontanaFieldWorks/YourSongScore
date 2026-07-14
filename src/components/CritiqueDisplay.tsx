@@ -1128,11 +1128,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       colorClass: "stroke-pink-500",
       bgClass: "from-pink-500/5 to-slate-900 border-pink-500/20 shadow-[0_0_15px_rgba(236,72,153,0.05)]",
       isGold: true,
-      hoverText: "Measures artistic alignment, atmospheric depth, chord progressional intrigue, and palette synergy completely independent of pop formula speed-bumps.",
+      hoverText: "Judges execution conviction and internal creative coherence, atmospheric depth, chord progressional intrigue, and palette synergy completely independent of pop formula speed-bumps.",
       subParams: [
-        { name: "Atmospheric Depth", desc: "Rates the physical sense of dimension of the acoustic landscape, reverb imaging, and stage placement within the production." },
-        { name: "Harmonic Intrigue", desc: "Scores the creative implementation of chord patterns and modulations to test composition uniqueness, polymetric drift, and structural resolution." },
-        { name: "Palette Synergy", desc: "Inspects the overall tonal alignment of active instruments to confirm they serve a unified artistic direction." }
+        { name: "Artistic Alignment (30%)", desc: "Judges execution conviction and internal coherence - whether the song commits fully to one clear creative vision, rather than hedging between competing directions." },
+        { name: "Harmonic Intrigue (30%)", desc: "Scores the creative implementation of chord patterns and modulations to test composition uniqueness, polymetric drift, and structural resolution." },
+        { name: "Atmospheric Depth (20%)", desc: "Rates the physical sense of dimension of the acoustic landscape, reverb imaging, and stage placement within the production." },
+        { name: "Palette Synergy (20%)", desc: "Inspects the overall tonal alignment of active instruments to confirm they serve a unified artistic direction." }
       ],
       callout: "This Metric is not included in the Total Score as it has no effect on how streaming algorithms view a song",
       description: "Designed for masterpieces that transcend pop constraints. While standard radio formula rewards immediate 0:30 hooks, epics are built on atmospheric tension, complex harmony, and palette synergy. Focus on these parameters if you are writing timeless art outside the commercial box.",
@@ -1598,7 +1599,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   ];
 
   const CALL2_FIELD_MAP: Record<string, { parent: string; fields: string[] }> = {
-    artistic: { parent: "artisticAnalysis", fields: ["atmosphericDepth", "harmonicIntrigue", "paletteSynergy"] },
+    artistic: { parent: "artisticAnalysis", fields: ["artisticAlignment", "harmonicIntrigue", "atmosphericDepth", "paletteSynergy"] },
     "dna-melodic": { parent: "melodicHooks", fields: ["intervalMemory", "syllabicPlacement"] },
     "dna-tension": { parent: "acousticTension", fields: ["dynamicModulation", "climaxTrajectory"] },
     "dna-density": { parent: "songwritingDensity", fields: ["vocalPocketing", "poeticBrevity"] },
