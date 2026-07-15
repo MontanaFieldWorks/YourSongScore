@@ -1206,9 +1206,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       isGold: false,
       hoverText: "Measures vocal delivery accuracy, pitch consistency, breath management, dynamic levels, and vocal chain space.",
       subParams: [
-        { name: "Pitch Accuracy (33%)", desc: "Steady tonality, correct note targeting, and professional pitch scale alignment." },
-        { name: "Dynamic Delivery (33%)", desc: "Vocal compression tightness, breath control consistency, and lyrical phrasing power." },
-        { name: "Vocal Layer Fit (34%)", desc: "Vocal depth placement, backing doubles, tuning effects, and reverb sends." }
+        { name: "Pitch Accuracy (40%)", desc: "Steady tonality, correct note targeting, and professional pitch scale alignment." },
+        { name: "Dynamic Delivery (35%)", desc: "Vocal compression tightness, breath control consistency, and lyrical phrasing power." },
+        { name: "Vocal Layer Fit (25%)", desc: "Vocal depth placement, backing doubles, tuning effects, and reverb sends." }
       ],
       callout: "This Metric assesses vocal pressure alignment and backing presence to secure front-of-house presence.",
       description: "Detailed performance index evaluating whether vocal takes are crisp, present, emotionally intimate, and mixed with correct pocket gain.",
@@ -1222,14 +1222,15 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       colorClass: "stroke-emerald-500",
       bgClass: "from-emerald-500/5 to-slate-900 border-white/5",
       isGold: false,
-      hoverText: "Audits rhythm section alignment on the timeline grid, punchiness, and chord tracking warmth.",
+      hoverText: "Audits rhythm section alignment on the timeline grid, punchiness, stereo staging, and overall instrumental warmth.",
       subParams: [
-        { name: "Timeline Grid Cohesion (33%)", desc: "Tightness and timing sync between drum elements and bass groove lines." },
-        { name: "Transient Punch (33%)", desc: "The snap of kick drums, synth envelope releases, and guitar picking presence." },
-        { name: "Melodic Staging (34%)", desc: "Layer separation of instrumentation across the stereo panning soundstage." }
+        { name: "Timeline Grid Cohesion (25%)", desc: "Tightness and timing sync between drum elements and bass groove lines." },
+        { name: "Transient Punch (25%)", desc: "The snap of kick drums, synth envelope releases, and guitar picking presence." },
+        { name: "Melodic Staging (25%)", desc: "Layer separation of instrumentation across the stereo panning soundstage." },
+        { name: "Instrumental Warmth (25%)", desc: "The general tonal warmth and richness of the backing instrumentation - full and rounded versus thin and harsh." }
       ],
-      callout: "This Metric audits backing timing grids and transient levels to optimize playback punchiness.",
-      description: "Evaluates the execution of backing instruments. Checks details like transient impacts, drum pacing correctness, synth warmth, and timeline alignment.",
+      callout: "This Metric audits backing timing grids, transient levels, and tonal warmth to optimize playback punchiness.",
+      description: "Evaluates the execution of backing instruments. Checks details like transient impacts, drum pacing correctness, overall tonal warmth, and timeline alignment.",
       feedback: critique?.performance?.instrumentationCritique ?? "Grooves and backing patterns are aligned tightly on the track grid."
     },
     {
@@ -1307,11 +1308,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       subtitle: "The Harmonic Foundation",
       score: theoryScore,
       colorClass: "stroke-indigo-400",
-      hoverText: "Evaluates harmonic progressions, scale interest, and rhythmic architecture.",
+      hoverText: "Evaluates harmonic progressions, melodic construction, and rhythmic architecture.",
       subParams: [
-        { name: "Chord Dynamics (25%)", desc: "Analyzes chord sequences, leading tones, and voice leading interest." },
-        { name: "Harmonic Variety (25%)", desc: "Tension resolution, scale consistency, and modulations." },
-        { name: "Rhythmic Meter (25%)", desc: "Audits rhythmic meter choice, polymetric syncopation, and tempo subdivisions." },
+        { name: "Chord Dynamics (35%)", desc: "Analyzes chord sequences, leading tones, and voice leading interest." },
+        { name: "Melody (25%)", desc: "Tension resolution, scale consistency, and modulations." },
+        { name: "Rhythmic Meter (15%)", desc: "Audits rhythmic meter choice, polymetric syncopation, and tempo subdivisions." },
         { name: "Form & Structure (25%)", desc: "Checks layout blueprints, sectional loop lengths, and motif repetition." }
       ],
       callout: "This Metric analyzes harmonic variety, rhythmic interest, and structural gravity to track musical narrative.",
@@ -1609,7 +1610,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const CALL3_FIELD_MAP: Record<string, { parent: string; fields: string[] }> = {
     flow: { parent: "compositionFlowSubs", fields: ["structuralBuild", "melodicTension", "hookPlacement", "sectionalContrast"] },
     vocals: { parent: "vocalTrackingSubs", fields: ["pitchAccuracy", "dynamicDelivery", "vocalLayerFit"] },
-    instrumental: { parent: "instrumentalStagingSubs", fields: ["timelineGridCohesion", "transientPunch", "melodicStaging"] },
+    instrumental: { parent: "instrumentalStagingSubs", fields: ["timelineGridCohesion", "transientPunch", "melodicStaging", "instrumentalWarmth"] },
     lyrics: { parent: "lyricalImpactSubs", fields: ["meaningClarity", "clicheAvoidance"] },
     theory: { parent: "musicTheorySubs", fields: ["chordDynamics", "harmonicVariety", "rhythmicMeter", "formAndStructure"] },
   };
@@ -2675,7 +2676,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         return `This score (${score}/100) reflects a simple, highly direct chord structure (often major/minor triads following classic progressions like I-IV-V). This is not a value judgment—some of the greatest hits in history by legends like AC/DC, Bob Dylan, or classic punk and folk icons rely entirely on pure diatonic chord structures. If virtually no chord structure exists (like standard EDM bass loops), a lower score simply reflects that the track's drive is rhythmic and melodic rather than harmonic.`;
       }
     }
-    if (cleanName === "Harmonic Variety") {
+    if (cleanName === "Harmonic Variety" || cleanName === "Melody") {
       if (score >= 90) {
         return `Exceptional melodic range and pitch alignment! The vocal melodies weave effortlessly across complex scale intervals, utilizing unexpected passing tones and elegant modulation options. This score characterizes complex polyphonic structures.`;
       } else if (score >= 80) {
