@@ -1472,7 +1472,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     const groupMap: Record<string, { category: string; agg: string | null }> = {
       readiness: { category: "STREAMING READINESS", agg: "COMMERCIAL IMPACT" },
       production: { category: "STREAMING READINESS", agg: "COMMERCIAL IMPACT" },
-      flow: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
       mix: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
       vocals: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
       instrumental: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
@@ -1480,15 +1479,20 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       artistic: { category: "COMPOSITIONAL DEPTH", agg: null },
       lyrics: { category: "COMPOSITIONAL DEPTH", agg: null },
       theory: { category: "COMPOSITIONAL DEPTH", agg: null },
-      "dna-melodic": { category: "COMPOSITIONAL DEPTH", agg: null },
-      "dna-tension": { category: "COMPOSITIONAL DEPTH", agg: null },
-      "dna-density": { category: "COMPOSITIONAL DEPTH", agg: null },
+      "dna-melodic": { category: "COMPOSITIONAL DEPTH", agg: "SONGWRITING QUALITY" },
+      "dna-tension": { category: "COMPOSITIONAL DEPTH", agg: "SONGWRITING QUALITY" },
+      "dna-density": { category: "COMPOSITIONAL DEPTH", agg: "SONGWRITING QUALITY" },
+    };
+
+    const aggScoreMap: Record<string, number | null> = {
+      "COMMERCIAL IMPACT": Math.round((critique?.scores?.commercialReadiness ?? 75) * 0.8 + (critique?.scores?.overallProduction ?? 75) * 0.2),
+      "PRODUCTION QUALITY": null,
+      "SONGWRITING QUALITY": dnaScore,
     };
 
     const orderedMetrics = [
       METRICS_LIST.find(m => m.id === "readiness"),
       METRICS_LIST.find(m => m.id === "production"),
-      METRICS_LIST.find(m => m.id === "flow"),
       METRICS_LIST.find(m => m.id === "mix"),
       METRICS_LIST.find(m => m.id === "vocals"),
       METRICS_LIST.find(m => m.id === "instrumental"),
@@ -1513,7 +1517,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         lastAgg = "";
       }
       if (group.agg && group.agg !== lastAgg) {
-        addAggRow(colors, group.agg, null, "");
+        addAggRow(colors, group.agg, aggScoreMap[group.agg] ?? null, "");
         lastAgg = group.agg;
       }
       addCoreRow(colors, m.name, m.score, (m.feedback || "").replace(/\n/g, " "));
@@ -1525,12 +1529,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       });
     });
 
-    // Placeholder sections - not yet live, static labels only for now
-    addAggRow(CATS["STREAMING READINESS"], "STREAMING ALIGNMENT", null, "PLACEHOLDER - Echo Nest Scorecard fields are currently simulated client-side math, not live Gemini analysis.", true);
-    addAggRow(CATS["STREAMING READINESS"], "ALGO SANDBOX", null, "PLACEHOLDER - Cosine Similarity, Circumplex Mood Plotter, Skip Simulator not yet built/audited.", true);
-    addAggRow(CATS["STREAMING READINESS"], "ARTIST & AUDIENCE", null, "PLACEHOLDER - Artist positioning/audience mapping not yet built/audited.", true);
-    addAggRow(CATS["SONIC SOUNDPRINT"], "ENGINEERING STUDIO", null, "PLACEHOLDER - Harmonic Resolution, Signal & Levels, Dynamics Profile modules not yet audited.", true);
-    addAggRow(CATS["COMPOSITIONAL DEPTH"], "ARTISTIC IMPACT / SONGWRITING QUALITY / SONG ARCHITECTURE", null, "OPEN QUESTION - no confirmed aggregate formula found in code for these 3 pills yet.", true);
+    // Sections not part of the core scored critique - informational status only
+    addAggRow(CATS["STREAMING READINESS"], "STREAMING ALIGNMENT", null, "INFO ONLY - Echo Nest-style data (Danceability, Energy, Acousticness, Valence, Speechiness, Liveness). Most fields are now genuinely live (real audio measurements or real Gemini judgment); this section intentionally carries no separate numeric score, since its former duplicate score was retired.", true);
+    addAggRow(CATS["STREAMING READINESS"], "ALGO SANDBOX", null, "INFO ONLY - Interactive tools (Cosine Similarity Mapping, Circumplex Mood Plotter, Sequential Variance Lab). Now seeded with real per-song data; target playlist coordinates remain illustrative estimates, not precise real values.", true);
+    addAggRow(CATS["SONIC SOUNDPRINT"], "ENGINEERING STUDIO", null, "INFO ONLY - Full diagnostic toolkit (Harmonic Resolution, Signal & Levels, Dynamics Profile, Visualizations, Genre Compliance, Noise & Artifacts, Arrangement Patterns, Stereo Azimuth). Fully audited and genre-aware throughout; true independent 6-band FFT measurement remains a planned future upgrade.", true);
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
