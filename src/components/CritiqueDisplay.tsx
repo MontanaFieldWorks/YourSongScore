@@ -1311,12 +1311,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       hoverText: "Evaluates harmonic progressions, melodic construction, and rhythmic architecture.",
       subParams: [
         { name: "Chord Dynamics (35%)", desc: "Analyzes chord sequences, leading tones, and voice leading interest." },
-        { name: "Melody (25%)", desc: "Tension resolution, scale consistency, and modulations." },
+        { name: "Melody (25%)", desc: "Judges melodic phrase construction, contour, and motif development - independent of commercial catchiness." },
         { name: "Rhythmic Meter (15%)", desc: "Audits rhythmic meter choice, polymetric syncopation, and tempo subdivisions." },
         { name: "Form & Structure (25%)", desc: "Checks layout blueprints, sectional loop lengths, and motif repetition." }
       ],
-      callout: "This Metric analyzes harmonic variety, rhythmic interest, and structural gravity to track musical narrative.",
-      description: "Assesses whether chord movements, syncopations, and overall structural handoffs show a strong grasp of musicology principles, rhythmic momentum, and structural development.",
+      callout: "This Metric analyzes harmonic craft, melodic construction, rhythmic interest, and structural gravity to track musical narrative.",
+      description: "Assesses whether chord movements, melodic writing, syncopations, and overall structural handoffs show a strong grasp of musicology principles, rhythmic momentum, and structural development.",
       feedback: `Identified structures: ${theoryStructures}. Theory analysis: ${theoryFeedback}`
     },
     {
