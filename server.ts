@@ -377,8 +377,9 @@ const SUBMETRICS_SCHEMA_3 = {
         timelineGridCohesion: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
         transientPunch: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
         melodicStaging: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        instrumentalWarmth: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
       },
-      required: ["timelineGridCohesion", "transientPunch", "melodicStaging"],
+      required: ["timelineGridCohesion", "transientPunch", "melodicStaging", "instrumentalWarmth"],
     },
     lyricalImpactSubs: {
       type: Type.OBJECT,
@@ -416,7 +417,9 @@ A deliberately simple, repetitive, or stripped-down approach (e.g. punk power ch
 RULES:
 1. Every commentary must reference something specific and real about THIS audio file - an actual moment, an actual lyric, an actual rhythmic or harmonic detail. Never write generic, reusable descriptions that could apply to any song.
 2. Never reuse the same commentary you might write for a different song, even if scores are similar.
-3. Keep each commentary to 1-3 sentences, technical and specific, in the voice of a professional music analyst.`;
+3. Keep each commentary to 1-3 sentences, technical and specific, in the voice of a professional music analyst.
+
+FIELD DEFINITION - instrumentalWarmth (part of instrumentalStagingSubs): judges the general tonal warmth and richness of the backing instrumentation as a whole - does it sound full, rounded, and pleasant, or thin, cold, and harsh? This is about overall instrumental tone character, separate from timing (Timeline Grid Cohesion), attack (Transient Punch), and stereo placement (Melodic Staging).`;
 
 async function performSubMetricsCall3(
   audioPart: any,
@@ -559,18 +562,19 @@ function reconcileParentScores(parsedCritique: any): void {
     }
 
     const vocal = weightedAvg([
-      [c3.vocalTrackingSubs?.pitchAccuracy?.score, 33],
-      [c3.vocalTrackingSubs?.dynamicDelivery?.score, 33],
-      [c3.vocalTrackingSubs?.vocalLayerFit?.score, 34],
+      [c3.vocalTrackingSubs?.pitchAccuracy?.score, 40],
+      [c3.vocalTrackingSubs?.dynamicDelivery?.score, 35],
+      [c3.vocalTrackingSubs?.vocalLayerFit?.score, 25],
     ]);
     if (vocal !== null && parsedCritique.performance) {
       parsedCritique.performance.vocalScore = vocal;
     }
 
     const instrumental = weightedAvg([
-      [c3.instrumentalStagingSubs?.timelineGridCohesion?.score, 33],
-      [c3.instrumentalStagingSubs?.transientPunch?.score, 33],
-      [c3.instrumentalStagingSubs?.melodicStaging?.score, 34],
+      [c3.instrumentalStagingSubs?.timelineGridCohesion?.score, 25],
+      [c3.instrumentalStagingSubs?.transientPunch?.score, 25],
+      [c3.instrumentalStagingSubs?.melodicStaging?.score, 25],
+      [c3.instrumentalStagingSubs?.instrumentalWarmth?.score, 25],
     ]);
     if (instrumental !== null && parsedCritique.performance) {
       parsedCritique.performance.instrumentalScore = instrumental;
@@ -585,9 +589,9 @@ function reconcileParentScores(parsedCritique: any): void {
     }
 
     const theory = weightedAvg([
-      [c3.musicTheorySubs?.chordDynamics?.score, 25],
+      [c3.musicTheorySubs?.chordDynamics?.score, 35],
       [c3.musicTheorySubs?.harmonicVariety?.score, 25],
-      [c3.musicTheorySubs?.rhythmicMeter?.score, 25],
+      [c3.musicTheorySubs?.rhythmicMeter?.score, 15],
       [c3.musicTheorySubs?.formAndStructure?.score, 25],
     ]);
     if (theory !== null && parsedCritique.musicTheory) {
