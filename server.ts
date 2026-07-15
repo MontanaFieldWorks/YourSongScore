@@ -968,7 +968,12 @@ app.post("/api/critique-url", async (req, res) => {
       userInstruction += `\n\n[EMBEDDED FILE METADATA CONTEXT]`;
       userInstruction += `\n- Embedded Genre: "${metaGenre}". This is the explicit, ground-truth genre file tag. Analyze and score the track relative to this specific genre/style.`;
     }
-    userInstruction += `\n\n[BLIND AUDITION MODE]\nYou are NOT being given the track title or artist name. Evaluate this track exactly as you would an anonymous submission with zero cultural context. Do not attempt to guess or identify the artist or song. Score strictly on what you hear.`;
+    userInstruction += `\n\n[BLIND AUDITION MODE]\nYou are NOT being given the track title or artist name for the purposes of judging performance, mix quality, artistic merit, or any category other than Song Title Searchability. Evaluate all other categories exactly as you would an anonymous submission with zero cultural context. Do not attempt to guess or identify the artist or song for those categories. Score strictly on what you hear.`;
+    if (metaTitle && metaTitle.trim().length > 0) {
+      userInstruction += `\n\n[TITLE PROVIDED FOR SEARCHABILITY SCORING ONLY]\nThe user has provided this exact song title: "${metaTitle.trim()}". Use this exact title ONLY to score the Song Title Searchability category (SEO Uniqueness and SEO Discoverability). Do not use this title to identify, guess, or recognize the actual commercial artist or recording - continue blind audition mode for every other category.`;
+    } else {
+      userInstruction += `\n\n[NO TITLE PROVIDED]\nNo song title was provided for this upload. For the Song Title Searchability category ONLY, you MUST consistently report that title data is unavailable - do not invent, guess, or hypothesize a fictional title and score against it. Score both SEO Uniqueness and SEO Discoverability at exactly 50, with commentary stating that no title was provided so searchability cannot be genuinely assessed. Never fabricate a placeholder title.`;
+    }
 
     if (!metaGenre) {
       userInstruction += `\n\n- Genre Identification Directive: No explicit, valid genre metadata tag was found in the audio container. You MUST perform a deep acoustic and stylistic analysis of the track's drum/beat structures, lead instrumentation, tempo/timing, harmonic mood, and vocal delivery to identify the exact, laser-focused core genre and subgenre. Select from modern specific styles (e.g. Dream Pop, Synth-pop, Melodic Techno, Boom-Bap Hip Hop, Emo Rap, Cinematic Ambient, Progressive Metal, Americana, Indie Folk, UK Garage, UK Drill). Avoid generic tags like 'Unclassified', 'Demo', 'Acoustic', 'Vocal', or 'Electronic' without specific stylistic qualification. Check the frequency range structures and arrangement styles to see what type of playlist it fits best.`;
@@ -982,6 +987,38 @@ app.post("/api/critique-url", async (req, res) => {
       SYSTEM_PROMPT,
       !!threeX
     );
+
+    try {
+      console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique);
+      parsedCritique.subMetricsCall1 = subMetricsCall1;
+      parsedCritique.subMetricsCall1Failed = false;
+    } catch (subErr: any) {
+      console.error("[Call 1] Failed (URL route), continuing without it:", subErr.message || subErr);
+      parsedCritique.subMetricsCall1Failed = true;
+    }
+
+    try {
+      console.log("[Call 2] Starting Sub-Metrics Call 2 (URL route)...");
+      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique);
+      parsedCritique.subMetricsCall2 = subMetricsCall2;
+      parsedCritique.subMetricsCall2Failed = false;
+    } catch (subErr: any) {
+      console.error("[Call 2] Failed (URL route), continuing without it:", subErr.message || subErr);
+      parsedCritique.subMetricsCall2Failed = true;
+    }
+
+    try {
+      console.log("[Call 3] Starting Sub-Metrics Call 3 (URL route)...");
+      const subMetricsCall3 = await performSubMetricsCall3(audioPart, parsedCritique);
+      parsedCritique.subMetricsCall3 = subMetricsCall3;
+      parsedCritique.subMetricsCall3Failed = false;
+    } catch (subErr: any) {
+      console.error("[Call 3] Failed (URL route), continuing without it:", subErr.message || subErr);
+      parsedCritique.subMetricsCall3Failed = true;
+    }
+
+    reconcileParentScores(parsedCritique);
 
     res.json({ critique: parsedCritique });
   } catch (error: any) {
@@ -1100,6 +1137,38 @@ app.post("/api/critique-spotify", async (req, res) => {
       `${SYSTEM_PROMPT}\nThis is a commercially released Spotify track preview. Focus your mix critique on streaming optimization, mastering balance, dynamic playlist integration, and vocal processing standard.`,
       !!threeX
     );
+
+    try {
+      console.log("[Call 1] Starting Sub-Metrics Call 1 (Spotify route)...");
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, critique);
+      critique.subMetricsCall1 = subMetricsCall1;
+      critique.subMetricsCall1Failed = false;
+    } catch (subErr: any) {
+      console.error("[Call 1] Failed (Spotify route), continuing without it:", subErr.message || subErr);
+      critique.subMetricsCall1Failed = true;
+    }
+
+    try {
+      console.log("[Call 2] Starting Sub-Metrics Call 2 (Spotify route)...");
+      const subMetricsCall2 = await performSubMetricsCall2(audioPart, critique);
+      critique.subMetricsCall2 = subMetricsCall2;
+      critique.subMetricsCall2Failed = false;
+    } catch (subErr: any) {
+      console.error("[Call 2] Failed (Spotify route), continuing without it:", subErr.message || subErr);
+      critique.subMetricsCall2Failed = true;
+    }
+
+    try {
+      console.log("[Call 3] Starting Sub-Metrics Call 3 (Spotify route)...");
+      const subMetricsCall3 = await performSubMetricsCall3(audioPart, critique);
+      critique.subMetricsCall3 = subMetricsCall3;
+      critique.subMetricsCall3Failed = false;
+    } catch (subErr: any) {
+      console.error("[Call 3] Failed (Spotify route), continuing without it:", subErr.message || subErr);
+      critique.subMetricsCall3Failed = true;
+    }
+
+    reconcileParentScores(critique);
 
     res.json({
       critique,
