@@ -919,6 +919,8 @@ const generateHarmonicNodes = () => {
                               </span>
                             ) : activeSelectedNode.status === "optimized" ? (
                               <span className="text-[8px] bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase font-semibold">Healthy Range</span>
+                            ) : activeSelectedNode.dbOffset < 0 ? (
+                              <span className="text-[8px] bg-amber-400/15 border border-amber-500/25 text-amber-500 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase font-semibold animate-pulse">Resonance Deficit</span>
                             ) : (
                               <span className="text-[8px] bg-red-400/15 border border-red-500/25 text-red-500 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase font-semibold animate-pulse">Resonance Overload</span>
                             )}
