@@ -1187,9 +1187,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       hoverText: "Audits master frequency balances, low-end boominess, midrange vocal presence, and stereo width separation.",
       subParams: [
         { name: "Mud Prevention (25%)", desc: "Evaluation of the 150Hz–250Hz proximity effect zone to ensure vocal and snare clarity." },
-        { name: "Sibilance Shaving (25%)", desc: "Auditing the sibilance region (4kHz-8kHz) for harsh sibilant spikes." },
-        { name: "Low-End Division (25%)", desc: "Frequency splitting between sub-bass movements and kick-drum transient punch." },
-        { name: "Midrange Spacing (25%)", desc: "Ensuring guitars and synths do not drown out vocal track focus." }
+        { name: "Midrange Spacing (25%)", desc: "Ensuring guitars and synths do not drown out vocal track focus." },
+        { name: "Low-End Division (20%)", desc: "Frequency splitting between sub-bass movements and kick-drum transient punch." },
+        { name: "Sibilance Shaving (15%)", desc: "Auditing the sibilance region (4kHz-8kHz) for harsh sibilant spikes." },
+        { name: "Stereo Width (15%)", desc: "Judges whether the stereo image is appropriately wide - backing elements and reverbs spread naturally without sacrificing mono compatibility or center-focus." }
       ],
       callout: "This Metric secures clear frequency separations so that your low and high ends decode without clipping.",
       description: "Audits decibel levels, EQ notches, sibilance de-essing, low frequency separation, and relative placement in the stereo panning field.",
@@ -1587,7 +1588,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
   const CALL1_FIELD_MAP: Record<string, string[]> = {
     production: ["aestheticDesign", "spaceAndDensity", "paletteCohesion"],
-    mix: ["mudPrevention", "sibilanceShaving", "lowEndDivision", "midrangeSpacing"],
+    mix: ["mudPrevention", "midrangeSpacing", "lowEndDivision", "sibilanceShaving", "stereoWidth"],
     searchability: ["seoUniqueness", "seoDiscoverability"],
   };
 
