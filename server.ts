@@ -196,10 +196,11 @@ const SUBMETRICS_SCHEMA_1 = {
     sibilanceShaving: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     lowEndDivision: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     midrangeSpacing: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    stereoWidth: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     seoUniqueness: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     seoDiscoverability: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
   },
-  required: ["spectralMatch", "dynamicVariety", "paletteCohesion", "aestheticDesign", "spaceAndDensity", "mudPrevention", "sibilanceShaving", "lowEndDivision", "midrangeSpacing", "seoUniqueness", "seoDiscoverability"],
+  required: ["spectralMatch", "dynamicVariety", "paletteCohesion", "aestheticDesign", "spaceAndDensity", "mudPrevention", "sibilanceShaving", "lowEndDivision", "midrangeSpacing", "stereoWidth", "seoUniqueness", "seoDiscoverability"],
 };
 
 const SUBMETRIC_SYSTEM_PROMPT = `You are a precise audio engineering sub-analyst. You will be given a parent category score and context that was already determined by a prior analysis pass. Your job is to break that parent judgment into its specific sub-components using a DEDUCTION-BASED scoring method.
@@ -211,6 +212,7 @@ FIELD DEFINITIONS:
 - dynamicVariety: measures whether the song's energy and intensity shift meaningfully across its runtime (verse-to-chorus lift, breakdowns, builds), rather than remaining flat and static throughout.
 - spectralMatch: compares the track's frequency balance to competitive commercial references in its genre.
 - paletteCohesion, aestheticDesign, spaceAndDensity: production/arrangement quality judgments as previously defined.
+- stereoWidth: judges the width and spatial use of the stereo field - is the mix appropriately wide (backing elements, reverbs, doubled parts spread across the stereo image) without being so wide that mono compatibility or center-focus suffers? A narrow, cramped stereo image should score lower; an artificially over-widened or phase-incoherent image should also score lower. Judge this from what you actually hear in the stereo image, not from any external measurement.
 
 RULES:
 1. Every commentary must reference something specific and real about THIS audio file - an actual frequency range, an actual timing observation, an actual moment in the song. Do not write generic, reusable descriptions that could apply to any song.
@@ -525,9 +527,10 @@ function reconcileParentScores(parsedCritique: any): void {
 
     const mixBalance = weightedAvg([
       [c1Ready.mudPrevention?.score, 25],
-      [c1Ready.sibilanceShaving?.score, 25],
-      [c1Ready.lowEndDivision?.score, 25],
       [c1Ready.midrangeSpacing?.score, 25],
+      [c1Ready.lowEndDivision?.score, 20],
+      [c1Ready.sibilanceShaving?.score, 15],
+      [c1Ready.stereoWidth?.score, 15],
     ]);
     if (mixBalance !== null && parsedCritique.mixQuality) {
       parsedCritique.mixQuality.score = mixBalance;
