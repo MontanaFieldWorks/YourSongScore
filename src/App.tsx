@@ -279,8 +279,20 @@ export default function App() {
           }
         };
 
-        await saveUserTrack(newLockerTrack);
-        console.log(`[AutoLocker] Saved active audit of "${songName}" to Artist Locker for user ${currentUser.uid}`);
+        try {
+          await saveUserTrack(newLockerTrack);
+          console.log(`[AutoLocker] Saved active audit of "${songName}" to Artist Locker for user ${currentUser.uid}`);
+        } catch (firstErr: any) {
+          const isPermissionError = firstErr?.code === "permission-denied" || (firstErr?.message || "").toLowerCase().includes("insufficient permissions");
+          if (isPermissionError) {
+            console.warn("[AutoLocker] Permission error on first attempt (likely auth token propagation delay) - retrying once in 1.2s...");
+            await new Promise((resolve) => setTimeout(resolve, 1200));
+            await saveUserTrack(newLockerTrack);
+            console.log(`[AutoLocker] Saved active audit of "${songName}" to Artist Locker for user ${currentUser.uid} (after retry)`);
+          } else {
+            throw firstErr;
+          }
+        }
       } catch (err) {
         console.warn("[AutoLocker] Failed to auto-populate audited song to locker:", err);
       }
