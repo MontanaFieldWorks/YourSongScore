@@ -1,4 +1,5 @@
 import { LiveAudioMetrics } from "../types";
+import FFT from "fft.js";
 
 /**
  * Decodes a File or Blob into an AudioBuffer using the browser's native AudioContext.
@@ -273,13 +274,44 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     acf.push(sum);
   }
 
-  // Find the lag with peak autocorrelation — that lag = beat period
+  // Find the top candidate lags, then prefer whichever has the strongest
+  // "harmonic support" (i.e. also shows elevated autocorrelation near 2x and 3x
+  // that lag) - naive single-peak-picking can lock onto a rhythmic subdivision
+  // (a hi-hat pattern, a sample-loop length) rather than the true beat period.
+  const acfPeakCandidates: Array<{ lag: number; val: number }> = [];
+  for (let i = 1; i < acf.length - 1; i++) {
+    if (acf[i] > acf[i - 1] && acf[i] > acf[i + 1]) {
+      acfPeakCandidates.push({ lag: minLag + i, val: acf[i] });
+    }
+  }
+  acfPeakCandidates.sort((a, b) => b.val - a.val);
+  const topCandidates = acfPeakCandidates.slice(0, 5);
+
+  const getAcfAtLag = (targetLag: number): number => {
+    const idx = targetLag - minLag;
+    if (idx < 0 || idx >= acf.length) return 0;
+    return acf[idx];
+  };
+
   let bestAcf = 0;
   let bestLag = minLag;
-  for (let i = 0; i < acf.length; i++) {
-    if (acf[i] > bestAcf) {
-      bestAcf = acf[i];
-      bestLag = minLag + i;
+  let bestSupportScore = -Infinity;
+  for (const candidate of topCandidates) {
+    const support2x = getAcfAtLag(candidate.lag * 2);
+    const support3x = getAcfAtLag(candidate.lag * 3);
+    const supportScore = candidate.val + support2x * 0.5 + support3x * 0.3;
+    if (supportScore > bestSupportScore) {
+      bestSupportScore = supportScore;
+      bestAcf = candidate.val;
+      bestLag = candidate.lag;
+    }
+  }
+  if (topCandidates.length === 0) {
+    for (let i = 0; i < acf.length; i++) {
+      if (acf[i] > bestAcf) {
+        bestAcf = acf[i];
+        bestLag = minLag + i;
+      }
     }
   }
 
@@ -312,48 +344,49 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     "F# Minor", "G Minor", "G# Minor", "A Minor", "A# Minor", "B Minor"
   ];
   
-  // Create a 12-semitone chromagram array
+  // Create a 12-semitone chromagram array using REAL FFT-based spectral analysis
+  // (replaces the old autocorrelation single-pitch approach, which struggled with
+  // polyphonic/chord-heavy audio and could latch onto a single dominant note per block
+  // rather than reflecting the song's true overall harmonic content)
   const chromaBins = new Float32Array(12);
-  const sampleHop = Math.floor(filteredLength / 180); // scan ~180 block intervals
-  
-  for (let s = 10; s < filteredLength - 1000; s += sampleHop) {
-    // Autocorrelation of a small chunk (approx 512 frames) to extract F0 pitch
-    const blockSize = 512;
-    let r_xx = new Float32Array(blockSize);
-    for (let lag = 0; lag < blockSize; lag++) {
-      let sum = 0;
-      for (let j = 0; j < blockSize; j++) {
-        sum += fCh0[s + j] * fCh0[s + j + lag];
-      }
-      r_xx[lag] = sum;
+  const chromaFftSize = 4096;
+  const chromaFft = new FFT(chromaFftSize);
+  const chromaComplexOut = chromaFft.createComplexArray();
+  const chromaMinFreq = 60;
+  const chromaMaxFreq = 5000;
+
+  // Use RAW (unfiltered) channel 0 data, NOT the K-weighted fCh0 - K-weighting's
+  // high-pass stage attenuates bass frequencies, which carry crucial root-note
+  // information for key detection.
+  const chromaNumFrames = Math.floor((len - chromaFftSize) / chromaFftSize);
+  const chromaFrameStep = Math.max(1, Math.floor(chromaNumFrames / 200)); // cap at ~200 analyzed frames for performance
+
+  const chromaHannWindow = new Float32Array(chromaFftSize);
+  for (let n = 0; n < chromaFftSize; n++) {
+    chromaHannWindow[n] = 0.5 * (1 - Math.cos((2 * Math.PI * n) / (chromaFftSize - 1)));
+  }
+
+  for (let f = 0; f < chromaNumFrames; f += chromaFrameStep) {
+    const start = f * chromaFftSize;
+    const frame = new Array(chromaFftSize);
+    for (let n = 0; n < chromaFftSize; n++) {
+      frame[n] = (ch0[start + n] || 0) * chromaHannWindow[n];
     }
-    
-    // Find absolute strongest peak inside human audible pitch ranges (80Hz to 800Hz)
-    // Lag in samples: latency = sampleRate / F0
-    const minLag = Math.floor(sampleRate / (hop * 800));
-    const maxLag = Math.floor(sampleRate / (hop * 8)); // lock reasonable range
-    
-    let peakLag = -1;
-    let peakVal = -Infinity;
-    for (let lag = minLag; lag < maxLag; lag++) {
-      if (r_xx[lag] > r_xx[lag - 1] && r_xx[lag] > r_xx[lag + 1]) {
-        if (r_xx[lag] > peakVal) {
-          peakVal = r_xx[lag];
-          peakLag = lag;
-        }
-      }
-    }
-    
-    if (peakLag > 0 && peakVal > 0.05) {
-      const estF0 = (sampleRate / hop) / peakLag;
-      if (estF0 >= 60 && estF0 <= 1500) {
-        // Find closest Midi Note
-        const midiNote = 12 * Math.log2(estF0 / 440) + 69;
-        const pitchClass = Math.round(midiNote) % 12;
-        if (pitchClass >= 0 && pitchClass < 12) {
-          chromaBins[pitchClass] += peakVal;
-        }
-      }
+
+    chromaFft.realTransform(chromaComplexOut, frame);
+    chromaFft.completeSpectrum(chromaComplexOut);
+
+    const binHz = sampleRate / chromaFftSize;
+    const numBins = chromaFftSize / 2;
+    for (let k = 1; k < numBins; k++) {
+      const freq = k * binHz;
+      if (freq < chromaMinFreq || freq > chromaMaxFreq) continue;
+      const re = chromaComplexOut[2 * k];
+      const im = chromaComplexOut[2 * k + 1];
+      const magnitude = Math.sqrt(re * re + im * im);
+      const midiNote = 12 * Math.log2(freq / 440) + 69;
+      const pitchClass = ((Math.round(midiNote) % 12) + 12) % 12;
+      chromaBins[pitchClass] += magnitude;
     }
   }
 
