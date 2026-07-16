@@ -1339,6 +1339,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const downloadFullReport = async () => {
     const workbook = new ExcelJS.Workbook();
     const ws = workbook.addWorksheet("YSS Full Report", { views: [{ showGridLines: false }] });
+    const wsEchoNest = workbook.addWorksheet("Echo Nest Scorecard", { views: [{ showGridLines: false }] });
 
     const CATS: Record<string, { dark: string; agg: string; core: string }> = {
       "STREAMING READINESS": { dark: "FF1E3A8A", agg: "FFA5B0D0", core: "FFD2D8E8" },
@@ -1537,6 +1538,79 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     addAggRow(CATS["STREAMING READINESS"], "STREAMING ALIGNMENT", null, "INFO ONLY - Echo Nest-style data (Danceability, Energy, Acousticness, Valence, Speechiness, Liveness). Most fields are now genuinely live (real audio measurements or real Gemini judgment); this section intentionally carries no separate numeric score, since its former duplicate score was retired.", true);
     addAggRow(CATS["STREAMING READINESS"], "ALGO SANDBOX", null, "INFO ONLY - Interactive tools (Cosine Similarity Mapping, Circumplex Mood Plotter, Sequential Variance Lab). Now seeded with real per-song data; target playlist coordinates remain illustrative estimates, not precise real values.", true);
     addAggRow(CATS["SONIC SOUNDPRINT"], "ENGINEERING STUDIO", null, "INFO ONLY - Full diagnostic toolkit (Harmonic Resolution, Signal & Levels, Dynamics Profile, Visualizations, Genre Compliance, Noise & Artifacts, Arrangement Patterns, Stereo Azimuth). Fully audited and genre-aware throughout; true independent 6-band FFT measurement remains a planned future upgrade.", true);
+
+    // === ECHO NEST SCORECARD TAB ===
+    wsEchoNest.getColumn(1).width = 4;
+    wsEchoNest.getColumn(2).width = 24;
+    wsEchoNest.getColumn(3).width = 14;
+    wsEchoNest.getColumn(4).width = 20;
+    wsEchoNest.getColumn(5).width = 22;
+
+    wsEchoNest.getCell("B2").value = "ECHO NEST SCORECARD - GENRE TARGET COMPARISON";
+    wsEchoNest.getCell("B2").font = { name: "Calibri", size: 13, bold: true, color: { argb: "FF1ED760" } };
+    wsEchoNest.getCell("B3").value = `Target Genre Profile: ${critique?.vibe?.genre || "N/A"} / ${critique?.vibe?.subgenre || "N/A"}`;
+    wsEchoNest.getCell("B3").font = { name: "Calibri", size: 10, italic: true, color: { argb: "FF888888" } };
+
+    const echoNestHeaderRow = 5;
+    ["Metric", "Current Value", "Target Corridor", "Match Status"].forEach((h, i) => {
+      const cell = wsEchoNest.getCell(echoNestHeaderRow, i + 2);
+      cell.value = h;
+      cell.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } };
+    });
+
+    const echoNestRows = [
+      { name: "Danceability", value: danceability, min: danceMinBound, max: danceMaxBound, match: danceabilityMatch },
+      { name: "Energy & Intensity", value: energy, min: energyMinBound, max: energyMaxBound, match: energyMatch },
+      { name: "Acousticness", value: acousticness, min: acousticMinBound, max: acousticMaxBound, match: acousticnessMatch },
+      { name: "Mood Valence", value: valence, min: valenceMinBound, max: valenceMaxBound, match: valenceMatch },
+      { name: "Speechiness", value: speechiness, min: speechMinBound, max: speechMaxBound, match: speechinessMatch },
+      { name: "Instrumentalness", value: instrumentalness, min: instMinBound, max: instMaxBound, match: instrumentalnessMatch },
+      { name: "Liveness", value: liveness, min: liveMinBound, max: liveMaxBound, match: livenessMatch }
+    ];
+
+    echoNestRows.forEach((row, rowIndex) => {
+      const rowNum = echoNestHeaderRow + 1 + rowIndex;
+      const wsRow = wsEchoNest.getRow(rowNum);
+      wsRow.height = 20;
+
+      // Metric Name
+      const cellMetric = wsEchoNest.getCell(rowNum, 2);
+      cellMetric.value = row.name;
+      cellMetric.font = { name: "Calibri", size: 10, bold: true };
+      cellMetric.border = fullBorder;
+      cellMetric.alignment = { vertical: "middle" };
+
+      // Current Value
+      const cellValue = wsEchoNest.getCell(rowNum, 3);
+      cellValue.value = `${row.value}%`;
+      cellValue.font = { name: "Calibri", size: 10 };
+      cellValue.border = fullBorder;
+      cellValue.alignment = { horizontal: "center", vertical: "middle" };
+
+      // Target Corridor
+      const cellCorridor = wsEchoNest.getCell(rowNum, 4);
+      cellCorridor.value = `${row.min}% - ${row.max}%`;
+      cellCorridor.font = { name: "Calibri", size: 10 };
+      cellCorridor.border = fullBorder;
+      cellCorridor.alignment = { horizontal: "center", vertical: "middle" };
+
+      // Match Status
+      const cellMatch = wsEchoNest.getCell(rowNum, 5);
+      cellMatch.value = `${row.match}% Match`;
+      cellMatch.font = { name: "Calibri", size: 10, bold: true };
+      cellMatch.border = fullBorder;
+      cellMatch.alignment = { horizontal: "center", vertical: "middle" };
+
+      // Color Match Status depending on score
+      if (row.match >= 85) {
+        cellMatch.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FF15803D" } }; // Green
+      } else if (row.match >= 70) {
+        cellMatch.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FFB45309" } }; // Amber
+      } else {
+        cellMatch.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FFB91C1C" } }; // Red
+      }
+    });
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
