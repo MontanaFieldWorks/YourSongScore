@@ -1363,16 +1363,20 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     ws.getCell("B2").font = { name: "Calibri", size: 14, bold: true };
     ws.getCell("B3").value = "ARTIST:";
     ws.getCell("C3").value = trackInfo?.artist || "Independent Artist";
+    ws.getCell("E3").value = "KEY:";
+    ws.getCell("F3").value = critique?.liveMetrics?.calculatedKey || "N/A";
     ws.getCell("B4").value = "SONG TITLE:";
     ws.getCell("C4").value = trackInfo?.name || "Untitled";
+    ws.getCell("E4").value = "TEMPO:";
+    ws.getCell("F4").value = critique?.liveMetrics?.calculatedBpm || "N/A";
     ws.getCell("B5").value = "GENRE:";
     ws.getCell("C5").value = critique?.vibe?.genre || "Unclassified";
     ws.getCell("B6").value = "SUBGENRE:";
     ws.getCell("C6").value = critique?.vibe?.subgenre || "N/A";
-    ["B3", "B4", "B5", "B6"].forEach(coord => {
+    ["B3", "B4", "B5", "B6", "E3", "E4"].forEach(coord => {
       ws.getCell(coord).font = { name: "Calibri", size: 10, bold: true };
     });
-    ["C3", "C4", "C5", "C6"].forEach(coord => {
+    ["C3", "C4", "C5", "C6", "F3", "F4"].forEach(coord => {
       ws.getCell(coord).font = { name: "Calibri", size: 10, bold: false };
     });
 
@@ -4185,7 +4189,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         idealDesc: "musical sunlight and emotional brightness.",
         overDesc: "Harmony/chord scale is overly upbeat or bright, contradicting the target playlist mood vector.",
         underDesc: "Vibe is too dark or somber, mismatching happy or energetic listener filters.",
-        source: "score"
+        realCommentary: critique?.subMetricsCall2?.moodValence?.commentary || null,
+        source: critique?.subMetricsCall2?.moodValence?.commentary ? "ai-real" : "score"
       },
       {
         key: "speechiness",
@@ -4198,7 +4203,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         idealDesc: "spoken word presence over musical singing.",
         overDesc: "Vocal tracks lean toward spoken text or monologue, disrupting playlist music flow.",
         underDesc: "Spoken presence is overly attenuated or missing for a speech-focused style target.",
-        source: "score"
+        realCommentary: critique?.subMetricsCall2?.speechiness?.commentary || null,
+        source: critique?.subMetricsCall2?.speechiness?.commentary ? "ai-real" : "score"
       },
       {
         key: "instrumentalness",
@@ -4335,9 +4341,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             <span className="text-[8px] font-mono text-cyan-500/70 border border-cyan-500/20 px-1 py-0.5 rounded uppercase tracking-wide ml-1 normal-case font-medium">
                               ⬡ audio
                             </span>
+                          ) : item.source === "ai-real" ? (
+                            <span className="text-[8px] font-mono text-purple-400/80 border border-purple-500/20 px-1 py-0.5 rounded uppercase tracking-wide ml-1 normal-case font-medium">
+                              ✦ ai
+                            </span>
                           ) : (
                             <span className="text-[8px] font-mono text-slate-600 border border-white/5 px-1 py-0.5 rounded uppercase tracking-wide ml-1 normal-case font-medium">
-                              AI
+                              est
                             </span>
                           )}
                         </div>
@@ -4420,7 +4430,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             );
                           }
 
-                          // Dynamically pull from our Echo Nest diagnostics map
+                          // Prefer real, per-song Gemini commentary when it exists; fall back to the generic archetype table only when it doesn't
                           const metricMap: Record<string, string> = {
                             "danceability": "Danceability",
                             "energy": "Energy",
@@ -4434,8 +4444,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                           const cond = isOver ? "TOO_HIGH" : "TOO_LOW";
                           const dynamicFeedback = getCritiqueAndFix(archetype, metricMappedName, cond);
 
-                          const textFeedback = dynamicFeedback?.critique || (isOver ? item.overDesc : item.underDesc);
-                          const fixFeedback = dynamicFeedback?.fix || "";
+                          const textFeedback = (item as any).realCommentary || dynamicFeedback?.critique || (isOver ? item.overDesc : item.underDesc);
+                          const fixFeedback = (item as any).realCommentary ? "" : (dynamicFeedback?.fix || "");
 
                           if (isOver) {
                             return (
