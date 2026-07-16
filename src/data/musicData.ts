@@ -1231,11 +1231,14 @@ export function getSubgenreProfile(genreName: string, subgenreName: string): Sub
     }
   }
 
-  // 3. Loose search
-  for (const key of Object.keys(SUBGENRE_PROFILES)) {
-    const parts = key.split("|");
-    if (sKey.includes(parts[1]) || parts[1].includes(sKey)) {
-      return SUBGENRE_PROFILES[key];
+  // 3. Loose search - skip entirely if no subgenre was provided, since an empty string
+  // would falsely "loose match" the first entry in the table via JS's .includes("") behavior
+  if (sKey.length > 0) {
+    for (const key of Object.keys(SUBGENRE_PROFILES)) {
+      const parts = key.split("|");
+      if (sKey.includes(parts[1]) || parts[1].includes(sKey)) {
+        return SUBGENRE_PROFILES[key];
+      }
     }
   }
 
@@ -1261,6 +1264,28 @@ export function getSubgenreProfile(genreName: string, subgenreName: string): Sub
     "house": "electronic|edm / dance",
     "techno": "electronic|edm / dance",
     "dubstep": "electronic|edm / dance",
+    "metal": "rock|mainstream heavy metal",
+    "grunge": "rock|grunge / 90s alternative catalog",
+    "punk": "rock|active rock",
+    "shoegaze": "alternative|shoegaze / dream pop revival",
+    "emo": "alternative|modern rock / active indie",
+    "soul": "r&b|neo-soul",
+    "funk": "r&b|funk / r&b heritage catalog",
+    "gospel": "r&b|contemporary r&b / urban adult contemporary",
+    "christian": "r&b|contemporary r&b / urban adult contemporary",
+    "bluegrass": "country|bluegrass",
+    "americana": "country|americana",
+    "folk": "country|americana",
+    "singer-songwriter": "country|americana",
+    "k-pop": "world music|k-pop / world digital song sales",
+    "reggae": "world music|afrobeats / afro-pop mainstream",
+    "ska": "alternative|alternative",
+    "musical theatre": "classical|traditional classical",
+    "broadway": "classical|traditional classical",
+    "ambient": "classical|traditional classical",
+    "afrobeats": "world music|afrobeats / afro-pop mainstream",
+    "drill": "hip hop|trap / mainstream hip-hop",
+    "garage": "electronic|edm / dance",
   };
   for (const [genreWord, defaultKey] of Object.entries(GENRE_DEFAULT_PROFILE)) {
     if (gKey.includes(genreWord) && SUBGENRE_PROFILES[defaultKey]) {
