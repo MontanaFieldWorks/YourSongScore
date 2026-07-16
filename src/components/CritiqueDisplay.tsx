@@ -5427,11 +5427,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             {/* Sub-links for sonic */}
             {activeSection === "sonic" && !sidebarCollapsed && (
               <div className="flex flex-col gap-0.5 pl-3 border-l border-[#46F4CD]/20 ml-3.5 py-1">
-                {["Engineering Studio", "Production Quality", "Tech Blueprints"].map((label, i) => (
+                {["Engineering Studio", "Tech Blueprints", "Production Quality"].map((label, i) => (
                   <button
                     key={i}
                     onClick={() => {
-                      const ids = ["sidebar-link-sonic-0", "sidebar-link-sonic-2", "sidebar-link-sonic-1"];
+                      const ids = ["sidebar-link-sonic-0", "sidebar-link-sonic-1", "sidebar-link-sonic-2"];
                       setExpandedCategory('sonic');
                       setTimeout(() => {
                         const el = document.getElementById(ids[i]);
@@ -5584,7 +5584,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <h2 className="text-[32px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Sonic Soundprint</h2>
                     <p className="text-[12px] text-slate-400 leading-relaxed max-w-lg mt-1">Engineering studio, production quality, and technical diagnostic blueprints — whether your mix sounds finished and competitive.</p>
                     <div className="flex gap-2 mt-2 flex-wrap">
-                      {["Engineering Studio", "Production Quality", "Tech Blueprints"].map(tag => (
+                      {["Engineering Studio", "Tech Blueprints", "Production Quality"].map(tag => (
                         <span key={tag} className="text-[9px] font-mono text-[#46F4CD]/70 border border-[#46F4CD]/25 px-2.5 py-1 rounded-full">{tag}</span>
                       ))}
                     </div>
