@@ -3035,6 +3035,61 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       }
     }
 
+    if (cleanName === "Opening Hook Strength") {
+      if (score >= 90) {
+        return `Outstanding early hook presence! The song's core melodic or vocal idea lands well within the first 30 seconds, giving it strong resistance to skip behavior on streaming platforms.`;
+      } else if (score >= 80) {
+        return `Solid opening hook (${score}/100). The track establishes its identity early enough to hold listener attention through the critical skip window.`;
+      } else {
+        return `The main hook arrives too late or too subtly. Consider bringing a recognizable melodic or vocal moment forward into the first 20-30 seconds to reduce early skip risk.`;
+      }
+    }
+    if (cleanName === "Section Transitions") {
+      if (score >= 90) {
+        return `Excellent section transitions! Shifts between verse, chorus, and bridge feel earned and well-built rather than abrupt.`;
+      } else if (score >= 80) {
+        return `Generally smooth transitions (${score}/100), with section changes that feel purposeful rather than disconnected.`;
+      } else {
+        return `Some transitions feel abrupt or disconnected. Consider a brief buildup, fill, or dynamic shift to bridge sections more naturally.`;
+      }
+    }
+    if (cleanName === "Instrumental Warmth") {
+      if (score >= 90) {
+        return `Rich, warm instrumental tone throughout - the backing instrumentation feels full and rounded rather than thin or harsh.`;
+      } else if (score >= 80) {
+        return `Generally warm tonal character (${score}/100), with instrumentation that sits comfortably rather than sounding cold or brittle.`;
+      } else {
+        return `The instrumentation reads as somewhat thin or harsh. Consider gentle harmonic saturation or warmer tonal choices on key backing elements.`;
+      }
+    }
+    if (cleanName === "Stereo Width") {
+      if (score >= 90) {
+        return `Excellent stereo imaging - the mix uses width effectively without sacrificing mono compatibility or center-channel focus.`;
+      } else if (score >= 80) {
+        return `Reasonably well-balanced stereo field (${score}/100), with appropriate width for the arrangement.`;
+      } else {
+        return `The stereo image feels either too narrow or inconsistently wide. Consider reassessing panning and stereo widening on backing elements.`;
+      }
+    }
+    if (cleanName === "Dynamic Variety") {
+      if (score >= 90) {
+        return `Strong dynamic movement throughout - energy and intensity shift meaningfully across the runtime rather than staying flat.`;
+      } else if (score >= 80) {
+        return `Reasonable dynamic range (${score}/100) between sections, giving the track some sense of movement.`;
+      } else {
+        return `The track feels dynamically flat. Consider introducing more contrast between quieter and higher-energy sections.`;
+      }
+    }
+    if (cleanName === "Artistic Alignment") {
+      if (score >= 90) {
+        return `Strong execution conviction - the track commits fully to one clear creative vision rather than hedging between competing directions.`;
+      } else if (score >= 80) {
+        return `Generally coherent artistic direction (${score}/100), with most elements pulling toward a consistent identity.`;
+      } else {
+        return `The track's creative direction feels somewhat inconsistent. Consider whether all elements (arrangement, vocal delivery, production) are serving the same artistic vision.`;
+      }
+    }
+
     return `Highly polished ${cleanName} performance metric, calibrated to modern professional streaming standards.`;
   };
 
