@@ -1340,6 +1340,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     const workbook = new ExcelJS.Workbook();
     const ws = workbook.addWorksheet("YSS Full Report", { views: [{ showGridLines: false }] });
     const wsEchoNest = workbook.addWorksheet("Echo Nest Scorecard", { views: [{ showGridLines: false }] });
+    const wsEngineering = workbook.addWorksheet("Engineering Studio", { views: [{ showGridLines: false }] });
 
     const CATS: Record<string, { dark: string; agg: string; core: string }> = {
       "STREAMING READINESS": { dark: "FF1E3A8A", agg: "FFA5B0D0", core: "FFD2D8E8" },
@@ -1610,6 +1611,142 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       } else {
         cellMatch.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FFB91C1C" } }; // Red
       }
+    });
+
+    // === ENGINEERING STUDIO TAB ===
+    wsEngineering.getColumn(1).width = 4;
+    wsEngineering.getColumn(2).width = 26;
+    wsEngineering.getColumn(3).width = 16;
+    wsEngineering.getColumn(4).width = 20;
+    wsEngineering.getColumn(5).width = 18;
+
+    wsEngineering.getCell("B2").value = "ENGINEERING STUDIO - TECHNICAL DIAGNOSTIC SUMMARY";
+    wsEngineering.getCell("B2").font = { name: "Calibri", size: 13, bold: true, color: { argb: "FF2563EB" } };
+
+    const engBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+    wsEngineering.getCell("B3").value = `Genre Target Profile: ${engBucket.label}`;
+    wsEngineering.getCell("B3").font = { name: "Calibri", size: 10, italic: true, color: { argb: "FF888888" } };
+
+    const lm = critique?.liveMetrics;
+    const engLufs = lm?.calculatedLufs;
+    const engLra = lm?.calculatedLra;
+    const engTruePeak = lm?.calculatedTruePeak;
+    const engPlr = (engTruePeak !== undefined && engLufs !== undefined) ? Math.abs(engTruePeak - engLufs) : undefined;
+
+    const engSectionHeader = (row: number, title: string) => {
+      const cell = wsEngineering.getCell(row, 2);
+      cell.value = title;
+      cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF13161C" } };
+      wsEngineering.mergeCells(row, 2, row, 5);
+    };
+
+    let engRow = 5;
+    engSectionHeader(engRow, "SIGNAL & LEVELS");
+    engRow += 1;
+
+    ["Metric", "Value", "Target / Threshold", "Status"].forEach((h, i) => {
+      const cell = wsEngineering.getCell(engRow, i + 2);
+      cell.value = h;
+      cell.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } };
+    });
+    engRow += 1;
+
+    const engRows: Array<{ name: string; value: string; target: string; status: string; pass: boolean }> = [];
+
+    if (engLufs !== undefined) {
+      const lufsPass = engLufs >= engBucket.lufsMin && engLufs <= engBucket.lufsMax;
+      engRows.push({ name: "Integrated Loudness (LUFS)", value: `${engLufs} LUFS`, target: `${engBucket.lufsMin} to ${engBucket.lufsMax} LUFS`, status: lufsPass ? "PASS" : "OUT OF RANGE", pass: lufsPass });
+    }
+    if (engLra !== undefined) {
+      const lraPass = engLra >= engBucket.lraMin && (engBucket.lraMax === null || engLra <= engBucket.lraMax);
+      engRows.push({ name: "Loudness Range (LRA)", value: `${engLra} LU`, target: `${engBucket.lraMin}${engBucket.lraMax !== null ? `-${engBucket.lraMax}` : "+"} LU`, status: lraPass ? "PASS" : "OUT OF RANGE", pass: lraPass });
+    }
+    if (engTruePeak !== undefined) {
+      const tpPass = engTruePeak <= -1.0;
+      engRows.push({ name: "True Peak", value: `${engTruePeak} dBTP`, target: "-1.0 dBTP or lower", status: tpPass ? "PASS" : "CLIPPING RISK", pass: tpPass });
+    }
+    if (engPlr !== undefined) {
+      const plrStatus = engPlr < 5 ? "SEVERE BRICKWALLING" : engPlr < 8 ? "MODERATE COMPRESSION" : "IDEAL";
+      engRows.push({ name: "Peak-to-Loudness Ratio (PLR)", value: `${engPlr.toFixed(1)} PLR`, target: "8+ PLR ideal", status: plrStatus, pass: engPlr >= 8 });
+    }
+    if (engLufs !== undefined) {
+      const compStatus = engLufs > engBucket.lufsMax ? "HEAVY LIMITING" : engLufs > engBucket.lufsMin ? "MODERATE" : "CLEAN";
+      engRows.push({ name: "Compression Artifacts", value: compStatus, target: `Genre window: ${engBucket.lufsMin} to ${engBucket.lufsMax} LUFS`, status: compStatus === "HEAVY LIMITING" ? "CAUTION" : "OK", pass: compStatus !== "HEAVY LIMITING" });
+    }
+
+    engRows.forEach((row) => {
+      wsEngineering.getCell(engRow, 2).value = row.name;
+      wsEngineering.getCell(engRow, 2).font = { name: "Calibri", size: 10, bold: true };
+      wsEngineering.getCell(engRow, 2).border = fullBorder;
+      wsEngineering.getCell(engRow, 3).value = row.value;
+      wsEngineering.getCell(engRow, 3).font = { name: "Calibri", size: 10 };
+      wsEngineering.getCell(engRow, 3).border = fullBorder;
+      wsEngineering.getCell(engRow, 4).value = row.target;
+      wsEngineering.getCell(engRow, 4).font = { name: "Calibri", size: 10, color: { argb: "FF888888" } };
+      wsEngineering.getCell(engRow, 4).border = fullBorder;
+      wsEngineering.getCell(engRow, 5).value = row.status;
+      wsEngineering.getCell(engRow, 5).font = { name: "Calibri", size: 10, bold: true, color: { argb: row.pass ? "FF1ED760" : "FFF59E0B" } };
+      wsEngineering.getCell(engRow, 5).border = fullBorder;
+      engRow += 1;
+    });
+
+    engRow += 1;
+    engSectionHeader(engRow, "FREQUENCY BALANCE (6-BAND ENERGY)");
+    engRow += 1;
+
+    ["Band", "Frequency Range", "Energy Level", "Status"].forEach((h, i) => {
+      const cell = wsEngineering.getCell(engRow, i + 2);
+      cell.value = h;
+      cell.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } };
+    });
+    engRow += 1;
+
+    const bass = lm?.calculatedBassEnergy ?? 35;
+    const mid = lm?.calculatedMidEnergy ?? 40;
+    const high = lm?.calculatedHighEnergy ?? 25;
+    const BAND_IDEALS: Record<string, number[]> = {
+      hiphop:     [65, 62, 55, 50, 48, 42],
+      mainstream: [55, 60, 60, 55, 55, 50],
+      indie:      [45, 50, 55, 58, 52, 45],
+      classical:  [35, 40, 45, 48, 40, 35],
+    };
+    const ideals = BAND_IDEALS[engBucket.key] ?? BAND_IDEALS.mainstream;
+    const subBassVal = Math.min(99, Math.round(30 + (bass * 1.4)));
+    const bassCorridorVal = Math.min(99, Math.round(35 + (bass * 1.2)));
+    const lowMidVal = Math.min(99, Math.round(20 + (mid * 0.9)));
+    const coreMidVal = Math.min(99, Math.round(15 + (mid * 0.8)));
+    const presenceVal = Math.min(99, Math.round(15 + (high * 1.1)));
+    const airVal = Math.min(99, Math.round(10 + (high * 0.95)));
+    const getBandStatus = (v: number, ideal: number) =>
+      v > ideal + 15 ? "PEAK" : v > ideal + 7 ? "SLIGHT PEAK" : v < ideal - 15 ? "DEFICIT" : v < ideal - 7 ? "SLIGHT DEFICIT" : "NOMINAL";
+
+    const bandRows = [
+      { band: "Sub-Bass", range: "20-64Hz", val: subBassVal, ideal: ideals[0] },
+      { band: "Bass", range: "64-250Hz", val: bassCorridorVal, ideal: ideals[1] },
+      { band: "Low-Mids", range: "250Hz-1kHz", val: lowMidVal, ideal: ideals[2] },
+      { band: "Core Mids", range: "1-4kHz", val: coreMidVal, ideal: ideals[3] },
+      { band: "Presence", range: "4-8kHz", val: presenceVal, ideal: ideals[4] },
+      { band: "Air", range: "8-20kHz", val: airVal, ideal: ideals[5] },
+    ];
+
+    bandRows.forEach((row) => {
+      const status = getBandStatus(row.val, row.ideal);
+      wsEngineering.getCell(engRow, 2).value = row.band;
+      wsEngineering.getCell(engRow, 2).font = { name: "Calibri", size: 10, bold: true };
+      wsEngineering.getCell(engRow, 2).border = fullBorder;
+      wsEngineering.getCell(engRow, 3).value = row.range;
+      wsEngineering.getCell(engRow, 3).font = { name: "Calibri", size: 10, color: { argb: "FF888888" } };
+      wsEngineering.getCell(engRow, 3).border = fullBorder;
+      wsEngineering.getCell(engRow, 4).value = `${row.val}%`;
+      wsEngineering.getCell(engRow, 4).font = { name: "Calibri", size: 10 };
+      wsEngineering.getCell(engRow, 4).border = fullBorder;
+      wsEngineering.getCell(engRow, 5).value = status;
+      wsEngineering.getCell(engRow, 5).font = { name: "Calibri", size: 10, bold: true, color: { argb: status === "NOMINAL" ? "FF1ED760" : "FFF59E0B" } };
+      wsEngineering.getCell(engRow, 5).border = fullBorder;
+      engRow += 1;
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
