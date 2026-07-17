@@ -1526,12 +1526,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         addAggRow(colors, group.agg, aggScoreMap[group.agg] ?? null, "");
         lastAgg = group.agg;
       }
-      addCoreRow(colors, m.name, m.score, (m.feedback || "").replace(/\n/g, " "));
+      addCoreRow(colors, m.name, m.score, (m.feedback || "").replace(/\n/g, " ").replace(/(\d+\s*)?[+-]\s*\d+\s*points?:\s*/gi, ""));
       (m.subParams || []).forEach((param: any, idx: number) => {
         const realSub = getRealSubMetric(critique, m.id, idx);
         const subScore = realSub ? realSub.score : getSubScore(m.score, idx, m.subParams.length, m.id);
         const subText = realSub ? realSub.commentary : getSubScoreExplanationText(param.name, subScore);
-        addSubRow(param.name, subScore, (subText || "").replace(/\n/g, " "));
+        addSubRow(param.name, subScore, (subText || "").replace(/\n/g, " ").replace(/(\d+\s*)?[+-]\s*\d+\s*points?:\s*/gi, ""));
       });
     });
 
