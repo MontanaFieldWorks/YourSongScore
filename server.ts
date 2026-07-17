@@ -430,9 +430,12 @@ Parent category context already determined:
 - Composition Flow score: ${parsedCritique?.arrangement?.flowScore}, notes: ${parsedCritique?.arrangement?.transitionsAndArc}
 - Vocal Tracking score: ${parsedCritique?.performance?.vocalScore}, notes: ${parsedCritique?.performance?.vocalsCritique}
 - Instrumental Staging score: ${parsedCritique?.performance?.instrumentalScore}
-- Lyrical Impact score: ${parsedCritique?.lyricalImpact?.score}, feedback: ${parsedCritique?.lyricalImpact?.feedback}
+- Lyrical Impact score: ${parsedCritique?.lyricalImpact?.score}, meaning classification: "${parsedCritique?.lyricalImpact?.meaningClarity}", feedback: ${parsedCritique?.lyricalImpact?.feedback}
 - Music Theory score: ${parsedCritique?.musicTheory?.score}, chord structures: ${parsedCritique?.musicTheory?.chordStructures}
+- Harmonic Intrigue (already scored in a separate pass): ${parsedCritique?.subMetricsCall2?.artisticAnalysis?.harmonicIntrigue?.score ?? "N/A"}/100, notes: "${parsedCritique?.subMetricsCall2?.artisticAnalysis?.harmonicIntrigue?.commentary ?? "N/A"}"
 - Genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
+
+CONSISTENCY REQUIREMENT: Your meaningClarity sub-score and commentary MUST be consistent with the parent Lyrical Impact's meaning classification shown above - if the parent was classified "Clear", do not describe the lyrics as abstract, dream-like, or oblique in your sub-commentary, and vice versa. Similarly, your chordDynamics score should be consistent with the Harmonic Intrigue score shown above (both describe overlapping harmonic content) - do not score chordDynamics dramatically higher than Harmonic Intrigue unless your commentary specifically identifies a distinct, real reason for the difference (e.g. Harmonic Intrigue addresses novelty/complexity while Chord Dynamics addresses functional/dynamic use of chords - these can differ, but only for a specific, stated reason, not by default).
 
 Listen to the actual audio again and generate specific, deduction-based scores and commentary for all 16 sub-fields across these 5 categories, consistent with the above context but grounded in what you actually hear this time. Actively scan for genuine technical sophistication before defaulting to surface-level descriptions.`;
 
