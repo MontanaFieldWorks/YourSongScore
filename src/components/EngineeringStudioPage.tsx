@@ -739,9 +739,6 @@ const generateHarmonicNodes = () => {
                   {/* At-a-glance 6-band energy strip, genre-aware targets */}
                   <div className="grid grid-cols-3 md:grid-cols-6 gap-2.5">
                     {(() => {
-                      const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35;
-                      const mid = critique?.liveMetrics?.calculatedMidEnergy ?? 40;
-                      const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25;
                       const bandBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
                       const BAND_IDEALS: Record<string, number[]> = {
                         hiphop:     [65, 62, 55, 50, 48, 42],
@@ -750,12 +747,12 @@ const generateHarmonicNodes = () => {
                         classical:  [35, 40, 45, 48, 40, 35],
                       };
                       const ideals = BAND_IDEALS[bandBucket.key] ?? BAND_IDEALS.mainstream;
-                      const subBassVal = Math.min(99, Math.round(30 + (bass * 1.4)));
-                      const bassCorridorVal = Math.min(99, Math.round(35 + (bass * 1.2)));
-                      const lowMidVal = Math.min(99, Math.round(20 + (mid * 0.9)));
-                      const coreMidVal = Math.min(99, Math.round(15 + (mid * 0.8)));
-                      const presenceVal = Math.min(99, Math.round(15 + (high * 1.1)));
-                      const airVal = Math.min(99, Math.round(10 + (high * 0.95)));
+                      const subBassVal = critique?.liveMetrics?.calculatedSubBassBandEnergy ?? 45;
+                      const bassCorridorVal = critique?.liveMetrics?.calculatedBassBandEnergy ?? 48;
+                      const lowMidVal = critique?.liveMetrics?.calculatedLowMidsBandEnergy ?? 55;
+                      const coreMidVal = critique?.liveMetrics?.calculatedCoreMidsBandEnergy ?? 56;
+                      const presenceVal = critique?.liveMetrics?.calculatedPresenceBandEnergy ?? 50;
+                      const airVal = critique?.liveMetrics?.calculatedAirBandEnergy ?? 46;
                       const getStatus = (v: number, ideal: number) =>
                         v > ideal + 15 ? "Peak" : v > ideal + 7 ? "Slight Peak" : v < ideal - 15 ? "Deficit" : v < ideal - 7 ? "Slight Deficit" : "Nominal";
                       const bands = [
