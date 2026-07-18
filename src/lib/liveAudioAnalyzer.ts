@@ -565,6 +565,73 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     }
   }
 
+  // Real 6-band frequency energy measurement, reusing the same FFT infrastructure
+  // built for the chromagram - genuine FFT magnitude summed into fixed Hz ranges,
+  // converted to dB, then mapped to a 0-100 scale via a fixed floor/ceiling.
+  // Replaces the old approach of extrapolating 6 values from just 3 measured numbers.
+  const bandFftSize = 4096;
+  const bandFft = new FFT(bandFftSize);
+  const bandComplexOut = bandFft.createComplexArray();
+  
+  const bandSums = new Float32Array(6);
+  const bandCounts = new Int32Array(6);
+  
+  const bandRanges = [
+    { min: 20, max: 60 },     // Sub-bass
+    { min: 60, max: 250 },    // Bass
+    { min: 250, max: 500 },   // Low Mids
+    { min: 500, max: 2000 },  // Core Mids
+    { min: 2000, max: 4000 }, // Presence
+    { min: 4000, max: 20000 } // Air
+  ];
+  
+  const bandNumFrames = Math.floor((len - bandFftSize) / bandFftSize);
+  const bandFrameStep = Math.max(1, Math.floor(bandNumFrames / 200));
+  
+  const bandHannWindow = new Float32Array(bandFftSize);
+  for (let n = 0; n < bandFftSize; n++) {
+    bandHannWindow[n] = 0.5 * (1 - Math.cos((2 * Math.PI * n) / (bandFftSize - 1)));
+  }
+  
+  for (let f = 0; f < bandNumFrames; f += bandFrameStep) {
+    const start = f * bandFftSize;
+    const frame = new Array(bandFftSize);
+    for (let n = 0; n < bandFftSize; n++) {
+      frame[n] = (ch0[start + n] || 0) * bandHannWindow[n];
+    }
+    
+    bandFft.realTransform(bandComplexOut, frame);
+    bandFft.completeSpectrum(bandComplexOut);
+    
+    const binHz = sampleRate / bandFftSize;
+    const numBins = bandFftSize / 2;
+    for (let k = 1; k < numBins; k++) {
+      const freq = k * binHz;
+      const re = bandComplexOut[2 * k];
+      const im = bandComplexOut[2 * k + 1];
+      const magnitude = Math.sqrt(re * re + im * im);
+      
+      for (let b = 0; b < 6; b++) {
+        if (freq >= bandRanges[b].min && freq < bandRanges[b].max) {
+          bandSums[b] += magnitude;
+          bandCounts[b]++;
+          break;
+        }
+      }
+    }
+  }
+  
+  const bandDbFloor = -70;
+  const bandDbCeiling = -15;
+  const bandEnergies = new Float32Array(6);
+  
+  for (let b = 0; b < 6; b++) {
+    const avgMag = bandCounts[b] > 0 ? bandSums[b] / bandCounts[b] : 0.0001;
+    let db = 20 * Math.log10(avgMag || 0.0001);
+    let score = ((db - bandDbFloor) / (bandDbCeiling - bandDbFloor)) * 100;
+    bandEnergies[b] = Math.max(0, Math.min(100, Math.round(score)));
+  }
+
   return {
     calculatedLufs: parseFloat(lufsValue.toFixed(1)),
     calculatedTruePeak: parseFloat(truePeak.toFixed(2)),
@@ -582,6 +649,12 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     calculatedModeConfidence: parseFloat(Math.min(1, Math.max(0, bestCorrelation)).toFixed(3)),
     calculatedBpmConfidence: bpmConfidence,
     calculatedEndOfFadeIn: endOfFadeIn,
+    calculatedSubBassBandEnergy: bandEnergies[0],
+    calculatedBassBandEnergy: bandEnergies[1],
+    calculatedLowMidsBandEnergy: bandEnergies[2],
+    calculatedCoreMidsBandEnergy: bandEnergies[3],
+    calculatedPresenceBandEnergy: bandEnergies[4],
+    calculatedAirBandEnergy: bandEnergies[5],
     calculatedStartOfFadeOut: startOfFadeOut,
     calculatedTimeSignature: detectedTimeSignature,
     calculatedTimeSignatureConfidence: timeSignatureConfidence
