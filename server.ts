@@ -425,7 +425,9 @@ RULES:
 2. Never reuse the same commentary you might write for a different song, even if scores are similar.
 3. Keep each commentary to 1-3 sentences, technical and specific, in the voice of a professional music analyst.
 
-FIELD DEFINITION - instrumentalWarmth (part of instrumentalStagingSubs): judges the general tonal warmth and richness of the backing instrumentation as a whole - does it sound full, rounded, and pleasant, or thin, cold, and harsh? This is about overall instrumental tone character, separate from timing (Timeline Grid Cohesion), attack (Transient Punch), and stereo placement (Melodic Staging).`;
+FIELD DEFINITION - instrumentalWarmth (part of instrumentalStagingSubs): judges the general tonal warmth and richness of the backing instrumentation as a whole - does it sound full, rounded, and pleasant, or thin, cold, and harsh? This is about overall instrumental tone character, separate from timing (Timeline Grid Cohesion), attack (Transient Punch), and stereo placement (Melodic Staging).
+
+FIELD DEFINITION - pitchAccuracy (part of vocalTrackingSubs): judges genuine pitch drift and intonation stability ONLY - do not confuse this with vocal timbre. A raspy, gritty, distorted, or aggressive vocal delivery (common in rock, punk, blues, and similar genres) can create the AUDITORY IMPRESSION of pitch instability due to the vocal's harmonic complexity and grain, without the singer actually being off-pitch. Before deducting points, confirm the note is genuinely landing on the wrong pitch relative to the underlying harmony - not simply that the vocal has a rough, unpolished, or grainy tonal quality. A technically in-tune singer with a naturally raspy or aggressive voice should score highly here; reserve deductions for cases where the actual pitch center is audibly wrong, not merely where the vocal timbre sounds "imperfect" or "raw."`;
 
 async function performSubMetricsCall3(
   audioPart: any,
