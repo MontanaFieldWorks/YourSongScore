@@ -397,6 +397,8 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   let bestCorrelation = -Infinity;
   let estimatedKeyIndex = 11; // default to A minor (23 index) or B minor
 
+  const allCorrelations: number[] = new Array(24).fill(-Infinity);
+
   for (let keyIdx = 0; keyIdx < 24; keyIdx++) {
     const isMajor = keyIdx < 12;
     const tonicShift = keyIdx % 12;
@@ -415,9 +417,41 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     }
     
     const r = (12 * sumXY - sumX * sumY) / Math.sqrt((12 * sumXX - sumX * sumX) * (12 * sumYY - sumY * sumY));
+    allCorrelations[keyIdx] = r;
     if (r > bestCorrelation) {
       bestCorrelation = r;
       estimatedKeyIndex = keyIdx;
+    }
+  }
+
+  // Disambiguation pass: basic Krumhansl-Schmuckler correlation is well-documented to
+  // frequently confuse the true tonic with its dominant (a perfect fifth away) or its
+  // relative major/minor (a minor third away), since both share most of the same notes.
+  // If a close runner-up candidate exists in one of these two relationships, use the raw
+  // chroma energy at each candidate's own tonic pitch class as a tie-breaker - the true
+  // tonic should show strong direct energy at its own pitch, not just fit the profile shape.
+  const bestTonicPitch = estimatedKeyIndex % 12;
+  const bestIsMajor = estimatedKeyIndex < 12;
+  const CONFUSION_MARGIN = 0.08;
+
+  for (let keyIdx = 0; keyIdx < 24; keyIdx++) {
+    if (keyIdx === estimatedKeyIndex) continue;
+    const candidateTonicPitch = keyIdx % 12;
+    const candidateIsMajor = keyIdx < 12;
+    const correlationGap = bestCorrelation - allCorrelations[keyIdx];
+    if (correlationGap > CONFUSION_MARGIN) continue; // not a close runner-up, skip
+
+    const semitoneDiff = ((candidateTonicPitch - bestTonicPitch) + 12) % 12;
+    const isDominantRelation = candidateIsMajor === bestIsMajor && (semitoneDiff === 5 || semitoneDiff === 7);
+    const isRelativeMajorMinorRelation = candidateIsMajor !== bestIsMajor && (semitoneDiff === 9 || semitoneDiff === 3);
+
+    if (isDominantRelation || isRelativeMajorMinorRelation) {
+      const bestTonicEnergy = chromaBins[bestTonicPitch];
+      const candidateTonicEnergy = chromaBins[candidateTonicPitch];
+      if (candidateTonicEnergy > bestTonicEnergy) {
+        estimatedKeyIndex = keyIdx;
+        bestCorrelation = allCorrelations[keyIdx];
+      }
     }
   }
 
