@@ -444,8 +444,14 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     const semitoneDiff = ((candidateTonicPitch - bestTonicPitch) + 12) % 12;
     const isDominantRelation = candidateIsMajor === bestIsMajor && (semitoneDiff === 5 || semitoneDiff === 7);
     const isRelativeMajorMinorRelation = candidateIsMajor !== bestIsMajor && (semitoneDiff === 9 || semitoneDiff === 3);
+    // Cross-mode dominant confusion: in minor keys, the dominant chord is conventionally
+    // raised to major (harmonic minor convention), which can fool the algorithm into
+    // detecting that major dominant chord as if it were its own major tonic, rather than
+    // recognizing it as the V of the true minor key. E.g. detecting F# Major instead of
+    // the true B minor, where F# is genuinely the dominant chord (F#7) of B minor.
+    const isCrossModeDominant = bestIsMajor && !candidateIsMajor && semitoneDiff === 5;
 
-    if (isDominantRelation || isRelativeMajorMinorRelation) {
+    if (isDominantRelation || isRelativeMajorMinorRelation || isCrossModeDominant) {
       const bestTonicEnergy = chromaBins[bestTonicPitch];
       const candidateTonicEnergy = chromaBins[candidateTonicPitch];
       if (candidateTonicEnergy > bestTonicEnergy) {
