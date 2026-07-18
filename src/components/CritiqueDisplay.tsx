@@ -142,8 +142,9 @@ function RoseChart({ data }: { data: { name: string; score: number; color: strin
     const y1 = cy + r * Math.sin(startAngle * rad);
     const x2 = cx + r * Math.cos(endAngle * rad);
     const y2 = cy + r * Math.sin(endAngle * rad);
+    const largeArcFlag = (endAngle - startAngle) > 180 ? 1 : 0;
     
-    return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2} Z`;
+    return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
   };
 
   return (
@@ -1310,10 +1311,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       colorClass: "stroke-indigo-400",
       hoverText: "Evaluates harmonic progressions, melodic construction, and rhythmic architecture.",
       subParams: [
-        { name: "Chord Dynamics (35%)", desc: "Analyzes chord sequences, leading tones, and voice leading interest." },
-        { name: "Melody (25%)", desc: "Judges melodic phrase construction, contour, and motif development - independent of commercial catchiness." },
-        { name: "Rhythmic Meter (15%)", desc: "Audits rhythmic meter choice, polymetric syncopation, and tempo subdivisions." },
-        { name: "Form & Structure (25%)", desc: "Checks layout blueprints, sectional loop lengths, and motif repetition." }
+        { name: "Chord Dynamics (40%)", desc: "Analyzes chord sequences, leading tones, and voice leading interest." },
+        { name: "Melody (30%)", desc: "Judges melodic phrase construction, contour, and motif development - independent of commercial catchiness." },
+        { name: "Form & Structure (30%)", desc: "Checks layout blueprints, sectional loop lengths, and motif repetition." }
       ],
       callout: "This Metric analyzes harmonic craft, melodic construction, rhythmic interest, and structural gravity to track musical narrative.",
       description: "Assesses whether chord movements, melodic writing, syncopations, and overall structural handoffs show a strong grasp of musicology principles, rhythmic momentum, and structural development.",
@@ -1829,7 +1829,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     vocals: { parent: "vocalTrackingSubs", fields: ["pitchAccuracy", "dynamicDelivery", "vocalLayerFit"] },
     instrumental: { parent: "instrumentalStagingSubs", fields: ["timelineGridCohesion", "transientPunch", "melodicStaging", "instrumentalWarmth"] },
     lyrics: { parent: "lyricalImpactSubs", fields: ["meaningClarity", "clicheAvoidance"] },
-    theory: { parent: "musicTheorySubs", fields: ["chordDynamics", "harmonicVariety", "rhythmicMeter", "formAndStructure"] },
+    theory: { parent: "musicTheorySubs", fields: ["chordDynamics", "harmonicVariety", "formAndStructure"] },
   };
 
   const getRealSubMetric = (critiqueData: any, id: string, index: number): { score: number; commentary: string } | null => {
@@ -2902,15 +2902,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         return `The melodies stay close to basic root notes or simple 1-3-5 triad shapes on the grid. While this provides a highly memorable, easily hummable top-line for standard pop, a higher score is reserved for melodies that stretch across wider intervals, utilize non-scale passing tones, or weave through distinct musical key modulations.`;
       }
     }
-    if (cleanName === "Rhythmic Meter") {
-      if (score >= 90) {
-        return `Virtuoso rhythmic cadence! Subdivisions, syncopations, and complex patterns lock together flawlessly, creating a highly compelling, non-traditional grid (like polymetric grooves or non-4/4 time signatures).`;
-      } else if (score >= 80) {
-        return `Excellent rhythmic consistency and tempo pocketing (${score}/100). The instrumentation locks comfortably into the primary rhythm grid, driving a steady, engaging pulse that supports the vocals beautifully. The missing points here are not a penalty—they simply reflect that the groove stays strictly and beautifully in a traditional pocket (like a straight-time 4/4 or 3/4 signature) without forcing off-beat syncopation, complex tuplets, or polymetric subdivisions that are unnecessary for the song's pocket.`;
-      } else {
-        return `The rhythms feel highly grid-aligned or repetitive. While a straight-line grid is a solid sonic foundation, higher scores in this specific parameter are reserved for tracks that employ dynamic syncopations, off-beat accents, swing, or humanized timing variances.`;
-      }
-    }
+
     if (cleanName === "Form & Structure") {
       if (score >= 90) {
         return `Elite layout blueprint. The progression of verses, choruses, and bridges develops with stunning structural symmetry, perfect loop lengths, and highly effective motif repetition.`;
