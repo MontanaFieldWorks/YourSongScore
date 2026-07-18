@@ -398,10 +398,9 @@ const SUBMETRICS_SCHEMA_3 = {
       properties: {
         chordDynamics: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
         harmonicVariety: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-        rhythmicMeter: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
         formAndStructure: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
       },
-      required: ["chordDynamics", "harmonicVariety", "rhythmicMeter", "formAndStructure"],
+      required: ["chordDynamics", "harmonicVariety", "formAndStructure"],
     },
   },
   required: ["compositionFlowSubs", "vocalTrackingSubs", "instrumentalStagingSubs", "lyricalImpactSubs", "musicTheorySubs"],
@@ -600,10 +599,9 @@ function reconcileParentScores(parsedCritique: any): void {
     }
 
     const theory = weightedAvg([
-      [c3.musicTheorySubs?.chordDynamics?.score, 35],
-      [c3.musicTheorySubs?.harmonicVariety?.score, 25],
-      [c3.musicTheorySubs?.rhythmicMeter?.score, 15],
-      [c3.musicTheorySubs?.formAndStructure?.score, 25],
+      [c3.musicTheorySubs?.chordDynamics?.score, 40],
+      [c3.musicTheorySubs?.harmonicVariety?.score, 30],
+      [c3.musicTheorySubs?.formAndStructure?.score, 30],
     ]);
     if (theory !== null && parsedCritique.musicTheory) {
       parsedCritique.musicTheory.score = theory;
