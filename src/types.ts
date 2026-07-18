@@ -79,6 +79,12 @@ export interface LiveAudioMetrics {
   calculatedStartOfFadeOut?: number;
   calculatedTimeSignature?: number;
   calculatedTimeSignatureConfidence?: number;
+  calculatedSubBassBandEnergy?: number;
+  calculatedBassBandEnergy?: number;
+  calculatedLowMidsBandEnergy?: number;
+  calculatedCoreMidsBandEnergy?: number;
+  calculatedPresenceBandEnergy?: number;
+  calculatedAirBandEnergy?: number;
 }
 
 export interface CritiqueData {
