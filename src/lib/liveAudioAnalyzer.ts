@@ -577,12 +577,12 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   const bandCounts = new Int32Array(6);
   
   const bandRanges = [
-    { min: 20, max: 60 },     // Sub-bass
-    { min: 60, max: 250 },    // Bass
-    { min: 250, max: 500 },   // Low Mids
-    { min: 500, max: 2000 },  // Core Mids
-    { min: 2000, max: 4000 }, // Presence
-    { min: 4000, max: 20000 } // Air
+    { min: 20, max: 64 },      // Sub-bass
+    { min: 64, max: 250 },     // Bass
+    { min: 250, max: 1000 },   // Low Mids
+    { min: 1000, max: 4000 },  // Core Mids
+    { min: 4000, max: 8000 },  // Presence
+    { min: 8000, max: 20000 }  // Air
   ];
   
   const bandNumFrames = Math.floor((len - bandFftSize) / bandFftSize);
