@@ -212,6 +212,8 @@ FIELD DEFINITIONS:
 - dynamicVariety: measures whether the song's energy and intensity shift meaningfully across its runtime (verse-to-chorus lift, breakdowns, builds), rather than remaining flat and static throughout.
 - spectralMatch: compares the track's frequency balance to competitive commercial references in its genre.
 - paletteCohesion, aestheticDesign, spaceAndDensity: production/arrangement quality judgments as previously defined.
+
+RUBRIC ANCHOR FOR AESTHETIC DESIGN: a score of 90-100 must be reserved for genuine, demonstrated stylistic distinctiveness - a sonic identity, arrangement choice, or production approach that stands out even within its genre. A score of 75-85 is the correct ceiling for a track that is competently, cleanly produced but sonically conventional for its genre - sounds professional and "right" for the style without doing anything distinctive. If your own commentary describes the production as simply matching genre expectations without noting anything genuinely distinctive, that commentary should cap the score at 75-85, not 90+.
 - stereoWidth: judges the width and spatial use of the stereo field - is the mix appropriately wide (backing elements, reverbs, doubled parts spread across the stereo image) without being so wide that mono compatibility or center-focus suffers? A narrow, cramped stereo image should score lower; an artificially over-widened or phase-incoherent image should also score lower. Judge this from what you actually hear in the stereo image, not from any external measurement.
 
 RULES:
@@ -311,15 +313,15 @@ You are ALSO judging two additional standalone values, moodValence and speechine
 - moodTags: provide exactly 5 single-or-two-word descriptive mood/vibe tags for this specific track (e.g. "Anthemic", "Melancholic", "Late Night", "Euphoric", "Defiant"). These should genuinely describe THIS song's actual mood and energy as you hear it - do not default to generic rock-coded words if they don't fit; a pop, R&B, folk, or electronic track should get tags that genuinely suit its real character.
 - artisticAlignment (part of artisticAnalysis): judges execution conviction and internal creative coherence - NOT whether you can verify the artist's original intent (impossible from audio alone), but whether the finished execution feels committed and internally consistent versus hedging between two different identities. A song can be genre-authentic and well-produced while still sounding like it's caught between competing directions; another can be raw and uncommercial but land with total conviction because every choice serves one clear vision. Listen for: does the arrangement, vocal delivery, and production all pull in the same direction, or do parts of the song feel like they belong to a different song entirely? Deduction-based scoring applies here same as other sub-metrics.
 
-Human: the plot of the review
-
 Here is the rest of the actual review, for the remaining scored categories: 
 
 RULES:
 1. Every commentary must reference something specific and real about THIS audio file - do not write generic, reusable descriptions that could apply to any song.
 2. Never reuse the same commentary you might write for a different song, even if the scores are similar.
 3. Keep each sub-metric commentary to 1-3 sentences. Keep each parent feedback paragraph to 2-4 sentences.
-4. Be honest about genre-appropriate simplicity - a deliberately simple, repetitive hook is not automatically a flaw if it suits the genre; only deduct points for genuine lack of craft, not for simplicity itself.`;
+4. Be honest about genre-appropriate simplicity - a deliberately simple, repetitive hook is not automatically a flaw if it suits the genre; only deduct points for genuine lack of craft, not for simplicity itself.
+
+RUBRIC ANCHOR FOR HARMONIC INTRIGUE AND ACOUSTIC TENSION (dynamicModulation, climaxTrajectory): a score of 90-100 must be reserved for genuine, demonstrated sophistication or deviation - real harmonic complexity, an unusual or surprising dynamic arc, a build/release structure that goes beyond the genre's default expectation. A score of 75-85 is the correct ceiling when the track competently executes the standard, expected pattern for its genre - a typical quiet-verse-to-loud-chorus arc, or a diatonic progression following expected genre conventions - even when that execution is clean and effective. Following the genre's default dynamic or harmonic template well is not the same achievement as genuine sophistication, even when both are executed competently. If your own commentary describes the arc or progression as functional, standard, expected, or following the genre's typical pattern, cap the score at 75-85, not 90+.`;
 
 async function performSubMetricsCall2(
   audioPart: any,
@@ -412,6 +414,8 @@ For each sub-metric, start at a baseline of 100. Subtract points only for specif
 
 CRITICAL - ACTIVELY SCAN FOR REAL COMPLEXITY, DO NOT DEFAULT TO SURFACE-LEVEL DESCRIPTIONS:
 For musicTheorySubs and compositionFlowSubs especially: before settling on a score, actively scan for unusual time signatures or meter shifts, modal frameworks or alternate tunings, cross-rhythmic or polymetric layering, non-standard rhythmic groupings, and structurally unexpected transitions. Do not default to describing only the most obvious surface-level chord loop or verse-chorus pattern - dig into the full arrangement, including rhythmic structure and secondary instrumental layers, before scoring. If genuine sophistication is present, score and describe it accordingly - do not cap scores near 90 out of habit if the work genuinely earns higher.
+
+RUBRIC ANCHOR FOR CHORD DYNAMICS, RHYTHMIC METER, AND FORM & STRUCTURE: the instruction above applies ONLY when genuine sophistication is actually present - it does not mean every track defaults toward 90+. A score of 90-100 must be reserved for genuine, demonstrated musical sophistication or deviation - real modulations, unusual meter or polymeter, structural surprises, non-diatonic harmonic movement, or similarly distinctive craft you can point to specifically. A score of 75-85 is the correct ceiling for a track that is competently, cleanly executed but conventional - standard 4/4 time, a typical verse-chorus or verse-pre-chorus-chorus structure, diatonic chords following expected genre patterns. If your own commentary uses phrases like "no deviations," "no complexity," "conventional," "standard," or "classic structure," that commentary itself should cap the score at 75-85, not 90+. Competent execution of a genre's default formula is not the same achievement as genuine sophistication, even when both are well done. Reserve scores below 75 for songs that show genuine weaknesses in these areas - sloppy execution, unclear structure, or harmonically unconvincing choices.
 
 FAIRNESS RULE - DO NOT PENALIZE INTENTIONAL GENRE SIMPLICITY:
 A deliberately simple, repetitive, or stripped-down approach (e.g. punk power chords, minimal vocal layering) is not automatically a flaw if it suits the genre and is executed well. Only deduct points for genuine lack of craft or real technical problems, never for simplicity itself.
