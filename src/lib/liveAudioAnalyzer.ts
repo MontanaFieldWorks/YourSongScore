@@ -370,6 +370,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   const chromaFrameStep = Math.max(1, Math.floor(chromaNumFrames / 200)); // cap at ~200 analyzed frames for performance
 
   const chromaFrames: number[][] = [];
+  const frameBassPitchClasses: number[] = [];
 
   const chromaHannWindow = new Float32Array(chromaFftSize);
   for (let n = 0; n < chromaFftSize; n++) {
@@ -389,6 +390,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     const binHz = sampleRate / chromaFftSize;
     const numBins = chromaFftSize / 2;
     const frameChroma = new Array(12).fill(0);
+    const frameBassChroma = new Array(12).fill(0);
 
     for (let k = 1; k < numBins; k++) {
       const freq = k * binHz;
@@ -400,6 +402,10 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
       const pitchClass = ((Math.round(midiNote) % 12) + 12) % 12;
       chromaBins[pitchClass] += magnitude;
       frameChroma[pitchClass] += magnitude;
+
+      if (freq >= 60 && freq <= 250) {
+        frameBassChroma[pitchClass] += magnitude;
+      }
     }
 
     let frameSum = 0;
@@ -412,6 +418,28 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
       }
     }
     chromaFrames.push(frameChroma);
+
+    let frameBassSum = 0;
+    for (let i = 0; i < 12; i++) {
+      frameBassSum += frameBassChroma[i];
+    }
+    if (frameBassSum > 0) {
+      for (let i = 0; i < 12; i++) {
+        frameBassChroma[i] /= frameBassSum;
+      }
+    }
+
+    let dominantBassPitchClass = -1;
+    if (frameBassSum >= 0.01) {
+      let maxBassVal = -1;
+      for (let i = 0; i < 12; i++) {
+        if (frameBassChroma[i] > maxBassVal) {
+          maxBassVal = frameBassChroma[i];
+          dominantBassPitchClass = i;
+        }
+      }
+    }
+    frameBassPitchClasses.push(dominantBassPitchClass);
   }
 
   // Krumhansl-Schmuckler Key profile correlations
@@ -513,28 +541,35 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   // Chord-recognition pass
   const MAJOR_TRIAD_TEMPLATE = [1,0,0,0,1,0,0,1,0,0,0,0];
   const MINOR_TRIAD_TEMPLATE = [1,0,0,1,0,0,0,1,0,0,0,0];
+  const POWER_CHORD_TEMPLATE = [1,0,0,0,0,0,0,1,0,0,0,0]; // root + perfect fifth, no third
+  const SUS4_TEMPLATE = [1,0,0,0,0,1,0,1,0,0,0,0]; // root + perfect fourth + perfect fifth, no third
 
-  const frameGuesses: { root: number; quality: "major" | "minor" | "unclear" }[] = [];
+  const frameGuesses: { root: number; quality: "major" | "minor" | "power" | "sus4" | "unclear"; bassPitchClass: number }[] = [];
 
   for (let f = 0; f < chromaFrames.length; f++) {
     const frame = chromaFrames[f];
+    const bassPC = frameBassPitchClasses[f] ?? -1;
+
     let totalEnergy = 0;
     for (let i = 0; i < 12; i++) {
       totalEnergy += frame[i];
     }
 
     if (totalEnergy < 0.01) {
-      frameGuesses.push({ root: -1, quality: "unclear" });
+      frameGuesses.push({ root: -1, quality: "unclear", bassPitchClass: -1 });
       continue;
     }
 
     let bestCorr = -Infinity;
     let bestRoot = 0;
-    let bestQuality: "major" | "minor" = "major";
+    let bestQuality: "major" | "minor" | "power" | "sus4" = "major";
 
     for (let root = 0; root < 12; root++) {
-      for (const quality of ["major", "minor"] as const) {
-        const template = quality === "major" ? MAJOR_TRIAD_TEMPLATE : MINOR_TRIAD_TEMPLATE;
+      for (const quality of ["major", "minor", "power", "sus4"] as const) {
+        let template = MAJOR_TRIAD_TEMPLATE;
+        if (quality === "minor") template = MINOR_TRIAD_TEMPLATE;
+        else if (quality === "power") template = POWER_CHORD_TEMPLATE;
+        else if (quality === "sus4") template = SUS4_TEMPLATE;
 
         let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, sumYY = 0;
         for (let s = 0; s < 12; s++) {
@@ -558,11 +593,11 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
       }
     }
 
-    frameGuesses.push({ root: bestRoot, quality: bestQuality });
+    frameGuesses.push({ root: bestRoot, quality: bestQuality, bassPitchClass: bassPC });
   }
 
-  // Smoothing pass: merge consecutive frames with identical (root, quality)
-  const rawSegments: { root: number; quality: "major" | "minor" | "unclear"; startFrame: number; endFrame: number }[] = [];
+  // Smoothing pass: merge consecutive frames with identical (root, quality, bassPitchClass)
+  const rawSegments: { root: number; quality: "major" | "minor" | "power" | "sus4" | "unclear"; startFrame: number; endFrame: number; bassPitchClass: number }[] = [];
   for (let i = 0; i < frameGuesses.length; i++) {
     const guess = frameGuesses[i];
     if (rawSegments.length === 0) {
@@ -570,18 +605,20 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
         root: guess.root,
         quality: guess.quality,
         startFrame: i,
-        endFrame: i
+        endFrame: i,
+        bassPitchClass: guess.bassPitchClass
       });
     } else {
       const lastSeg = rawSegments[rawSegments.length - 1];
-      if (lastSeg.root === guess.root && lastSeg.quality === guess.quality) {
+      if (lastSeg.root === guess.root && lastSeg.quality === guess.quality && lastSeg.bassPitchClass === guess.bassPitchClass) {
         lastSeg.endFrame = i;
       } else {
         rawSegments.push({
           root: guess.root,
           quality: guess.quality,
           startFrame: i,
-          endFrame: i
+          endFrame: i,
+          bassPitchClass: guess.bassPitchClass
         });
       }
     }
@@ -644,7 +681,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
       combinedSegments.push({ ...seg });
     } else {
       const lastSeg = combinedSegments[combinedSegments.length - 1];
-      if (lastSeg.root === seg.root && lastSeg.quality === seg.quality) {
+      if (lastSeg.root === seg.root && lastSeg.quality === seg.quality && lastSeg.bassPitchClass === seg.bassPitchClass) {
         lastSeg.endFrame = seg.endFrame;
       } else {
         combinedSegments.push({ ...seg });
@@ -652,15 +689,31 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     }
   }
 
-  // Filter out the "unclear" segments to only keep major or minor chords
-  const chordSegments: { root: number; quality: "major" | "minor"; startFrame: number; endFrame: number }[] = [];
+  const getMostCommonBassPitchClass = (start: number, end: number): number => {
+    const counts: Record<number, number> = {};
+    let maxCount = 0;
+    let mostCommon = -1;
+    for (let i = start; i <= end; i++) {
+      const pc = frameGuesses[i]?.bassPitchClass ?? -1;
+      counts[pc] = (counts[pc] || 0) + 1;
+      if (counts[pc] > maxCount) {
+        maxCount = counts[pc];
+        mostCommon = pc;
+      }
+    }
+    return mostCommon;
+  };
+
+  // Filter out the "unclear" segments to only keep major, minor, power, or sus4 chords
+  const chordSegments: { root: number; quality: "major" | "minor" | "power" | "sus4"; startFrame: number; endFrame: number; bassPitchClass: number }[] = [];
   for (const seg of combinedSegments) {
-    if (seg.quality === "major" || seg.quality === "minor") {
+    if (seg.quality === "major" || seg.quality === "minor" || seg.quality === "power" || seg.quality === "sus4") {
       chordSegments.push({
         root: seg.root,
-        quality: seg.quality as "major" | "minor",
+        quality: seg.quality,
         startFrame: seg.startFrame,
-        endFrame: seg.endFrame
+        endFrame: seg.endFrame,
+        bassPitchClass: getMostCommonBassPitchClass(seg.startFrame, seg.endFrame)
       });
     }
   }
@@ -861,9 +914,21 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     detectedChordProgression: chordSegments,
     detectedChordProgressionNamed: chordSegments.map(seg => {
       const stepSeconds = (chromaFrameStep * chromaFftSize) / sampleRate;
+      const rootName = keyNames[seg.root].replace(" Major", "").replace(" Minor", "");
+      let suffix = "";
+      if (seg.quality === "minor") suffix = "m";
+      else if (seg.quality === "power") suffix = "5";
+      else if (seg.quality === "sus4") suffix = "sus4";
+
+      let chordName = `${rootName}${suffix}`;
+      if (seg.bassPitchClass !== -1 && seg.bassPitchClass !== seg.root) {
+        const bassName = keyNames[seg.bassPitchClass].replace(" Major", "").replace(" Minor", "");
+        chordName += `/${bassName}`;
+      }
+
       return {
         ...seg,
-        name: `${keyNames[seg.root].replace(" Major", "").replace(" Minor", "")}${seg.quality === "minor" ? "m" : ""}`,
+        name: chordName,
         startTimeSec: parseFloat((seg.startFrame * stepSeconds).toFixed(2)),
         endTimeSec: parseFloat((seg.endFrame * stepSeconds).toFixed(2))
       };
