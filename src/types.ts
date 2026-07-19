@@ -90,6 +90,13 @@ export interface LiveAudioMetrics {
   detectedChordProgression?: { root: number; quality: "major" | "minor" | "power" | "sus4"; startFrame: number; endFrame: number; bassPitchClass: number }[];
   detectedChordProgressionNamed?: { root: number; quality: "major" | "minor" | "power" | "sus4"; startFrame: number; endFrame: number; name: string; startTimeSec: number; endTimeSec: number; bassPitchClass: number }[];
   detectedMelodyContour?: { voiced: boolean; frequencyHz?: number; midiNote?: number; timeSec: number }[];
+  detectedMelodyNotes?: {
+    notes: { midiNote: number; startTimeSec: number; endTimeSec: number }[];
+    totalSteps: number;
+    totalLeaps: number;
+    totalRepeats: number;
+    stepToLeapRatio: number;
+  };
 }
 
 export interface CritiqueData {
