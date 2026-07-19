@@ -72,6 +72,7 @@ export interface LiveAudioMetrics {
   calculatedWaveformPoints: number[];
   calculatedWaveformPointsHD: number[];
   timeResolvedChromagram?: number[][];
+  onsetRhythmTimeline?: number[];
   calculatedDuration?: number;
   calculatedKeyConfidence?: number;
   calculatedModeConfidence?: number;
