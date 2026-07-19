@@ -88,6 +88,7 @@ export interface LiveAudioMetrics {
   calculatedPresenceBandEnergy?: number;
   calculatedAirBandEnergy?: number;
   detectedChordProgression?: { root: number; quality: "major" | "minor"; startFrame: number; endFrame: number }[];
+  detectedChordProgressionNamed?: { root: number; quality: "major" | "minor"; startFrame: number; endFrame: number; name: string; startTimeSec: number; endTimeSec: number }[];
 }
 
 export interface CritiqueData {
