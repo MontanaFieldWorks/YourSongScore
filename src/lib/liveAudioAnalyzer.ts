@@ -510,6 +510,161 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
 
   const estimatedKeyName = keyNames[estimatedKeyIndex];
 
+  // Chord-recognition pass
+  const MAJOR_TRIAD_TEMPLATE = [1,0,0,0,1,0,0,1,0,0,0,0];
+  const MINOR_TRIAD_TEMPLATE = [1,0,0,1,0,0,0,1,0,0,0,0];
+
+  const frameGuesses: { root: number; quality: "major" | "minor" | "unclear" }[] = [];
+
+  for (let f = 0; f < chromaFrames.length; f++) {
+    const frame = chromaFrames[f];
+    let totalEnergy = 0;
+    for (let i = 0; i < 12; i++) {
+      totalEnergy += frame[i];
+    }
+
+    if (totalEnergy < 0.01) {
+      frameGuesses.push({ root: -1, quality: "unclear" });
+      continue;
+    }
+
+    let bestCorr = -Infinity;
+    let bestRoot = 0;
+    let bestQuality: "major" | "minor" = "major";
+
+    for (let root = 0; root < 12; root++) {
+      for (const quality of ["major", "minor"] as const) {
+        const template = quality === "major" ? MAJOR_TRIAD_TEMPLATE : MINOR_TRIAD_TEMPLATE;
+
+        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, sumYY = 0;
+        for (let s = 0; s < 12; s++) {
+          const chromaVal = frame[(s + root) % 12];
+          const templateVal = template[s];
+          sumX += chromaVal;
+          sumY += templateVal;
+          sumXY += chromaVal * templateVal;
+          sumXX += chromaVal * chromaVal;
+          sumYY += templateVal * templateVal;
+        }
+
+        const denom = Math.sqrt((12 * sumXX - sumX * sumX) * (12 * sumYY - sumY * sumY));
+        const r = denom > 0 ? (12 * sumXY - sumX * sumY) / denom : 0;
+
+        if (r > bestCorr) {
+          bestCorr = r;
+          bestRoot = root;
+          bestQuality = quality;
+        }
+      }
+    }
+
+    frameGuesses.push({ root: bestRoot, quality: bestQuality });
+  }
+
+  // Smoothing pass: merge consecutive frames with identical (root, quality)
+  const rawSegments: { root: number; quality: "major" | "minor" | "unclear"; startFrame: number; endFrame: number }[] = [];
+  for (let i = 0; i < frameGuesses.length; i++) {
+    const guess = frameGuesses[i];
+    if (rawSegments.length === 0) {
+      rawSegments.push({
+        root: guess.root,
+        quality: guess.quality,
+        startFrame: i,
+        endFrame: i
+      });
+    } else {
+      const lastSeg = rawSegments[rawSegments.length - 1];
+      if (lastSeg.root === guess.root && lastSeg.quality === guess.quality) {
+        lastSeg.endFrame = i;
+      } else {
+        rawSegments.push({
+          root: guess.root,
+          quality: guess.quality,
+          startFrame: i,
+          endFrame: i
+        });
+      }
+    }
+  }
+
+  // Discard/merge any segment shorter than 4 frames into its closer neighbor in time
+  let segments = rawSegments.map(s => ({ ...s }));
+  let hasShortSegment = true;
+
+  while (hasShortSegment) {
+    hasShortSegment = false;
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      const segmentLen = seg.endFrame - seg.startFrame + 1;
+      if (segmentLen < 4) {
+        hasShortSegment = true;
+        let mergeIntoIndex = -1;
+
+        if (i > 0 && i < segments.length - 1) {
+          const centerSeg = (seg.startFrame + seg.endFrame) / 2;
+          const leftSeg = segments[i - 1];
+          const rightSeg = segments[i + 1];
+          const centerLeft = (leftSeg.startFrame + leftSeg.endFrame) / 2;
+          const centerRight = (rightSeg.startFrame + rightSeg.endFrame) / 2;
+
+          const distLeft = centerSeg - centerLeft;
+          const distRight = centerRight - centerSeg;
+
+          if (distLeft <= distRight) {
+            mergeIntoIndex = i - 1;
+          } else {
+            mergeIntoIndex = i + 1;
+          }
+        } else if (i > 0) {
+          mergeIntoIndex = i - 1;
+        } else if (i < segments.length - 1) {
+          mergeIntoIndex = i + 1;
+        }
+
+        if (mergeIntoIndex !== -1) {
+          if (mergeIntoIndex === i - 1) {
+            segments[i - 1].endFrame = seg.endFrame;
+            segments.splice(i, 1);
+          } else {
+            segments[i + 1].startFrame = seg.startFrame;
+            segments.splice(i, 1);
+          }
+        } else {
+          hasShortSegment = false;
+        }
+        break;
+      }
+    }
+  }
+
+  // Re-merge adjacent identical segments after smoothing
+  let combinedSegments: typeof rawSegments = [];
+  for (const seg of segments) {
+    if (combinedSegments.length === 0) {
+      combinedSegments.push({ ...seg });
+    } else {
+      const lastSeg = combinedSegments[combinedSegments.length - 1];
+      if (lastSeg.root === seg.root && lastSeg.quality === seg.quality) {
+        lastSeg.endFrame = seg.endFrame;
+      } else {
+        combinedSegments.push({ ...seg });
+      }
+    }
+  }
+
+  // Filter out the "unclear" segments to only keep major or minor chords
+  const chordSegments: { root: number; quality: "major" | "minor"; startFrame: number; endFrame: number }[] = [];
+  for (const seg of combinedSegments) {
+    if (seg.quality === "major" || seg.quality === "minor") {
+      chordSegments.push({
+        root: seg.root,
+        quality: seg.quality as "major" | "minor",
+        startFrame: seg.startFrame,
+        endFrame: seg.endFrame
+      });
+    }
+  }
+
   // 8. Generate 100-point wave amplitude timeline points
   const waveTimeline: number[] = [];
   const timelineStep = Math.floor(filteredLength / 80); // 80 elegant high fidelity points
@@ -702,6 +857,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     calculatedAirBandEnergy: bandEnergies[5],
     calculatedStartOfFadeOut: startOfFadeOut,
     calculatedTimeSignature: detectedTimeSignature,
-    calculatedTimeSignatureConfidence: timeSignatureConfidence
+    calculatedTimeSignatureConfidence: timeSignatureConfidence,
+    detectedChordProgression: chordSegments
   };
 }
