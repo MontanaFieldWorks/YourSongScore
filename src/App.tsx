@@ -934,6 +934,7 @@ export default function App() {
       if (earlyLiveMetrics && earlyLiveMetrics.onsetRhythmTimeline) {
         rhythmImageForGemini = renderRhythmImage(earlyLiveMetrics);
       }
+      console.log("CHORD_CHECK", earlyLiveMetrics?.detectedChordProgressionNamed?.length, earlyLiveMetrics?.detectedChordProgressionNamed?.slice(0, 15));
       console.log("CHROMAGRAM_CHECK_REAL_PATH", chromagramImageForGemini ? `present, length ${chromagramImageForGemini.length}` : "NULL - was not generated", "cachedFile:", !!cachedFileForAnalysis, "convertedMp3Url:", !!track.convertedMp3Url);
     } catch (errEarly) {
       console.warn("Could not compute early liveMetrics/chromagram:", errEarly);
