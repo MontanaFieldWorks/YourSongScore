@@ -367,7 +367,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   // high-pass stage attenuates bass frequencies, which carry crucial root-note
   // information for key detection.
   const chromaNumFrames = Math.floor((len - chromaFftSize) / chromaFftSize);
-  const chromaFrameStep = Math.max(1, Math.floor(chromaNumFrames / 200)); // cap at ~200 analyzed frames for performance
+  const chromaFrameStep = Math.max(1, Math.floor(chromaNumFrames / 600)); // increased resolution - chord recognition needs finer granularity than the original visual-only chromagram did
 
   const chromaFrames: number[][] = [];
   const frameBassPitchClasses: number[] = [];
@@ -624,7 +624,8 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     }
   }
 
-  // Discard/merge any segment shorter than 4 frames into its closer neighbor in time
+  // Discard/merge any segment shorter than 0.75 seconds into its closer neighbor in time
+  const stepSeconds = (chromaFrameStep * chromaFftSize) / sampleRate;
   let segments = rawSegments.map(s => ({ ...s }));
   let hasShortSegment = true;
 
@@ -633,7 +634,8 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     for (let i = 0; i < segments.length; i++) {
       const seg = segments[i];
       const segmentLen = seg.endFrame - seg.startFrame + 1;
-      if (segmentLen < 4) {
+      const durationSec = segmentLen * stepSeconds;
+      if (durationSec < 0.75) {
         hasShortSegment = true;
         let mergeIntoIndex = -1;
 
