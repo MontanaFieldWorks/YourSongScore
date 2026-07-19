@@ -87,8 +87,8 @@ export interface LiveAudioMetrics {
   calculatedCoreMidsBandEnergy?: number;
   calculatedPresenceBandEnergy?: number;
   calculatedAirBandEnergy?: number;
-  detectedChordProgression?: { root: number; quality: "major" | "minor"; startFrame: number; endFrame: number }[];
-  detectedChordProgressionNamed?: { root: number; quality: "major" | "minor"; startFrame: number; endFrame: number; name: string; startTimeSec: number; endTimeSec: number }[];
+  detectedChordProgression?: { root: number; quality: "major" | "minor" | "power" | "sus4"; startFrame: number; endFrame: number; bassPitchClass: number }[];
+  detectedChordProgressionNamed?: { root: number; quality: "major" | "minor" | "power" | "sus4"; startFrame: number; endFrame: number; name: string; startTimeSec: number; endTimeSec: number; bassPitchClass: number }[];
 }
 
 export interface CritiqueData {
