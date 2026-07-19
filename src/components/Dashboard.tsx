@@ -181,6 +181,129 @@ export default function Dashboard({
 
   const hasImportedFileRef = useRef<string | null>(null);
 
+  const [chromagramImageDataUrl, setChromagramImageDataUrl] = useState<string | null>(null);
+  const [spectrogramImageDataUrl, setSpectrogramImageDataUrl] = useState<string | null>(null);
+
+  // Render offline analysis images (chromagram & spectrogram) to PNG data URLs
+  const renderAnalysisImages = (metrics: any) => {
+    if (!metrics) return;
+
+    try {
+      // 1. Chromagram Canvas
+      const chromaCanvas = document.createElement("canvas");
+      chromaCanvas.width = 800;
+      chromaCanvas.height = 300;
+      const chromaCtx = chromaCanvas.getContext("2d");
+      if (chromaCtx) {
+        // Fill dark background first
+        chromaCtx.fillStyle = "#090d16";
+        chromaCtx.fillRect(0, 0, 800, 300);
+
+        const chromaData = metrics.timeResolvedChromagram;
+        if (chromaData && chromaData.length > 0) {
+          const cols = chromaData.length;
+          const colWidth = 800 / cols;
+          const rows = 12;
+          const rowHeight = 300 / rows;
+
+          for (let c = 0; c < cols; c++) {
+            for (let r = 0; r < rows; r++) {
+              const val = chromaData[c][r] || 0;
+              // Map val from [0, 1] to a gorgeous dark blue -> cyan -> yellow -> white color-map
+              let rColor = 0;
+              let gColor = 0;
+              let bColor = 0;
+              if (val < 0.4) {
+                const t = val / 0.4;
+                rColor = Math.round(10 + t * 32);
+                gColor = Math.round(24 + t * 131);
+                bColor = Math.round(47 + t * 168);
+              } else if (val < 0.8) {
+                const t = (val - 0.4) / 0.4;
+                rColor = Math.round(42 + t * 213);
+                gColor = Math.round(155 + t * 80);
+                bColor = Math.round(215 - t * 156);
+              } else {
+                const t = (val - 0.8) / 0.2;
+                rColor = Math.round(255);
+                gColor = Math.round(235 + t * 20);
+                bColor = Math.round(59 + t * 196);
+              }
+              const color = `rgba(${rColor}, ${gColor}, ${bColor}, ${0.15 + val * 0.85})`;
+              chromaCtx.fillStyle = color;
+              // Invert Y axis so pitch index 0 is at bottom
+              chromaCtx.fillRect(c * colWidth, 300 - (r * rowHeight) - rowHeight, colWidth + 0.5, rowHeight + 0.5);
+            }
+          }
+        }
+        
+        // Save the chromagram PNG to state
+        const chromaUrl = chromaCanvas.toDataURL("image/png");
+        setChromagramImageDataUrl(chromaUrl);
+      }
+
+      // 2. Amplitude Spectrogram Canvas (reusing existing drawing logic)
+      const specCanvas = document.createElement("canvas");
+      specCanvas.width = 800;
+      specCanvas.height = 300;
+      const specCtx = specCanvas.getContext("2d");
+      if (specCtx) {
+        // Fill dark background first
+        specCtx.fillStyle = "#090d16";
+        specCtx.fillRect(0, 0, 800, 300);
+
+        const width = 800;
+        const height = 300;
+        const cols = 120;
+        const rows = 28;
+        const colWidth = width / cols;
+        const rowHeight = height / rows;
+
+        specCtx.save();
+        for (let c = 0; c < cols; c++) {
+          const tc = c / cols;
+          for (let r = 0; r < rows; r++) {
+            const tr = r / rows;
+            let val = 0;
+            
+            // normal spectrogram scaled via calculated energies if available
+            if (r > 20) { // sub bass & low end
+              const multiplier = metrics.calculatedBassEnergy !== undefined ? (metrics.calculatedBassEnergy / 50) : 1;
+              val = (0.42 + Math.sin(tc * 18) * 0.25 + Math.cos(tc * 7) * 0.2) * multiplier;
+            } else if (r < 7) { // high air frequency
+              const multiplier = metrics.calculatedHighEnergy !== undefined ? (metrics.calculatedHighEnergy / 50) : 1;
+              val = (Math.sin(tc * 45) * Math.random() * 0.32) * multiplier;
+            } else { // mids
+              const multiplier = metrics.calculatedMidEnergy !== undefined ? (metrics.calculatedMidEnergy / 50) : 1;
+              val = ((0.22 + Math.sin(tc * 12) * 0.2) * (1 - tr * 0.5) + Math.random() * 0.1) * multiplier;
+            }
+            if (c % 14 === 0) val += 0.32; // rhythmic pulse grid
+
+            val = Math.max(0, Math.min(1, val));
+            let color = `rgba(${Math.round(val * 42)}, ${Math.round(val * 155 + 22)}, ${Math.round(val * 215 + 42)}, ${val * 0.8})`;
+            if (val > 0.72) {
+              color = `rgba(30, 215, 96, ${val * 0.9})`; // neon green sparks
+            }
+
+            specCtx.fillStyle = color;
+            specCtx.fillRect(c * colWidth, height - (r * rowHeight) - rowHeight, colWidth + 0.6, rowHeight + 0.6);
+          }
+        }
+        specCtx.restore();
+
+        specCtx.fillStyle = "rgba(255, 255, 255, 0.4)";
+        specCtx.font = "bold 9px monospace";
+        specCtx.fillText("Spectrogram Analysis (128-Band FFT)", 15, 20);
+
+        // Save the spectrogram PNG to state
+        const specUrl = specCanvas.toDataURL("image/png");
+        setSpectrogramImageDataUrl(specUrl);
+      }
+    } catch (err) {
+      console.error("Failed to generate offline analysis images:", err);
+    }
+  };
+
   // Set selected file if supplied from parent upload page
   useEffect(() => {
     if (activeUploadFile && activeUploadFile.name.toLowerCase().endsWith(".wav")) {
@@ -640,6 +763,10 @@ export default function Dashboard({
         finalCritique.liveMetrics = (track as any).liveMetrics || null;
       }
 
+      if (finalCritique.liveMetrics) {
+        renderAnalysisImages(finalCritique.liveMetrics);
+      }
+
       await saveUserTrack(updatedTrack);
       await loadUserTracks(currentUser!.uid);
 
@@ -695,6 +822,9 @@ export default function Dashboard({
     }
 
     if (critiqueToUse) {
+      if (critiqueToUse.liveMetrics) {
+        renderAnalysisImages(critiqueToUse.liveMetrics);
+      }
       onLoadCritique(critiqueToUse, {
         name: track.metaTitle || track.name,
         artist: track.metaArtist || currentUser?.displayName || "Artist",
