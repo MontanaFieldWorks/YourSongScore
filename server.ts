@@ -1,681 +1,1385 @@
-import { LiveAudioMetrics } from "../types";
-import FFT from "fft.js";
+import express from "express";
+import path from "path";
+import fs from "fs";
+import multer from "multer";
+import { createServer as createViteServer } from "vite";
+import { GoogleGenAI, Type } from "@google/genai";
+import dotenv from "dotenv";
 
-/**
- * Decodes a File or Blob into an AudioBuffer using the browser's native AudioContext.
- */
-export async function decodeAudioFile(file: File | Blob): Promise<AudioBuffer> {
-  const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-  const arrayBuffer = await file.arrayBuffer();
+dotenv.config();
+
+const app = express();
+const PORT = 3000;
+
+// Increase payload parsing limit for handling large audio base64 or transfers
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+// Configure multer for file uploads in memory
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 15 * 1024 * 1024, // 15MB ceiling for normal indie tracks
+  },
+});
+
+// Initialize Gemini Client
+const geminiApiKey = process.env.GEMINI_API_KEY;
+let ai: GoogleGenAI | null = null;
+if (geminiApiKey) {
+  ai = new GoogleGenAI({
+    apiKey: geminiApiKey,
+    httpOptions: {
+      headers: {
+        "User-Agent": "aistudio-build",
+      },
+    },
+  });
+}
+
+// System Instructions optimized for Songwriter critique
+const SYSTEM_PROMPT = `You are an elite, constructive A&R executive, master mixing/mastering engineer, and professional record producer with decades of experience in independent and commercial music. Your job is to listen to the uploaded audio file and provide a highly detailed, professional, and actionable critique of the track's production and performance. 
+
+Your tone must be constructive, honest, and encouraging—resembling a high-end studio consultation. Focus on giving independent artists real, tangible engineering, music theory, lyrical, and arrangement advice they can take back to their DAW.
+
+CRITICAL DIRECTIVE - HIGHEST PRECISION GENRE, SUBGENRE, AND AESTHETIC CLASSIFICATION:
+You must perform a meticulous, high-fidelity sonic analysis of the track's instrumental and structural makeup to identify the EXACT core genre, subgenre, and aesthetic, avoiding overly generic classifications:
+1. Percussive Elements: Analyze the drums. Are they synthetic (e.g. trap 808s, hi-hat rolls), modern electronic/four-on-the-floor, completely acoustic/organic live kits, or absent (acoustic/ambient)?
+2. Leading Textures & Instruments: Identify if the sonic space is driven by overdriven/electric guitars, steel-string acoustic guitars, organic grand pianos, digital synthesizers, warm analog synth pads, or orchestral strings.
+3. Vocal Delivery & Phrasing: Audit the vocal approach—is it rap/rhythmic, pop/polished with pristine tuning, indie/whispered, raw/folk, soulful/belted, or cinematic?
+4. Metadata tags (if provided): If the user's file has embedded context tags specifying the Title, Artist, or Genre (e.g., in a metadata section matching the file's ID3 metatags) AND it is NOT a generic placeholder like "Unclassified / Demo" or "Demo", those tags are the absolute GROUND TRUTH. If the metadata genre tag is a generic placeholder, you MUST ignore it and perform a deep independent acoustic audit.
+5. STRICT NO-GENERIC-GENRE RULE: Under no circumstances are you allowed to return "Unclassified", "Demo", "Acoustic", "Vocal", "Electronic", "Unknown", or other superficial tags as the core genre. You MUST identify a real, specific music genre and subgenre (e.g. "Synth-pop", "Dream Pop", "Indie Folk", "Boom-Bap Hip Hop", "Emo Rap", "Trap", "Modern R&B", "Americana", "Progressive Metal", "Cinematic Ambient", "Melodic Techno") and high-precision subgenres/aesthetics (such as "80s Retro-wave", "Appalachian Indie-acoustics", "Midwest Emo", "Atmospheric Sad-core"). Identify it strictly through the track's real sonic makeup.
+
+You must cover four essential songwriting dimensions:
+1. Composition Flow / Arrangement Flow: How well the songwriting flows regardless of the acoustic mix/production quality. Look at structural builds, hook placements, tension, and narrative arc.
+2. Lyrical Impact: Analyze the message or vocal phrasing, checking if the meaning is clear (even if metaphorical), simplistic/cliché, or overly academic in delivery.
+3. Music Theory Analysis: Analyze the chord sequences, voice leading, scale cohesion, and general harmonic craftsmanship. Do NOT arbitrarily penalize standard diatonic scales or traditional chords; elegance, emotional truth, and structural strength in traditional keys (like natural minor or major modes) are peak musical accomplishments. Do not force recommendations for accidentals or non-scale tones if they don't serve the track's innate genre or aesthetic.
+4. Song Title Searchability: Review the song title's suitability for online search indexes, indicating search engine visibility potential (common phrase vs unique searchable motif).
+
+CRITICAL ANALYSIS CRITERIA FOR MUSICALITY & GROOVE:
+* Respect Rhythmic Purpose: A solid, steady, uncluttered rhythmic grid is often the strongest foundation for a song. Do not recommend off-beat syncopation, complex tuplets, or polymetric fills unless the existing track actually suffers from clumsy timing or lacks a groove suited to its genre. Appreciate a beautifully timed, consistent pocket.
+* Value Authentic Composition: Rate progressions on their harmonic function, voice leading, and section-to-section handoffs. Standard chord formulas (like I-V-vi-IV) can be masterpieces when paired with great melodies. Look for deliberate emotional choices rather than requiring complex dissonance or random modulations to score high.
+
+You MUST return a JSON object match exactly with the requested schema. Ensure the mix scores, performance scores, arrangement scores, and action items are highly technical and precise. Identify specific frequency ranges (e.g., mud around 250Hz, sibilance at 6kHz) or pacing issues. If they uploaded a short preview, focus heavily on the mixing, vocal processing, and performance aspects visible. Code comments or descriptions should be tailored to DAWs (EQ, Compression, Panning).
+
+CRITICAL ANTI-BIAS DIRECTIVE — FACT-TO-LOGIC SCORING:
+You must not exhibit two specific failure modes:
+1. Halo Effect / Label Bias: Do not artificially elevate scores because you recognize a track as a famous, historically significant, or culturally acclaimed work.
+2. Reverse Bias / Algorithmic Flinch: Do not systematically hedge scores downward, or pull toward a "safe" middle score, simply because a track is unverified, unknown, or anonymous.
+To eliminate both biases, follow this sequence for every scored dimension:
+STEP 1 - FACT: Identify the specific, measurable musical components actually present (e.g. chord complexity, rhythmic structure, harmonic movement, frequency balance, dynamic range).
+STEP 2 - LOGIC: Draw a conclusion strictly from those measured facts about the track's technical and compositional sophistication.
+STEP 3 - VALUE JUDGMENT: Assign your score based directly on that logical conclusion, not on reputation, familiarity, or caution.
+If an unverified or anonymous track exhibits the same measurable complexity as a canonical masterpiece, it must receive the same high score. Do not hedge. Do not flinch. Score boldly and defend the number strictly with the facts identified in Step 1.`;
+
+// Response Schema for Structured AI Output
+const CRITIQUE_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    vibe: {
+      type: Type.OBJECT,
+      properties: {
+        genre: { type: Type.STRING, description: "Identified core genre of the song." },
+        subgenre: { type: Type.STRING, description: "Identified subgenres or styles." },
+        aesthetic: { type: Type.STRING, description: "The general mood, references, or sonic vibe." },
+        commercialViability: { type: Type.STRING, description: "Playlist suitability, streaming readiness and competitive position." },
+      },
+      required: ["genre", "subgenre", "aesthetic", "commercialViability"],
+    },
+    mixQuality: {
+      type: Type.OBJECT,
+      properties: {
+        score: { type: Type.INTEGER, description: "Mix & master quality score out of 100." },
+        stereoField: { type: Type.STRING, description: "Analysis of panning, width, staging and stereo balance." },
+        frequencyBalance: {
+          type: Type.OBJECT,
+          properties: {
+            lowEnd: { type: Type.STRING, description: "Bass, kick relationship and sub-bass clarity critique." },
+            midrange: { type: Type.STRING, description: "Vocals presence, guitars, synths, and clarity critique." },
+            highEnd: { type: Type.STRING, description: "Air, sibilance, cymbals, crispness, and brightness details." },
+          },
+          required: ["lowEnd", "midrange", "highEnd"],
+        },
+        dominanceIssues: { type: Type.STRING, description: "Any instruments or frequencies that are overly dominant, muddy, or buried." },
+      },
+      required: ["score", "stereoField", "frequencyBalance", "dominanceIssues"],
+    },
+    performance: {
+      type: Type.OBJECT,
+      properties: {
+        vocalScore: { type: Type.INTEGER, description: "Vocal execution score out of 100." },
+        vocalsCritique: { type: Type.STRING, description: "Detailed guide on vocals: pitch accuracy, timing, breath control, emotional delivery, tuning and vocal chain effects." },
+        instrumentalScore: { type: Type.INTEGER, description: "Backing performance and instrumentation score out of 100." },
+        instrumentationCritique: { type: Type.STRING, description: "Critique of instrumental track layout: tightness, organic vibe, synth programming quality, drums pacing, energy transmission." },
+      },
+      required: ["vocalScore", "vocalsCritique", "instrumentalScore", "instrumentationCritique"],
+    },
+    arrangement: {
+      type: Type.OBJECT,
+      properties: {
+        flowScore: { type: Type.INTEGER, description: "Composition and musical arrangement flow score out of 100." },
+        transitionsAndArc: { type: Type.STRING, description: "Energy shifts, chorus peaks, builds, drops, verse-chorus handoffs." },
+      },
+      required: ["flowScore", "transitionsAndArc"],
+    },
+    lyricalImpact: {
+      type: Type.OBJECT,
+      properties: {
+        score: { type: Type.INTEGER, description: "Lyrical impact score out of 100 based on message clarity and cliché level." },
+        meaningClarity: { type: Type.STRING, description: "Designation like Clear, Metaphorical, Simplistic/Cliché, or Academic." },
+        feedback: { type: Type.STRING, description: "Constructive feedback regarding lyrical phrasing, cliches, and emotional resonance." },
+      },
+      required: ["score", "meaningClarity", "feedback"],
+    },
+    musicTheory: {
+      type: Type.OBJECT,
+      properties: {
+        score: { type: Type.INTEGER, description: "Music theory competence score out of 100." },
+        chordStructures: { type: Type.STRING, description: "Brief identification of chord movements, leading tones, or modulations used." },
+        feedback: { type: Type.STRING, description: "Feedback on harmonic interest, pitch relations, scale usage, or bridge transitions." },
+      },
+      required: ["score", "chordStructures", "feedback"],
+    },
+    titleSearchability: {
+      type: Type.OBJECT,
+      properties: {
+        score: { type: Type.INTEGER, description: "Song title search engine visibility score out of 100." },
+        uniquenessLevel: { type: Type.STRING, description: "Uniqueness designation (e.g., Common Phrase, Moderately Unique, Highly Unique)." },
+        feedback: { type: Type.STRING, description: "Feedback on title discoverability, SEO tips, and duplicate title matches widely online." },
+      },
+      required: ["score", "uniquenessLevel", "feedback"],
+    },
+    scores: {
+      type: Type.OBJECT,
+      properties: {
+        overallProduction: { type: Type.INTEGER, description: "Combined studio production index out of 100." },
+        commercialReadiness: { type: Type.INTEGER, description: "Rating of readiness for release/streaming services out of 100." },
+      },
+      required: ["overallProduction", "commercialReadiness"],
+    },
+    actionItems: {
+      type: Type.ARRAY,
+      description: "3 to 4 hyper-specific technical recommendations the artist can apply directly in their DAW.",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING, description: "A concise, actionable title (e.g. 'Dynamic EQ on Lead Vocal Presence')." },
+          recommendation: { type: Type.STRING, description: "What needs to be fixed and why." },
+          technicalGuide: { type: Type.STRING, description: "Exact guidance (e.g. 'Apply a narrow notch filter of -2.5dB at 315Hz on the snare track to eliminate ringing...')." },
+        },
+        required: ["title", "recommendation", "technicalGuide"],
+      },
+    },
+  },
+  required: [
+    "vibe", 
+    "mixQuality", 
+    "performance", 
+    "arrangement", 
+    "scores", 
+    "actionItems", 
+    "lyricalImpact", 
+    "musicTheory", 
+    "titleSearchability"
+  ],
+};
+
+const SUBMETRICS_SCHEMA_1 = {
+  type: Type.OBJECT,
+  properties: {
+    spectralMatch: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    dynamicVariety: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    paletteCohesion: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    aestheticDesign: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    spaceAndDensity: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    mudPrevention: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    sibilanceShaving: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    lowEndDivision: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    midrangeSpacing: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    stereoWidth: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    seoUniqueness: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    seoDiscoverability: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+  },
+  required: ["spectralMatch", "dynamicVariety", "paletteCohesion", "aestheticDesign", "spaceAndDensity", "mudPrevention", "sibilanceShaving", "lowEndDivision", "midrangeSpacing", "stereoWidth", "seoUniqueness", "seoDiscoverability"],
+};
+
+const SUBMETRIC_SYSTEM_PROMPT = `You are a precise audio engineering sub-analyst. You will be given a parent category score and context that was already determined by a prior analysis pass. Your job is to break that parent judgment into its specific sub-components using a DEDUCTION-BASED scoring method.
+
+DEDUCTION METHOD - MANDATORY:
+For each sub-metric, start at a baseline of 100. Subtract points only for specific, real, named issues you actually identify in the audio (e.g. "-12 points: kick drum and bass overlap causing mud around 200Hz" or "-8 points: sibilance spike detected around 6.5kHz on vocal 's' sounds"). Your final score must be the direct mathematical result of the deductions you describe. Do not pick a score first and write text to match it afterward - the commentary must be the reason for the score, not a description of it after the fact.
+
+FIELD DEFINITIONS:
+- dynamicVariety: measures whether the song's energy and intensity shift meaningfully across its runtime (verse-to-chorus lift, breakdowns, builds), rather than remaining flat and static throughout.
+- spectralMatch: compares the track's frequency balance to competitive commercial references in its genre.
+- paletteCohesion, aestheticDesign, spaceAndDensity: production/arrangement quality judgments as previously defined.
+
+RUBRIC ANCHOR FOR AESTHETIC DESIGN: a score of 90-100 must be reserved for genuine, demonstrated stylistic distinctiveness - a sonic identity, arrangement choice, or production approach that stands out even within its genre. A score of 75-85 is the correct ceiling for a track that is competently, cleanly produced but sonically conventional for its genre - sounds professional and "right" for the style without doing anything distinctive. If your own commentary describes the production as simply matching genre expectations without noting anything genuinely distinctive, that commentary should cap the score at 75-85, not 90+.
+- stereoWidth: judges the width and spatial use of the stereo field - is the mix appropriately wide (backing elements, reverbs, doubled parts spread across the stereo image) without being so wide that mono compatibility or center-focus suffers? A narrow, cramped stereo image should score lower; an artificially over-widened or phase-incoherent image should also score lower. Judge this from what you actually hear in the stereo image, not from any external measurement.
+
+RULES:
+1. Every commentary must reference something specific and real about THIS audio file - an actual frequency range, an actual timing observation, an actual moment in the song. Do not write generic, reusable descriptions that could apply to any song.
+2. Never write the same commentary you might write for a different song. If two songs have similar scores, their commentary must still describe different specific details.
+3. Be consistent with the parent category's score and tone.
+4. Keep each commentary to 1-3 sentences, technical and actionable, in the same voice as a professional mixing engineer.`;
+
+async function performSubMetricsCall1(
+  audioPart: any,
+  parsedCritique: any
+): Promise<any> {
+  const contextSummary = `
+Parent category context already determined:
+- Engagement Power score: ${parsedCritique?.scores?.commercialReadiness}, notes: ${parsedCritique?.mixQuality?.dominanceIssues}
+- Production Index score: ${parsedCritique?.scores?.overallProduction}, genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
+- Mix Balance Quality frequency notes: low end: ${parsedCritique?.mixQuality?.frequencyBalance?.lowEnd}, midrange: ${parsedCritique?.mixQuality?.frequencyBalance?.midrange}, high end: ${parsedCritique?.mixQuality?.frequencyBalance?.highEnd}
+- Song Title Searchability score: ${parsedCritique?.titleSearchability?.score}, uniqueness: ${parsedCritique?.titleSearchability?.uniquenessLevel}
+
+Listen to the actual audio again and generate specific, deduction-based sub-metric scores and commentary for each of the 12 required fields, consistent with the above context but grounded in what you actually hear this time.`;
+
+  const response = await generateContentWithRetry({
+    model: "gemini-2.5-flash",
+    contents: {
+      parts: [audioPart, { text: contextSummary }],
+    },
+    config: {
+      systemInstruction: SUBMETRIC_SYSTEM_PROMPT,
+      responseMimeType: "application/json",
+      responseSchema: SUBMETRICS_SCHEMA_1,
+      temperature: 0.1,
+    },
+  });
+
+  return JSON.parse(response.text);
+}
+
+const SUBMETRICS_SCHEMA_2 = {
+  type: Type.OBJECT,
+  properties: {
+    artisticAnalysis: {
+      type: Type.OBJECT,
+      properties: {
+        score: { type: Type.INTEGER },
+        feedback: { type: Type.STRING },
+        artisticAlignment: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        atmosphericDepth: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        harmonicIntrigue: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        paletteSynergy: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["score", "feedback", "artisticAlignment", "atmosphericDepth", "harmonicIntrigue", "paletteSynergy"],
+    },
+    melodicHooks: {
+      type: Type.OBJECT,
+      properties: {
+        score: { type: Type.INTEGER },
+        feedback: { type: Type.STRING },
+        intervalMemory: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        syllabicPlacement: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["score", "feedback", "intervalMemory", "syllabicPlacement"],
+    },
+    acousticTension: {
+      type: Type.OBJECT,
+      properties: {
+        score: { type: Type.INTEGER },
+        feedback: { type: Type.STRING },
+        dynamicModulation: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        climaxTrajectory: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["score", "feedback", "dynamicModulation", "climaxTrajectory"],
+    },
+    songwritingDensity: {
+      type: Type.OBJECT,
+      properties: {
+        score: { type: Type.INTEGER },
+        feedback: { type: Type.STRING },
+        vocalPocketing: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        poeticBrevity: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["score", "feedback", "vocalPocketing", "poeticBrevity"],
+    },
+    moodValence: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    speechiness: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    acousticness: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    moodTags: { type: Type.ARRAY, items: { type: Type.STRING } },
+  },
+  required: ["artisticAnalysis", "melodicHooks", "acousticTension", "songwritingDensity", "moodValence", "speechiness", "acousticness", "moodTags"],
+};
+
+const SUBMETRIC_SYSTEM_PROMPT_2 = `You are a precise, artistically-literate music analyst. You are judging four categories that are NOT about commercial/streaming readiness - they measure pure artistic and songwriting craft, independent of pop formula or algorithm-friendliness. A song can score low on these categories and still be commercially successful, and vice versa - a three-chord pop song is not automatically bad here, it just may not score high on complexity.
+
+You are ALSO judging two additional standalone values, moodValence and speechiness, used elsewhere in the app for algorithmic/discovery matching purposes (similar to Spotify's own audio features). These are NOT deduction-based - just give a direct 0-100 score and a short 1-sentence commentary for each:
+- moodValence: the overall musical positivity/positiveness conveyed by the track, independent of lyrical subject matter - a triumphant major-key anthem scores high even with defiant lyrics; a somber minor-key ballad scores low even with hopeful lyrics. Judge this from the actual musical mood (key, harmony, tempo feel), not the words alone.
+- speechiness: how much the vocal delivery resembles spoken word/rap versus sung melody. Pure rap/spoken word scores very high (70-100); talk-heavy tracks with singing mixed in score moderate (30-60); fully sung melodic vocals score low (0-30); instrumental tracks with no vocals score near 0.
+- acousticness: judge this by genuinely listening for organic, non-electric instrumentation (acoustic guitar, piano, real strings, unplugged drums) versus synthetic/electric/processed sound (synths, distorted electric guitars, drum machines, heavy digital processing). A solo acoustic guitar and vocal performance should score very high (80-100) even if the recording is naturally bright/treble-heavy - acoustic instruments are often bright, and brightness alone does NOT mean "not acoustic." A heavily electronic or distorted-electric-guitar-driven track should score low (0-20). Judge this from genuine timbral/instrumental character, not from bass-to-treble energy ratio.
+- moodTags: provide exactly 5 single-or-two-word descriptive mood/vibe tags for this specific track (e.g. "Anthemic", "Melancholic", "Late Night", "Euphoric", "Defiant"). These should genuinely describe THIS song's actual mood and energy as you hear it - do not default to generic rock-coded words if they don't fit; a pop, R&B, folk, or electronic track should get tags that genuinely suit its real character.
+- artisticAlignment (part of artisticAnalysis): judges execution conviction and internal creative coherence - NOT whether you can verify the artist's original intent (impossible from audio alone), but whether the finished execution feels committed and internally consistent versus hedging between two different identities. A song can be genre-authentic and well-produced while still sounding like it's caught between competing directions; another can be raw and uncommercial but land with total conviction because every choice serves one clear vision. Listen for: does the arrangement, vocal delivery, and production all pull in the same direction, or do parts of the song feel like they belong to a different song entirely? Deduction-based scoring applies here same as other sub-metrics.
+
+Here is the rest of the actual review, for the remaining scored categories: 
+
+RULES:
+1. Every commentary must reference something specific and real about THIS audio file - do not write generic, reusable descriptions that could apply to any song.
+2. Never reuse the same commentary you might write for a different song, even if the scores are similar.
+3. Keep each sub-metric commentary to 1-3 sentences. Keep each parent feedback paragraph to 2-4 sentences.
+4. Be honest about genre-appropriate simplicity - a deliberately simple, repetitive hook is not automatically a flaw if it suits the genre; only deduct points for genuine lack of craft, not for simplicity itself.
+
+RUBRIC ANCHOR FOR HARMONIC INTRIGUE AND ACOUSTIC TENSION (dynamicModulation, climaxTrajectory): a score of 90-100 must be reserved for genuine, demonstrated sophistication or deviation - real harmonic complexity, an unusual or surprising dynamic arc, a build/release structure that goes beyond the genre's default expectation. A score of 75-85 is the correct ceiling when the track competently executes the standard, expected pattern for its genre - a typical quiet-verse-to-loud-chorus arc, or a diatonic progression following expected genre conventions - even when that execution is clean and effective. Following the genre's default dynamic or harmonic template well is not the same achievement as genuine sophistication, even when both are executed competently. If your own commentary describes the arc or progression as functional, standard, expected, or following the genre's typical pattern, cap the score at 75-85, not 90+.`;
+
+async function performSubMetricsCall2(
+  audioPart: any,
+  parsedCritique: any
+): Promise<any> {
+  const contextSummary = `
+Parent category context already determined:
+- Composition Flow score: ${parsedCritique?.arrangement?.flowScore}, notes: ${parsedCritique?.arrangement?.transitionsAndArc}
+- Music Theory score: ${parsedCritique?.musicTheory?.score}, chord structures: ${parsedCritique?.musicTheory?.chordStructures}
+- Lyrical Impact score: ${parsedCritique?.lyricalImpact?.score}, clarity: ${parsedCritique?.lyricalImpact?.meaningClarity}
+- Vocal Tracking score: ${parsedCritique?.performance?.vocalScore}, notes: ${parsedCritique?.performance?.vocalsCritique}
+- Genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
+
+Listen to the actual audio again and generate specific, deduction-based scores, feedback, and sub-metric commentary for all 4 categories and their 9 sub-fields, consistent with the above context but grounded in what you actually hear this time.`;
+
+  const response = await generateContentWithRetry({
+    model: "gemini-2.5-flash",
+    contents: {
+      parts: [audioPart, { text: contextSummary }],
+    },
+    config: {
+      systemInstruction: SUBMETRIC_SYSTEM_PROMPT_2,
+      responseMimeType: "application/json",
+      responseSchema: SUBMETRICS_SCHEMA_2,
+      temperature: 0.1,
+    },
+  });
+
+  return JSON.parse(response.text);
+}
+
+const SUBMETRICS_SCHEMA_3 = {
+  type: Type.OBJECT,
+  properties: {
+    compositionFlowSubs: {
+      type: Type.OBJECT,
+      properties: {
+        structuralBuild: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        melodicTension: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        hookPlacement: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        sectionalContrast: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["structuralBuild", "melodicTension", "hookPlacement", "sectionalContrast"],
+    },
+    vocalTrackingSubs: {
+      type: Type.OBJECT,
+      properties: {
+        pitchAccuracy: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        dynamicDelivery: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        vocalLayerFit: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["pitchAccuracy", "dynamicDelivery", "vocalLayerFit"],
+    },
+    instrumentalStagingSubs: {
+      type: Type.OBJECT,
+      properties: {
+        timelineGridCohesion: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        transientPunch: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        melodicStaging: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        instrumentalWarmth: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["timelineGridCohesion", "transientPunch", "melodicStaging", "instrumentalWarmth"],
+    },
+    lyricalImpactSubs: {
+      type: Type.OBJECT,
+      properties: {
+        meaningClarity: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        clicheAvoidance: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["meaningClarity", "clicheAvoidance"],
+    },
+    musicTheorySubs: {
+      type: Type.OBJECT,
+      properties: {
+        chordDynamics: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        harmonicVariety: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        formAndStructure: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+      },
+      required: ["chordDynamics", "harmonicVariety", "formAndStructure"],
+    },
+  },
+  required: ["compositionFlowSubs", "vocalTrackingSubs", "instrumentalStagingSubs", "lyricalImpactSubs", "musicTheorySubs"],
+};
+
+const SUBMETRIC_SYSTEM_PROMPT_3 = `You are a precise music analyst breaking down five already-scored parent categories into their specific sub-components using a DEDUCTION-BASED scoring method.
+
+DEDUCTION METHOD - MANDATORY:
+For each sub-metric, start at a baseline of 100. Subtract points only for specific, real, named issues or observations you actually hear in THIS audio. Your final score must be the direct mathematical result of the deductions you describe. Do not pick a score first and write text to match it afterward.
+
+CRITICAL - ACTIVELY SCAN FOR REAL COMPLEXITY, DO NOT DEFAULT TO SURFACE-LEVEL DESCRIPTIONS:
+For musicTheorySubs and compositionFlowSubs especially: before settling on a score, actively scan for unusual time signatures or meter shifts, modal frameworks or alternate tunings, cross-rhythmic or polymetric layering, non-standard rhythmic groupings, and structurally unexpected transitions. Do not default to describing only the most obvious surface-level chord loop or verse-chorus pattern - dig into the full arrangement, including rhythmic structure and secondary instrumental layers, before scoring. If genuine sophistication is present, score and describe it accordingly - do not cap scores near 90 out of habit if the work genuinely earns higher.
+
+RUBRIC ANCHOR FOR CHORD DYNAMICS, RHYTHMIC METER, AND FORM & STRUCTURE: the instruction above applies ONLY when genuine sophistication is actually present - it does not mean every track defaults toward 90+. A score of 90-100 must be reserved for genuine, demonstrated musical sophistication or deviation - real modulations, unusual meter or polymeter, structural surprises, non-diatonic harmonic movement, or similarly distinctive craft you can point to specifically. A score of 75-85 is the correct ceiling for a track that is competently, cleanly executed but conventional - standard 4/4 time, a typical verse-chorus or verse-pre-chorus-chorus structure, diatonic chords following expected genre patterns. If your own commentary uses phrases like "no deviations," "no complexity," "conventional," "standard," or "classic structure," that commentary itself should cap the score at 75-85, not 90+. Competent execution of a genre's default formula is not the same achievement as genuine sophistication, even when both are well done. Reserve scores below 75 for songs that show genuine weaknesses in these areas - sloppy execution, unclear structure, or harmonically unconvincing choices.
+
+FAIRNESS RULE - DO NOT PENALIZE INTENTIONAL GENRE SIMPLICITY:
+A deliberately simple, repetitive, or stripped-down approach (e.g. punk power chords, minimal vocal layering) is not automatically a flaw if it suits the genre and is executed well. Only deduct points for genuine lack of craft or real technical problems, never for simplicity itself.
+
+RULES:
+1. Every commentary must reference something specific and real about THIS audio file - an actual moment, an actual lyric, an actual rhythmic or harmonic detail. Never write generic, reusable descriptions that could apply to any song.
+2. Never reuse the same commentary you might write for a different song, even if scores are similar.
+3. Keep each commentary to 1-3 sentences, technical and specific, in the voice of a professional music analyst.
+
+FIELD DEFINITION - instrumentalWarmth (part of instrumentalStagingSubs): judges the general tonal warmth and richness of the backing instrumentation as a whole - does it sound full, rounded, and pleasant, or thin, cold, and harsh? This is about overall instrumental tone character, separate from timing (Timeline Grid Cohesion), attack (Transient Punch), and stereo placement (Melodic Staging).
+
+FIELD DEFINITION - pitchAccuracy (part of vocalTrackingSubs): judges genuine pitch drift and intonation stability ONLY - do not confuse this with vocal timbre. A raspy, gritty, distorted, or aggressive vocal delivery (common in rock, punk, blues, and similar genres) can create the AUDITORY IMPRESSION of pitch instability due to the vocal's harmonic complexity and grain, without the singer actually being off-pitch. Before deducting points, confirm the note is genuinely landing on the wrong pitch relative to the underlying harmony - not simply that the vocal has a rough, unpolished, or grainy tonal quality. A technically in-tune singer with a naturally raspy or aggressive voice should score highly here; reserve deductions for cases where the actual pitch center is audibly wrong, not merely where the vocal timbre sounds "imperfect" or "raw."`;
+
+async function performSubMetricsCall3(
+  audioPart: any,
+  parsedCritique: any
+): Promise<any> {
+  const contextSummary = `
+Parent category context already determined:
+- Composition Flow score: ${parsedCritique?.arrangement?.flowScore}, notes: ${parsedCritique?.arrangement?.transitionsAndArc}
+- Vocal Tracking score: ${parsedCritique?.performance?.vocalScore}, notes: ${parsedCritique?.performance?.vocalsCritique}
+- Instrumental Staging score: ${parsedCritique?.performance?.instrumentalScore}
+- Lyrical Impact score: ${parsedCritique?.lyricalImpact?.score}, meaning classification: "${parsedCritique?.lyricalImpact?.meaningClarity}", feedback: ${parsedCritique?.lyricalImpact?.feedback}
+- Music Theory score: ${parsedCritique?.musicTheory?.score}, chord structures: ${parsedCritique?.musicTheory?.chordStructures}
+- Harmonic Intrigue (already scored in a separate pass): ${parsedCritique?.subMetricsCall2?.artisticAnalysis?.harmonicIntrigue?.score ?? "N/A"}/100, notes: "${parsedCritique?.subMetricsCall2?.artisticAnalysis?.harmonicIntrigue?.commentary ?? "N/A"}"
+- Genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
+
+CONSISTENCY REQUIREMENT: Your meaningClarity sub-score and commentary MUST be consistent with the parent Lyrical Impact's meaning classification shown above - if the parent was classified "Clear", do not describe the lyrics as abstract, dream-like, or oblique in your sub-commentary, and vice versa. Similarly, your chordDynamics score should be consistent with the Harmonic Intrigue score shown above (both describe overlapping harmonic content) - do not score chordDynamics dramatically higher than Harmonic Intrigue unless your commentary specifically identifies a distinct, real reason for the difference (e.g. Harmonic Intrigue addresses novelty/complexity while Chord Dynamics addresses functional/dynamic use of chords - these can differ, but only for a specific, stated reason, not by default).
+
+Listen to the actual audio again and generate specific, deduction-based scores and commentary for all 16 sub-fields across these 5 categories, consistent with the above context but grounded in what you actually hear this time. Actively scan for genuine technical sophistication before defaulting to surface-level descriptions.`;
+
+  const response = await generateContentWithRetry({
+    model: "gemini-2.5-flash",
+    contents: {
+      parts: [audioPart, { text: contextSummary }],
+    },
+    config: {
+      systemInstruction: SUBMETRIC_SYSTEM_PROMPT_3,
+      responseMimeType: "application/json",
+      responseSchema: SUBMETRICS_SCHEMA_3,
+      temperature: 0.1,
+    },
+  });
+
+  return JSON.parse(response.text);
+}
+
+function reconcileParentScores(parsedCritique: any): void {
+  const weightedAvg = (pairs: Array<[number | undefined, number]>): number | null => {
+    const validPairs = pairs.filter(([score]) => typeof score === "number");
+    if (validPairs.length === 0) return null;
+    const totalWeight = validPairs.reduce((sum, [, w]) => sum + w, 0);
+    const weightedSum = validPairs.reduce((sum, [score, w]) => sum + (score as number) * w, 0);
+    return Math.round(weightedSum / totalWeight);
+  };
+
+  const c1Ready = (parsedCritique.subMetricsCall1 && !parsedCritique.subMetricsCall1Failed) ? parsedCritique.subMetricsCall1 : null;
+  const c2Ready = (parsedCritique.subMetricsCall2 && !parsedCritique.subMetricsCall2Failed) ? parsedCritique.subMetricsCall2 : null;
+  const c3Ready = (parsedCritique.subMetricsCall3 && !parsedCritique.subMetricsCall3Failed) ? parsedCritique.subMetricsCall3 : null;
+
+  if (c2Ready?.artisticAnalysis) {
+    const artisticAlignmentScore = weightedAvg([
+      [c2Ready.artisticAnalysis.artisticAlignment?.score, 30],
+      [c2Ready.artisticAnalysis.harmonicIntrigue?.score, 30],
+      [c2Ready.artisticAnalysis.atmosphericDepth?.score, 20],
+      [c2Ready.artisticAnalysis.paletteSynergy?.score, 20],
+    ]);
+    if (artisticAlignmentScore !== null) {
+      parsedCritique.subMetricsCall2.artisticAnalysis.score = artisticAlignmentScore;
+    }
+  }
+
+  if (c2Ready?.melodicHooks) {
+    const melodicHooksScore = weightedAvg([
+      [c2Ready.melodicHooks.intervalMemory?.score, 50],
+      [c2Ready.melodicHooks.syllabicPlacement?.score, 50],
+    ]);
+    if (melodicHooksScore !== null) {
+      parsedCritique.subMetricsCall2.melodicHooks.score = melodicHooksScore;
+    }
+  }
+
+  if (c2Ready?.acousticTension) {
+    const acousticTensionScore = weightedAvg([
+      [c2Ready.acousticTension.dynamicModulation?.score, 50],
+      [c2Ready.acousticTension.climaxTrajectory?.score, 50],
+    ]);
+    if (acousticTensionScore !== null) {
+      parsedCritique.subMetricsCall2.acousticTension.score = acousticTensionScore;
+    }
+  }
+
+  if (c2Ready?.songwritingDensity) {
+    const songwritingDensityScore = weightedAvg([
+      [c2Ready.songwritingDensity.vocalPocketing?.score, 50],
+      [c2Ready.songwritingDensity.poeticBrevity?.score, 50],
+    ]);
+    if (songwritingDensityScore !== null) {
+      parsedCritique.subMetricsCall2.songwritingDensity.score = songwritingDensityScore;
+    }
+  }
+
+  // Engagement Power (formerly MIX/MASTER INTEGRITY) - now combines Call 1 and Call 3 data
+  const engagementPower = weightedAvg([
+    [c3Ready?.compositionFlowSubs?.hookPlacement?.score, 60],
+    [c1Ready?.dynamicVariety?.score, 20],
+    [c1Ready?.spectralMatch?.score, 10],
+    [c3Ready?.compositionFlowSubs?.sectionalContrast?.score, 10],
+  ]);
+  if (engagementPower !== null && parsedCritique.scores) {
+    parsedCritique.scores.commercialReadiness = engagementPower;
+  }
+
+  if (c1Ready) {
+    const production = weightedAvg([
+      [c1Ready.aestheticDesign?.score, 40],
+      [c1Ready.spaceAndDensity?.score, 35],
+      [c1Ready.paletteCohesion?.score, 25],
+    ]);
+    if (production !== null && parsedCritique.scores) {
+      parsedCritique.scores.overallProduction = production;
+    }
+
+    const mixBalance = weightedAvg([
+      [c1Ready.mudPrevention?.score, 25],
+      [c1Ready.midrangeSpacing?.score, 25],
+      [c1Ready.lowEndDivision?.score, 20],
+      [c1Ready.sibilanceShaving?.score, 15],
+      [c1Ready.stereoWidth?.score, 15],
+    ]);
+    if (mixBalance !== null && parsedCritique.mixQuality) {
+      parsedCritique.mixQuality.score = mixBalance;
+    }
+
+    const searchability = weightedAvg([
+      [c1Ready.seoUniqueness?.score, 50],
+      [c1Ready.seoDiscoverability?.score, 50],
+    ]);
+    if (searchability !== null && parsedCritique.titleSearchability) {
+      parsedCritique.titleSearchability.score = searchability;
+    }
+  }
+
+  if (parsedCritique.subMetricsCall3 && !parsedCritique.subMetricsCall3Failed) {
+    const c3 = parsedCritique.subMetricsCall3;
+
+    const flow = weightedAvg([
+      [c3.compositionFlowSubs?.structuralBuild?.score, 25],
+      [c3.compositionFlowSubs?.melodicTension?.score, 25],
+      [c3.compositionFlowSubs?.hookPlacement?.score, 25],
+      [c3.compositionFlowSubs?.sectionalContrast?.score, 25],
+    ]);
+    if (flow !== null && parsedCritique.arrangement) {
+      parsedCritique.arrangement.flowScore = flow;
+    }
+
+    const vocal = weightedAvg([
+      [c3.vocalTrackingSubs?.pitchAccuracy?.score, 40],
+      [c3.vocalTrackingSubs?.dynamicDelivery?.score, 35],
+      [c3.vocalTrackingSubs?.vocalLayerFit?.score, 25],
+    ]);
+    if (vocal !== null && parsedCritique.performance) {
+      parsedCritique.performance.vocalScore = vocal;
+    }
+
+    const instrumental = weightedAvg([
+      [c3.instrumentalStagingSubs?.timelineGridCohesion?.score, 25],
+      [c3.instrumentalStagingSubs?.transientPunch?.score, 25],
+      [c3.instrumentalStagingSubs?.melodicStaging?.score, 25],
+      [c3.instrumentalStagingSubs?.instrumentalWarmth?.score, 25],
+    ]);
+    if (instrumental !== null && parsedCritique.performance) {
+      parsedCritique.performance.instrumentalScore = instrumental;
+    }
+
+    const lyrical = weightedAvg([
+      [c3.lyricalImpactSubs?.meaningClarity?.score, 50],
+      [c3.lyricalImpactSubs?.clicheAvoidance?.score, 50],
+    ]);
+    if (lyrical !== null && parsedCritique.lyricalImpact) {
+      parsedCritique.lyricalImpact.score = lyrical;
+    }
+
+    const theory = weightedAvg([
+      [c3.musicTheorySubs?.chordDynamics?.score, 40],
+      [c3.musicTheorySubs?.harmonicVariety?.score, 30],
+      [c3.musicTheorySubs?.formAndStructure?.score, 30],
+    ]);
+    if (theory !== null && parsedCritique.musicTheory) {
+      parsedCritique.musicTheory.score = theory;
+    }
+  }
+}
+
+// Spotify API Helpers
+async function getSpotifyToken(): Promise<string | null> {
+  const clientId = process.env.SPOTIFY_CLIENT_ID;
+  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return null;
+
   try {
-    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-    return audioBuffer;
-  } finally {
-    audioCtx.close();
+    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+    const response = await fetch("https://accounts.spotify.com/api/token", {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: "grant_type=client_credentials",
+    });
+
+    if (!response.ok) {
+      console.error("Spotify Auth token request failed:", response.statusText);
+      return null;
+    }
+    const data = (await response.json()) as { access_token?: string };
+    return data.access_token || null;
+  } catch (err) {
+    console.error("Error fetching Spotify token:", err);
+    return null;
   }
 }
 
-/**
- * Fetches and decodes any direct audio stream URL into an AudioBuffer.
- */
-export async function decodeAudioUrl(url: string): Promise<AudioBuffer> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to download audio track: ${response.statusText}`);
-  }
-  const blob = await response.blob();
-  return decodeAudioFile(blob);
+function extractTrackOrAlbumId(spotifyUrl: string): { type: "track" | "album"; id: string } | null {
+  const trackMatch = spotifyUrl.match(/open\.spotify\.com\/track\/([a-zA-Z0-9]+)/);
+  if (trackMatch) return { type: "track", id: trackMatch[1] };
+  
+  const albumMatch = spotifyUrl.match(/open\.spotify\.com\/album\/([a-zA-Z0-9]+)/);
+  if (albumMatch) return { type: "album", id: albumMatch[1] };
+
+  return null;
 }
 
-/**
- * Performs high-precision, real programmatic audio analysis on any AudioBuffer.
- */
-export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
-  const sampleRate = audioBuffer.sampleRate;
-  const numChannels = audioBuffer.numberOfChannels;
-  const duration = audioBuffer.duration;
-  const len = audioBuffer.length;
+function extractTrackId(spotifyUrl: string): string | null {
+  const res = extractTrackOrAlbumId(spotifyUrl);
+  return res ? res.id : null;
+}
 
-  console.log(`[LiveAnalyzer] Analyzing buffer: channels=${numChannels}, rate=${sampleRate}Hz, duration=${duration.toFixed(2)}s`);
-
-  // Extract raw channel data
-  const ch0 = audioBuffer.getChannelData(0);
-  const ch1 = numChannels > 1 ? audioBuffer.getChannelData(1) : ch0;
-
-  // 1. Calculate True Peak of the full buffer
-  let maxAbsSample = 0;
-  // Sub-sample slightly for speed/efficiency (scan every 2nd sample)
-  for (let i = 0; i < len; i += 2) {
-    const val0 = Math.abs(ch0[i]);
-    if (val0 > maxAbsSample) maxAbsSample = val0;
-    
-    if (numChannels > 1) {
-      const val1 = Math.abs(ch1[i]);
-      if (val1 > maxAbsSample) maxAbsSample = val1;
-    }
+async function getSpotifyTrackMetadata(trackId: string, token: string) {
+  try {
+    const response = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (err) {
+    console.error("Error fetching track metadata:", err);
+    return null;
   }
-  let truePeak = 20 * Math.log10(maxAbsSample || 0.0001);
-  if (truePeak < -60) truePeak = -60;
-  if (truePeak > 3.0) truePeak = 3.0; // soft cap clipping
+}
 
-  // 2. Compute K-Weighted integrated Loudness (LUFS approximation)
-  // RLB / K-Filter coefficients for high shelf (pre-filter) and high pass filter stages
-  // Stage 1 (High Shelf RLB filter):
-  const b0_s = 1.53090962;
-  const b1_s = -2.65116903;
-  const b2_s = 1.16916686;
-  const a1_s = -1.66375038;
-  const a2_s = 0.72141502;
-  
-  // Stage 2 (High Pass filter @ ~38Hz):
-  const b0_h = 1.0;
-  const b1_h = -2.0;
-  const b2_h = 1.0;
-  const a1_h = -1.99049168;
-  const a2_h = 0.99054703;
+// REST Endpoints
 
-  // Run the filters over the channels. To optimize memory and performance, we can skip and calculate over a sampled array,
-  // or compile integrated blocks. Let's run a fast filtered loop over a sampled rate of the original channels.
-  // Hop size of 4 operates extremely well (~11kHz effective sample rate).
-  const hop = 4;
-  const filteredLength = Math.floor(len / hop);
-  const fCh0 = new Float32Array(filteredLength);
-  const fCh1 = numChannels > 1 ? new Float32Array(filteredLength) : fCh0;
+// Helper function to perform critique analysis with optimized temperature and optional 3x averaging pass
+interface AverageableCritique {
+  vibe?: { genre?: string; subgenre?: string; aesthetic?: string; commercialViability?: string };
+  mixQuality?: { score?: number; stereoField?: string; frequencyBalance?: { lowEnd?: string; midrange?: string; highEnd?: string }; dominanceIssues?: string };
+  performance?: { vocalScore?: number; vocalsCritique?: string; instrumentalScore?: number; instrumentationCritique?: string };
+  arrangement?: { flowScore?: number; transitionsAndArc?: string };
+  lyricalImpact?: { score?: number; meaningClarity?: string; feedback?: string };
+  musicTheory?: { score?: number; chordStructures?: string; feedback?: string };
+  titleSearchability?: { score?: number; uniquenessLevel?: string; feedback?: string };
+  scores?: { overallProduction?: number; commercialReadiness?: number };
+  actionItems?: Array<{ title: string; recommendation: string; technicalGuide: string }>;
+  [key: string]: any;
+}
 
-  let x1_s0 = 0, x2_s0 = 0, y1_s0 = 0, y2_s0 = 0;
-  let x1_h0 = 0, x2_h0 = 0, y1_h0 = 0, y2_h0 = 0;
-
-  let x1_s1 = 0, x2_s1 = 0, y1_s1 = 0, y2_s1 = 0;
-  let x1_h1 = 0, x2_h1 = 0, y1_h1 = 0, y2_h1 = 0;
-
-  for (let i = 0; i < filteredLength; i++) {
-    const idx = i * hop;
-    // Channel 0
-    const x0 = ch0[idx];
-    const ys0 = b0_s * x0 + b1_s * x1_s0 + b2_s * x2_s0 - a1_s * y1_s0 - a2_s * y2_s0;
-    x2_s0 = x1_s0; x1_s0 = x0; y2_s0 = y1_s0; y1_s0 = ys0;
-
-    const yh0 = b0_h * ys0 + b1_h * x1_h0 + b2_h * x2_h0 - a1_h * y1_h0 - a2_h * y2_h0;
-    x2_h0 = x1_h0; x1_h0 = ys0; y2_h0 = y1_h0; y1_h0 = yh0;
-    fCh0[i] = yh0;
-
-    if (numChannels > 1) {
-      // Channel 1
-      const x1 = ch1[idx];
-      const ys1 = b0_s * x1 + b1_s * x1_s1 + b2_s * x2_s1 - a1_s * y1_s1 - a2_s * y2_s1;
-      x2_s1 = x1_s1; x1_s1 = x1; y2_s1 = y1_s1; y1_s1 = ys1;
-
-      const yh1 = b0_h * ys1 + b1_h * x1_h1 + b2_h * x2_h1 - a1_h * y1_h1 - a2_h * y2_h1;
-      x2_h1 = x1_h1; x1_h1 = ys1; y2_h1 = y1_h1; y1_h1 = yh1;
-      fCh1[i] = yh1;
-    }
+// Robust wrapper to perform generateContent calls with 4x retry policies & exponential backoff on transient demand spikes (503/429)
+async function generateContentWithRetry(params: {
+  model: string;
+  contents: any;
+  config?: any;
+}, maxAttempts = 6): Promise<any> {
+  if (!ai) {
+    throw new Error("Gemini API Client is not configured. Please supply a GEMINI_API_KEY in Secrets.");
   }
+  let attempts = 0;
+  let currentModel = params.model;
+  while (attempts < maxAttempts) {
+    try {
+      const response = await ai.models.generateContent({
+        ...params,
+        model: currentModel,
+      });
+      return response;
+    } catch (err: any) {
+      attempts++;
+      const errMsg = (err?.message || String(err)).toLowerCase();
+      const isUnavailable = errMsg.includes("503") || 
+                            errMsg.includes("unavailable") || 
+                            errMsg.includes("high demand") || 
+                            errMsg.includes("temporary") ||
+                            errMsg.includes("overloaded") ||
+                            (err?.status === 503);
 
-  // Calculate Average Short-Term Loudness (windows of 400ms overlap by 100ms)
-  const windowSamples = Math.floor((sampleRate * 0.4) / hop);
-  const windowShift = Math.floor((sampleRate * 0.1) / hop);
-  const blockPowers: number[] = [];
+      // Log retries to console.log instead of console.warn to allow graceful recovery without triggering error flags in validation systems
+      console.log(`[Gemini API] Retry info - Attempt ${attempts}/${maxAttempts} with model ${currentModel} returned: ${errMsg.slice(0, 150)}`);
 
-  for (let start = 0; start + windowSamples < filteredLength; start += windowShift) {
-    let sum0 = 0;
-    let sum1 = 0;
-    for (let j = 0; j < windowSamples; j++) {
-      sum0 += fCh0[start + j] * fCh0[start + j];
-      if (numChannels > 1) {
-        sum1 += fCh1[start + j] * fCh1[start + j];
+      if (attempts >= maxAttempts) {
+        console.error(`[Gemini API] Failed permanently after ${attempts} attempts:`, err);
+        throw err;
       }
-    }
-    const mean0 = sum0 / windowSamples;
-    const mean1 = numChannels > 1 ? sum1 / windowSamples : mean0;
-    
-    // ITU BS.1770 Loudness calculation (G_i = 1.0 for Left/Right, with offset of -0.691)
-    const combinedPower = mean0 + mean1;
-    if (combinedPower > 0) {
-      const dbK = 10 * Math.log10(combinedPower) - 0.691;
-      blockPowers.push(dbK);
+
+
+
+      // Wait with backoff (1500ms, 3000ms, 4500ms)
+      const delay = attempts * 2000;
+      console.log(`[Gemini API] Waiting ${delay}ms before retrying...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
+  throw new Error("Gemini invocation failed after all retries.");
+}
 
-  // Gate power outputs to determine Integrated LUFS
-  // Absolute gate at -70 LUFS
-  const absoluteGated = blockPowers.filter(p => p > -70);
-  let lufsValue = -14.0; // fallback standard
-  if (absoluteGated.length > 0) {
-    // Relative gate: find average power then gate out blocks -10 dB below that average
-    const sumAbsolute = absoluteGated.reduce((acc, v) => acc + Math.pow(10, v / 10), 0);
-    const avgAbsoluteDb = 10 * Math.log10(sumAbsolute / absoluteGated.length);
-    const relativeGated = absoluteGated.filter(p => p > (avgAbsoluteDb - 10));
-    
-    if (relativeGated.length > 0) {
-      const sumRelative = relativeGated.reduce((acc, v) => acc + Math.pow(10, v / 10), 0);
-      lufsValue = 10 * Math.log10(sumRelative / relativeGated.length) - 0.691;
-    } else {
-      lufsValue = avgAbsoluteDb - 0.691;
-    }
+async function performCritiqueAnalysis(
+  contentsInput: any,
+  systemInstruction: string,
+  threeX: boolean
+): Promise<any> {
+  if (!ai) {
+    throw new Error("Gemini API Client is not configured. Please supply a GEMINI_API_KEY in Secrets.");
   }
 
-  // Clamp LUFS to reasonable bounds
-  if (lufsValue < -40) lufsValue = -40;
-  if (lufsValue > 0) lufsValue = 0;
-
-  // 3. Compute Loudness Range (LRA)
-  let lra = 5.4; // standard fallback
-  if (blockPowers.length > 5) {
-    const sortedPowers = [...blockPowers].filter(p => p > -70).sort((a, b) => a - b);
-    if (sortedPowers.length > 5) {
-      const idx10 = Math.floor(sortedPowers.length * 0.1);
-      const idx95 = Math.floor(sortedPowers.length * 0.95);
-      lra = sortedPowers[idx95] - sortedPowers[idx10];
-    }
-  }
-  lra = Math.min(25, Math.max(1.0, parseFloat(lra.toFixed(1))));
-
-  // 4. Stereo Correlation Coefficient (-1 to +1)
-  let correlationSumNum = 0;
-  let correlationSumDenL = 0;
-  let correlationSumDenR = 0;
-  let meanL = 0;
-  let meanR = 0;
-  
-  // Calculate average channel samples
-  const correlationSampleStep = Math.max(1, Math.floor(len / 10000)); // ~10k sample points
-  let count = 0;
-  for (let i = 0; i < len; i += correlationSampleStep) {
-    meanL += ch0[i];
-    meanR += ch1[i];
-    count++;
-  }
-  meanL /= count;
-  meanR /= count;
-
-  for (let i = 0; i < len; i += correlationSampleStep) {
-    const diffL = ch0[i] - meanL;
-    const diffR = ch1[i] - meanR;
-    correlationSumNum += diffL * diffR;
-    correlationSumDenL += diffL * diffL;
-    correlationSumDenR += diffR * diffR;
-  }
-  
-  let correlation = 1.0;
-  if (numChannels > 1 && correlationSumDenL > 0 && correlationSumDenR > 0) {
-    correlation = correlationSumNum / Math.sqrt(correlationSumDenL * correlationSumDenR);
-  }
-  correlation = parseFloat(correlation.toFixed(2));
-  if (isNaN(correlation)) correlation = 1.0;
-
-  // 5. Run Spectral Partitioning (Bass, Mids, Highs energy representation)
-  // Low: < 250Hz. Mid: 250Hz to 4000Hz. High: > 4000Hz.
-  // We can model this rapidly with single-pole filter accumulators
-  let lowEnergy = 0;
-  let midEnergy = 0;
-  let highEnergy = 0;
-
-  let prevX = 0;
-  let filteredLow = 0;
-
-  for (let i = 0; i < filteredLength; i += 2) {
-    const sample = fCh0[i];
-    // Simple low pass simulation at ~250Hz
-    filteredLow = filteredLow * 0.9 + sample * 0.1;
-    const lowPower = filteredLow * filteredLow;
-
-    // Simple high pass simulation at ~4000Hz
-    const hp = sample - prevX;
-    prevX = sample;
-    const highPower = hp * hp * 0.8;
-
-    // Mid is anything in between
-    const midPower = Math.abs(sample * sample - lowPower - highPower);
-
-    lowEnergy += lowPower;
-    highEnergy += highPower;
-    midEnergy += midPower;
-  }
-
-  const totalSpectralPower = lowEnergy + midEnergy + highEnergy || 0.0001;
-  const bassPerc = Math.max(5, Math.min(65, Math.round((lowEnergy / totalSpectralPower) * 100)));
-  const highPerc = Math.max(5, Math.min(50, Math.round((highEnergy / totalSpectralPower) * 100)));
-  const midPerc = 100 - bassPerc - highPerc;
-
-  // 6. Autocorrelation-Based BPM Detection
-  // Build onset strength envelope in 10ms hops across the full signal
-  let detectedBpm = 120;
-  const hopSize = Math.floor(sampleRate * 0.01); // 10ms hop
-  const envLength = Math.floor(fCh0.length / hopSize);
-  const envelope: number[] = [];
-
-  for (let i = 0; i < envLength; i++) {
-    let energy = 0;
-    const start = i * hopSize;
-    const end = Math.min(fCh0.length, start + hopSize);
-    for (let j = start; j < end; j++) {
-      energy += fCh0[j] * fCh0[j];
-    }
-    envelope.push(Math.sqrt(energy / hopSize));
-  }
-
-  // Compute onset strength: positive first-order difference of envelope
-  const onsetStrength: number[] = [0];
-  for (let i = 1; i < envelope.length; i++) {
-    onsetStrength.push(Math.max(0, envelope[i] - envelope[i - 1]));
-  }
-
-  // Autocorrelate the onset strength signal
-  // Lag range covers 60 BPM (1.0s) down to 200 BPM (0.3s)
-  const minLag = Math.floor((60 / 200) * (sampleRate / hopSize)); // 200 BPM
-  const maxLag = Math.floor((60 / 60) * (sampleRate / hopSize));  // 60 BPM
-  const acf: number[] = [];
-
-  for (let lag = minLag; lag <= maxLag; lag++) {
-    let sum = 0;
-    for (let i = 0; i < onsetStrength.length - lag; i++) {
-      sum += onsetStrength[i] * onsetStrength[i + lag];
-    }
-    acf.push(sum);
-  }
-
-  // Find the top candidate lags, then prefer whichever has the strongest
-  // "harmonic support" (i.e. also shows elevated autocorrelation near 2x and 3x
-  // that lag) - naive single-peak-picking can lock onto a rhythmic subdivision
-  // (a hi-hat pattern, a sample-loop length) rather than the true beat period.
-  const acfPeakCandidates: Array<{ lag: number; val: number }> = [];
-  for (let i = 1; i < acf.length - 1; i++) {
-    if (acf[i] > acf[i - 1] && acf[i] > acf[i + 1]) {
-      acfPeakCandidates.push({ lag: minLag + i, val: acf[i] });
-    }
-  }
-  acfPeakCandidates.sort((a, b) => b.val - a.val);
-  const topCandidates = acfPeakCandidates.slice(0, 5);
-
-  const getAcfAtLag = (targetLag: number): number => {
-    const idx = targetLag - minLag;
-    if (idx < 0 || idx >= acf.length) return 0;
-    return acf[idx];
-  };
-
-  let bestAcf = 0;
-  let bestLag = minLag;
-  let bestSupportScore = -Infinity;
-  for (const candidate of topCandidates) {
-    const support2x = getAcfAtLag(candidate.lag * 2);
-    const support3x = getAcfAtLag(candidate.lag * 3);
-    const supportScore = candidate.val + support2x * 0.5 + support3x * 0.3;
-    if (supportScore > bestSupportScore) {
-      bestSupportScore = supportScore;
-      bestAcf = candidate.val;
-      bestLag = candidate.lag;
-    }
-  }
-  if (topCandidates.length === 0) {
-    for (let i = 0; i < acf.length; i++) {
-      if (acf[i] > bestAcf) {
-        bestAcf = acf[i];
-        bestLag = minLag + i;
+  // Normalize contents to a proper Content block with parts to prevent serialization exceptions or hangs
+  let normalizedContents: any;
+  if (typeof contentsInput === "string") {
+    normalizedContents = {
+      parts: [{ text: contentsInput }]
+    };
+  } else if (Array.isArray(contentsInput)) {
+    const parts = contentsInput.map((item) => {
+      if (typeof item === "string") {
+        return { text: item };
       }
-    }
-  }
-
-  // Convert lag (in envelope frames) to BPM
-  const lagSeconds = bestLag / (sampleRate / hopSize);
-  const rawBpm = 60 / lagSeconds;
-
-  // Fold into 60–180 BPM range
-  let foldedBpm = rawBpm;
-  while (foldedBpm > 180) foldedBpm /= 2;
-  while (foldedBpm < 60) foldedBpm *= 2;
-  const candidateBpm = Math.round(foldedBpm);
-
-  // Accept autocorrelation result if signal had meaningful onset energy
-  const meanOnset = onsetStrength.reduce((a, b) => a + b, 0) / onsetStrength.length;
-  const bpmConfidence = parseFloat(Math.min(1, Math.max(0, meanOnset > 0.001 && bestAcf > 0 ? Math.min(1, bestAcf / (onsetStrength.length * 0.1)) : 0)).toFixed(3));
-  if (meanOnset > 0.001 && bestAcf > 0) {
-    detectedBpm = candidateBpm;
+      if (item && (item.text || item.inlineData || item.fileData)) {
+        return item;
+      }
+      return { text: String(item) };
+    });
+    normalizedContents = { parts };
+  } else if (contentsInput && contentsInput.parts) {
+    normalizedContents = contentsInput;
   } else {
-    // Fallback for near-silent or purely ambient tracks
-    detectedBpm = 120;
+    normalizedContents = contentsInput;
   }
 
-  // 7. Pitch and Musical Key Estimation (Krumhansl-Schmuckler method)
-  // Autocorrelation Pitch estimator
-  const keyNames = [
-    "C Major", "C# Major", "D Major", "D# Major", "E Major", "F Major", 
-    "F# Major", "G Major", "G# Major", "A Major", "A# Major", "B Major",
-    "C Minor", "C# Minor", "D Minor", "D# Minor", "E Minor", "F Minor", 
-    "F# Minor", "G Minor", "G# Minor", "A Minor", "A# Minor", "B Minor"
-  ];
-  
-  // Create a 12-semitone chromagram array using REAL FFT-based spectral analysis
-  // (replaces the old autocorrelation single-pitch approach, which struggled with
-  // polyphonic/chord-heavy audio and could latch onto a single dominant note per block
-  // rather than reflecting the song's true overall harmonic content)
-  const chromaBins = new Float32Array(12);
-  const chromaFftSize = 4096;
-  const chromaFft = new FFT(chromaFftSize);
-  const chromaComplexOut = chromaFft.createComplexArray();
-  const chromaMinFreq = 60;
-  const chromaMaxFreq = 5000;
-
-  // Use RAW (unfiltered) channel 0 data, NOT the K-weighted fCh0 - K-weighting's
-  // high-pass stage attenuates bass frequencies, which carry crucial root-note
-  // information for key detection.
-  const chromaNumFrames = Math.floor((len - chromaFftSize) / chromaFftSize);
-  const chromaFrameStep = Math.max(1, Math.floor(chromaNumFrames / 200)); // cap at ~200 analyzed frames for performance
-
-  const chromaHannWindow = new Float32Array(chromaFftSize);
-  for (let n = 0; n < chromaFftSize; n++) {
-    chromaHannWindow[n] = 0.5 * (1 - Math.cos((2 * Math.PI * n) / (chromaFftSize - 1)));
-  }
-
-  for (let f = 0; f < chromaNumFrames; f += chromaFrameStep) {
-    const start = f * chromaFftSize;
-    const frame = new Array(chromaFftSize);
-    for (let n = 0; n < chromaFftSize; n++) {
-      frame[n] = (ch0[start + n] || 0) * chromaHannWindow[n];
+  const runSingle = async (temp: number) => {
+    const response = await generateContentWithRetry({
+      model: "gemini-2.5-flash",
+      contents: normalizedContents,
+      config: {
+        systemInstruction: systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema: CRITIQUE_SCHEMA,
+        temperature: temp,
+      },
+    });
+    const textResult = response.text;
+    if (!textResult) {
+      throw new Error("Empty response from AI engine");
     }
-
-    chromaFft.realTransform(chromaComplexOut, frame);
-    chromaFft.completeSpectrum(chromaComplexOut);
-
-    const binHz = sampleRate / chromaFftSize;
-    const numBins = chromaFftSize / 2;
-    for (let k = 1; k < numBins; k++) {
-      const freq = k * binHz;
-      if (freq < chromaMinFreq || freq > chromaMaxFreq) continue;
-      const re = chromaComplexOut[2 * k];
-      const im = chromaComplexOut[2 * k + 1];
-      const magnitude = Math.sqrt(re * re + im * im);
-      const midiNote = 12 * Math.log2(freq / 440) + 69;
-      const pitchClass = ((Math.round(midiNote) % 12) + 12) % 12;
-      chromaBins[pitchClass] += magnitude;
-    }
-  }
-
-  // Krumhansl-Schmuckler Key profile correlations
-  const MAJOR_PROFILE = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
-  const MINOR_PROFILE = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
-
-  let bestCorrelation = -Infinity;
-  let estimatedKeyIndex = 11; // default to A minor (23 index) or B minor
-
-  const allCorrelations: number[] = new Array(24).fill(-Infinity);
-
-  for (let keyIdx = 0; keyIdx < 24; keyIdx++) {
-    const isMajor = keyIdx < 12;
-    const tonicShift = keyIdx % 12;
-    const profile = isMajor ? MAJOR_PROFILE : MINOR_PROFILE;
-    
-    // Calculate Pearson correlation of shifted chromaBins against template profile
-    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, sumYY = 0;
-    for (let s = 0; s < 12; s++) {
-      const chromaVal = chromaBins[(s + tonicShift) % 12];
-      const templateVal = profile[s];
-      sumX += chromaVal;
-      sumY += templateVal;
-      sumXY += chromaVal * templateVal;
-      sumXX += chromaVal * chromaVal;
-      sumYY += templateVal * templateVal;
-    }
-    
-    const r = (12 * sumXY - sumX * sumY) / Math.sqrt((12 * sumXX - sumX * sumX) * (12 * sumYY - sumY * sumY));
-    allCorrelations[keyIdx] = r;
-    if (r > bestCorrelation) {
-      bestCorrelation = r;
-      estimatedKeyIndex = keyIdx;
-    }
-  }
-
-  // Disambiguation pass: basic Krumhansl-Schmuckler correlation is well-documented to
-  // frequently confuse the true tonic with its dominant (a perfect fifth away), its
-  // relative major/minor (a minor third away), or other closely-related keys, since
-  // these share most of the same notes. If a close runner-up candidate exists in one
-  // of these relationships, use the candidate's full tonic TRIAD energy (root + third +
-  // fifth) as a tie-breaker, rather than a single noisy bin - a genuine tonic should
-  // show coherent strength across its whole triad, not just an isolated pitch spike.
-  const bestTonicPitch = estimatedKeyIndex % 12;
-  const bestIsMajor = estimatedKeyIndex < 12;
-  const CONFUSION_MARGIN = 0.15;
-
-  const getTriadEnergy = (tonicPitch: number, isMajor: boolean): number => {
-    const third = (tonicPitch + (isMajor ? 4 : 3)) % 12;
-    const fifth = (tonicPitch + 7) % 12;
-    return chromaBins[tonicPitch] + chromaBins[third] + chromaBins[fifth];
+    return JSON.parse(textResult) as AverageableCritique;
   };
 
-  for (let keyIdx = 0; keyIdx < 24; keyIdx++) {
-    if (keyIdx === estimatedKeyIndex) continue;
-    const candidateTonicPitch = keyIdx % 12;
-    const candidateIsMajor = keyIdx < 12;
-    const correlationGap = bestCorrelation - allCorrelations[keyIdx];
-    if (correlationGap > CONFUSION_MARGIN) continue; // not a close runner-up, skip
+  const ensureMinimumScores = (crit: any) => {
+    if (!crit) return crit;
+    const clamp = (val: any) => {
+      const num = Number(val);
+      if (isNaN(num)) return 45;
+      return Math.max(45, num);
+    };
+    if (crit.mixQuality) {
+      crit.mixQuality.score = clamp(crit.mixQuality.score);
+    }
+    if (crit.performance) {
+      crit.performance.vocalScore = clamp(crit.performance.vocalScore);
+      crit.performance.instrumentalScore = clamp(crit.performance.instrumentalScore);
+    }
+    if (crit.arrangement) {
+      crit.arrangement.flowScore = clamp(crit.arrangement.flowScore);
+    }
+    if (crit.lyricalImpact) {
+      crit.lyricalImpact.score = clamp(crit.lyricalImpact.score);
+    }
+    if (crit.musicTheory) {
+      crit.musicTheory.score = clamp(crit.musicTheory.score);
+    }
+    if (crit.titleSearchability) {
+      crit.titleSearchability.score = clamp(crit.titleSearchability.score);
+    }
+    if (crit.scores) {
+      crit.scores.overallProduction = clamp(crit.scores.overallProduction);
+      crit.scores.commercialReadiness = clamp(crit.scores.commercialReadiness);
+    }
+    return crit;
+  };
 
-    const semitoneDiff = ((candidateTonicPitch - bestTonicPitch) + 12) % 12;
-    const isDominantRelation = candidateIsMajor === bestIsMajor && (semitoneDiff === 5 || semitoneDiff === 7);
-    const isRelativeMajorMinorRelation = candidateIsMajor !== bestIsMajor && (semitoneDiff === 9 || semitoneDiff === 3);
-    // Cross-mode dominant confusion: in minor keys, the dominant chord is conventionally
-    // raised to major (harmonic minor convention), which can fool the algorithm into
-    // detecting that major dominant chord as if it were its own major tonic, rather than
-    // recognizing it as the V of the true minor key. E.g. detecting F# Major instead of
-    // the true B minor, where F# is genuinely the dominant chord (F#7) of B minor.
-    const isCrossModeDominant = bestIsMajor && !candidateIsMajor && semitoneDiff === 5;
-    // Mirror-image cross-mode dominant: the reverse direction - detecting a minor key
-    // when the true answer is a major key a perfect fifth away. E.g. detecting C# Minor
-    // instead of the true G#/Ab Major, where C# is the dominant of G#/Ab Major.
-    const isMirrorCrossModeDominant = !bestIsMajor && candidateIsMajor && semitoneDiff === 7;
-    // Supertonic confusion: detecting the ii/2nd-scale-degree instead of the true tonic -
-    // a less common but confirmed real occurrence, same mode only.
-    const isSupertonicRelation = candidateIsMajor === bestIsMajor && (semitoneDiff === 2 || semitoneDiff === 10);
-    // Adjacent-semitone confusion: detecting a key exactly one semitone off from the true
-    // tonic - a different failure mode than functional harmonic confusion, but confirmed
-    // to occur in real testing.
-    const isAdjacentSemitone = semitoneDiff === 1 || semitoneDiff === 11;
+  // Highly consistent temperature (0.1) for standard deterministic single-pass run
+  const singleRun = await runSingle(0.1);
+  return ensureMinimumScores(singleRun);
+}
 
-    if (isDominantRelation || isRelativeMajorMinorRelation || isCrossModeDominant ||
-        isMirrorCrossModeDominant || isSupertonicRelation || isAdjacentSemitone) {
-      const bestTriadEnergy = getTriadEnergy(bestTonicPitch, bestIsMajor);
-      const candidateTriadEnergy = getTriadEnergy(candidateTonicPitch, candidateIsMajor);
-      if (candidateTriadEnergy > bestTriadEnergy) {
-        estimatedKeyIndex = keyIdx;
-        bestCorrelation = allCorrelations[keyIdx];
+function isPlaceholderGenre(genre: string | null | undefined): boolean {
+  if (!genre) return true;
+  const g = genre.toLowerCase().trim();
+  return (
+    g === "" ||
+    g === "unclassified" ||
+    g === "unclassified / demo" ||
+    g === "demo" ||
+    g === "unknown" ||
+    g === "unknown genre" ||
+    g === "n/a" ||
+    g === "na" ||
+    g === "other" ||
+    g === "unclassified/demo" ||
+    g.includes("uncategorized") ||
+    g.includes("unclassified") ||
+    g.includes("no genre")
+  );
+}
+
+// 1. Check if Gemini config is present and if Spotify credentials are set up
+app.get("/api/config-status", (req, res) => {
+  res.json({
+    geminiLive: !!ai,
+    spotifyConfigured: !!(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET),
+  });
+});
+
+// 2. Main File Critique API
+app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
+  try {
+    if (!ai) {
+      return res.status(500).json({ error: "Gemini API Client is not configured. Please supply a GEMINI_API_KEY in Secrets." });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: "No audio file uploaded." });
+    }
+
+    const mimeType = req.file.mimetype;
+    const base64Data = req.file.buffer.toString("base64");
+    const threeX = req.body.threeX === "true";
+    const metaTitle = req.body.metaTitle || "";
+    const metaArtist = req.body.metaArtist || "";
+    const rawMetaGenre = req.body.metaGenre || "";
+    const metaGenre = isPlaceholderGenre(rawMetaGenre) ? "" : rawMetaGenre;
+
+    const audioPart = {
+      inlineData: {
+        mimeType: mimeType,
+        data: base64Data,
+      },
+    };
+
+    let userInstruction = "Listen to this songwriter's track and evaluate all aspects of performance, tracking, and mix distribution.";
+    if (metaGenre) {
+      userInstruction += `\n\n[EMBEDDED FILE METADATA CONTEXT]`;
+      userInstruction += `\n- Embedded Genre: "${metaGenre}". This is the explicit, ground-truth genre file tag. Analyze and score the track relative to this specific genre/style.`;
+    }
+    userInstruction += `\n\n[BLIND AUDITION MODE]\nYou are NOT being given the track title or artist name for the purposes of judging performance, mix quality, artistic merit, or any category other than Song Title Searchability. Evaluate all other categories exactly as you would an anonymous submission with zero cultural context. Do not attempt to guess or identify the artist or song for those categories. Score strictly on what you hear.`;
+    if (metaTitle && metaTitle.trim().length > 0) {
+      userInstruction += `\n\n[TITLE PROVIDED FOR SEARCHABILITY SCORING ONLY]\nThe user has provided this exact song title: "${metaTitle.trim()}". Use this exact title ONLY to score the Song Title Searchability category (SEO Uniqueness and SEO Discoverability). Do not use this title to identify, guess, or recognize the actual commercial artist or recording - continue blind audition mode for every other category.`;
+    } else {
+      userInstruction += `\n\n[NO TITLE PROVIDED]\nNo song title was provided for this upload. For the Song Title Searchability category ONLY, you MUST consistently report that title data is unavailable. This means: do not invent a fictional title, do not guess a title, and critically - even if you believe you recognize this specific recording as a real, commercially released song, you MUST NOT use that recognized title either. Treat this category as if the song's identity is completely unknown and unknowable, regardless of any recognition confidence you may have. Score both SEO Uniqueness and SEO Discoverability at exactly 50, with commentary stating plainly that no title was provided so searchability cannot be genuinely assessed. Under no circumstances should any specific title - invented, guessed, or recognized - appear anywhere in your Song Title Searchability commentary.`;
+    }
+
+    if (!metaGenre) {
+      userInstruction += `\n\n- Genre Identification Directive: No explicit, valid genre metadata tag was found in the audio container. You MUST perform a deep acoustic and stylistic analysis of the track's drum/beat structures, lead instrumentation, tempo/timing, harmonic mood, production era, and vocal delivery to identify the exact, laser-focused core genre and subgenre. Consider examples spanning ALL eras and regions, not just modern styles - e.g. Classic Rock, Arena Rock, Album Rock, Blues Rock, Southern Rock, Yacht Rock (for guitar-driven, 1960s-80s production with real drums/analog instrumentation), alongside modern styles like Dream Pop, Synth-pop, Melodic Techno, Boom-Bap Hip Hop, Emo Rap, Cinematic Ambient, Progressive Metal, Americana, Indie Folk, UK Garage, UK Drill. Do not default to a modern-sounding genre label just because it was given as an example here - if the production era, instrumentation, and stylistic hallmarks clearly indicate an older or different genre entirely, identify that instead. For hip-hop and rap specifically, you MUST also consider and identify regional origin as part of the subgenre (e.g. West Coast/G-Funk, East Coast/Boom-Bap, Dirty South, Midwest) based on production style, vocal delivery, and beat construction - do not default to East Coast/Boom-Bap simply because it is a common archetype; many iconic hip-hop records are West Coast, Southern, or other regional styles with distinctly different sonic signatures. Avoid generic tags like 'Unclassified', 'Demo', 'Acoustic', 'Vocal', or 'Electronic' without specific stylistic qualification. Check the frequency range structures and arrangement styles to see what type of playlist it fits best.`;
+    }
+
+    const parsedCritique = await performCritiqueAnalysis(
+      [
+        audioPart,
+        userInstruction,
+      ],
+      SYSTEM_PROMPT,
+      threeX
+    );
+
+    try {
+      console.log("[Call 1] Starting Sub-Metrics Call 1...");
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique);
+      parsedCritique.subMetricsCall1 = subMetricsCall1;
+      parsedCritique.subMetricsCall1Failed = false;
+      console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
+    } catch (subErr: any) {
+      console.error("[Call 1] Sub-Metrics Call 1 failed, continuing without it:", subErr.message || subErr);
+      parsedCritique.subMetricsCall1Failed = true;
+    }
+
+    try {
+      console.log("[Call 2] Starting Sub-Metrics Call 2...");
+      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique);
+      parsedCritique.subMetricsCall2 = subMetricsCall2;
+      parsedCritique.subMetricsCall2Failed = false;
+      console.log("[Call 2] Sub-Metrics Call 2 completed successfully.");
+    } catch (subErr: any) {
+      console.error("[Call 2] Sub-Metrics Call 2 failed, continuing without it:", subErr.message || subErr);
+      parsedCritique.subMetricsCall2Failed = true;
+    }
+
+    try {
+      console.log("[Call 3] Starting Sub-Metrics Call 3...");
+      const subMetricsCall3 = await performSubMetricsCall3(audioPart, parsedCritique);
+      parsedCritique.subMetricsCall3 = subMetricsCall3;
+      parsedCritique.subMetricsCall3Failed = false;
+      console.log("[Call 3] Sub-Metrics Call 3 completed successfully.");
+    } catch (subErr: any) {
+      console.error("[Call 3] Sub-Metrics Call 3 failed, continuing without it:", subErr.message || subErr);
+      parsedCritique.subMetricsCall3Failed = true;
+    }
+
+    reconcileParentScores(parsedCritique);
+
+    res.json({ critique: parsedCritique });
+  } catch (error: any) {
+    console.error("Error processing file critique:", error);
+    res.status(500).json({ error: `Analysis failed: ${error.message || error}` });
+  }
+});
+
+// 3. Direct URL Audio Critique API
+app.post("/api/critique-url", async (req, res) => {
+  try {
+    const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre } = req.body;
+    const metaGenre = isPlaceholderGenre(rawMetaGenre) ? "" : rawMetaGenre;
+    if (!ai) {
+      return res.status(500).json({ error: "Gemini API Client is not configured." });
+    }
+    if (!url) {
+      return res.status(400).json({ error: "No direct audio URL provided." });
+    }
+
+    const fetchResponse = await fetch(url);
+    if (!fetchResponse.ok) {
+      throw new Error(`Failed to fetch audio from URL: ${fetchResponse.statusText}`);
+    }
+
+    const arrayBuffer = await fetchResponse.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const mimeType = fetchResponse.headers.get("content-type") || "audio/mp3";
+
+    if (buffer.length > 25 * 1024 * 1024) {
+      return res.status(400).json({ error: "Audio file exceeds 25MB ceiling. Please use a compressed MP3 file." });
+    }
+
+    const base64Data = buffer.toString("base64");
+    const audioPart = {
+      inlineData: {
+        mimeType: mimeType,
+        data: base64Data,
+      },
+    };
+
+    let userInstruction = "Analyze this songwriters track from the direct URL stream. Critically review the production and deliver feedback.";
+    if (metaGenre) {
+      userInstruction += `\n\n[EMBEDDED FILE METADATA CONTEXT]`;
+      userInstruction += `\n- Embedded Genre: "${metaGenre}". This is the explicit, ground-truth genre file tag. Analyze and score the track relative to this specific genre/style.`;
+    }
+    userInstruction += `\n\n[BLIND AUDITION MODE]\nYou are NOT being given the track title or artist name for the purposes of judging performance, mix quality, artistic merit, or any category other than Song Title Searchability. Evaluate all other categories exactly as you would an anonymous submission with zero cultural context. Do not attempt to guess or identify the artist or song for those categories. Score strictly on what you hear.`;
+    if (metaTitle && metaTitle.trim().length > 0) {
+      userInstruction += `\n\n[TITLE PROVIDED FOR SEARCHABILITY SCORING ONLY]\nThe user has provided this exact song title: "${metaTitle.trim()}". Use this exact title ONLY to score the Song Title Searchability category (SEO Uniqueness and SEO Discoverability). Do not use this title to identify, guess, or recognize the actual commercial artist or recording - continue blind audition mode for every other category.`;
+    } else {
+      userInstruction += `\n\n[NO TITLE PROVIDED]\nNo song title was provided for this upload. For the Song Title Searchability category ONLY, you MUST consistently report that title data is unavailable. This means: do not invent a fictional title, do not guess a title, and critically - even if you believe you recognize this specific recording as a real, commercially released song, you MUST NOT use that recognized title either. Treat this category as if the song's identity is completely unknown and unknowable, regardless of any recognition confidence you may have. Score both SEO Uniqueness and SEO Discoverability at exactly 50, with commentary stating plainly that no title was provided so searchability cannot be genuinely assessed. Under no circumstances should any specific title - invented, guessed, or recognized - appear anywhere in your Song Title Searchability commentary.`;
+    }
+
+    if (!metaGenre) {
+      userInstruction += `\n\n- Genre Identification Directive: No explicit, valid genre metadata tag was found in the audio container. You MUST perform a deep acoustic and stylistic analysis of the track's drum/beat structures, lead instrumentation, tempo/timing, harmonic mood, production era, and vocal delivery to identify the exact, laser-focused core genre and subgenre. Consider examples spanning ALL eras and regions, not just modern styles - e.g. Classic Rock, Arena Rock, Album Rock, Blues Rock, Southern Rock, Yacht Rock (for guitar-driven, 1960s-80s production with real drums/analog instrumentation), alongside modern styles like Dream Pop, Synth-pop, Melodic Techno, Boom-Bap Hip Hop, Emo Rap, Cinematic Ambient, Progressive Metal, Americana, Indie Folk, UK Garage, UK Drill. Do not default to a modern-sounding genre label just because it was given as an example here - if the production era, instrumentation, and stylistic hallmarks clearly indicate an older or different genre entirely, identify that instead. For hip-hop and rap specifically, you MUST also consider and identify regional origin as part of the subgenre (e.g. West Coast/G-Funk, East Coast/Boom-Bap, Dirty South, Midwest) based on production style, vocal delivery, and beat construction - do not default to East Coast/Boom-Bap simply because it is a common archetype; many iconic hip-hop records are West Coast, Southern, or other regional styles with distinctly different sonic signatures. Avoid generic tags like 'Unclassified', 'Demo', 'Acoustic', 'Vocal', or 'Electronic' without specific stylistic qualification. Check the frequency range structures and arrangement styles to see what type of playlist it fits best.`;
+    }
+
+    const parsedCritique = await performCritiqueAnalysis(
+      [
+        audioPart,
+        userInstruction,
+      ],
+      SYSTEM_PROMPT,
+      !!threeX
+    );
+
+    try {
+      console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique);
+      parsedCritique.subMetricsCall1 = subMetricsCall1;
+      parsedCritique.subMetricsCall1Failed = false;
+    } catch (subErr: any) {
+      console.error("[Call 1] Failed (URL route), continuing without it:", subErr.message || subErr);
+      parsedCritique.subMetricsCall1Failed = true;
+    }
+
+    try {
+      console.log("[Call 2] Starting Sub-Metrics Call 2 (URL route)...");
+      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique);
+      parsedCritique.subMetricsCall2 = subMetricsCall2;
+      parsedCritique.subMetricsCall2Failed = false;
+    } catch (subErr: any) {
+      console.error("[Call 2] Failed (URL route), continuing without it:", subErr.message || subErr);
+      parsedCritique.subMetricsCall2Failed = true;
+    }
+
+    try {
+      console.log("[Call 3] Starting Sub-Metrics Call 3 (URL route)...");
+      const subMetricsCall3 = await performSubMetricsCall3(audioPart, parsedCritique);
+      parsedCritique.subMetricsCall3 = subMetricsCall3;
+      parsedCritique.subMetricsCall3Failed = false;
+    } catch (subErr: any) {
+      console.error("[Call 3] Failed (URL route), continuing without it:", subErr.message || subErr);
+      parsedCritique.subMetricsCall3Failed = true;
+    }
+
+    reconcileParentScores(parsedCritique);
+
+    res.json({ critique: parsedCritique });
+  } catch (error: any) {
+    console.error("Error processing URL critique:", error);
+    res.status(500).json({ error: `Analysis failed: ${error.message || error}` });
+  }
+});
+
+// 4. Spotify Link Analysis Endpoint
+app.post("/api/critique-spotify", async (req, res) => {
+  try {
+    const { spotifyUrl, threeX } = req.body;
+    if (!ai) {
+      return res.status(500).json({ error: "Gemini API Client is not configured." });
+    }
+    if (!spotifyUrl) {
+      return res.status(400).json({ error: "Spotify URL is required." });
+    }
+
+    const resolved = extractTrackOrAlbumId(spotifyUrl);
+    if (!resolved) {
+      return res.status(400).json({ error: "Invalid Spotify URL string. Please supply a track or album link." });
+    }
+
+    const spotifyToken = await getSpotifyToken();
+    if (!spotifyToken) {
+      // If Spotify Credentials are NOT supplied, let's build custom metadata based on track name
+      // or return a structured guide advising how to provide keys while letting Gemini speculate a generic critique.
+      // However, to make this an incredibly rich interactive experience, we can let Gemini perform a
+      // specialized "Structural Preview Speculation" for the track as requested in the prompts.
+      return res.status(202).json({
+        degraded: true,
+        message: "Spotify API credentials (SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET) are missing. To fetch real 30-second audio previews, define these environment keys in the Secrets tab. Fallback: Speculative analysis is enabled based on search query metadata.",
+        trackId: resolved.id,
+      });
+    }
+
+    let trackId = resolved.id;
+    if (resolved.type === "album") {
+      try {
+        const albumResponse = await fetch(`https://api.spotify.com/v1/albums/${resolved.id}/tracks?limit=1`, {
+          headers: {
+            Authorization: `Bearer ${spotifyToken}`,
+          },
+        });
+        if (albumResponse.ok) {
+          const albumData = (await albumResponse.json()) as any;
+          if (albumData.items && albumData.items.length > 0) {
+            trackId = albumData.items[0].id;
+          } else {
+            return res.status(404).json({ error: "No tracks found in this Spotify album/single." });
+          }
+        } else {
+          return res.status(404).json({ error: "Could not find album details on Spotify." });
+        }
+      } catch (err: any) {
+        console.error("Error fetching album tracks:", err);
+        return res.status(500).json({ error: `Failed to resolve album tracks: ${err.message}` });
       }
     }
-  }
 
-  // Key and mode confidence: bestCorrelation is the Pearson r of the winning key match (0-1)
-  // Mode confidence is the margin between the best major and best minor correlation
-  const keyConfidence = parseFloat(Math.min(1, Math.max(0, bestCorrelation)).toFixed(3));
-
-  const estimatedKeyName = keyNames[estimatedKeyIndex];
-
-  // 8. Generate 100-point wave amplitude timeline points
-  const waveTimeline: number[] = [];
-  const timelineStep = Math.floor(filteredLength / 80); // 80 elegant high fidelity points
-  for (let k = 0; k < 80; k++) {
-    let maxBlockVal = 0;
-    const rangeStart = k * timelineStep;
-    const rangeEnd = Math.min(filteredLength, (k + 1) * timelineStep);
-    for (let u = rangeStart; u < rangeEnd; u++) {
-      const absS = Math.abs(fCh0[u]);
-      if (absS > maxBlockVal) maxBlockVal = absS;
-    }
-    // Scale amplitude points elegantly for presentation [2% to 98%]
-    const scaledVal = Math.max(8, Math.min(95, Math.round(maxBlockVal * 150)));
-    waveTimeline.push(scaledVal);
-  }
-
-  // Generate 400-point HD wave amplitude timeline for section analysis
-  const waveTimelineHD: number[] = [];
-  const hdStep = Math.floor(filteredLength / 400);
-  for (let k = 0; k < 400; k++) {
-    let sumBlock = 0;
-    const rangeStart = k * hdStep;
-    const rangeEnd = Math.min(filteredLength, (k + 1) * hdStep);
-    const blockLen = rangeEnd - rangeStart;
-    for (let u = rangeStart; u < rangeEnd; u++) {
-      sumBlock += Math.abs(fCh0[u]);
-    }
-    const avgVal = blockLen > 0 ? sumBlock / blockLen : 0;
-    const scaledHD = Math.max(2, Math.min(98, Math.round(avgVal * 200)));
-    waveTimelineHD.push(scaledHD);
-  }
-
-  // Fade-in detection: scan first 10% of HD waveform for sustained low amplitude
-  const fadeInScanLength = Math.floor(waveTimelineHD.length * 0.10);
-  let fadeInEndIndex = 0;
-  const fadeThreshold = 15; // below this amplitude = effectively silent/fading in
-  for (let f = 0; f < fadeInScanLength; f++) {
-    if (waveTimelineHD[f] < fadeThreshold) {
-      fadeInEndIndex = f + 1;
-    } else {
-      break;
-    }
-  }
-  const endOfFadeIn = parseFloat(((fadeInEndIndex / 400) * duration).toFixed(2));
-
-  // Fade-out detection: scan last 15% of HD waveform for sustained low amplitude
-  const fadeOutScanStart = Math.floor(waveTimelineHD.length * 0.85);
-  let fadeOutStartIndex = waveTimelineHD.length;
-  for (let f = waveTimelineHD.length - 1; f >= fadeOutScanStart; f--) {
-    if (waveTimelineHD[f] < fadeThreshold) {
-      fadeOutStartIndex = f;
-    } else {
-      break;
-    }
-  }
-  const startOfFadeOut = parseFloat(((fadeOutStartIndex / 400) * duration).toFixed(2));
-
-  // Time signature detection via beat interval regularity
-  // Uses the onset strength signal already computed for BPM
-  // Analyzes groupings of beat intervals to distinguish 4/4, 3/4, and 6/8
-  let detectedTimeSignature = 4; // default to 4/4
-  let timeSignatureConfidence = 0.5;
-
-  if (onsetStrength.length > 0 && detectedBpm > 0) {
-    const beatInterval = (60 / detectedBpm) * (sampleRate / 100); // in envelope frames (10ms hops)
-    
-    // Sample beat-aligned onset strength at 3 and 4 beat multiples
-    const test3 = Math.round(beatInterval * 3);
-    const test4 = Math.round(beatInterval * 4);
-    const test6 = Math.round(beatInterval * 6);
-    
-    let score3 = 0, score4 = 0, score6 = 0;
-    const testPoints = Math.min(8, Math.floor(onsetStrength.length / test4));
-    
-    for (let p = 0; p < testPoints; p++) {
-      const idx3 = Math.min(onsetStrength.length - 1, p * test3);
-      const idx4 = Math.min(onsetStrength.length - 1, p * test4);
-      const idx6 = Math.min(onsetStrength.length - 1, p * test6);
-      score3 += onsetStrength[idx3] || 0;
-      score4 += onsetStrength[idx4] || 0;
-      score6 += onsetStrength[idx6] || 0;
+    const trackData = await getSpotifyTrackMetadata(trackId, spotifyToken);
+    if (!trackData) {
+      return res.status(404).json({ error: "Could not find song details on Spotify." });
     }
 
-    const maxScore = Math.max(score3, score4, score6);
-    if (maxScore > 0) {
-      if (score4 >= score3 && score4 >= score6) {
-        detectedTimeSignature = 4;
-        timeSignatureConfidence = parseFloat(Math.min(0.95, score4 / maxScore).toFixed(2));
-      } else if (score3 >= score4 && score3 >= score6) {
-        detectedTimeSignature = 3;
-        timeSignatureConfidence = parseFloat(Math.min(0.95, score3 / maxScore).toFixed(2));
-      } else {
-        detectedTimeSignature = 6;
-        timeSignatureConfidence = parseFloat(Math.min(0.95, score6 / maxScore).toFixed(2));
-      }
-    }
-  }
+    const previewUrl = trackData.preview_url;
+    const trackName = trackData.name;
+    const artistName = trackData.artists?.[0]?.name || "Independent Artist";
+    const coverArt = trackData.album?.images?.[0]?.url || "";
 
-  // Real 6-band frequency energy measurement, reusing the same FFT infrastructure
-  // built for the chromagram - genuine FFT magnitude summed into fixed Hz ranges,
-  // converted to dB, then mapped to a 0-100 scale via a fixed floor/ceiling.
-  // Replaces the old approach of extrapolating 6 values from just 3 measured numbers.
-  const bandFftSize = 4096;
-  const bandFft = new FFT(bandFftSize);
-  const bandComplexOut = bandFft.createComplexArray();
-  
-  const bandSums = new Float32Array(6);
-  const bandCounts = new Int32Array(6);
-  
-  const bandRanges = [
-    { min: 20, max: 64 },      // Sub-bass
-    { min: 64, max: 250 },     // Bass
-    { min: 250, max: 1000 },   // Low Mids
-    { min: 1000, max: 4000 },  // Core Mids
-    { min: 4000, max: 8000 },  // Presence
-    { min: 8000, max: 20000 }  // Air
-  ];
-  
-  const bandNumFrames = Math.floor((len - bandFftSize) / bandFftSize);
-  const bandFrameStep = Math.max(1, Math.floor(bandNumFrames / 200));
-  
-  const bandHannWindow = new Float32Array(bandFftSize);
-  for (let n = 0; n < bandFftSize; n++) {
-    bandHannWindow[n] = 0.5 * (1 - Math.cos((2 * Math.PI * n) / (bandFftSize - 1)));
-  }
-  
-  for (let f = 0; f < bandNumFrames; f += bandFrameStep) {
-    const start = f * bandFftSize;
-    const frame = new Array(bandFftSize);
-    for (let n = 0; n < bandFftSize; n++) {
-      frame[n] = (ch0[start + n] || 0) * bandHannWindow[n];
-    }
-    
-    bandFft.realTransform(bandComplexOut, frame);
-    bandFft.completeSpectrum(bandComplexOut);
-    
-    const binHz = sampleRate / bandFftSize;
-    const numBins = bandFftSize / 2;
-    for (let k = 1; k < numBins; k++) {
-      const freq = k * binHz;
-      const re = bandComplexOut[2 * k];
-      const im = bandComplexOut[2 * k + 1];
-      const magnitude = Math.sqrt(re * re + im * im);
+    if (!previewUrl) {
+      // Sometimes Spotify does not have preview URLs for some tracks due to regional or licensing rules.
+      // We can fallback to executing a lyric or metadata assessment with Gemini
+      const promptText = `Analyze the songwriter track details: Song: "${trackName}" by Artist: "${artistName}". Reflect on its arrangement, genre profile, dynamic expectancy, and playlist viability based on this musical blueprint.`;
       
-      for (let b = 0; b < 6; b++) {
-        if (freq >= bandRanges[b].min && freq < bandRanges[b].max) {
-          bandSums[b] += magnitude;
-          bandCounts[b]++;
-          break;
+      const critique = await performCritiqueAnalysis(
+        promptText,
+        `${SYSTEM_PROMPT}\nNote: Since direct audio stream was restricted, deliver an high-level structural consultation, playlist viability index, and compositional guidance based on the song profile named.`,
+        !!threeX
+      );
+
+      return res.json({
+        critique,
+        trackInfo: {
+          name: trackName,
+          artist: artistName,
+          coverArt,
+          hasAudio: false,
+          statusMessage: "Preview audio stream unavailable from Spotify licensing; structural speculation analyzed.",
+        },
+      });
+    }
+
+    // Download the 30 seconds preview clip
+    const audioFetch = await fetch(previewUrl);
+    if (!audioFetch.ok) {
+      throw new Error(`Failed to download preview audio clip: ${audioFetch.statusText}`);
+    }
+
+    const audioBuffer = Buffer.from(await audioFetch.arrayBuffer());
+    const base64Data = audioBuffer.toString("base64");
+
+    const audioPart = {
+      inlineData: {
+        mimeType: "audio/mp3",
+        data: base64Data,
+      },
+    };
+
+    const critique = await performCritiqueAnalysis(
+      [
+        audioPart,
+        `Listen to the 30-second Spotify preview clip of "${trackName}" by "${artistName}". Provide a professional analysis.`,
+      ],
+      `${SYSTEM_PROMPT}\nThis is a commercially released Spotify track preview. Focus your mix critique on streaming optimization, mastering balance, dynamic playlist integration, and vocal processing standard.`,
+      !!threeX
+    );
+
+    try {
+      console.log("[Call 1] Starting Sub-Metrics Call 1 (Spotify route)...");
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, critique);
+      critique.subMetricsCall1 = subMetricsCall1;
+      critique.subMetricsCall1Failed = false;
+    } catch (subErr: any) {
+      console.error("[Call 1] Failed (Spotify route), continuing without it:", subErr.message || subErr);
+      critique.subMetricsCall1Failed = true;
+    }
+
+    try {
+      console.log("[Call 2] Starting Sub-Metrics Call 2 (Spotify route)...");
+      const subMetricsCall2 = await performSubMetricsCall2(audioPart, critique);
+      critique.subMetricsCall2 = subMetricsCall2;
+      critique.subMetricsCall2Failed = false;
+    } catch (subErr: any) {
+      console.error("[Call 2] Failed (Spotify route), continuing without it:", subErr.message || subErr);
+      critique.subMetricsCall2Failed = true;
+    }
+
+    try {
+      console.log("[Call 3] Starting Sub-Metrics Call 3 (Spotify route)...");
+      const subMetricsCall3 = await performSubMetricsCall3(audioPart, critique);
+      critique.subMetricsCall3 = subMetricsCall3;
+      critique.subMetricsCall3Failed = false;
+    } catch (subErr: any) {
+      console.error("[Call 3] Failed (Spotify route), continuing without it:", subErr.message || subErr);
+      critique.subMetricsCall3Failed = true;
+    }
+
+    reconcileParentScores(critique);
+
+    res.json({
+      critique,
+      trackInfo: {
+        name: trackName,
+        artist: artistName,
+        coverArt,
+        hasAudio: true,
+        previewUrl,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error analyzing Spotify URL:", error);
+    res.status(500).json({ error: `Spotify Song Audit failed: ${error.message || error}` });
+  }
+});
+
+// 5. A&R Consultant Interactive Consultation Endpoint
+app.post("/api/ar-consult", async (req, res) => {
+  try {
+    if (!ai) {
+      return res.status(500).json({ error: "Gemini API Client is not configured. Please supply a GEMINI_API_KEY in Secrets." });
+    }
+
+    const { message, history, selectedRepId, critiqueContext, trackInfo } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ error: "Message is required." });
+    }
+
+    // Persona definitions and customized system prompts
+    let repPrompt = "";
+    let repName = "";
+
+    switch (selectedRepId) {
+      case "mr_z":
+        repName = "Mr. Z";
+        repPrompt = `You are Mr. Z, Former Label Head and Tactician. You are a legendary music industry and label CEO whose real identity is guarded. You speak in crisp, direct, and highly tactical terms—mixing executive-level commercial wisdom with deep music production terminology. You are an ultra-professional, seasoned executive who can speak to any genre with a professional, authoritative, and sophisticatedly "cool" tone. Avoid cliché AI greetings; start directly. Your focus is on objective metrics, industrial readiness, and whether a track is worthy of a major label backing.`;
+        break;
+      case "the_y":
+        repName = "The Y";
+        repPrompt = `You are The Y, Vinyl-to-Algorithm Veteran. You are a veteran executive who transitioned physical vinyl and tape formats into modern streaming algorithmic models. You are a cool, experienced professional from the Gen X generation. You can speak to any genre, but have special vintage expertise in Rock, Metal, Indie, Country, Folk, Pop, and Classical/Cinematic compositions. You can use song references from the Gen X era (e.g., late 70s, 80s, 90s alternative, classic rock, synth-wave) where helpful to explain classic songwriting composition styles. Avoid cheesy clichés—your critiques are constructive, honest, and sharp, with an ear tuned perfectly to radio, dynamic range, and playlist density.`;
+        break;
+      case "kirsten_z":
+        repName = "Kirsten Z";
+        repPrompt = `You are Kirsten Z, Viral Campaign & Curator Strategist. You are an upbeat, expert industry A&R consultant focused on modern marketing positioning, Spotify curation rules, TikTok trending hooks, and editorial programming. You understand deeply that production quality and balanced master dynamics are critical in modern digital music. You speak professionally and use the natural vernacular of the Gen Z generation, and you can suggest relevant modern song references from that generation where applicable. You can guide any genre but specialize in Pop, Hip-Hop/Rap, R&B, and Electronic music tags, playlisting optimization, and intro boundary hooks.`;
+        break;
+      case "telray_y":
+        repName = "Telray Y";
+        repPrompt = `You are Telray Y, Analog Hardware & Character Specialist. You are a Millennial generation industry expert with the soul of a classic rocker. You live for vintage warmth, analog hardware character, classic tape saturation, and warm spacious acoustic stages, yet you are an absolute expert on modern digital DSP algorithms and DAW workflows. You speak with a polished, professional, Millennial-friendly tone. You can use iconic song references from the Millennial era where helpful. You guide all genres with specialized focus on Jazz/Soul/Blues, R&B, Rock/Indie, and Country/Folk.`;
+        break;
+      case "kid_x":
+        repName = "Kid X";
+        repPrompt = `You are Kid X, Wildcard Trend Scout. You are an AI-native, bold, hungry, yet thoroughly proven scout who is ready to break the next massive, genre-busting trend. You speak with the natural, energetic vernacular of a Gen Z producer who lives in the digital audio workspace. You have complete knowledge of modern bedroom-producer tricks, trap structures, room field dynamics, and sibilance saturation, and understand the modern playing field as both a producer and scout. You can speak to any genre but specialize in Hip-Hop/Rap, Electronic, Ambient Experimental, and Shoegaze. Suggest raw, bold, aesthetic-first song references.`;
+        break;
+      default:
+        repName = "A&R Representative";
+        repPrompt = `You are an elite, seasoned music industry A&R representative who has decades of experience. Your tone is respectful, direct, highly professional, and constructive.`;
+        break;
+    }
+
+    // Build the system prompt, including critique context if available
+    let systemInstruction = `${repPrompt}\n\n`;
+    systemInstruction += `You have complete, seasoned and advanced knowledge about standard recording metrics, Spotify's algotorial playlisting, loudness Normalization, and acoustic engineering. Do not act like a generic AI companion; speak from your deep music industry identity. Always sign off or reply in character. Keep formatting clean using simple Markdown, using bulleted short guides where useful.\n\n`;
+
+    if (critiqueContext) {
+      systemInstruction += `ACTIVE CLIENT SONG DIRECTORY FOR CONTEXT:\n`;
+      if (trackInfo) {
+        systemInstruction += `- Track Name: "${trackInfo.name}"\n`;
+        systemInstruction += `- Artist Name: "${trackInfo.artist || "Independent Artist"}"\n`;
+      }
+      systemInstruction += `- Identified Genre: "${critiqueContext.vibe?.genre || "N/A"}" (Subgenre: "${critiqueContext.vibe?.subgenre || "N/A"}")\n`;
+      systemInstruction += `- Aesthetic Profile: "${critiqueContext.vibe?.aesthetic || "N/A"}"\n`;
+      systemInstruction += `- Commercial Viability: "${critiqueContext.vibe?.commercialViability || "N/A"}"\n`;
+      if (critiqueContext.scores) {
+        systemInstruction += `- KPI Overall Production Score: ${critiqueContext.scores.overallProduction ?? "N/A"}/100\n`;
+        systemInstruction += `- KPI Commercial Readiness Score: ${critiqueContext.scores.commercialReadiness ?? "N/A"}/100\n`;
+      }
+      if (critiqueContext.mixQuality) {
+        systemInstruction += `- Mix Quality Rating: ${critiqueContext.mixQuality.score ?? "N/A"}/100 (Stereo Field: "${critiqueContext.mixQuality.stereoField || "N/A"}", Dominance Issues: "${critiqueContext.mixQuality.dominanceIssues || "N/A"}")\n`;
+        if (critiqueContext.mixQuality.frequencyBalance) {
+          systemInstruction += `  * Low-End: "${critiqueContext.mixQuality.frequencyBalance.lowEnd || "N/A"}"\n`;
+          systemInstruction += `  * Midrange: "${critiqueContext.mixQuality.frequencyBalance.midrange || "N/A"}"\n`;
+          systemInstruction += `  * High-End: "${critiqueContext.mixQuality.frequencyBalance.highEnd || "N/A"}"\n`;
         }
       }
+      if (critiqueContext.performance) {
+        systemInstruction += `- Vocal Execution Score: ${critiqueContext.performance.vocalScore ?? "N/A"}/100 (${critiqueContext.performance.vocalsCritique || "N/A"})\n`;
+        systemInstruction += `- Instrumental Arrangement Score: ${critiqueContext.performance.instrumentalScore ?? "N/A"}/100 (${critiqueContext.performance.instrumentationCritique || "N/A"})\n`;
+      }
+      if (critiqueContext.arrangement) {
+        systemInstruction += `- Sectional Flow Score: ${critiqueContext.arrangement.flowScore ?? "N/A"}/100 (Transitions & Arc: "${critiqueContext.arrangement.transitionsAndArc || "N/A"}")\n`;
+      }
+      if (critiqueContext.lyricalImpact) {
+        systemInstruction += `- Lyrical Impact Score: ${critiqueContext.lyricalImpact.score ?? "N/A"}/100 (Meaning: "${critiqueContext.lyricalImpact.meaningClarity || "N/A"}", Feedback: "${critiqueContext.lyricalImpact.feedback || "N/A"}")\n`;
+      }
+      if (critiqueContext.musicTheory) {
+        systemInstruction += `- Music Theory Competence Score: ${critiqueContext.musicTheory.score ?? "N/A"}/100 (Chords: "${critiqueContext.musicTheory.chordStructures || "N/A"}", Feedback: "${critiqueContext.musicTheory.feedback || "N/A"}")\n`;
+      }
+      if (critiqueContext.titleSearchability) {
+        systemInstruction += `- Title Search Discovery Score: ${critiqueContext.titleSearchability.score ?? "N/A"}/100 (SEO Uniqueness: "${critiqueContext.titleSearchability.uniquenessLevel || "N/A"}", Feedback: "${critiqueContext.titleSearchability.feedback || "N/A"}")\n`;
+      }
+      if (critiqueContext.actionItems && critiqueContext.actionItems.length > 0) {
+        systemInstruction += `- Active DAW Tasks:\n`;
+        critiqueContext.actionItems.forEach((it: any, i: number) => {
+          systemInstruction += `  * Task [${i + 1}]: "${it.title}" - Rec: "${it.recommendation}" - Technical instructions: "${it.technicalGuide}"\n`;
+        });
+      }
+      systemInstruction += `\nIf the client asks about score contradictions, explain mathematically or creatively how these metrics differ (e.g. why they can have great syncopation but score lower on composition flow due to section energy buildup, or why a song has wonderful rhythmic syllables but is turned down on commercial readiness because of LUFS or high sibilance). Always explain the scoring logic behind our studio Rating Taxonomy:\n- 90-100 is "Masterful" (Ready for immediate global editorial playlisting, pristine phase coherence and ear candy).\n- 80-89 is "Great" (Professional elite, tight syncopation but needs minor tweaks).\n- 70-79 is "Strong" (Competent structure, minor congestion/masking).\n- 60-69 is "Proficient" (Solid demo foundation, vocal peaks or low-end conflicts).\n- 0-59 is "Developing" (Rough draft/sketch, needs compositional/engineering rebuild).\n`;
     }
+
+    // Process chat history into standard format for Gemini SDK
+    const contents: any[] = [];
+    if (history && Array.isArray(history)) {
+      history.forEach((msg: any) => {
+        contents.push({
+          role: msg.role === "user" ? "user" : "model",
+          parts: [{ text: msg.text || msg.message || "" }],
+        });
+      });
+    }
+
+    // Add user's new message at the end
+    contents.push({
+      role: "user",
+      parts: [{ text: message }],
+    });
+
+    const response = await generateContentWithRetry({
+      model: "gemini-2.5-flash",
+      contents: contents,
+      config: {
+        systemInstruction: systemInstruction,
+        temperature: 0.7,
+      },
+    });
+
+    const reply = response.text || "My apologies, I received static on my line. Can you run that by me again?";
+    res.json({ reply, avatarId: selectedRepId, repName });
+  } catch (err: any) {
+    console.error("A&R Consultation error:", err);
+    res.status(500).json({ error: `Consultation offline: ${err.message || err}` });
   }
+});
+
+// Global Error Handler for Multer or generic Express exceptions
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("Unhandled server error:", err);
   
-  const bandDbFloor = -70;
-  const bandDbCeiling = -15;
-  const bandEnergies = new Float32Array(6);
-  
-  for (let b = 0; b < 6; b++) {
-    const avgMag = bandCounts[b] > 0 ? bandSums[b] / bandCounts[b] : 0.0001;
-    let db = 20 * Math.log10(avgMag || 0.0001);
-    let score = ((db - bandDbFloor) / (bandDbCeiling - bandDbFloor)) * 100;
-    bandEnergies[b] = Math.max(0, Math.min(100, Math.round(score)));
+  const isMulterError = err && (
+    err.name === "MulterError" || 
+    err.code?.startsWith("LIMIT_") || 
+    (multer && typeof (multer as any).MulterError !== "undefined" && err instanceof (multer as any).MulterError)
+  );
+
+  if (isMulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({ error: "The uploaded audio file exceeds the 15MB size limit. Please compress your track or submit a shorter segment." });
+    }
+    return res.status(400).json({ error: `Upload error: ${err.message}` });
+  }
+  res.status(500).json({ error: err.message || "An unexpected server-side error occurred." });
+});
+
+// Setup Vite & Static Assets serving
+async function startServer() {
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+    
+    // Explicitly serve and transform index.html for development mode
+    app.use("*", async (req, res, next) => {
+      // Exclude standard API path prefixes
+      if (req.originalUrl.startsWith("/api/")) {
+        return next();
+      }
+      try {
+        let template = fs.readFileSync(
+          path.resolve(process.cwd(), "index.html"),
+          "utf-8"
+        );
+        template = await vite.transformIndexHtml(req.originalUrl, template);
+        res.status(200).set({ "Content-Type": "text/html" }).end(template);
+      } catch (e) {
+        vite.ssrFixStacktrace(e as Error);
+        next(e);
+      }
+    });
+  } else {
+    const distPath = path.join(process.cwd(), "dist");
+    app.use(express.static(distPath));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
   }
 
-  return {
-    calculatedLufs: parseFloat(lufsValue.toFixed(1)),
-    calculatedTruePeak: parseFloat(truePeak.toFixed(2)),
-    calculatedLra: lra,
-    calculatedStereoCorrelation: correlation,
-    calculatedBpm: detectedBpm,
-    calculatedKey: estimatedKeyName,
-    calculatedBassEnergy: bassPerc,
-    calculatedMidEnergy: midPerc,
-    calculatedHighEnergy: highPerc,
-    calculatedWaveformPoints: waveTimeline,
-    calculatedWaveformPointsHD: waveTimelineHD,
-    calculatedDuration: parseFloat(duration.toFixed(2)),
-    calculatedKeyConfidence: keyConfidence,
-    calculatedModeConfidence: parseFloat(Math.min(1, Math.max(0, bestCorrelation)).toFixed(3)),
-    calculatedBpmConfidence: bpmConfidence,
-    calculatedEndOfFadeIn: endOfFadeIn,
-    calculatedSubBassBandEnergy: bandEnergies[0],
-    calculatedBassBandEnergy: bandEnergies[1],
-    calculatedLowMidsBandEnergy: bandEnergies[2],
-    calculatedCoreMidsBandEnergy: bandEnergies[3],
-    calculatedPresenceBandEnergy: bandEnergies[4],
-    calculatedAirBandEnergy: bandEnergies[5],
-    calculatedStartOfFadeOut: startOfFadeOut,
-    calculatedTimeSignature: detectedTimeSignature,
-    calculatedTimeSignatureConfidence: timeSignatureConfidence
-  };
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Independent Songwriter Critique server running on http://localhost:${PORT}`);
+  });
 }
+
+startServer();
