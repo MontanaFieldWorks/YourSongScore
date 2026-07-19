@@ -260,6 +260,14 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     onsetStrength.push(Math.max(0, envelope[i] - envelope[i - 1]));
   }
 
+  const maxOnset = Math.max(...onsetStrength, 0.0001);
+  const onsetTimeline: number[] = [];
+  const onsetDownsampleTarget = 400;
+  const onsetStep = Math.max(1, Math.floor(onsetStrength.length / onsetDownsampleTarget));
+  for (let i = 0; i < onsetStrength.length; i += onsetStep) {
+    onsetTimeline.push(parseFloat((onsetStrength[i] / maxOnset).toFixed(3)));
+  }
+
   // Autocorrelate the onset strength signal
   // Lag range covers 60 BPM (1.0s) down to 200 BPM (0.3s)
   const minLag = Math.floor((60 / 200) * (sampleRate / hopSize)); // 200 BPM
@@ -680,6 +688,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     calculatedWaveformPoints: waveTimeline,
     calculatedWaveformPointsHD: waveTimelineHD,
     timeResolvedChromagram: chromaFrames,
+    onsetRhythmTimeline: onsetTimeline,
     calculatedDuration: parseFloat(duration.toFixed(2)),
     calculatedKeyConfidence: keyConfidence,
     calculatedModeConfidence: parseFloat(Math.min(1, Math.max(0, bestCorrelation)).toFixed(3)),
