@@ -858,6 +858,15 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     calculatedStartOfFadeOut: startOfFadeOut,
     calculatedTimeSignature: detectedTimeSignature,
     calculatedTimeSignatureConfidence: timeSignatureConfidence,
-    detectedChordProgression: chordSegments
+    detectedChordProgression: chordSegments,
+    detectedChordProgressionNamed: chordSegments.map(seg => {
+      const stepSeconds = (chromaFrameStep * chromaFftSize) / sampleRate;
+      return {
+        ...seg,
+        name: `${keyNames[seg.root].replace(" Major", "").replace(" Minor", "")}${seg.quality === "minor" ? "m" : ""}`,
+        startTimeSec: parseFloat((seg.startFrame * stepSeconds).toFixed(2)),
+        endTimeSec: parseFloat((seg.endFrame * stepSeconds).toFixed(2))
+      };
+    })
   };
 }
