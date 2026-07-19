@@ -260,13 +260,18 @@ export default function Dashboard({
             return [newTrack, ...filtered];
           });
 
+          // Clear the active upload IMMEDIATELY, before the async save even starts - this
+          // prevents a real race condition where navigating back to the Locker before the
+          // save/reload cycle finishes (or a Dashboard remount resetting the ref guard)
+          // could cause this same file to be imported a second time.
+          if (onClearActiveUpload) {
+            onClearActiveUpload();
+          }
+
           try {
             await saveUserTrack(newTrack);
             await loadUserTracks(currentUser.uid);
             setSuccessMsg(`Imported uploaded file "${activeUploadFile.name}" directly into your Locker Waitlist!`);
-            if (onClearActiveUpload) {
-              onClearActiveUpload();
-            }
           } catch (e) {
             console.error("Failed to auto-import uploaded file to waitlist:", e);
           }
