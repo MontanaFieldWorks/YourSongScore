@@ -89,6 +89,7 @@ export interface LiveAudioMetrics {
   calculatedAirBandEnergy?: number;
   detectedChordProgression?: { root: number; quality: "major" | "minor" | "power" | "sus4"; startFrame: number; endFrame: number; bassPitchClass: number }[];
   detectedChordProgressionNamed?: { root: number; quality: "major" | "minor" | "power" | "sus4"; startFrame: number; endFrame: number; name: string; startTimeSec: number; endTimeSec: number; bassPitchClass: number }[];
+  detectedMelodyContour?: { voiced: boolean; frequencyHz?: number; midiNote?: number; timeSec: number }[];
 }
 
 export interface CritiqueData {
