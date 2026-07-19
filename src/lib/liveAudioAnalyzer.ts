@@ -361,6 +361,8 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   const chromaNumFrames = Math.floor((len - chromaFftSize) / chromaFftSize);
   const chromaFrameStep = Math.max(1, Math.floor(chromaNumFrames / 200)); // cap at ~200 analyzed frames for performance
 
+  const chromaFrames: number[][] = [];
+
   const chromaHannWindow = new Float32Array(chromaFftSize);
   for (let n = 0; n < chromaFftSize; n++) {
     chromaHannWindow[n] = 0.5 * (1 - Math.cos((2 * Math.PI * n) / (chromaFftSize - 1)));
@@ -378,6 +380,8 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
 
     const binHz = sampleRate / chromaFftSize;
     const numBins = chromaFftSize / 2;
+    const frameChroma = new Array(12).fill(0);
+
     for (let k = 1; k < numBins; k++) {
       const freq = k * binHz;
       if (freq < chromaMinFreq || freq > chromaMaxFreq) continue;
@@ -387,7 +391,19 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
       const midiNote = 12 * Math.log2(freq / 440) + 69;
       const pitchClass = ((Math.round(midiNote) % 12) + 12) % 12;
       chromaBins[pitchClass] += magnitude;
+      frameChroma[pitchClass] += magnitude;
     }
+
+    let frameSum = 0;
+    for (let i = 0; i < 12; i++) {
+      frameSum += frameChroma[i];
+    }
+    if (frameSum > 0) {
+      for (let i = 0; i < 12; i++) {
+        frameChroma[i] /= frameSum;
+      }
+    }
+    chromaFrames.push(frameChroma);
   }
 
   // Krumhansl-Schmuckler Key profile correlations
@@ -663,6 +679,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     calculatedHighEnergy: highPerc,
     calculatedWaveformPoints: waveTimeline,
     calculatedWaveformPointsHD: waveTimelineHD,
+    timeResolvedChromagram: chromaFrames,
     calculatedDuration: parseFloat(duration.toFixed(2)),
     calculatedKeyConfidence: keyConfidence,
     calculatedModeConfidence: parseFloat(Math.min(1, Math.max(0, bestCorrelation)).toFixed(3)),
