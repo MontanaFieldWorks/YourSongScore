@@ -900,6 +900,76 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     }
   }
 
+  // Segment melodyFrames into distinct notes and calculate interval statistics
+  const rawNoteSegments: { midiNote: number; startTimeSec: number; endTimeSec: number; frameCount: number }[] = [];
+  let currentNote: { midiNote: number; startTimeSec: number; endTimeSec: number; frameCount: number } | null = null;
+
+  for (let i = 0; i < melodyFrames.length; i++) {
+    const frame = melodyFrames[i];
+    if (frame.voiced && frame.midiNote !== undefined) {
+      if (currentNote === null) {
+        currentNote = {
+          midiNote: frame.midiNote,
+          startTimeSec: frame.timeSec,
+          endTimeSec: frame.timeSec,
+          frameCount: 1
+        };
+      } else if (currentNote.midiNote === frame.midiNote) {
+        currentNote.endTimeSec = frame.timeSec;
+        currentNote.frameCount++;
+      } else {
+        rawNoteSegments.push(currentNote);
+        currentNote = {
+          midiNote: frame.midiNote,
+          startTimeSec: frame.timeSec,
+          endTimeSec: frame.timeSec,
+          frameCount: 1
+        };
+      }
+    } else {
+      if (currentNote !== null) {
+        rawNoteSegments.push(currentNote);
+        currentNote = null;
+      }
+    }
+  }
+  if (currentNote !== null) {
+    rawNoteSegments.push(currentNote);
+  }
+
+  // Discard any note segment shorter than 2 frames
+  const noteSegments = rawNoteSegments
+    .filter(seg => seg.frameCount >= 2)
+    .map(({ midiNote, startTimeSec, endTimeSec }) => ({
+      midiNote,
+      startTimeSec,
+      endTimeSec
+    }));
+
+  let totalSteps = 0;
+  let totalLeaps = 0;
+  let totalRepeats = 0;
+
+  for (let i = 0; i < noteSegments.length - 1; i++) {
+    const curr = noteSegments[i];
+    const next = noteSegments[i + 1];
+    const gap = next.startTimeSec - curr.endTimeSec;
+    if (gap > 2.0) {
+      continue;
+    }
+
+    const intervalSemitones = next.midiNote - curr.midiNote;
+    if (intervalSemitones === 0) {
+      totalRepeats++;
+    } else if (Math.abs(intervalSemitones) <= 2) {
+      totalSteps++;
+    } else {
+      totalLeaps++;
+    }
+  }
+
+  const stepToLeapRatio = totalSteps / Math.max(1, totalLeaps);
+
   // Real 6-band frequency energy measurement, reusing the same FFT infrastructure
   // built for the chromagram - genuine FFT magnitude summed into fixed Hz ranges,
   // converted to dB, then mapped to a 0-100 scale via a fixed floor/ceiling.
@@ -1017,6 +1087,13 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
         endTimeSec: parseFloat((seg.endFrame * stepSeconds).toFixed(2))
       };
     }),
-    detectedMelodyContour: melodyFrames
+    detectedMelodyContour: melodyFrames,
+    detectedMelodyNotes: {
+      notes: noteSegments,
+      totalSteps,
+      totalLeaps,
+      totalRepeats,
+      stepToLeapRatio
+    }
   };
 }
