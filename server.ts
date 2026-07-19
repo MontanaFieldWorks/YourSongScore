@@ -430,7 +430,8 @@ FIELD DEFINITION - pitchAccuracy (part of vocalTrackingSubs): judges genuine pit
 
 async function performSubMetricsCall3(
   audioPart: any,
-  parsedCritique: any
+  parsedCritique: any,
+  chromagramImagePart?: any
 ): Promise<any> {
   const contextSummary = `
 Parent category context already determined:
@@ -444,12 +445,16 @@ Parent category context already determined:
 
 CONSISTENCY REQUIREMENT: Your meaningClarity sub-score and commentary MUST be consistent with the parent Lyrical Impact's meaning classification shown above - if the parent was classified "Clear", do not describe the lyrics as abstract, dream-like, or oblique in your sub-commentary, and vice versa. Similarly, your chordDynamics score should be consistent with the Harmonic Intrigue score shown above (both describe overlapping harmonic content) - do not score chordDynamics dramatically higher than Harmonic Intrigue unless your commentary specifically identifies a distinct, real reason for the difference (e.g. Harmonic Intrigue addresses novelty/complexity while Chord Dynamics addresses functional/dynamic use of chords - these can differ, but only for a specific, stated reason, not by default).
 
+IF a chromagram image has been provided alongside the audio: this is a time-resolved visualization of pitch-class energy across the song's full duration (12 rows, one per pitch class C through B, x-axis is time). Use it as genuine supporting evidence when scoring musicTheorySubs specifically - look for visual patterns indicating key changes, modal color, unusual harmonic movement, or rhythmic/metric irregularities that might be easy to miss by ear alone. Cross-reference what you see in the image against what you hear before finalizing chordDynamics, harmonicVariety, and formAndStructure scores and commentary.
+
 Listen to the actual audio again and generate specific, deduction-based scores and commentary for all 16 sub-fields across these 5 categories, consistent with the above context but grounded in what you actually hear this time. Actively scan for genuine technical sophistication before defaulting to surface-level descriptions.`;
 
   const response = await generateContentWithRetry({
     model: "gemini-2.5-flash",
     contents: {
-      parts: [audioPart, { text: contextSummary }],
+      parts: chromagramImagePart
+        ? [audioPart, chromagramImagePart, { text: contextSummary }]
+        : [audioPart, { text: contextSummary }],
     },
     config: {
       systemInstruction: SUBMETRIC_SYSTEM_PROMPT_3,
@@ -942,7 +947,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 // 3. Direct URL Audio Critique API
 app.post("/api/critique-url", async (req, res) => {
   try {
-    const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre } = req.body;
+    const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre, chromagramImage } = req.body;
     const metaGenre = isPlaceholderGenre(rawMetaGenre) ? "" : rawMetaGenre;
     if (!ai) {
       return res.status(500).json({ error: "Gemini API Client is not configured." });
@@ -971,6 +976,10 @@ app.post("/api/critique-url", async (req, res) => {
         data: base64Data,
       },
     };
+
+    const chromagramImagePart = chromagramImage
+      ? { inlineData: { mimeType: "image/png", data: chromagramImage.replace(/^data:image\/png;base64,/, "") } }
+      : null;
 
     let userInstruction = "Analyze this songwriters track from the direct URL stream. Critically review the production and deliver feedback.";
     if (metaGenre) {
@@ -1019,7 +1028,7 @@ app.post("/api/critique-url", async (req, res) => {
 
     try {
       console.log("[Call 3] Starting Sub-Metrics Call 3 (URL route)...");
-      const subMetricsCall3 = await performSubMetricsCall3(audioPart, parsedCritique);
+      const subMetricsCall3 = await performSubMetricsCall3(audioPart, parsedCritique, chromagramImagePart);
       parsedCritique.subMetricsCall3 = subMetricsCall3;
       parsedCritique.subMetricsCall3Failed = false;
     } catch (subErr: any) {
