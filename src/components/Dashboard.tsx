@@ -182,11 +182,10 @@ export default function Dashboard({
   const hasImportedFileRef = useRef<string | null>(null);
 
   const [chromagramImageDataUrl, setChromagramImageDataUrl] = useState<string | null>(null);
-  const [spectrogramImageDataUrl, setSpectrogramImageDataUrl] = useState<string | null>(null);
 
   // Render offline analysis images (chromagram & spectrogram) to PNG data URLs
-  const renderAnalysisImages = (metrics: any) => {
-    if (!metrics) return;
+  const renderAnalysisImages = (metrics: any): string | null => {
+    if (!metrics) return null;
 
     try {
       // 1. Chromagram Canvas
@@ -240,68 +239,12 @@ export default function Dashboard({
         // Save the chromagram PNG to state
         const chromaUrl = chromaCanvas.toDataURL("image/png");
         setChromagramImageDataUrl(chromaUrl);
-      }
-
-      // 2. Amplitude Spectrogram Canvas (reusing existing drawing logic)
-      const specCanvas = document.createElement("canvas");
-      specCanvas.width = 800;
-      specCanvas.height = 300;
-      const specCtx = specCanvas.getContext("2d");
-      if (specCtx) {
-        // Fill dark background first
-        specCtx.fillStyle = "#090d16";
-        specCtx.fillRect(0, 0, 800, 300);
-
-        const width = 800;
-        const height = 300;
-        const cols = 120;
-        const rows = 28;
-        const colWidth = width / cols;
-        const rowHeight = height / rows;
-
-        specCtx.save();
-        for (let c = 0; c < cols; c++) {
-          const tc = c / cols;
-          for (let r = 0; r < rows; r++) {
-            const tr = r / rows;
-            let val = 0;
-            
-            // normal spectrogram scaled via calculated energies if available
-            if (r > 20) { // sub bass & low end
-              const multiplier = metrics.calculatedBassEnergy !== undefined ? (metrics.calculatedBassEnergy / 50) : 1;
-              val = (0.42 + Math.sin(tc * 18) * 0.25 + Math.cos(tc * 7) * 0.2) * multiplier;
-            } else if (r < 7) { // high air frequency
-              const multiplier = metrics.calculatedHighEnergy !== undefined ? (metrics.calculatedHighEnergy / 50) : 1;
-              val = (Math.sin(tc * 45) * Math.random() * 0.32) * multiplier;
-            } else { // mids
-              const multiplier = metrics.calculatedMidEnergy !== undefined ? (metrics.calculatedMidEnergy / 50) : 1;
-              val = ((0.22 + Math.sin(tc * 12) * 0.2) * (1 - tr * 0.5) + Math.random() * 0.1) * multiplier;
-            }
-            if (c % 14 === 0) val += 0.32; // rhythmic pulse grid
-
-            val = Math.max(0, Math.min(1, val));
-            let color = `rgba(${Math.round(val * 42)}, ${Math.round(val * 155 + 22)}, ${Math.round(val * 215 + 42)}, ${val * 0.8})`;
-            if (val > 0.72) {
-              color = `rgba(30, 215, 96, ${val * 0.9})`; // neon green sparks
-            }
-
-            specCtx.fillStyle = color;
-            specCtx.fillRect(c * colWidth, height - (r * rowHeight) - rowHeight, colWidth + 0.6, rowHeight + 0.6);
-          }
-        }
-        specCtx.restore();
-
-        specCtx.fillStyle = "rgba(255, 255, 255, 0.4)";
-        specCtx.font = "bold 9px monospace";
-        specCtx.fillText("Spectrogram Analysis (128-Band FFT)", 15, 20);
-
-        // Save the spectrogram PNG to state
-        const specUrl = specCanvas.toDataURL("image/png");
-        setSpectrogramImageDataUrl(specUrl);
+        return chromaUrl;
       }
     } catch (err) {
       console.error("Failed to generate offline analysis images:", err);
     }
+    return null;
   };
 
   // Set selected file if supplied from parent upload page
@@ -677,6 +620,23 @@ export default function Dashboard({
 
     try {
       let finalCritique: CritiqueData;
+      let liveMetrics: any = null;
+      let chromagramImageForGemini: string | null = null;
+
+      // Run client-side analysis FIRST if local file blob URL exists
+      if ((track as any).localFileBlobUrl) {
+        try {
+          liveMetrics = await analyzeAudioFile((track as any).localFileBlobUrl);
+          if (liveMetrics) {
+            chromagramImageForGemini = renderAnalysisImages(liveMetrics);
+          }
+        } catch (errAnalyz) {
+          console.warn("Could not decode audio files client-side prior to API call:", errAnalyz);
+          liveMetrics = (track as any).liveMetrics || null;
+        }
+      } else {
+        liveMetrics = (track as any).liveMetrics || null;
+      }
 
       // Try actual calculation from server using the audio URL
       try {
@@ -691,7 +651,8 @@ export default function Dashboard({
             threeX: overrideThreeX,
             metaTitle: trackWithMeta.metaTitle,
             metaArtist: trackWithMeta.metaArtist,
-            metaGenre: trackWithMeta.metaGenre
+            metaGenre: trackWithMeta.metaGenre,
+            chromagramImage: chromagramImageForGemini
           }),
         });
 
@@ -751,19 +712,10 @@ export default function Dashboard({
         }
       };
 
-      if ((track as any).localFileBlobUrl) {
-        try {
-          const liveMetrics = await analyzeAudioFile((track as any).localFileBlobUrl);
-          finalCritique.liveMetrics = liveMetrics;
-        } catch (errAnalyz) {
-          console.warn("Could not decode audio files client-side, falling back:", errAnalyz);
-          finalCritique.liveMetrics = (track as any).liveMetrics || null;
-        }
-      } else {
-        finalCritique.liveMetrics = (track as any).liveMetrics || null;
-      }
+      // Keep attaching liveMetrics as before
+      finalCritique.liveMetrics = liveMetrics;
 
-      if (finalCritique.liveMetrics) {
+      if (finalCritique.liveMetrics && !chromagramImageForGemini) {
         renderAnalysisImages(finalCritique.liveMetrics);
       }
 
