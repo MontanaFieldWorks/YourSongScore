@@ -367,7 +367,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   // high-pass stage attenuates bass frequencies, which carry crucial root-note
   // information for key detection.
   const chromaNumFrames = Math.floor((len - chromaFftSize) / chromaFftSize);
-  const chromaFrameStep = Math.max(1, Math.floor(chromaNumFrames / 600)); // increased resolution - chord recognition needs finer granularity than the original visual-only chromagram did
+  const chromaFrameStep = Math.max(1, Math.floor(chromaNumFrames / 200)); // cap at ~200 analyzed frames for performance
 
   const chromaFrames: number[][] = [];
   const frameBassPitchClasses: number[] = [];
