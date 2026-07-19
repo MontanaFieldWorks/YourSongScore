@@ -88,6 +88,127 @@ export default function App() {
   const [showMainGenreDropdown, setShowMainGenreDropdown] = useState(false);
   const [showSubGenreDropdown, setShowSubGenreDropdown] = useState(false);
 
+  const [chromagramImageDataUrl, setChromagramImageDataUrl] = useState<string | null>(null);
+
+  // Render offline analysis images (chromagram & spectrogram) to PNG data URLs
+  const renderAnalysisImages = (metrics: any): string | null => {
+    if (!metrics) return null;
+
+    try {
+      // 1. Chromagram Canvas
+      const chromaCanvas = document.createElement("canvas");
+      chromaCanvas.width = 800;
+      chromaCanvas.height = 300;
+      const chromaCtx = chromaCanvas.getContext("2d");
+      if (chromaCtx) {
+        // Fill dark background first
+        chromaCtx.fillStyle = "#090d16";
+        chromaCtx.fillRect(0, 0, 800, 300);
+
+        const chromaData = metrics.timeResolvedChromagram;
+        if (chromaData && chromaData.length > 0) {
+          const cols = chromaData.length;
+          const colWidth = 800 / cols;
+          const rows = 12;
+          const rowHeight = 300 / rows;
+
+          for (let c = 0; c < cols; c++) {
+            for (let r = 0; r < rows; r++) {
+              const val = chromaData[c][r] || 0;
+              // Map val from [0, 1] to a gorgeous dark blue -> cyan -> yellow -> white color-map
+              let rColor = 0;
+              let gColor = 0;
+              let bColor = 0;
+              if (val < 0.4) {
+                const t = val / 0.4;
+                rColor = Math.round(10 + t * 32);
+                gColor = Math.round(24 + t * 131);
+                bColor = Math.round(47 + t * 168);
+              } else if (val < 0.8) {
+                const t = (val - 0.4) / 0.4;
+                rColor = Math.round(42 + t * 213);
+                gColor = Math.round(155 + t * 80);
+                bColor = Math.round(215 - t * 156);
+              } else {
+                const t = (val - 0.8) / 0.2;
+                rColor = Math.round(255);
+                gColor = Math.round(235 + t * 20);
+                bColor = Math.round(59 + t * 196);
+              }
+              const color = `rgba(${rColor}, ${gColor}, ${bColor}, ${0.15 + val * 0.85})`;
+              chromaCtx.fillStyle = color;
+              // Invert Y axis so pitch index 0 is at bottom
+              chromaCtx.fillRect(c * colWidth, 300 - (r * rowHeight) - rowHeight, colWidth + 0.5, rowHeight + 0.5);
+            }
+          }
+        }
+        
+        // Save the chromagram PNG to state
+        const chromaUrl = chromaCanvas.toDataURL("image/png");
+        setChromagramImageDataUrl(chromaUrl);
+        return chromaUrl;
+      }
+    } catch (err) {
+      console.error("Failed to generate offline analysis images:", err);
+    }
+    return null;
+  };
+
+  const renderChromagramImage = (metrics: any): string | null => {
+    if (!metrics) return null;
+
+    try {
+      const chromaCanvas = document.createElement("canvas");
+      chromaCanvas.width = 800;
+      chromaCanvas.height = 300;
+      const chromaCtx = chromaCanvas.getContext("2d");
+      if (chromaCtx) {
+        chromaCtx.fillStyle = "#090d16";
+        chromaCtx.fillRect(0, 0, 800, 300);
+
+        const chromaData = metrics.timeResolvedChromagram;
+        if (chromaData && chromaData.length > 0) {
+          const cols = chromaData.length;
+          const colWidth = 800 / cols;
+          const rows = 12;
+          const rowHeight = 300 / rows;
+
+          for (let c = 0; c < cols; c++) {
+            for (let r = 0; r < rows; r++) {
+              const val = chromaData[c][r] || 0;
+              let rColor = 0;
+              let gColor = 0;
+              let bColor = 0;
+              if (val < 0.4) {
+                const t = val / 0.4;
+                rColor = Math.round(10 + t * 32);
+                gColor = Math.round(24 + t * 131);
+                bColor = Math.round(47 + t * 168);
+              } else if (val < 0.8) {
+                const t = (val - 0.4) / 0.4;
+                rColor = Math.round(42 + t * 213);
+                gColor = Math.round(155 + t * 80);
+                bColor = Math.round(215 - t * 156);
+              } else {
+                const t = (val - 0.8) / 0.2;
+                rColor = Math.round(255);
+                gColor = Math.round(235 + t * 20);
+                bColor = Math.round(59 + t * 196);
+              }
+              const color = `rgba(${rColor}, ${gColor}, ${bColor}, ${0.15 + val * 0.85})`;
+              chromaCtx.fillStyle = color;
+              chromaCtx.fillRect(c * colWidth, 300 - (r * rowHeight) - rowHeight, colWidth + 0.5, rowHeight + 0.5);
+            }
+          }
+        }
+        return chromaCanvas.toDataURL("image/png");
+      }
+    } catch (err) {
+      console.error("Failed to generate chromagram image pure helper:", err);
+    }
+    return null;
+  };
+
   const applyGenreOverride = (critique: CritiqueData): CritiqueData => {
     if (genreMode === "manual" && selectedMainGenre) {
       return {
@@ -506,6 +627,10 @@ export default function App() {
         overriddenCritique.liveMetrics = liveMetrics;
       }
 
+      if (overriddenCritique.liveMetrics) {
+        renderAnalysisImages(overriddenCritique.liveMetrics);
+      }
+
       setCritiqueResult({
         critique: overriddenCritique,
         trackInfo: {
@@ -627,6 +752,10 @@ export default function App() {
         overriddenCritique.liveMetrics = liveMetrics;
       }
 
+      if (overriddenCritique.liveMetrics) {
+        renderAnalysisImages(overriddenCritique.liveMetrics);
+      }
+
       setCritiqueResult({
         ...data,
         critique: overriddenCritique
@@ -699,6 +828,10 @@ export default function App() {
         overriddenCritique.liveMetrics.calculatedBpm = sample.bpm;
       }
 
+      if (overriddenCritique.liveMetrics) {
+        renderAnalysisImages(overriddenCritique.liveMetrics);
+      }
+
       setCritiqueResult({
         critique: overriddenCritique,
         trackInfo: {
@@ -722,6 +855,24 @@ export default function App() {
     setErrorHeader(null);
     setErrorDetails(null);
 
+    let earlyLiveMetrics: any = null;
+    let chromagramImageForGemini: string | null = null;
+    const cachedFileForAnalysis = localTrackFiles[track.id];
+    try {
+      if (cachedFileForAnalysis) {
+        const audioBuffer = await decodeAudioFile(cachedFileForAnalysis);
+        earlyLiveMetrics = analyzeAudioBuffer(audioBuffer);
+      } else if (track.convertedMp3Url) {
+        const audioBuffer = await decodeAudioUrl(track.convertedMp3Url);
+        earlyLiveMetrics = analyzeAudioBuffer(audioBuffer);
+      }
+      if (earlyLiveMetrics && earlyLiveMetrics.timeResolvedChromagram) {
+        chromagramImageForGemini = renderChromagramImage(earlyLiveMetrics);
+      }
+    } catch (errEarly) {
+      console.warn("Could not compute early liveMetrics/chromagram:", errEarly);
+    }
+
     try {
       let finalCritique: CritiqueData;
 
@@ -738,6 +889,7 @@ export default function App() {
           formData.append("metaTitle", (track as any).metaTitle || track.name);
           formData.append("metaArtist", (track as any).metaArtist || "Artist");
           formData.append("metaGenre", (track as any).metaGenre || "Unclassified");
+          formData.append("chromagramImage", chromagramImageForGemini || "");
           
           const res = await fetch("/api/critique-file", {
             method: "POST",
@@ -777,7 +929,8 @@ export default function App() {
               threeX: threeXMode,
               metaTitle: trackWithMeta.metaTitle || track.name,
               metaArtist: trackWithMeta.metaArtist || "Artist",
-              metaGenre: trackWithMeta.metaGenre || (track as any).metaGenre
+              metaGenre: trackWithMeta.metaGenre || (track as any).metaGenre,
+              chromagramImage: chromagramImageForGemini
             }),
           });
           
@@ -870,6 +1023,10 @@ export default function App() {
 
       // Instantly persist status transformation
       await saveUserTrack(updatedTrack);
+
+      if (overriddenFinalCritique.liveMetrics) {
+        renderAnalysisImages(overriddenFinalCritique.liveMetrics);
+      }
 
       setCritiqueResult({
         critique: overriddenFinalCritique,
@@ -1439,9 +1596,8 @@ export default function App() {
                 <span className="text-xs uppercase font-mono tracking-widest text-blue-500 font-semibold mb-3">
                   Decades of Studio Wisdom
                 </span>
-                <h1 className="text-3xl lg:text-4xl font-display font-bold tracking-tight text-white mb-4 leading-tight">
-                  Your Music. <br className="hidden lg:inline" />
-                  Critically Audited.
+                <h1 className="text-3xl lg:text-4xl font-sans font-bold tracking-tight text-white mb-4 leading-tight text-left">
+                  Your Music. <span className="text-[#ffffff]">Critically Audited.</span>
                 </h1>
                 <p className="text-slate-400 text-sm leading-relaxed mb-6">
                   Get commercial viability feedback and high-end mixing advice from a hybrid AI/Human coded and created A&R juggernaut analysis engine.  Upload your song and prepare to have your mind blown.
