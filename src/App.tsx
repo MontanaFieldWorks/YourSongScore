@@ -869,6 +869,7 @@ export default function App() {
       if (earlyLiveMetrics && earlyLiveMetrics.timeResolvedChromagram) {
         chromagramImageForGemini = renderChromagramImage(earlyLiveMetrics);
       }
+      console.log("CHROMAGRAM_CHECK_REAL_PATH", chromagramImageForGemini ? `present, length ${chromagramImageForGemini.length}` : "NULL - was not generated", "cachedFile:", !!cachedFileForAnalysis, "convertedMp3Url:", !!track.convertedMp3Url);
     } catch (errEarly) {
       console.warn("Could not compute early liveMetrics/chromagram:", errEarly);
     }
