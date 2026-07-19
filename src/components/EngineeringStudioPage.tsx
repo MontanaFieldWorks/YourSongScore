@@ -180,6 +180,122 @@ function SpectrogramCanvas({ blobUrl }: { blobUrl: string }) {
   );
 }
 
+function renderChromagramPreview(metrics: any): string | null {
+  if (!metrics) return null;
+
+  try {
+    const chromaCanvas = document.createElement("canvas");
+    chromaCanvas.width = 800;
+    chromaCanvas.height = 300;
+    const chromaCtx = chromaCanvas.getContext("2d");
+    if (chromaCtx) {
+      chromaCtx.fillStyle = "#090d16";
+      chromaCtx.fillRect(0, 0, 800, 300);
+
+      const chromaData = metrics.timeResolvedChromagram;
+      if (chromaData && chromaData.length > 0) {
+        const cols = chromaData.length;
+        const colWidth = 800 / cols;
+        const rows = 12;
+        const rowHeight = 300 / rows;
+
+        for (let c = 0; c < cols; c++) {
+          for (let r = 0; r < rows; r++) {
+            const val = chromaData[c][r] || 0;
+            let rColor = 0;
+            let gColor = 0;
+            let bColor = 0;
+            if (val < 0.4) {
+              const t = val / 0.4;
+              rColor = Math.round(10 + t * 32);
+              gColor = Math.round(24 + t * 131);
+              bColor = Math.round(47 + t * 168);
+            } else if (val < 0.8) {
+              const t = (val - 0.4) / 0.4;
+              rColor = Math.round(42 + t * 213);
+              gColor = Math.round(155 + t * 80);
+              bColor = Math.round(215 - t * 156);
+            } else {
+              const t = (val - 0.8) / 0.2;
+              rColor = Math.round(255);
+              gColor = Math.round(235 + t * 20);
+              bColor = Math.round(59 + t * 196);
+            }
+            const color = `rgba(${rColor}, ${gColor}, ${bColor}, ${0.15 + val * 0.85})`;
+            chromaCtx.fillStyle = color;
+            chromaCtx.fillRect(c * colWidth, 300 - (r * rowHeight) - rowHeight, colWidth + 0.5, rowHeight + 0.5);
+          }
+        }
+      }
+      return chromaCanvas.toDataURL("image/png");
+    }
+  } catch (err) {
+    console.error("Failed to generate chromagram preview:", err);
+  }
+  return null;
+}
+
+function renderRhythmPreview(metrics: any): string | null {
+  if (!metrics || !metrics.onsetRhythmTimeline || metrics.onsetRhythmTimeline.length === 0) return null;
+
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 800;
+    canvas.height = 300;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "#090d16";
+      ctx.fillRect(0, 0, 800, 300);
+
+      const timeline = metrics.onsetRhythmTimeline;
+      const len = timeline.length;
+      const barWidth = 800 / len;
+
+      // Draw rhythm energy bars
+      ctx.fillStyle = "#f59e0b"; // bright amber/orange
+      for (let i = 0; i < len; i++) {
+        const val = timeline[i] || 0;
+        const barHeight = val * 300;
+        ctx.fillRect(i * barWidth, 300 - barHeight, barWidth, barHeight);
+      }
+
+      // Draw beat gridlines if calculatedBpm and calculatedTimeSignature are available
+      const bpm = metrics.calculatedBpm;
+      const duration = metrics.calculatedDuration;
+      const timeSig = metrics.calculatedTimeSignature;
+      if (bpm && bpm > 0 && duration && duration > 0 && timeSig && timeSig > 0) {
+        const beatInterval = 60 / bpm;
+        let beatCount = 0;
+        let tBeat = 0;
+        while (tBeat < duration) {
+          const x = (tBeat / duration) * 800;
+          if (x >= 0 && x < 800) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, 300);
+            
+            // Highlight downbeats (first beat of each measure)
+            if (beatCount % timeSig === 0) {
+              ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+            } else {
+              ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+            }
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+          tBeat += beatInterval;
+          beatCount++;
+        }
+      }
+
+      return canvas.toDataURL("image/png");
+    }
+  } catch (err) {
+    console.error("Failed to generate rhythm preview:", err);
+  }
+  return null;
+}
+
 export default function EngineeringStudioPage({ onBack, critique, trackInfo, localFileBlobUrl, onNavigateToEngineeringDetails }: EngineeringStudioPageProps) {
   const trackName = trackInfo?.name || "Independent Demo Track";
   const artistName = trackInfo?.artist || "Independent Songwriter";
@@ -1318,6 +1434,46 @@ const generateHarmonicNodes = () => {
                       <div className="h-[160px] flex items-center justify-center text-[10px] text-slate-600 font-mono">Upload a local file to enable spectrogram view.</div>
                     )}
                     <p className="text-[9px] text-slate-600">Horizontal axis: time. Vertical axis: frequency (low → high). Color intensity: energy (dark → bright).</p>
+                  </div>
+
+                  <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-4.5 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9.5px] font-mono text-slate-500 uppercase font-bold tracking-wider">Chromagram View</span>
+                      <span className="text-[9px] font-mono text-slate-600">Pitch Class Energy Map</span>
+                    </div>
+                    {critique?.liveMetrics?.timeResolvedChromagram && critique.liveMetrics.timeResolvedChromagram.length > 0 ? (
+                      (() => {
+                        const url = renderChromagramPreview(critique.liveMetrics);
+                        return url ? (
+                          <img src={url} alt="Chromagram Preview" className="w-full rounded-xl" referrerPolicy="no-referrer" />
+                        ) : (
+                          <div className="h-[160px] flex items-center justify-center text-[10px] text-slate-600 font-mono">Analyze a local file to enable chromagram view.</div>
+                        );
+                      })()
+                    ) : (
+                      <div className="h-[160px] flex items-center justify-center text-[10px] text-slate-600 font-mono">Analyze a local file to enable chromagram view.</div>
+                    )}
+                    <p className="text-[9px] text-slate-600">Horizontal axis: time. Vertical axis: pitch class (C through B). Color intensity: harmonic energy (dark → bright).</p>
+                  </div>
+
+                  <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-4.5 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9.5px] font-mono text-slate-500 uppercase font-bold tracking-wider">Rhythm Onset View</span>
+                      <span className="text-[9px] font-mono text-slate-600">Onset Strength & Beat Timeline</span>
+                    </div>
+                    {critique?.liveMetrics?.onsetRhythmTimeline && critique.liveMetrics.onsetRhythmTimeline.length > 0 ? (
+                      (() => {
+                        const url = renderRhythmPreview(critique.liveMetrics);
+                        return url ? (
+                          <img src={url} alt="Rhythm Onset Preview" className="w-full rounded-xl" referrerPolicy="no-referrer" />
+                        ) : (
+                          <div className="h-[160px] flex items-center justify-center text-[10px] text-slate-600 font-mono">Analyze a local file to enable rhythm view.</div>
+                        );
+                      })()
+                    ) : (
+                      <div className="h-[160px] flex items-center justify-center text-[10px] text-slate-600 font-mono">Analyze a local file to enable rhythm view.</div>
+                    )}
+                    <p className="text-[9px] text-slate-600">Horizontal axis: time. Bar height: rhythmic attack energy. Gridlines: expected beat positions at detected tempo.</p>
                   </div>
 
                   <span className="text-[10px] font-mono text-slate-500 uppercase font-bold tracking-wider border-b border-white/5 pb-2">Phase Corridor</span>
