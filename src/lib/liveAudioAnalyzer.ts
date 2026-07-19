@@ -816,6 +816,90 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     }
   }
 
+  // Self-contained pitch-tracking pass using YIN algorithm
+  const yinWindowSize = 2048;
+  const yinHopSize = 512;
+  const yinMaxTau = Math.round((800 * sampleRate) / 48000);
+  const totalYinFrames = Math.floor((ch0.length - yinWindowSize) / yinHopSize);
+  const yinStep = Math.max(1, Math.ceil(totalYinFrames / 800));
+
+  const melodyFrames: { voiced: boolean; frequencyHz?: number; midiNote?: number; timeSec: number }[] = [];
+
+  for (let f = 0; f < totalYinFrames; f += yinStep) {
+    const t = f * yinHopSize;
+    const timeSec = parseFloat((t / sampleRate).toFixed(2));
+
+    // 1. Difference function d(tau)
+    const d = new Float32Array(yinMaxTau + 1);
+    for (let tau = 1; tau <= yinMaxTau; tau++) {
+      let sum = 0;
+      for (let j = 0; j < yinWindowSize; j++) {
+        const val1 = ch0[t + j] || 0;
+        const val2 = ch0[t + j + tau] || 0;
+        const diff = val1 - val2;
+        sum += diff * diff;
+      }
+      d[tau] = sum;
+    }
+
+    // 2. Cumulative Mean Normalized Difference Function (CMNDF)
+    const cmndf = new Float32Array(yinMaxTau + 1);
+    cmndf[0] = 1;
+    let runningSum = 0;
+    for (let tau = 1; tau <= yinMaxTau; tau++) {
+      runningSum += d[tau];
+      if (runningSum === 0) {
+        cmndf[tau] = 1;
+      } else {
+        cmndf[tau] = d[tau] / (runningSum / tau);
+      }
+    }
+
+    // 3. Absolute threshold + local minimum check
+    let bestTau = -1;
+    for (let tau = 2; tau < yinMaxTau; tau++) {
+      if (cmndf[tau] < 0.15) {
+        if (cmndf[tau] < cmndf[tau - 1] && cmndf[tau] < cmndf[tau + 1]) {
+          bestTau = tau;
+          break;
+        }
+      }
+    }
+
+    if (bestTau === -1) {
+      melodyFrames.push({ voiced: false, timeSec });
+      continue;
+    }
+
+    // 4. Parabolic interpolation
+    let refinedTau = bestTau;
+    if (bestTau > 1 && bestTau < yinMaxTau) {
+      const y_prev = cmndf[bestTau - 1];
+      const y_curr = cmndf[bestTau];
+      const y_next = cmndf[bestTau + 1];
+      const denom = y_prev - 2 * y_curr + y_next;
+      if (Math.abs(denom) > 1e-10) {
+        const s = 0.5 * (y_prev - y_next) / denom;
+        refinedTau = bestTau + s;
+      }
+    }
+
+    const freq = sampleRate / refinedTau;
+
+    // Plausible melodic/vocal range: 80Hz to 1200Hz
+    if (freq >= 80 && freq <= 1200) {
+      const midiNote = 12 * Math.log2(freq / 440) + 69;
+      melodyFrames.push({
+        voiced: true,
+        frequencyHz: parseFloat(freq.toFixed(1)),
+        midiNote: Math.round(midiNote),
+        timeSec
+      });
+    } else {
+      melodyFrames.push({ voiced: false, timeSec });
+    }
+  }
+
   // Real 6-band frequency energy measurement, reusing the same FFT infrastructure
   // built for the chromagram - genuine FFT magnitude summed into fixed Hz ranges,
   // converted to dB, then mapped to a 0-100 scale via a fixed floor/ceiling.
@@ -932,6 +1016,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
         startTimeSec: parseFloat((seg.startFrame * stepSeconds).toFixed(2)),
         endTimeSec: parseFloat((seg.endFrame * stepSeconds).toFixed(2))
       };
-    })
+    }),
+    detectedMelodyContour: melodyFrames
   };
 }
