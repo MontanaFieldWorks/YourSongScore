@@ -425,14 +425,21 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   }
 
   // Disambiguation pass: basic Krumhansl-Schmuckler correlation is well-documented to
-  // frequently confuse the true tonic with its dominant (a perfect fifth away) or its
-  // relative major/minor (a minor third away), since both share most of the same notes.
-  // If a close runner-up candidate exists in one of these two relationships, use the raw
-  // chroma energy at each candidate's own tonic pitch class as a tie-breaker - the true
-  // tonic should show strong direct energy at its own pitch, not just fit the profile shape.
+  // frequently confuse the true tonic with its dominant (a perfect fifth away), its
+  // relative major/minor (a minor third away), or other closely-related keys, since
+  // these share most of the same notes. If a close runner-up candidate exists in one
+  // of these relationships, use the candidate's full tonic TRIAD energy (root + third +
+  // fifth) as a tie-breaker, rather than a single noisy bin - a genuine tonic should
+  // show coherent strength across its whole triad, not just an isolated pitch spike.
   const bestTonicPitch = estimatedKeyIndex % 12;
   const bestIsMajor = estimatedKeyIndex < 12;
-  const CONFUSION_MARGIN = 0.08;
+  const CONFUSION_MARGIN = 0.15;
+
+  const getTriadEnergy = (tonicPitch: number, isMajor: boolean): number => {
+    const third = (tonicPitch + (isMajor ? 4 : 3)) % 12;
+    const fifth = (tonicPitch + 7) % 12;
+    return chromaBins[tonicPitch] + chromaBins[third] + chromaBins[fifth];
+  };
 
   for (let keyIdx = 0; keyIdx < 24; keyIdx++) {
     if (keyIdx === estimatedKeyIndex) continue;
@@ -450,11 +457,23 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     // recognizing it as the V of the true minor key. E.g. detecting F# Major instead of
     // the true B minor, where F# is genuinely the dominant chord (F#7) of B minor.
     const isCrossModeDominant = bestIsMajor && !candidateIsMajor && semitoneDiff === 5;
+    // Mirror-image cross-mode dominant: the reverse direction - detecting a minor key
+    // when the true answer is a major key a perfect fifth away. E.g. detecting C# Minor
+    // instead of the true G#/Ab Major, where C# is the dominant of G#/Ab Major.
+    const isMirrorCrossModeDominant = !bestIsMajor && candidateIsMajor && semitoneDiff === 7;
+    // Supertonic confusion: detecting the ii/2nd-scale-degree instead of the true tonic -
+    // a less common but confirmed real occurrence, same mode only.
+    const isSupertonicRelation = candidateIsMajor === bestIsMajor && (semitoneDiff === 2 || semitoneDiff === 10);
+    // Adjacent-semitone confusion: detecting a key exactly one semitone off from the true
+    // tonic - a different failure mode than functional harmonic confusion, but confirmed
+    // to occur in real testing.
+    const isAdjacentSemitone = semitoneDiff === 1 || semitoneDiff === 11;
 
-    if (isDominantRelation || isRelativeMajorMinorRelation || isCrossModeDominant) {
-      const bestTonicEnergy = chromaBins[bestTonicPitch];
-      const candidateTonicEnergy = chromaBins[candidateTonicPitch];
-      if (candidateTonicEnergy > bestTonicEnergy) {
+    if (isDominantRelation || isRelativeMajorMinorRelation || isCrossModeDominant ||
+        isMirrorCrossModeDominant || isSupertonicRelation || isAdjacentSemitone) {
+      const bestTriadEnergy = getTriadEnergy(bestTonicPitch, bestIsMajor);
+      const candidateTriadEnergy = getTriadEnergy(candidateTonicPitch, candidateIsMajor);
+      if (candidateTriadEnergy > bestTriadEnergy) {
         estimatedKeyIndex = keyIdx;
         bestCorrelation = allCorrelations[keyIdx];
       }
