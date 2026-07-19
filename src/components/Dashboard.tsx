@@ -643,6 +643,7 @@ export default function Dashboard({
         if (!track.convertedMp3Url) throw new Error("No remote audio link available; initiating high-fidelity local calculations.");
         const urlToAnalyze = track.convertedMp3Url;
         const trackWithMeta = track as any;
+        console.log("CHROMAGRAM_CHECK", chromagramImageForGemini ? `present, length ${chromagramImageForGemini.length}` : "NULL - was not generated");
         const res = await fetch("/api/critique-url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
