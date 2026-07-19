@@ -20,13 +20,15 @@ import EngineeringStudioPage from "./components/EngineeringStudioPage";
 import EngineeringDetailsPage from "./components/EngineeringDetailsPage";
 import Dashboard, { MOCK_GENERATED_CRITIQUE_TEMPLATE } from "./components/Dashboard";
 import ArConsultPage, { REPRESENTATIVES, renderActiveAvatarSVG } from "./components/ArConsultPage";
+import AlphaLandingPage from "./components/AlphaLandingPage";
 import { saveUserTrack, subscribeToAuth, fetchUserTracks } from "./firebase";
 import { GENRE_MAP } from "./data/musicData";
+import { getSubgenreProfile, getVectorTargets, getCritiqueAndFix } from "./data/musicData";
 import { 
   FileAudio, Library, Sparkles, AlertCircle, RefreshCw, 
   Disc, Waves, HelpCircle, ArrowRight, Layers, Music, Compass, Star,
   Fingerprint, Squirrel, Radar, Rose, Orbit, History, Rabbit, ArrowLeft, BookOpen, Gauge, DoorClosed, User, Send,
-  ChevronDown, Lock, Sliders, PackageOpen, Info
+  ChevronDown, Lock, Sliders, PackageOpen, Info, WavesLadder
 } from "lucide-react";
 
 export default function App() {
@@ -63,6 +65,7 @@ export default function App() {
   const [viewingStacks, setViewingStacks] = useState(false);
   const [viewingEngineeringStudio, setViewingEngineeringStudio] = useState(false);
   const [viewingEngineeringDetails, setViewingEngineeringDetails] = useState(false);
+  const [viewingAlphaPage, setViewingAlphaPage] = useState(false);
   const [engineeringDetailsSource, setEngineeringDetailsSource] = useState<"what-it-does" | "studio">("what-it-does");
   const [viewingDashboard, setViewingDashboard] = useState(false);
   const [activeUploadFile, setActiveUploadFile] = useState<File | null>(null);
@@ -905,6 +908,7 @@ export default function App() {
     setViewingUsefulTools(false);
     setViewingEngineeringStudio(false);
     setViewingEngineeringDetails(false);
+    setViewingAlphaPage(false);
     clearInputStates();
   };
 
@@ -918,8 +922,13 @@ export default function App() {
     setViewingEngineeringDetails(false);
     setViewingArRep(false);
     setViewingDashboard(false);
+    setViewingAlphaPage(false);
     clearInputStates();
   };
+
+  if (viewingAlphaPage) {
+    return <AlphaLandingPage onBack={() => setViewingAlphaPage(false)} />;
+  }
 
   return (
     <div className="min-h-screen bg-black text-slate-200 flex flex-col selection:bg-blue-600 selection:text-white">
@@ -955,6 +964,32 @@ export default function App() {
           <div className="flex flex-col sm:flex-row items-center sm:items-center gap-3 text-right">
 
             <div className="flex items-center gap-2 flex-nowrap justify-center sm:justify-end overflow-x-auto sm:overflow-visible no-scrollbar max-w-full py-1">
+
+              <button
+                onClick={() => {
+                  setViewingAlphaPage(!viewingAlphaPage);
+                  setViewingAboutPage(false);
+                  setViewingWhatItDoesPage(false);
+                  setViewingDefinitions(false);
+                  setViewingUsefulTools(false);
+                  setViewingRabbitHoleV2(false);
+                  setViewingStacks(false);
+                  setViewingArRep(false);
+                  setViewingEngineeringDetails(false);
+                  setViewingEngineeringStudio(false);
+                  setViewingMarketingPage(false);
+                  setViewingMetadataGenerator(false);
+                  setViewingDashboard(false);
+                }}
+                className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all cursor-pointer flex-shrink-0 ${
+                  viewingAlphaPage
+                    ? "bg-[#1ed760]/20 text-[#1ed760] border-[#1ed760]/50 shadow-[0_0_15px_rgba(30,215,96,0.15)]"
+                    : "bg-[#13161C] hover:bg-[#1E232E] text-blue-400 hover:text-blue-300 border-blue-500/20 hover:border-blue-500/40"
+                }`}
+                title="View Alpha Landing Page"
+              >
+                <WavesLadder className="w-4 h-4" />
+              </button>
 
               <div 
                 className="relative flex-shrink-0"
@@ -1207,6 +1242,19 @@ export default function App() {
             knownCurrentUser={currentUser}
             onBack={() => setViewingDashboard(false)}
             onLoadCritique={(crit, tInfo) => {
+              // Clear any stale audio blob URL from a previous upload/analysis session -
+              // older Locker reports don't have their original audio file persisted, so
+              // the Reference Monitor should honestly show "no audio available" rather
+              // than silently continuing to play whatever song was last actually uploaded.
+              if (localFileBlobUrl && localFileBlobUrl.startsWith("blob:")) {
+                URL.revokeObjectURL(localFileBlobUrl);
+              }
+              setLocalFileBlobUrl(null);
+              // Also clear any stale "active upload" reference - without this, opening an
+              // already-analyzed report leaves the last real upload sitting in state
+              // indefinitely, which can cause it to be re-imported as a duplicate Locker
+              // waitlist entry the next time the Dashboard is viewed.
+              setActiveUploadFile(null);
               setCritiqueResult({ critique: applyGenreOverride(crit), trackInfo: tInfo });
               setViewingDashboard(false);
             }}
