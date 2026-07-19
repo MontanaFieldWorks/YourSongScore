@@ -877,6 +877,11 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       },
     };
 
+    const chromagramImageRaw = req.body.chromagramImage;
+    const chromagramImagePart = chromagramImageRaw && chromagramImageRaw.length > 0
+      ? { inlineData: { mimeType: "image/png", data: chromagramImageRaw.replace(/^data:image\/png;base64,/, "") } }
+      : null;
+
     let userInstruction = "Listen to this songwriter's track and evaluate all aspects of performance, tracking, and mix distribution.";
     if (metaGenre) {
       userInstruction += `\n\n[EMBEDDED FILE METADATA CONTEXT]`;
@@ -926,7 +931,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 
     try {
       console.log("[Call 3] Starting Sub-Metrics Call 3...");
-      const subMetricsCall3 = await performSubMetricsCall3(audioPart, parsedCritique);
+      const subMetricsCall3 = await performSubMetricsCall3(audioPart, parsedCritique, chromagramImagePart);
       parsedCritique.subMetricsCall3 = subMetricsCall3;
       parsedCritique.subMetricsCall3Failed = false;
       console.log("[Call 3] Sub-Metrics Call 3 completed successfully.");
