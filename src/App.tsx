@@ -209,6 +209,67 @@ export default function App() {
     return null;
   };
 
+  const renderRhythmImage = (metrics: any): string | null => {
+    if (!metrics || !metrics.onsetRhythmTimeline || metrics.onsetRhythmTimeline.length === 0) return null;
+
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 800;
+      canvas.height = 300;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "#090d16";
+        ctx.fillRect(0, 0, 800, 300);
+
+        const timeline = metrics.onsetRhythmTimeline;
+        const len = timeline.length;
+        const barWidth = 800 / len;
+
+        // Draw rhythm energy bars
+        ctx.fillStyle = "#f59e0b"; // bright amber/orange
+        for (let i = 0; i < len; i++) {
+          const val = timeline[i] || 0;
+          const barHeight = val * 300;
+          ctx.fillRect(i * barWidth, 300 - barHeight, barWidth, barHeight);
+        }
+
+        // Draw beat gridlines if calculatedBpm and calculatedTimeSignature are available
+        const bpm = metrics.calculatedBpm;
+        const duration = metrics.calculatedDuration;
+        const timeSig = metrics.calculatedTimeSignature;
+        if (bpm && bpm > 0 && duration && duration > 0 && timeSig && timeSig > 0) {
+          const beatInterval = 60 / bpm;
+          let beatCount = 0;
+          let tBeat = 0;
+          while (tBeat < duration) {
+            const x = (tBeat / duration) * 800;
+            if (x >= 0 && x < 800) {
+              ctx.beginPath();
+              ctx.moveTo(x, 0);
+              ctx.lineTo(x, 300);
+              
+              // Highlight downbeats (first beat of each measure)
+              if (beatCount % timeSig === 0) {
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+              } else {
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+              }
+              ctx.lineWidth = 1;
+              ctx.stroke();
+            }
+            tBeat += beatInterval;
+            beatCount++;
+          }
+        }
+
+        return canvas.toDataURL("image/png");
+      }
+    } catch (err) {
+      console.error("Failed to generate rhythm image helper:", err);
+    }
+    return null;
+  };
+
   const applyGenreOverride = (critique: CritiqueData): CritiqueData => {
     if (genreMode === "manual" && selectedMainGenre) {
       return {
@@ -857,6 +918,7 @@ export default function App() {
 
     let earlyLiveMetrics: any = null;
     let chromagramImageForGemini: string | null = null;
+    let rhythmImageForGemini: string | null = null;
     const cachedFileForAnalysis = localTrackFiles[track.id];
     try {
       if (cachedFileForAnalysis) {
@@ -868,6 +930,9 @@ export default function App() {
       }
       if (earlyLiveMetrics && earlyLiveMetrics.timeResolvedChromagram) {
         chromagramImageForGemini = renderChromagramImage(earlyLiveMetrics);
+      }
+      if (earlyLiveMetrics && earlyLiveMetrics.onsetRhythmTimeline) {
+        rhythmImageForGemini = renderRhythmImage(earlyLiveMetrics);
       }
       console.log("CHROMAGRAM_CHECK_REAL_PATH", chromagramImageForGemini ? `present, length ${chromagramImageForGemini.length}` : "NULL - was not generated", "cachedFile:", !!cachedFileForAnalysis, "convertedMp3Url:", !!track.convertedMp3Url);
     } catch (errEarly) {
@@ -891,6 +956,7 @@ export default function App() {
           formData.append("metaArtist", (track as any).metaArtist || "Artist");
           formData.append("metaGenre", (track as any).metaGenre || "Unclassified");
           formData.append("chromagramImage", chromagramImageForGemini || "");
+          formData.append("rhythmImage", rhythmImageForGemini || "");
           
           const res = await fetch("/api/critique-file", {
             method: "POST",
@@ -931,7 +997,8 @@ export default function App() {
               metaTitle: trackWithMeta.metaTitle || track.name,
               metaArtist: trackWithMeta.metaArtist || "Artist",
               metaGenre: trackWithMeta.metaGenre || (track as any).metaGenre,
-              chromagramImage: chromagramImageForGemini
+              chromagramImage: chromagramImageForGemini,
+              rhythmImage: rhythmImageForGemini
             }),
           });
           
