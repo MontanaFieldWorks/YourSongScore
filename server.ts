@@ -52,7 +52,7 @@ You must perform a meticulous, high-fidelity sonic analysis of the track's instr
 
 You must cover four essential songwriting dimensions:
 1. Composition Flow / Arrangement Flow: How well the songwriting flows regardless of the acoustic mix/production quality. Look at structural builds, hook placements, tension, and narrative arc.
-2. Lyrical Impact: Analyze the message or vocal phrasing, checking if the meaning is clear (even if metaphorical), simplistic/cliché, or overly academic in delivery.
+2. Lyrical Impact: Analyze the message or vocal phrasing, checking if the meaning is clear (even if metaphorical), simplistic/cliché, or overly academic in delivery. CRITICAL - LYRIC TRANSCRIPTION HONESTY: If you quote any specific words or lines as evidence for your analysis, you must be genuinely highly confident that transcription is accurate to what is actually sung - never invent, guess, or reconstruct a plausible-sounding lyric and present it as a real quote. If vocal clarity, mixing, mumbled delivery, or your own uncertainty makes you unsure of the exact words, describe the theme, emotional tone, or general subject matter instead of quoting a specific line you are not confident in. A vague-but-honest description is always better than a specific but potentially fabricated quote - fabricated quotes are a serious factual error, not a stylistic choice.
 3. Music Theory Analysis: Analyze the chord sequences, voice leading, scale cohesion, and general harmonic craftsmanship. Do NOT arbitrarily penalize standard diatonic scales or traditional chords; elegance, emotional truth, and structural strength in traditional keys (like natural minor or major modes) are peak musical accomplishments. Do not force recommendations for accidentals or non-scale tones if they don't serve the track's innate genre or aesthetic.
 4. Song Title Searchability: Review the song title's suitability for online search indexes, indicating search engine visibility potential (common phrase vs unique searchable motif).
 
@@ -216,8 +216,8 @@ FIELD DEFINITIONS:
 RUBRIC ANCHOR FOR AESTHETIC DESIGN: a score of 90-100 must be reserved for genuine, demonstrated stylistic distinctiveness - a sonic identity, arrangement choice, or production approach that stands out even within its genre. A score of 75-85 is the correct ceiling for a track that is competently, cleanly produced but sonically conventional for its genre - sounds professional and "right" for the style without doing anything distinctive. If your own commentary describes the production as simply matching genre expectations without noting anything genuinely distinctive, that commentary should cap the score at 75-85, not 90+. WITHIN that 75-85 band, do not default to the same number for every conventional track - differentiate based on genuine relative merit: a track with slightly more character or a small distinctive touch should land at 82-85, while one that is purely generic with zero distinguishing features should land at 75-78. Two different conventional-but-competent tracks should essentially never receive the exact same score unless their production is genuinely, specifically identical in quality.
 
 RUBRIC ANCHOR FOR SPACE & DENSITY: a score of 90-100 requires a mix that gives every element clear breathing room with intentional, audible space between parts even in dense sections - genuinely uncrowded at every moment. A score of 70-85 is appropriate for a mix that is reasonably uncluttered but has at least one section or moment where multiple elements compete for the same sonic space without clear separation. Below 70 is reserved for mixes with persistent, structural crowding throughout, not just an isolated moment. Differentiate within these bands based on how many distinct crowding moments you can specifically point to, and how severe they are - do not default to the same score for every track that has "some" crowding.
-
-RUBRIC ANCHOR FOR PALETTE COHESION: a score of 90-100 requires that every sound element (instruments, samples, effects) genuinely sounds like it belongs to the same sonic world - consistent tonal character, complementary timbres, no elements that sound sourced from an unrelated sonic palette. A score of 70-85 is appropriate when the elements mostly cohere but at least one instrument or sound choice sits slightly outside the established palette. Below 70 is reserved for tracks where multiple elements sound genuinely mismatched or sourced from conflicting sonic worlds. Differentiate within these bands based on specifically which elements do or don't cohere, not a generic overall impression.
+- paletteCohesion: IMPORTANT - a real, precomputed timbral consistency measurement for this track will be provided in the context below as 'Measured Timbral Consistency Score'. This is a genuine, objective measurement (0-100, where higher = the track's overall tonal/textural character stays more consistent throughout, lower = more drastic shifts in sonic texture across the track), not a guess. You MUST treat this measured value as the primary, authoritative basis for the paletteCohesion score - use your own listening impression only as a secondary, qualitative supplement in the commentary (e.g. naming which specific elements feel mismatched), not as a basis for overriding what the measurement shows.
+- sibilanceShaving: IMPORTANT - a real, precomputed sibilance severity measurement for this track will be provided in the context below as 'Measured Sibilance Severity Score'. This is a genuine, objective measurement (0-100, where 100 = no detected harsh spikes in the 5-10kHz range, lower values = more/worse detected spikes), not a guess. You MUST treat this measured value as the primary, authoritative basis for the sibilanceShaving score - use your own listening impression only as a secondary, qualitative supplement in the commentary (e.g. identifying which specific words or moments sound harsh), not as a basis for overriding what the measurement shows.
 - stereoWidth: judges the width and spatial use of the stereo field - is the mix appropriately wide (backing elements, reverbs, doubled parts spread across the stereo image) without being so wide that mono compatibility or center-focus suffers? A narrow, cramped stereo image should score lower; an artificially over-widened or phase-incoherent image should also score lower. Judge this from what you actually hear in the stereo image, not from any external measurement. IMPORTANT - a real, precomputed phase correlation measurement for this track will be provided in the context below as 'Measured Stereo Phase Correlation'. This is a genuine, objective measurement (not a guess) ranging from -1 (fully out of phase, will collapse or cancel in mono playback) to +1 (fully mono/identical channels), where values roughly between 0.15 and 0.85 represent a healthy, wide-but-mono-safe stereo field. You MUST treat this measured value as the primary, authoritative basis for the stereoWidth score - use your own listening impression only as a secondary, qualitative supplement in the commentary, not as a basis for overriding what the measurement shows. If the measured value indicates phase issues (below 0 or above 0.9), the score must reflect that clearly regardless of how the mix subjectively sounds.
 
 RULES:
@@ -230,7 +230,9 @@ async function performSubMetricsCall1(
   audioPart: any,
   parsedCritique: any,
   spectrogramImagePart?: any,
-  measuredStereoCorrelation?: number
+  measuredStereoCorrelation?: number,
+  measuredSibilanceSeverity?: number,
+  measuredTimbralConsistency?: number
 ): Promise<any> {
   const contextSummary = `
 Parent category context already determined:
@@ -239,6 +241,8 @@ Parent category context already determined:
 - Mix Balance Quality frequency notes: low end: ${parsedCritique?.mixQuality?.frequencyBalance?.lowEnd}, midrange: ${parsedCritique?.mixQuality?.frequencyBalance?.midrange}, high end: ${parsedCritique?.mixQuality?.frequencyBalance?.highEnd}
 - Song Title Searchability score: ${parsedCritique?.titleSearchability?.score}, uniqueness: ${parsedCritique?.titleSearchability?.uniquenessLevel}
 - Measured Stereo Phase Correlation: ${measuredStereoCorrelation !== undefined && measuredStereoCorrelation !== null ? measuredStereoCorrelation : "not available"}
+- Measured Sibilance Severity Score: ${measuredSibilanceSeverity !== undefined && measuredSibilanceSeverity !== null ? measuredSibilanceSeverity : "not available"}
+- Measured Timbral Consistency Score: ${measuredTimbralConsistency !== undefined && measuredTimbralConsistency !== null ? measuredTimbralConsistency : "not available"}
 
 Listen to the actual audio again and generate specific, deduction-based sub-metric scores and commentary for each of the 12 required fields, consistent with the above context but grounded in what you actually hear this time.
 
@@ -432,6 +436,8 @@ RULES:
 1. Every commentary must reference something specific and real about THIS audio file - an actual moment, an actual lyric, an actual rhythmic or harmonic detail. Never write generic, reusable descriptions that could apply to any song.
 2. Never reuse the same commentary you might write for a different song, even if scores are similar.
 3. Keep each commentary to 1-3 sentences, technical and specific, in the voice of a professional music analyst.
+
+CRITICAL - LYRIC TRANSCRIPTION HONESTY (applies to meaningClarity, clicheAvoidance, and hookPlacement): If your commentary quotes specific lyric lines as evidence, you must be genuinely highly confident that transcription is accurate to what is actually sung. Never invent or reconstruct a plausible-sounding lyric and present it as a real quote - this is a serious factual error. If you are not certain of the exact words, describe the theme, imagery, or emotional content instead of quoting a specific line.
 
 FIELD DEFINITION - instrumentalWarmth (part of instrumentalStagingSubs): judges the general tonal warmth and richness of the backing instrumentation as a whole - does it sound full, rounded, and pleasant, or thin, cold, and harsh? This is about overall instrumental tone character, separate from timing (Timeline Grid Cohesion), attack (Transient Punch), and stereo placement (Melodic Staging).
 
@@ -912,6 +918,16 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       ? parseFloat(stereoCorrelationRaw)
       : undefined;
 
+    const sibilanceSeverityRaw = req.body.sibilanceSeverity;
+    const sibilanceSeverity = (sibilanceSeverityRaw !== undefined && sibilanceSeverityRaw !== null && sibilanceSeverityRaw !== "")
+      ? parseFloat(sibilanceSeverityRaw)
+      : undefined;
+
+    const timbralConsistencyRaw = req.body.timbralConsistency;
+    const timbralConsistency = (timbralConsistencyRaw !== undefined && timbralConsistencyRaw !== null && timbralConsistencyRaw !== "")
+      ? parseFloat(timbralConsistencyRaw)
+      : undefined;
+
     let userInstruction = "Listen to this songwriter's track and evaluate all aspects of performance, tracking, and mix distribution.";
     if (metaGenre) {
       userInstruction += `\n\n[EMBEDDED FILE METADATA CONTEXT]`;
@@ -939,7 +955,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 
     try {
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
-      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation);
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
@@ -982,10 +998,16 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 // 3. Direct URL Audio Critique API
 app.post("/api/critique-url", async (req, res) => {
   try {
-    const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre, chromagramImage, rhythmImage, spectrogramImage, stereoCorrelation: rawStereoCorrelation } = req.body;
+    const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre, chromagramImage, rhythmImage, spectrogramImage, stereoCorrelation: rawStereoCorrelation, sibilanceSeverity: rawSibilanceSeverity, timbralConsistency: rawTimbralConsistency } = req.body;
     const metaGenre = isPlaceholderGenre(rawMetaGenre) ? "" : rawMetaGenre;
     const stereoCorrelation = (rawStereoCorrelation !== undefined && rawStereoCorrelation !== null && rawStereoCorrelation !== "")
       ? parseFloat(rawStereoCorrelation)
+      : undefined;
+    const sibilanceSeverity = (rawSibilanceSeverity !== undefined && rawSibilanceSeverity !== null && rawSibilanceSeverity !== "")
+      ? parseFloat(rawSibilanceSeverity)
+      : undefined;
+    const timbralConsistency = (rawTimbralConsistency !== undefined && rawTimbralConsistency !== null && rawTimbralConsistency !== "")
+      ? parseFloat(rawTimbralConsistency)
       : undefined;
     if (!ai) {
       return res.status(500).json({ error: "Gemini API Client is not configured." });
@@ -1054,7 +1076,7 @@ app.post("/api/critique-url", async (req, res) => {
 
     try {
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
-      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation);
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
       parsedCritique.subMetricsCall1Failed = false;
     } catch (subErr: any) {
