@@ -1016,6 +1016,7 @@ export default function App() {
           formData.append("chromagramImage", chromagramImageForGemini || "");
           formData.append("rhythmImage", rhythmImageForGemini || "");
           formData.append("spectrogramImage", spectrogramImageForGemini || "");
+          formData.append("stereoCorrelation", String(earlyLiveMetrics?.calculatedStereoCorrelation ?? ""));
           
           const res = await fetch("/api/critique-file", {
             method: "POST",
@@ -1058,7 +1059,8 @@ export default function App() {
               metaGenre: trackWithMeta.metaGenre || (track as any).metaGenre,
               chromagramImage: chromagramImageForGemini,
               rhythmImage: rhythmImageForGemini,
-              spectrogramImage: spectrogramImageForGemini
+              spectrogramImage: spectrogramImageForGemini,
+              stereoCorrelation: earlyLiveMetrics?.calculatedStereoCorrelation ?? null
             }),
           });
           
