@@ -270,6 +270,59 @@ export default function App() {
     return null;
   };
 
+  const renderSpectrogramImage = (metrics: any): string | null => {
+    if (!metrics || !metrics.timeResolvedSpectrogram || metrics.timeResolvedSpectrogram.length === 0) return null;
+
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 800;
+      canvas.height = 300;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "#090d16";
+        ctx.fillRect(0, 0, 800, 300);
+
+        const specData = metrics.timeResolvedSpectrogram;
+        const cols = specData.length;
+        const colWidth = 800 / cols;
+        const rows = 24;
+        const rowHeight = 300 / rows;
+
+        for (let c = 0; c < cols; c++) {
+          for (let r = 0; r < rows; r++) {
+            const val = specData[c][r] || 0;
+            let rColor = 0;
+            let gColor = 0;
+            let bColor = 0;
+            if (val < 0.4) {
+              const t = val / 0.4;
+              rColor = Math.round(10 + t * 32);
+              gColor = Math.round(24 + t * 131);
+              bColor = Math.round(47 + t * 168);
+            } else if (val < 0.8) {
+              const t = (val - 0.4) / 0.4;
+              rColor = Math.round(42 + t * 213);
+              gColor = Math.round(155 + t * 80);
+              bColor = Math.round(215 - t * 156);
+            } else {
+              const t = (val - 0.8) / 0.2;
+              rColor = Math.round(255);
+              gColor = Math.round(235 + t * 20);
+              bColor = Math.round(59 + t * 196);
+            }
+            const color = `rgba(${rColor}, ${gColor}, ${bColor}, ${0.15 + val * 0.85})`;
+            ctx.fillStyle = color;
+            ctx.fillRect(c * colWidth, 300 - (r * rowHeight) - rowHeight, colWidth + 0.5, rowHeight + 0.5);
+          }
+        }
+        return canvas.toDataURL("image/png");
+      }
+    } catch (err) {
+      console.error("Failed to generate spectrogram image helper:", err);
+    }
+    return null;
+  };
+
   const applyGenreOverride = (critique: CritiqueData): CritiqueData => {
     if (genreMode === "manual" && selectedMainGenre) {
       return {
@@ -919,6 +972,7 @@ export default function App() {
     let earlyLiveMetrics: any = null;
     let chromagramImageForGemini: string | null = null;
     let rhythmImageForGemini: string | null = null;
+    let spectrogramImageForGemini: string | null = null;
     const cachedFileForAnalysis = localTrackFiles[track.id];
     try {
       if (cachedFileForAnalysis) {
@@ -933,6 +987,9 @@ export default function App() {
       }
       if (earlyLiveMetrics && earlyLiveMetrics.onsetRhythmTimeline) {
         rhythmImageForGemini = renderRhythmImage(earlyLiveMetrics);
+      }
+      if (earlyLiveMetrics && earlyLiveMetrics.timeResolvedSpectrogram) {
+        spectrogramImageForGemini = renderSpectrogramImage(earlyLiveMetrics);
       }
       console.log("CHORD_CHECK", earlyLiveMetrics?.detectedChordProgressionNamed?.length, earlyLiveMetrics?.detectedChordProgressionNamed?.slice(0, 15));
       console.log("CHROMAGRAM_CHECK_REAL_PATH", chromagramImageForGemini ? `present, length ${chromagramImageForGemini.length}` : "NULL - was not generated", "cachedFile:", !!cachedFileForAnalysis, "convertedMp3Url:", !!track.convertedMp3Url);
@@ -958,6 +1015,7 @@ export default function App() {
           formData.append("metaGenre", (track as any).metaGenre || "Unclassified");
           formData.append("chromagramImage", chromagramImageForGemini || "");
           formData.append("rhythmImage", rhythmImageForGemini || "");
+          formData.append("spectrogramImage", spectrogramImageForGemini || "");
           
           const res = await fetch("/api/critique-file", {
             method: "POST",
@@ -999,7 +1057,8 @@ export default function App() {
               metaArtist: trackWithMeta.metaArtist || "Artist",
               metaGenre: trackWithMeta.metaGenre || (track as any).metaGenre,
               chromagramImage: chromagramImageForGemini,
-              rhythmImage: rhythmImageForGemini
+              rhythmImage: rhythmImageForGemini,
+              spectrogramImage: spectrogramImageForGemini
             }),
           });
           
