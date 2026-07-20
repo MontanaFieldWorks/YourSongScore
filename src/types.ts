@@ -98,6 +98,9 @@ export interface LiveAudioMetrics {
     totalRepeats: number;
     stepToLeapRatio: number;
   };
+  calculatedSibilanceSpikeCount?: number;
+  calculatedSibilanceSeverityScore?: number;
+  calculatedTimbralConsistencyScore?: number;
 }
 
 export interface CritiqueData {
