@@ -240,7 +240,7 @@ Parent category context already determined:
 
 Listen to the actual audio again and generate specific, deduction-based sub-metric scores and commentary for each of the 12 required fields, consistent with the above context but grounded in what you actually hear this time.
 
-IF a spectrogram image has been provided alongside the audio: this is a time-resolved amplitude visualization across 24 logarithmically-spaced bands (covering 20Hz to 16000Hz, with lowest frequencies at the bottom and highest at the top). Use it as genuine supporting evidence when scoring overallProduction, spaceAndDensity, mudPrevention, and lowEndDivision. Cross-reference what you see in the spectrogram heatmap against what you hear before finalizing these scores and commentary.`;
+IF a spectrogram image has been provided alongside the audio: this is a time-resolved amplitude visualization across 24 logarithmically-spaced bands (covering 20Hz to 16000Hz, with lowest frequencies at the bottom and highest at the top, brightness = energy). Use it specifically when scoring mudPrevention, midrangeSpacing, and lowEndDivision - look for visible buildup, overlap, or lack of separation between bands in the relevant frequency ranges (roughly 200-500Hz for mud, 1-4kHz for midrange spacing conflicts, sub-100Hz for low-end division between kick and bass). Point to specific visible patterns in the image as evidence in your commentary, rather than describing generic frequency issues.`;
 
   const response = await generateContentWithRetry({
     model: "gemini-2.5-flash",
