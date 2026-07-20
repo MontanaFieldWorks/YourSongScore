@@ -372,6 +372,42 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   const chromaFrames: number[][] = [];
   const spectrogramFrames: number[][] = [];
   const frameBassPitchClasses: number[] = [];
+  const mfccFrames: number[][] = [];
+
+  // Precompute Mel-Frequency Filterbank (26 triangular filters)
+  const freqToMel = (freq: number) => 2595 * Math.log10(1 + freq / 700);
+  const melToFreq = (mel: number) => 700 * (Math.pow(10, mel / 2595) - 1);
+
+  const melMin = freqToMel(20);
+  const melMax = freqToMel(sampleRate / 2); // Nyquist frequency
+
+  // 26 filters require 28 boundary points
+  const melPoints = Array.from({ length: 28 }, (_, i) => melMin + (i * (melMax - melMin)) / 27);
+  const freqPoints = melPoints.map(melToFreq);
+  const binPoints = freqPoints.map(freq => Math.round((freq * chromaFftSize) / sampleRate));
+
+  const melFilters: number[][] = [];
+  const numBinsForMel = chromaFftSize / 2;
+  for (let m = 1; m <= 26; m++) {
+    const filter = new Array(numBinsForMel).fill(0);
+    const leftBin = binPoints[m - 1];
+    const centerBin = binPoints[m];
+    const rightBin = binPoints[m + 1];
+
+    for (let k = leftBin; k <= rightBin; k++) {
+      if (k < 0 || k >= numBinsForMel) continue;
+      if (k >= leftBin && k < centerBin) {
+        if (centerBin !== leftBin) {
+          filter[k] = (k - leftBin) / (centerBin - leftBin);
+        }
+      } else if (k >= centerBin && k <= rightBin) {
+        if (rightBin !== centerBin) {
+          filter[k] = (rightBin - k) / (rightBin - centerBin);
+        }
+      }
+    }
+    melFilters.push(filter);
+  }
 
   const chromaHannWindow = new Float32Array(chromaFftSize);
   for (let n = 0; n < chromaFftSize; n++) {
@@ -397,12 +433,14 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     const frameChroma = new Array(12).fill(0);
     const frameBassChroma = new Array(12).fill(0);
     const frameSpectrogram = new Array(spectrogramBands).fill(0);
+    const frameMagnitudes = new Float32Array(numBins);
 
     for (let k = 1; k < numBins; k++) {
       const freq = k * binHz;
       const re = chromaComplexOut[2 * k];
       const im = chromaComplexOut[2 * k + 1];
       const magnitude = Math.sqrt(re * re + im * im);
+      frameMagnitudes[k] = magnitude;
 
       // Accumulate into 24 logarithmic bands spanning 20Hz to 16000Hz
       if (freq >= spectrogramMinFreq && freq < spectrogramMaxFreq) {
@@ -471,6 +509,131 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
       }
     }
     frameBassPitchClasses.push(dominantBassPitchClass);
+
+    // Apply mel filterbank to frameMagnitudes to get 26 mel-band energies
+    const melEnergies = new Float32Array(26);
+    for (let m = 0; m < 26; m++) {
+      let energy = 0;
+      const filter = melFilters[m];
+      for (let k = 0; k < numBins; k++) {
+        energy += frameMagnitudes[k] * filter[k];
+      }
+      melEnergies[m] = Math.log(Math.max(energy, 1e-10));
+    }
+
+    // Apply DCT-II to get 14 coefficients
+    const mfcc = new Float32Array(14);
+    for (let c = 0; c < 14; c++) {
+      let sum = 0;
+      for (let n = 0; n < 26; n++) {
+        sum += melEnergies[n] * Math.cos((Math.PI / 26) * (n + 0.5) * c);
+      }
+      mfcc[c] = sum;
+    }
+
+    // Keep only coefficients 2 through 13 (skipping 0 and 1)
+    const keptMfcc = Array.from(mfcc.slice(2, 14));
+    mfccFrames.push(keptMfcc);
+  }
+
+  // ==========================================
+  // Timbral Consistency Score Pass (Derived from mfccFrames)
+  // ==========================================
+  // Calculate the average MFCC vector across the whole song
+  const numMfccFrames = mfccFrames.length;
+  const avgMfcc = new Array(12).fill(0);
+  if (numMfccFrames > 0) {
+    for (const frame of mfccFrames) {
+      for (let i = 0; i < 12; i++) {
+        avgMfcc[i] += frame[i];
+      }
+    }
+    for (let i = 0; i < 12; i++) {
+      avgMfcc[i] /= numMfccFrames;
+    }
+  }
+
+  // Calculate Euclidean distance from each frame's MFCC to the average MFCC vector
+  let totalMfccDistance = 0;
+  for (const frame of mfccFrames) {
+    let sumSq = 0;
+    for (let i = 0; i < 12; i++) {
+      const diff = frame[i] - avgMfcc[i];
+      sumSq += diff * diff;
+    }
+    totalMfccDistance += Math.sqrt(sumSq);
+  }
+  const avgMfccDistance = numMfccFrames > 0 ? totalMfccDistance / numMfccFrames : 0;
+
+  // Scaling formula:
+  // The Euclidean distance measures the deviation of each frame's timbre from the average song-wide timbre.
+  // Under typical audio profiles, the average Euclidean distance of 12 kept MFCC components centers around 3.0 to 10.0.
+  // Using a linear scaling factor of 4.5 gives:
+  // - A distance of 2.0 (highly consistent) -> 91 score
+  // - A distance of 4.5 (normally consistent) -> 80 score
+  // - A distance of 10.0 (high timbral variety) -> 55 score
+  // We round this to the nearest integer and clamp between 0 and 100.
+  const timbralConsistencyScore = numMfccFrames > 0
+    ? Math.max(0, Math.min(100, Math.round(100 - avgMfccDistance * 4.5)))
+    : 100;
+
+  // ==========================================
+  // Sibilance Detection Pass (Derived from spectrogramFrames)
+  // ==========================================
+  const sibilanceBandEdges = Array.from({ length: 25 }, (_, i) => 20 * Math.pow(16000 / 20, i / 24));
+  const sibilanceBandIndices: number[] = [];
+  for (let i = 0; i < 24; i++) {
+    const low = sibilanceBandEdges[i];
+    const high = sibilanceBandEdges[i + 1];
+    // Determine which band indices have their frequency range falling within 5000-10000Hz.
+    // Using subset inclusion: low >= 5000 && high <= 10000 (usually bands 20 and 21)
+    if (low >= 5000 && high <= 10000) {
+      sibilanceBandIndices.push(i);
+    }
+  }
+
+  // Compute sibilanceEnergy timeline (sum across identified band indices)
+  const sibilanceEnergyTimeline = spectrogramFrames.map(frame => {
+    let sum = 0;
+    for (const idx of sibilanceBandIndices) {
+      sum += frame[idx];
+    }
+    return sum;
+  });
+
+  // Compute transient/spike detector: positive difference from previous frame (starting from frame 2)
+  const sibilanceDiff: number[] = [0];
+  for (let i = 1; i < sibilanceEnergyTimeline.length; i++) {
+    sibilanceDiff.push(Math.max(0, sibilanceEnergyTimeline[i] - sibilanceEnergyTimeline[i - 1]));
+  }
+
+  // Determine a spike threshold using timeline statistics (mean + 2 * stdDev of positive difference values)
+  let sibilanceSpikeCount = 0;
+  let sibilanceSeverityScore = 100;
+
+  if (sibilanceDiff.length > 0) {
+    const diffSum = sibilanceDiff.reduce((a, b) => a + b, 0);
+    const diffMean = diffSum / sibilanceDiff.length;
+    let diffVarianceSum = 0;
+    for (const val of sibilanceDiff) {
+      const diffVal = val - diffMean;
+      diffVarianceSum += diffVal * diffVal;
+    }
+    const diffStdDev = Math.sqrt(diffVarianceSum / sibilanceDiff.length);
+    const sibilanceThreshold = diffMean + 2 * diffStdDev;
+
+    // Count how many frames exceed this threshold
+    for (const val of sibilanceDiff) {
+      if (val > sibilanceThreshold) {
+        sibilanceSpikeCount++;
+      }
+    }
+
+    // Compute sibilanceSeverityScore (0-100)
+    // A typical track has a spike ratio of 2-5%.
+    // Deduct points proportionally to how many spikes were detected relative to total frame count.
+    const sibilanceSpikeRatio = sibilanceSpikeCount / Math.max(1, spectrogramFrames.length);
+    sibilanceSeverityScore = Math.max(0, Math.round(100 - Math.min(100, sibilanceSpikeRatio * 1200)));
   }
 
   // Krumhansl-Schmuckler Key profile correlations
@@ -1128,6 +1291,9 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
       totalLeaps,
       totalRepeats,
       stepToLeapRatio
-    }
+    },
+    calculatedSibilanceSpikeCount: sibilanceSpikeCount,
+    calculatedSibilanceSeverityScore: sibilanceSeverityScore,
+    calculatedTimbralConsistencyScore: timbralConsistencyScore
   };
 }
