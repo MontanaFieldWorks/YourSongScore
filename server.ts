@@ -229,7 +229,8 @@ RULES:
 async function performSubMetricsCall1(
   audioPart: any,
   parsedCritique: any,
-  spectrogramImagePart?: any
+  spectrogramImagePart?: any,
+  measuredStereoCorrelation?: number
 ): Promise<any> {
   const contextSummary = `
 Parent category context already determined:
@@ -237,7 +238,7 @@ Parent category context already determined:
 - Production Index score: ${parsedCritique?.scores?.overallProduction}, genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
 - Mix Balance Quality frequency notes: low end: ${parsedCritique?.mixQuality?.frequencyBalance?.lowEnd}, midrange: ${parsedCritique?.mixQuality?.frequencyBalance?.midrange}, high end: ${parsedCritique?.mixQuality?.frequencyBalance?.highEnd}
 - Song Title Searchability score: ${parsedCritique?.titleSearchability?.score}, uniqueness: ${parsedCritique?.titleSearchability?.uniquenessLevel}
-- Measured Stereo Phase Correlation: ${parsedCritique?.liveMetrics?.calculatedStereoCorrelation ?? 'not available'}
+- Measured Stereo Phase Correlation: ${measuredStereoCorrelation !== undefined && measuredStereoCorrelation !== null ? measuredStereoCorrelation : "not available"}
 
 Listen to the actual audio again and generate specific, deduction-based sub-metric scores and commentary for each of the 12 required fields, consistent with the above context but grounded in what you actually hear this time.
 
@@ -906,6 +907,11 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       ? { inlineData: { mimeType: "image/png", data: spectrogramImageRaw.replace(/^data:image\/png;base64,/, "") } }
       : null;
 
+    const stereoCorrelationRaw = req.body.stereoCorrelation;
+    const stereoCorrelation = (stereoCorrelationRaw !== undefined && stereoCorrelationRaw !== null && stereoCorrelationRaw !== "")
+      ? parseFloat(stereoCorrelationRaw)
+      : undefined;
+
     let userInstruction = "Listen to this songwriter's track and evaluate all aspects of performance, tracking, and mix distribution.";
     if (metaGenre) {
       userInstruction += `\n\n[EMBEDDED FILE METADATA CONTEXT]`;
@@ -933,7 +939,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 
     try {
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
-      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart);
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
@@ -976,8 +982,11 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 // 3. Direct URL Audio Critique API
 app.post("/api/critique-url", async (req, res) => {
   try {
-    const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre, chromagramImage, rhythmImage, spectrogramImage } = req.body;
+    const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre, chromagramImage, rhythmImage, spectrogramImage, stereoCorrelation: rawStereoCorrelation } = req.body;
     const metaGenre = isPlaceholderGenre(rawMetaGenre) ? "" : rawMetaGenre;
+    const stereoCorrelation = (rawStereoCorrelation !== undefined && rawStereoCorrelation !== null && rawStereoCorrelation !== "")
+      ? parseFloat(rawStereoCorrelation)
+      : undefined;
     if (!ai) {
       return res.status(500).json({ error: "Gemini API Client is not configured." });
     }
@@ -1045,7 +1054,7 @@ app.post("/api/critique-url", async (req, res) => {
 
     try {
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
-      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart);
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
       parsedCritique.subMetricsCall1Failed = false;
     } catch (subErr: any) {
