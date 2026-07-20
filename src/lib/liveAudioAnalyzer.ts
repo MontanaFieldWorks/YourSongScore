@@ -370,12 +370,17 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   const chromaFrameStep = Math.max(1, Math.floor(chromaNumFrames / 200)); // cap at ~200 analyzed frames for performance
 
   const chromaFrames: number[][] = [];
+  const spectrogramFrames: number[][] = [];
   const frameBassPitchClasses: number[] = [];
 
   const chromaHannWindow = new Float32Array(chromaFftSize);
   for (let n = 0; n < chromaFftSize; n++) {
     chromaHannWindow[n] = 0.5 * (1 - Math.cos((2 * Math.PI * n) / (chromaFftSize - 1)));
   }
+
+  const spectrogramBands = 24;
+  const spectrogramMinFreq = 20;
+  const spectrogramMaxFreq = 16000;
 
   for (let f = 0; f < chromaNumFrames; f += chromaFrameStep) {
     const start = f * chromaFftSize;
@@ -391,20 +396,34 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     const numBins = chromaFftSize / 2;
     const frameChroma = new Array(12).fill(0);
     const frameBassChroma = new Array(12).fill(0);
+    const frameSpectrogram = new Array(spectrogramBands).fill(0);
 
     for (let k = 1; k < numBins; k++) {
       const freq = k * binHz;
-      if (freq < chromaMinFreq || freq > chromaMaxFreq) continue;
       const re = chromaComplexOut[2 * k];
       const im = chromaComplexOut[2 * k + 1];
       const magnitude = Math.sqrt(re * re + im * im);
-      const midiNote = 12 * Math.log2(freq / 440) + 69;
-      const pitchClass = ((Math.round(midiNote) % 12) + 12) % 12;
-      chromaBins[pitchClass] += magnitude;
-      frameChroma[pitchClass] += magnitude;
 
-      if (freq >= 60 && freq <= 250) {
-        frameBassChroma[pitchClass] += magnitude;
+      // Accumulate into 24 logarithmic bands spanning 20Hz to 16000Hz
+      if (freq >= spectrogramMinFreq && freq < spectrogramMaxFreq) {
+        const b = Math.floor(
+          spectrogramBands * Math.log(freq / spectrogramMinFreq) / Math.log(spectrogramMaxFreq / spectrogramMinFreq)
+        );
+        if (b >= 0 && b < spectrogramBands) {
+          frameSpectrogram[b] += magnitude;
+        }
+      }
+
+      // Chromagram logic (restricted to 60Hz - 5000Hz)
+      if (freq >= chromaMinFreq && freq <= chromaMaxFreq) {
+        const midiNote = 12 * Math.log2(freq / 440) + 69;
+        const pitchClass = ((Math.round(midiNote) % 12) + 12) % 12;
+        chromaBins[pitchClass] += magnitude;
+        frameChroma[pitchClass] += magnitude;
+
+        if (freq >= 60 && freq <= 250) {
+          frameBassChroma[pitchClass] += magnitude;
+        }
       }
     }
 
@@ -418,6 +437,18 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
       }
     }
     chromaFrames.push(frameChroma);
+
+    // Normalize spectrogram frame so it sums to 1
+    let specSum = 0;
+    for (let i = 0; i < spectrogramBands; i++) {
+      specSum += frameSpectrogram[i];
+    }
+    if (specSum > 0) {
+      for (let i = 0; i < spectrogramBands; i++) {
+        frameSpectrogram[i] /= specSum;
+      }
+    }
+    spectrogramFrames.push(frameSpectrogram);
 
     let frameBassSum = 0;
     for (let i = 0; i < 12; i++) {
@@ -1052,6 +1083,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     calculatedWaveformPoints: waveTimeline,
     calculatedWaveformPointsHD: waveTimelineHD,
     timeResolvedChromagram: chromaFrames,
+    timeResolvedSpectrogram: spectrogramFrames,
     onsetRhythmTimeline: onsetTimeline,
     calculatedDuration: parseFloat(duration.toFixed(2)),
     calculatedKeyConfidence: keyConfidence,
