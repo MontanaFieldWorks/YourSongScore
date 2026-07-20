@@ -1017,6 +1017,8 @@ export default function App() {
           formData.append("rhythmImage", rhythmImageForGemini || "");
           formData.append("spectrogramImage", spectrogramImageForGemini || "");
           formData.append("stereoCorrelation", String(earlyLiveMetrics?.calculatedStereoCorrelation ?? ""));
+          formData.append("sibilanceSeverity", String(earlyLiveMetrics?.calculatedSibilanceSeverityScore ?? ""));
+          formData.append("timbralConsistency", String(earlyLiveMetrics?.calculatedTimbralConsistencyScore ?? ""));
           
           const res = await fetch("/api/critique-file", {
             method: "POST",
@@ -1060,7 +1062,9 @@ export default function App() {
               chromagramImage: chromagramImageForGemini,
               rhythmImage: rhythmImageForGemini,
               spectrogramImage: spectrogramImageForGemini,
-              stereoCorrelation: earlyLiveMetrics?.calculatedStereoCorrelation ?? null
+              stereoCorrelation: earlyLiveMetrics?.calculatedStereoCorrelation ?? null,
+              sibilanceSeverity: earlyLiveMetrics?.calculatedSibilanceSeverityScore ?? null,
+              timbralConsistency: earlyLiveMetrics?.calculatedTimbralConsistencyScore ?? null
             }),
           });
           
