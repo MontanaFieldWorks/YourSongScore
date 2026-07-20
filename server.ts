@@ -228,7 +228,8 @@ RULES:
 
 async function performSubMetricsCall1(
   audioPart: any,
-  parsedCritique: any
+  parsedCritique: any,
+  spectrogramImagePart?: any
 ): Promise<any> {
   const contextSummary = `
 Parent category context already determined:
@@ -237,12 +238,14 @@ Parent category context already determined:
 - Mix Balance Quality frequency notes: low end: ${parsedCritique?.mixQuality?.frequencyBalance?.lowEnd}, midrange: ${parsedCritique?.mixQuality?.frequencyBalance?.midrange}, high end: ${parsedCritique?.mixQuality?.frequencyBalance?.highEnd}
 - Song Title Searchability score: ${parsedCritique?.titleSearchability?.score}, uniqueness: ${parsedCritique?.titleSearchability?.uniquenessLevel}
 
-Listen to the actual audio again and generate specific, deduction-based sub-metric scores and commentary for each of the 12 required fields, consistent with the above context but grounded in what you actually hear this time.`;
+Listen to the actual audio again and generate specific, deduction-based sub-metric scores and commentary for each of the 12 required fields, consistent with the above context but grounded in what you actually hear this time.
+
+IF a spectrogram image has been provided alongside the audio: this is a time-resolved amplitude visualization across 24 logarithmically-spaced bands (covering 20Hz to 16000Hz, with lowest frequencies at the bottom and highest at the top). Use it as genuine supporting evidence when scoring overallProduction, spaceAndDensity, mudPrevention, and lowEndDivision. Cross-reference what you see in the spectrogram heatmap against what you hear before finalizing these scores and commentary.`;
 
   const response = await generateContentWithRetry({
     model: "gemini-2.5-flash",
     contents: {
-      parts: [audioPart, { text: contextSummary }],
+      parts: spectrogramImagePart ? [audioPart, spectrogramImagePart, { text: contextSummary }] : [audioPart, { text: contextSummary }],
     },
     config: {
       systemInstruction: SUBMETRIC_SYSTEM_PROMPT,
@@ -897,6 +900,11 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       ? { inlineData: { mimeType: "image/png", data: rhythmImageRaw.replace(/^data:image\/png;base64,/, "") } }
       : null;
 
+    const spectrogramImageRaw = req.body.spectrogramImage;
+    const spectrogramImagePart = spectrogramImageRaw && spectrogramImageRaw.length > 0
+      ? { inlineData: { mimeType: "image/png", data: spectrogramImageRaw.replace(/^data:image\/png;base64,/, "") } }
+      : null;
+
     let userInstruction = "Listen to this songwriter's track and evaluate all aspects of performance, tracking, and mix distribution.";
     if (metaGenre) {
       userInstruction += `\n\n[EMBEDDED FILE METADATA CONTEXT]`;
@@ -924,7 +932,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 
     try {
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
-      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique);
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
@@ -967,7 +975,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 // 3. Direct URL Audio Critique API
 app.post("/api/critique-url", async (req, res) => {
   try {
-    const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre, chromagramImage, rhythmImage } = req.body;
+    const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre, chromagramImage, rhythmImage, spectrogramImage } = req.body;
     const metaGenre = isPlaceholderGenre(rawMetaGenre) ? "" : rawMetaGenre;
     if (!ai) {
       return res.status(500).json({ error: "Gemini API Client is not configured." });
@@ -1005,6 +1013,10 @@ app.post("/api/critique-url", async (req, res) => {
       ? { inlineData: { mimeType: "image/png", data: rhythmImage.replace(/^data:image\/png;base64,/, "") } }
       : null;
 
+    const spectrogramImagePart = spectrogramImage
+      ? { inlineData: { mimeType: "image/png", data: spectrogramImage.replace(/^data:image\/png;base64,/, "") } }
+      : null;
+
     let userInstruction = "Analyze this songwriters track from the direct URL stream. Critically review the production and deliver feedback.";
     if (metaGenre) {
       userInstruction += `\n\n[EMBEDDED FILE METADATA CONTEXT]`;
@@ -1032,7 +1044,7 @@ app.post("/api/critique-url", async (req, res) => {
 
     try {
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
-      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique);
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
       parsedCritique.subMetricsCall1Failed = false;
     } catch (subErr: any) {
