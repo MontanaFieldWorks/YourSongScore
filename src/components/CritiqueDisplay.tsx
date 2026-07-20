@@ -8273,43 +8273,49 @@ function StereoAzimuthVisualizer({ activeTab, onActiveTabChange, refMode, isPlay
       const rowHeight = height / rows;
 
       ctx.save();
-      for (let c = 0; c < cols; c++) {
-        const tc = c / cols;
-        for (let r = 0; r < rows; r++) {
-          const tr = r / rows;
-          let val = 0;
-          
-          if (activeTab === "melodic") {
-            const isNoteFreq = (r === 5 || r === 9 || r === 11 || r === 15 || r === 18 || r === 22);
-            if (isNoteFreq) {
-              val = 0.25 + Math.sin(tc * 14 + r) * 0.35 + Math.cos(tc * 6) * 0.3;
-              if (tc > 0.7) val += 0.22;
+      const hasSpectrogram = liveMetrics?.timeResolvedSpectrogram && liveMetrics.timeResolvedSpectrogram.length > 0;
+
+      if (activeTab === "spectrogram" && !hasSpectrogram) {
+        ctx.fillStyle = "#ef4444";
+        ctx.font = "bold 13px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("Spectrogram data not available for this track - re-analyze to generate it", width / 2, height / 2);
+        // Reset context alignments
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
+      } else {
+        for (let c = 0; c < cols; c++) {
+          const tc = c / cols;
+          for (let r = 0; r < rows; r++) {
+            const tr = r / rows;
+            let val = 0;
+            
+            if (activeTab === "melodic") {
+              const isNoteFreq = (r === 5 || r === 9 || r === 11 || r === 15 || r === 18 || r === 22);
+              if (isNoteFreq) {
+                val = 0.25 + Math.sin(tc * 14 + r) * 0.35 + Math.cos(tc * 6) * 0.3;
+                if (tc > 0.7) val += 0.22;
+              } else {
+                val = Math.random() * 0.12;
+              }
             } else {
-              val = Math.random() * 0.12;
+              // Real spectrogram data from liveMetrics.timeResolvedSpectrogram
+              const specData = liveMetrics.timeResolvedSpectrogram;
+              const frameIdx = Math.min(specData.length - 1, Math.floor(tc * specData.length));
+              const bandIdx = Math.min(23, Math.floor((r / rows) * 24));
+              val = specData[frameIdx]?.[bandIdx] || 0;
             }
-          } else {
-            // normal spectrogram scaled via calculated energies if available
-            if (r > 20) { // sub bass & low end
-              const multiplier = liveMetrics ? (liveMetrics.calculatedBassEnergy / 50) : 1;
-              val = (0.42 + Math.sin(tc * 18) * 0.25 + Math.cos(tc * 7) * 0.2) * multiplier;
-            } else if (r < 7) { // high air frequency
-              const multiplier = liveMetrics ? (liveMetrics.calculatedHighEnergy / 50) : 1;
-              val = (Math.sin(tc * 45) * Math.random() * 0.32) * multiplier;
-            } else { // mids
-              const multiplier = liveMetrics ? (liveMetrics.calculatedMidEnergy / 50) : 1;
-              val = ((0.22 + Math.sin(tc * 12) * 0.2) * (1 - tr * 0.5) + Math.random() * 0.1) * multiplier;
+
+            val = Math.max(0, Math.min(1, val));
+            let color = `rgba(${Math.round(val * 42)}, ${Math.round(val * 155 + 22)}, ${Math.round(val * 215 + 42)}, ${val * 0.8})`;
+            if (val > 0.72) {
+              color = `rgba(30, 215, 96, ${val * 0.9})`; // neon green sparks
             }
-            if (c % 14 === 0) val += 0.32; // rhythmic pulse grid
-          }
 
-          val = Math.max(0, Math.min(1, val));
-          let color = `rgba(${Math.round(val * 42)}, ${Math.round(val * 155 + 22)}, ${Math.round(val * 215 + 42)}, ${val * 0.8})`;
-          if (val > 0.72) {
-            color = `rgba(30, 215, 96, ${val * 0.9})`; // neon green sparks
+            ctx.fillStyle = color;
+            ctx.fillRect(c * colWidth, height - (r * rowHeight) - rowHeight, colWidth + 0.6, rowHeight + 0.6);
           }
-
-          ctx.fillStyle = color;
-          ctx.fillRect(c * colWidth, height - (r * rowHeight) - rowHeight, colWidth + 0.6, rowHeight + 0.6);
         }
       }
       ctx.restore();
