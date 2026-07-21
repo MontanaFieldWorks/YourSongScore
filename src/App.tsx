@@ -1019,6 +1019,10 @@ export default function App() {
           formData.append("stereoCorrelation", String(earlyLiveMetrics?.calculatedStereoCorrelation ?? ""));
           formData.append("sibilanceSeverity", String(earlyLiveMetrics?.calculatedSibilanceSeverityScore ?? ""));
           formData.append("timbralConsistency", String(earlyLiveMetrics?.calculatedTimbralConsistencyScore ?? ""));
+          formData.append("gridCohesion", String(earlyLiveMetrics?.calculatedGridCohesionScore ?? ""));
+          formData.append("transientPunch", String(earlyLiveMetrics?.calculatedTransientPunchScore ?? ""));
+          formData.append("melodicStaging", String(earlyLiveMetrics?.calculatedMelodicStagingScore ?? ""));
+          formData.append("instrumentalWarmth", String(earlyLiveMetrics?.calculatedInstrumentalWarmthScore ?? ""));
           
           const res = await fetch("/api/critique-file", {
             method: "POST",
@@ -1064,7 +1068,11 @@ export default function App() {
               spectrogramImage: spectrogramImageForGemini,
               stereoCorrelation: earlyLiveMetrics?.calculatedStereoCorrelation ?? null,
               sibilanceSeverity: earlyLiveMetrics?.calculatedSibilanceSeverityScore ?? null,
-              timbralConsistency: earlyLiveMetrics?.calculatedTimbralConsistencyScore ?? null
+              timbralConsistency: earlyLiveMetrics?.calculatedTimbralConsistencyScore ?? null,
+              gridCohesion: earlyLiveMetrics?.calculatedGridCohesionScore ?? null,
+              transientPunch: earlyLiveMetrics?.calculatedTransientPunchScore ?? null,
+              melodicStaging: earlyLiveMetrics?.calculatedMelodicStagingScore ?? null,
+              instrumentalWarmth: earlyLiveMetrics?.calculatedInstrumentalWarmthScore ?? null
             }),
           });
           
