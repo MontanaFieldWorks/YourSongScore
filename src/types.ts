@@ -101,6 +101,10 @@ export interface LiveAudioMetrics {
   calculatedSibilanceSpikeCount?: number;
   calculatedSibilanceSeverityScore?: number;
   calculatedTimbralConsistencyScore?: number;
+  calculatedGridCohesionScore?: number;
+  calculatedInstrumentalWarmthScore?: number;
+  calculatedTransientPunchScore?: number;
+  calculatedMelodicStagingScore?: number;
 }
 
 export interface CritiqueData {
