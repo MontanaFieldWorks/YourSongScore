@@ -396,7 +396,7 @@ function getGenreLoudnessBucket(genre?: string, subgenre?: string): { key: strin
   const text = `${genre || ""} ${subgenre || ""}`.toLowerCase();
   const hasAny = (words: string[]) => words.some(w => text.includes(w));
 
-  if (hasAny(["hip hop", "hip-hop", "trap", "rap", "edm", "electronic", "dance", "dubstep", "house", "techno", "drill"])) {
+  if (hasAny(["hip hop", "hip-hop", "trap", "rap", "edm", "electronic", "dance", "dubstep", "house", "techno", "drill", "punk", "metal", "grunge", "hardcore", "metalcore", "industrial", "nu metal", "nu-metal"])) {
     return { key: "hiphop", ...GENRE_LOUDNESS_BUCKETS.hiphop };
   }
   if (hasAny(["classical", "jazz", "ambient", "orchestral", "instrumental", "cinematic", "chamber"])) {
