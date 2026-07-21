@@ -1294,6 +1294,238 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     },
     calculatedSibilanceSpikeCount: sibilanceSpikeCount,
     calculatedSibilanceSeverityScore: sibilanceSeverityScore,
-    calculatedTimbralConsistencyScore: timbralConsistencyScore
+    calculatedTimbralConsistencyScore: timbralConsistencyScore,
+    calculatedGridCohesionScore: (() => {
+      // 1. TIMELINE GRID COHESION
+      // Reuses the onsetStrength array and the detected BPM from earlier in the function.
+      // Identify significant onset peaks (local max and > 40% of the maximum onset strength).
+      // Compute absolute deviation (in seconds) from the nearest expected beat position.
+      let gridCohesionScore = 80; // Fallback default score if no peaks are found
+      if (onsetStrength.length > 0 && detectedBpm > 0) {
+        let peakCount = 0;
+        let totalDeviation = 0;
+        
+        // Find significant onset peaks: local maximum and > 40% of maxOnset
+        for (let i = 1; i < onsetStrength.length - 1; i++) {
+          const val = onsetStrength[i];
+          if (val > onsetStrength[i - 1] && val > onsetStrength[i + 1]) {
+            if (val > 0.4 * maxOnset) {
+              peakCount++;
+              // Convert frame index to seconds using hopSize and sampleRate
+              const peakTimeSec = (i * hopSize) / sampleRate;
+              
+              // Calculate beat interval in seconds
+              const beatIntervalSec = 60 / detectedBpm;
+              
+              // Find nearest expected beat position (which falls at multiples of beatIntervalSec from the start)
+              const beatIndex = Math.round(peakTimeSec / beatIntervalSec);
+              const nearestBeatTimeSec = beatIndex * beatIntervalSec;
+              
+              // Absolute deviation in seconds
+              const deviation = Math.abs(peakTimeSec - nearestBeatTimeSec);
+              totalDeviation += deviation;
+            }
+          }
+        }
+        
+        if (peakCount > 0) {
+          const avgGridDeviation = totalDeviation / peakCount;
+          
+          // Scaling Logic and Calibration Comments:
+          // We want near-zero average deviation to yield a high score, while larger deviations yield lower scores.
+          // Specifically:
+          // - Deviations under 30ms (0.030s) score 90+ (e.g., 0ms is 100, 30ms is 90)
+          // - Deviations over 150ms (0.150s) score well below 50 (e.g., 150ms is 45)
+          // A piecewise linear mapping handles this precisely and cleanly:
+          if (avgGridDeviation <= 0.030) {
+            // Linear mapping from 100 (0ms deviation) to 90 (30ms deviation)
+            gridCohesionScore = 100 - (avgGridDeviation / 0.030) * 10;
+          } else if (avgGridDeviation <= 0.150) {
+            // Linear mapping from 90 (30ms deviation) to 45 (150ms deviation)
+            const t = (avgGridDeviation - 0.030) / (0.150 - 0.030);
+            gridCohesionScore = 90 - t * 45;
+          } else {
+            // Beyond 150ms deviation, score goes down to a minimum of 10
+            const t = (avgGridDeviation - 0.150) / 0.150;
+            gridCohesionScore = Math.max(10, 45 - t * 35);
+          }
+          gridCohesionScore = Math.round(gridCohesionScore);
+        }
+      }
+      return gridCohesionScore;
+    })(),
+    calculatedInstrumentalWarmthScore: (() => {
+      // 2. INSTRUMENTAL WARMTH
+      // Reuses the existing 6-band frequency energy percentages already computed in bandEnergies.
+      // Bass is bandEnergies[1], Low-Mids is bandEnergies[2], Presence is bandEnergies[4], Air is bandEnergies[5].
+      const bassAndLowMids = bandEnergies[1] + bandEnergies[2];
+      const presenceAndAir = bandEnergies[4] + bandEnergies[5];
+      const warmthRatio = bassAndLowMids / Math.max(1, presenceAndAir);
+      
+      // Scaling Logic and Calibration Comments:
+      // Warmth is a balance, not simply maximum bass.
+      // - A ratio around 1.0-1.3 (balanced-to-warm low-mid weight relative to highs) lands in a healthy 75-95 range.
+      // - A ratio well below 1.0 (thin/bright/harsh) scores notably lower (e.g., ratio of 0.5 scores around 45).
+      // - A ratio that is extremely high (overly dark/muffled mix) also scores lower, not higher.
+      let warmthScore = 70;
+      if (warmthRatio >= 1.0 && warmthRatio <= 1.3) {
+        // Ideal range: interpolate peaking at 95 when ratio is 1.15
+        if (warmthRatio <= 1.15) {
+          const t = (warmthRatio - 1.0) / 0.15;
+          warmthScore = 80 + t * 15; // Maps 1.0..1.15 to 80..95
+        } else {
+          const t = (warmthRatio - 1.15) / 0.15;
+          warmthScore = 95 - t * 10; // Maps 1.15..1.3 to 95..85
+        }
+      } else if (warmthRatio < 1.0) {
+        // Thin / bright imbalance: scale from 10 (at 0.0) up to 80 (at 1.0)
+        warmthScore = 10 + warmthRatio * 70;
+      } else {
+        // Muffled / overly dark imbalance: scale down towards lower scores
+        if (warmthRatio <= 3.0) {
+          const t = (warmthRatio - 1.3) / 1.7;
+          warmthScore = 85 - t * 50; // Maps 1.3..3.0 to 85..35
+        } else {
+          const t = Math.min(1.0, (warmthRatio - 3.0) / 2.0);
+          warmthScore = Math.max(10, 35 - t * 25); // Drops to minimum of 10 for extremely dark tracks
+        }
+      }
+      return Math.round(warmthScore);
+    })(),
+    calculatedTransientPunchScore: (() => {
+      // 3. TRANSIENT PUNCH (crest factor at real onset points)
+      // Reuses the same onset peak detection: significant local maxima in onsetStrength, above 40% of maxOnset.
+      // For each detected onset, looks at a short 25ms window of raw audio (ch0) starting at that onset's sample position.
+      let transientPunchScore = 75; // Default fallback score if no peaks are found
+      if (onsetStrength.length > 0) {
+        let peakCount = 0;
+        let totalCrestFactor = 0;
+        const windowSize = Math.floor(sampleRate * 0.025); // 25ms window
+        
+        for (let i = 1; i < onsetStrength.length - 1; i++) {
+          const val = onsetStrength[i];
+          if (val > onsetStrength[i - 1] && val > onsetStrength[i + 1]) {
+            if (val > 0.4 * maxOnset) {
+              peakCount++;
+              
+              // Map envelope index to raw sample index:
+              // envelope was built with hopSize in fCh0, which is downsampled by 'hop' (4)
+              const rawSampleIndex = i * hopSize * hop;
+              const startSample = Math.min(len - 1, rawSampleIndex);
+              const endSample = Math.min(len, startSample + windowSize);
+              
+              let peakAbs = 0;
+              let sumSq = 0;
+              let count = 0;
+              
+              for (let s = startSample; s < endSample; s++) {
+                const sampleVal = Math.abs(ch0[s]);
+                if (sampleVal > peakAbs) {
+                  peakAbs = sampleVal;
+                }
+                sumSq += sampleVal * sampleVal;
+                count++;
+              }
+              
+              if (count > 0) {
+                const rms = Math.sqrt(sumSq / count);
+                // Avoid division by zero and handle tiny values
+                if (rms > 0.0001) {
+                  const crestFactor = peakAbs / rms;
+                  totalCrestFactor += crestFactor;
+                } else {
+                  totalCrestFactor += 1.0; // Minimal crest factor for silence/near-silence
+                }
+              }
+            }
+          }
+        }
+        
+        if (peakCount > 0) {
+          const avgCrestFactor = totalCrestFactor / peakCount;
+          
+          // Scaling Logic and Calibration Comments:
+          // A transient window's crest factor (peak / RMS) reflects how sharp and uncompressed the transient is.
+          // - High-quality, punchy transient peaks typically exhibit a crest factor of 6.0 or greater. We map this to 90+.
+          // - Moderate punchiness displays a crest factor between 3.0 and 6.0, mapping linearly from 50 up to 90.
+          // - Heavily compressed, limited, or mushy music has crest factors below 3.0, mapping to 10 - 50.
+          if (avgCrestFactor >= 6.0) {
+            // High dynamic range and extremely punchy transients (score 90 to 100)
+            transientPunchScore = 90 + Math.min(10, ((avgCrestFactor - 6.0) / 4.0) * 10);
+          } else if (avgCrestFactor >= 3.0) {
+            // Standard/healthy punchiness (score 50 to 90)
+            transientPunchScore = 50 + ((avgCrestFactor - 3.0) / 3.0) * 40;
+          } else {
+            // Over-compressed or mushy transients (score 10 to 50)
+            transientPunchScore = 10 + Math.max(0, ((avgCrestFactor - 1.5) / 1.5) * 40);
+          }
+          transientPunchScore = Math.round(transientPunchScore);
+        }
+      }
+      return transientPunchScore;
+    })(),
+    calculatedMelodicStagingScore: (() => {
+      // 4. MELODIC STAGING (stereo pan-distribution variance)
+      // Measures instrument separation across the stereo field by computing standard variance of pan balance values.
+      // Uses windows matching the chroma frame size (4096 samples).
+      const stagingFrameSize = 4096;
+      const numStagingFrames = Math.floor(len / stagingFrameSize);
+      // Cap at ~400 analyzed frames for fast, non-blocking performance
+      const stagingFrameStep = Math.max(1, Math.floor(numStagingFrames / 400));
+      const panValues: number[] = [];
+      
+      for (let f = 0; f < numStagingFrames; f += stagingFrameStep) {
+        const start = f * stagingFrameSize;
+        const end = Math.min(len, start + stagingFrameSize);
+        
+        let sumSq0 = 0;
+        let sumSq1 = 0;
+        let count = 0;
+        
+        for (let i = start; i < end; i++) {
+          const val0 = ch0[i];
+          const val1 = ch1[i];
+          sumSq0 += val0 * val0;
+          sumSq1 += val1 * val1;
+          count++;
+        }
+        
+        if (count > 0) {
+          const rms0 = Math.sqrt(sumSq0 / count);
+          const rms1 = Math.sqrt(sumSq1 / count);
+          const sumRms = rms0 + rms1;
+          if (sumRms > 0.0001) {
+            const pan = (rms1 - rms0) / sumRms;
+            panValues.push(pan);
+          }
+        }
+      }
+      
+      let stagingScore = 70; // Fallback default score if no frames were processed
+      if (panValues.length > 0) {
+        // Calculate statistical variance of pan balance values across the song
+        const meanPan = panValues.reduce((sum, v) => sum + v, 0) / panValues.length;
+        const sqDiffSum = panValues.reduce((sum, v) => sum + (v - meanPan) * (v - meanPan), 0);
+        const variance = sqDiffSum / panValues.length;
+        
+        // Scaling Logic and Calibration Comments:
+        // Pan values range from -1 (fully left) to +1 (fully right).
+        // - A mono or center-panned song has a variance near 0, indicating minimal stereo staging (score < 50).
+        // - A well-staged, wide stereo track has variance >= 0.04 (score 85+).
+        // - A standard stereo mix with panning across the field scales smoothly between.
+        if (variance >= 0.04) {
+          // Excellent, wide stereo staging (score 85 to 98)
+          stagingScore = 85 + Math.min(13, ((variance - 0.04) / 0.11) * 13);
+        } else if (variance >= 0.005) {
+          // Standard stereo field layout (score 50 to 85)
+          stagingScore = 50 + ((variance - 0.005) / 0.035) * 35;
+        } else {
+          // Extremely narrow or fully mono audio (score 10 to 50)
+          stagingScore = 10 + (variance / 0.005) * 40;
+        }
+        stagingScore = Math.round(stagingScore);
+      }
+      return stagingScore;
+    })()
   };
 }
