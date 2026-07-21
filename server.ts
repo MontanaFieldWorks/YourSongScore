@@ -445,7 +445,13 @@ RULES:
 
 CRITICAL - LYRIC TRANSCRIPTION HONESTY (applies to meaningClarity, clicheAvoidance, and hookPlacement): If your commentary quotes specific lyric lines as evidence, you must be genuinely highly confident that transcription is accurate to what is actually sung. Never invent or reconstruct a plausible-sounding lyric and present it as a real quote - this is a serious factual error. If you are not certain of the exact words, describe the theme, imagery, or emotional content instead of quoting a specific line.
 
-FIELD DEFINITION - instrumentalWarmth (part of instrumentalStagingSubs): judges the general tonal warmth and richness of the backing instrumentation as a whole - does it sound full, rounded, and pleasant, or thin, cold, and harsh? This is about overall instrumental tone character, separate from timing (Timeline Grid Cohesion), attack (Transient Punch), and stereo placement (Melodic Staging).
+FIELD DEFINITION - timelineGridCohesion (part of instrumentalStagingSubs): IMPORTANT - a real, precomputed grid cohesion measurement will be provided above as 'Measured Timeline Grid Cohesion Score' (0-100, based on how closely real detected instrument attacks align with the expected beat grid at the song's actual tempo). You MUST treat this measured value as the primary, authoritative basis for this score - use your own listening impression only as a secondary, qualitative supplement.
+
+FIELD DEFINITION - transientPunch (part of instrumentalStagingSubs): IMPORTANT - a real, precomputed transient punch measurement will be provided above as 'Measured Transient Punch Score' (0-100, based on the real crest factor of detected drum/percussion attacks - higher means sharper, punchier hits; lower means softer, more compressed/squashed transients). Treat this measured value as the primary, authoritative basis for this score.
+
+FIELD DEFINITION - melodicStaging (part of instrumentalStagingSubs): despite its name, this judges stereo placement/panning distribution of instruments, not melody. IMPORTANT - a real, precomputed measurement will be provided above as 'Measured Melodic Staging Score' (0-100, based on real measured variance in the stereo pan balance over time - higher means instruments genuinely occupy distinct places in the stereo field at different times; lower means the mix stays mostly centered with minimal stereo movement). Treat this measured value as the primary, authoritative basis for this score.
+
+FIELD DEFINITION - instrumentalWarmth (part of instrumentalStagingSubs): judges the general tonal warmth and richness of the backing instrumentation - full and rounded versus thin and harsh. IMPORTANT - a real, precomputed warmth measurement will be provided above as 'Measured Instrumental Warmth Score' (0-100, based on the real measured ratio of low-mid frequency energy to high-frequency energy). Treat this measured value as the primary, authoritative basis for this score, using your own listening impression only as a secondary supplement.
 
 FIELD DEFINITION - pitchAccuracy (part of vocalTrackingSubs): judges genuine pitch drift and intonation stability ONLY - do not confuse this with vocal timbre. A raspy, gritty, distorted, or aggressive vocal delivery (common in rock, punk, blues, and similar genres) can create the AUDITORY IMPRESSION of pitch instability due to the vocal's harmonic complexity and grain, without the singer actually being off-pitch. Before deducting points, confirm the note is genuinely landing on the wrong pitch relative to the underlying harmony - not simply that the vocal has a rough, unpolished, or grainy tonal quality. A technically in-tune singer with a naturally raspy or aggressive voice should score highly here; reserve deductions for cases where the actual pitch center is audibly wrong, not merely where the vocal timbre sounds "imperfect" or "raw."`;
 
@@ -453,7 +459,11 @@ async function performSubMetricsCall3(
   audioPart: any,
   parsedCritique: any,
   chromagramImagePart?: any,
-  rhythmImagePart?: any
+  rhythmImagePart?: any,
+  measuredGridCohesion?: number,
+  measuredTransientPunch?: number,
+  measuredMelodicStaging?: number,
+  measuredInstrumentalWarmth?: number
 ): Promise<any> {
   const contextSummary = `
 Parent category context already determined:
@@ -464,6 +474,10 @@ Parent category context already determined:
 - Music Theory score: ${parsedCritique?.musicTheory?.score}, chord structures: ${parsedCritique?.musicTheory?.chordStructures}
 - Harmonic Intrigue (already scored in a separate pass): ${parsedCritique?.subMetricsCall2?.artisticAnalysis?.harmonicIntrigue?.score ?? "N/A"}/100, notes: "${parsedCritique?.subMetricsCall2?.artisticAnalysis?.harmonicIntrigue?.commentary ?? "N/A"}"
 - Genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
+- Measured Timeline Grid Cohesion Score: ${measuredGridCohesion !== undefined && measuredGridCohesion !== null ? measuredGridCohesion : 'not available'}
+- Measured Transient Punch Score: ${measuredTransientPunch !== undefined && measuredTransientPunch !== null ? measuredTransientPunch : 'not available'}
+- Measured Melodic Staging Score: ${measuredMelodicStaging !== undefined && measuredMelodicStaging !== null ? measuredMelodicStaging : 'not available'}
+- Measured Instrumental Warmth Score: ${measuredInstrumentalWarmth !== undefined && measuredInstrumentalWarmth !== null ? measuredInstrumentalWarmth : 'not available'}
 
 CONSISTENCY REQUIREMENT: Your meaningClarity sub-score and commentary MUST be consistent with the parent Lyrical Impact's meaning classification shown above - if the parent was classified "Clear", do not describe the lyrics as abstract, dream-like, or oblique in your sub-commentary, and vice versa. Similarly, your chordDynamics score should be consistent with the Harmonic Intrigue score shown above (both describe overlapping harmonic content) - do not score chordDynamics dramatically higher than Harmonic Intrigue unless your commentary specifically identifies a distinct, real reason for the difference (e.g. Harmonic Intrigue addresses novelty/complexity while Chord Dynamics addresses functional/dynamic use of chords - these can differ, but only for a specific, stated reason, not by default).
 
@@ -934,6 +948,26 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       ? parseFloat(timbralConsistencyRaw)
       : undefined;
 
+    const gridCohesionRaw = req.body.gridCohesion;
+    const gridCohesion = (gridCohesionRaw !== undefined && gridCohesionRaw !== null && gridCohesionRaw !== "")
+      ? parseFloat(gridCohesionRaw)
+      : undefined;
+
+    const transientPunchRaw = req.body.transientPunch;
+    const transientPunch = (transientPunchRaw !== undefined && transientPunchRaw !== null && transientPunchRaw !== "")
+      ? parseFloat(transientPunchRaw)
+      : undefined;
+
+    const melodicStagingRaw = req.body.melodicStaging;
+    const melodicStaging = (melodicStagingRaw !== undefined && melodicStagingRaw !== null && melodicStagingRaw !== "")
+      ? parseFloat(melodicStagingRaw)
+      : undefined;
+
+    const instrumentalWarmthRaw = req.body.instrumentalWarmth;
+    const instrumentalWarmth = (instrumentalWarmthRaw !== undefined && instrumentalWarmthRaw !== null && instrumentalWarmthRaw !== "")
+      ? parseFloat(instrumentalWarmthRaw)
+      : undefined;
+
     let userInstruction = "Listen to this songwriter's track and evaluate all aspects of performance, tracking, and mix distribution.";
     if (metaGenre) {
       userInstruction += `\n\n[EMBEDDED FILE METADATA CONTEXT]`;
@@ -983,7 +1017,16 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 
     try {
       console.log("[Call 3] Starting Sub-Metrics Call 3...");
-      const subMetricsCall3 = await performSubMetricsCall3(audioPart, parsedCritique, chromagramImagePart, rhythmImagePart);
+      const subMetricsCall3 = await performSubMetricsCall3(
+        audioPart,
+        parsedCritique,
+        chromagramImagePart,
+        rhythmImagePart,
+        gridCohesion,
+        transientPunch,
+        melodicStaging,
+        instrumentalWarmth
+      );
       parsedCritique.subMetricsCall3 = subMetricsCall3;
       parsedCritique.subMetricsCall3Failed = false;
       console.log("[Call 3] Sub-Metrics Call 3 completed successfully.");
@@ -1004,7 +1047,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 // 3. Direct URL Audio Critique API
 app.post("/api/critique-url", async (req, res) => {
   try {
-    const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre, chromagramImage, rhythmImage, spectrogramImage, stereoCorrelation: rawStereoCorrelation, sibilanceSeverity: rawSibilanceSeverity, timbralConsistency: rawTimbralConsistency } = req.body;
+    const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre, chromagramImage, rhythmImage, spectrogramImage, stereoCorrelation: rawStereoCorrelation, sibilanceSeverity: rawSibilanceSeverity, timbralConsistency: rawTimbralConsistency, gridCohesion: rawGridCohesion, transientPunch: rawTransientPunch, melodicStaging: rawMelodicStaging, instrumentalWarmth: rawInstrumentalWarmth } = req.body;
     const metaGenre = isPlaceholderGenre(rawMetaGenre) ? "" : rawMetaGenre;
     const stereoCorrelation = (rawStereoCorrelation !== undefined && rawStereoCorrelation !== null && rawStereoCorrelation !== "")
       ? parseFloat(rawStereoCorrelation)
@@ -1014,6 +1057,18 @@ app.post("/api/critique-url", async (req, res) => {
       : undefined;
     const timbralConsistency = (rawTimbralConsistency !== undefined && rawTimbralConsistency !== null && rawTimbralConsistency !== "")
       ? parseFloat(rawTimbralConsistency)
+      : undefined;
+    const gridCohesion = (rawGridCohesion !== undefined && rawGridCohesion !== null && rawGridCohesion !== "")
+      ? parseFloat(rawGridCohesion)
+      : undefined;
+    const transientPunch = (rawTransientPunch !== undefined && rawTransientPunch !== null && rawTransientPunch !== "")
+      ? parseFloat(rawTransientPunch)
+      : undefined;
+    const melodicStaging = (rawMelodicStaging !== undefined && rawMelodicStaging !== null && rawMelodicStaging !== "")
+      ? parseFloat(rawMelodicStaging)
+      : undefined;
+    const instrumentalWarmth = (rawInstrumentalWarmth !== undefined && rawInstrumentalWarmth !== null && rawInstrumentalWarmth !== "")
+      ? parseFloat(rawInstrumentalWarmth)
       : undefined;
     if (!ai) {
       return res.status(500).json({ error: "Gemini API Client is not configured." });
@@ -1102,7 +1157,16 @@ app.post("/api/critique-url", async (req, res) => {
 
     try {
       console.log("[Call 3] Starting Sub-Metrics Call 3 (URL route)...");
-      const subMetricsCall3 = await performSubMetricsCall3(audioPart, parsedCritique, chromagramImagePart, rhythmImagePart);
+      const subMetricsCall3 = await performSubMetricsCall3(
+        audioPart,
+        parsedCritique,
+        chromagramImagePart,
+        rhythmImagePart,
+        gridCohesion,
+        transientPunch,
+        melodicStaging,
+        instrumentalWarmth
+      );
       parsedCritique.subMetricsCall3 = subMetricsCall3;
       parsedCritique.subMetricsCall3Failed = false;
     } catch (subErr: any) {
