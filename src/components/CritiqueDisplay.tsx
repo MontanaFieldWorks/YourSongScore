@@ -624,13 +624,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const liveMaxBound = Math.round(profile.liveMax * 100);
 
   // Match calculations based on spreadsheet bounds
-  const danceabilityMatch = danceability >= danceMinBound && danceability <= danceMaxBound ? 100 : Math.max(70, Math.min(100, Math.round(100 - Math.abs(danceability - targetDanceability))));
-  const energyMatch = energy >= energyMinBound && energy <= energyMaxBound ? 100 : Math.max(70, Math.min(100, Math.round(100 - Math.abs(energy - targetEnergy))));
-  const acousticnessMatch = acousticness >= acousticMinBound && acousticness <= acousticMaxBound ? 100 : Math.max(70, Math.min(100, Math.round(100 - Math.abs(acousticness - targetAcousticness))));
-  const valenceMatch = valence >= valenceMinBound && valence <= valenceMaxBound ? 100 : Math.max(70, Math.min(100, Math.round(100 - Math.abs(valence - targetValence))));
-  const speechinessMatch = speechiness >= speechMinBound && speechiness <= speechMaxBound ? 100 : Math.max(70, Math.min(100, Math.round(100 - Math.abs(speechiness - targetSpeechiness))));
-  const instrumentalnessMatch = instrumentalness >= instMinBound && instrumentalness <= instMaxBound ? 100 : Math.max(70, Math.min(100, Math.round(100 - Math.abs(instrumentalness - targetInstrumentalness))));
-  const livenessMatch = liveness >= liveMinBound && liveness <= liveMaxBound ? 100 : Math.max(70, Math.min(100, Math.round(100 - Math.abs(liveness - targetLiveness))));
+  const danceabilityMatch = danceability >= danceMinBound && danceability <= danceMaxBound ? 100 : Math.max(0, Math.min(100, Math.round(100 - Math.abs(danceability - targetDanceability))));
+  const energyMatch = energy >= energyMinBound && energy <= energyMaxBound ? 100 : Math.max(0, Math.min(100, Math.round(100 - Math.abs(energy - targetEnergy))));
+  const acousticnessMatch = acousticness >= acousticMinBound && acousticness <= acousticMaxBound ? 100 : Math.max(0, Math.min(100, Math.round(100 - Math.abs(acousticness - targetAcousticness))));
+  const valenceMatch = valence >= valenceMinBound && valence <= valenceMaxBound ? 100 : Math.max(0, Math.min(100, Math.round(100 - Math.abs(valence - targetValence))));
+  const speechinessMatch = speechiness >= speechMinBound && speechiness <= speechMaxBound ? 100 : Math.max(0, Math.min(100, Math.round(100 - Math.abs(speechiness - targetSpeechiness))));
+  const instrumentalnessMatch = instrumentalness >= instMinBound && instrumentalness <= instMaxBound ? 100 : Math.max(0, Math.min(100, Math.round(100 - Math.abs(instrumentalness - targetInstrumentalness))));
+  const livenessMatch = liveness >= liveMinBound && liveness <= liveMaxBound ? 100 : Math.max(0, Math.min(100, Math.round(100 - Math.abs(liveness - targetLiveness))));
 
   let spotifyTruePeak = -1.05;
   if (commercialReadinessVal > 88 && mixScoreVal < 68) {
