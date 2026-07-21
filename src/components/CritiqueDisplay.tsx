@@ -387,6 +387,7 @@ function PQMetricCard({ label, score, desc, improve, idx }: PQMetricCardProps) {
 
 const GENRE_LOUDNESS_BUCKETS: Record<string, { label: string; lufsMin: number; lufsMax: number; lraMin: number; lraMax: number | null }> = {
   hiphop: { label: "Hip-Hop / Trap / EDM", lufsMin: -10, lufsMax: -7, lraMin: 4, lraMax: 8 },
+  highEnergyRock: { label: "Punk / Metal / Hardcore", lufsMin: -9, lufsMax: -6, lraMin: 4, lraMax: 9 },
   mainstream: { label: "Pop / Rock / Country", lufsMin: -12, lufsMax: -9, lraMin: 6, lraMax: 12 },
   indie: { label: "Indie / Acoustic / Singer-Songwriter", lufsMin: -14, lufsMax: -11, lraMin: 10, lraMax: 15 },
   classical: { label: "Classical / Jazz / Folk / Ambient", lufsMin: -18, lufsMax: -14, lraMin: 15, lraMax: null },
@@ -396,8 +397,11 @@ function getGenreLoudnessBucket(genre?: string, subgenre?: string): { key: strin
   const text = `${genre || ""} ${subgenre || ""}`.toLowerCase();
   const hasAny = (words: string[]) => words.some(w => text.includes(w));
 
-  if (hasAny(["hip hop", "hip-hop", "trap", "rap", "edm", "electronic", "dance", "dubstep", "house", "techno", "drill", "punk", "metal", "grunge", "hardcore", "metalcore", "industrial", "nu metal", "nu-metal"])) {
+  if (hasAny(["hip hop", "hip-hop", "trap", "rap", "edm", "electronic", "dance", "dubstep", "house", "techno", "drill"])) {
     return { key: "hiphop", ...GENRE_LOUDNESS_BUCKETS.hiphop };
+  }
+  if (hasAny(["punk", "metal", "grunge", "hardcore", "metalcore", "industrial", "nu metal", "nu-metal"])) {
+    return { key: "highEnergyRock", ...GENRE_LOUDNESS_BUCKETS.highEnergyRock };
   }
   if (hasAny(["classical", "jazz", "ambient", "orchestral", "instrumental", "cinematic", "chamber"])) {
     return { key: "classical", ...GENRE_LOUDNESS_BUCKETS.classical };
