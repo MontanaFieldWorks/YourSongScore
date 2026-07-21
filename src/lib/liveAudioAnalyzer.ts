@@ -1054,7 +1054,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     // 3. Absolute threshold + local minimum check
     let bestTau = -1;
     for (let tau = 2; tau < yinMaxTau; tau++) {
-      if (cmndf[tau] < 0.15) {
+      if (cmndf[tau] < 0.25) {
         if (cmndf[tau] < cmndf[tau - 1] && cmndf[tau] < cmndf[tau + 1]) {
           bestTau = tau;
           break;
