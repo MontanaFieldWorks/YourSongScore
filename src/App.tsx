@@ -997,6 +997,26 @@ export default function App() {
       console.warn("Could not compute early liveMetrics/chromagram:", errEarly);
     }
 
+    let chordProgressionSummary: string | null = null;
+    if (earlyLiveMetrics && earlyLiveMetrics.detectedChordProgressionNamed && earlyLiveMetrics.detectedChordProgressionNamed.length > 0) {
+      chordProgressionSummary = earlyLiveMetrics.detectedChordProgressionNamed
+        .map((seg: any) => `${seg.name} (${seg.startTimeSec}s-${seg.endTimeSec}s)`)
+        .join(" -> ");
+    }
+
+    let melodySummary: string | null = null;
+    if (earlyLiveMetrics && earlyLiveMetrics.detectedMelodyNotes && earlyLiveMetrics.detectedMelodyNotes.notes && earlyLiveMetrics.detectedMelodyNotes.notes.length > 0) {
+      const notesList = earlyLiveMetrics.detectedMelodyNotes.notes
+        .slice(0, 60) // cap length to keep the prompt reasonably sized
+        .map((n: any) => {
+          const noteNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+          const name = noteNames[((n.midiNote % 12) + 12) % 12] + (Math.floor(n.midiNote / 12) - 1);
+          return `${name}@${n.startTimeSec.toFixed(2)}s`;
+        })
+        .join(", ");
+      melodySummary = `${earlyLiveMetrics.detectedMelodyNotes.notes.length} discrete pitched notes detected. Interval breakdown: ${earlyLiveMetrics.detectedMelodyNotes.totalSteps} steps, ${earlyLiveMetrics.detectedMelodyNotes.totalLeaps} leaps, ${earlyLiveMetrics.detectedMelodyNotes.totalRepeats} repeats (step-to-leap ratio: ${earlyLiveMetrics.detectedMelodyNotes.stepToLeapRatio.toFixed(2)}). Sample of detected notes with timestamps: ${notesList}`;
+    }
+
     try {
       let finalCritique: CritiqueData;
 
@@ -1023,6 +1043,8 @@ export default function App() {
           formData.append("transientPunch", String(earlyLiveMetrics?.calculatedTransientPunchScore ?? ""));
           formData.append("melodicStaging", String(earlyLiveMetrics?.calculatedMelodicStagingScore ?? ""));
           formData.append("instrumentalWarmth", String(earlyLiveMetrics?.calculatedInstrumentalWarmthScore ?? ""));
+          formData.append("chordProgressionSummary", chordProgressionSummary || "");
+          formData.append("melodySummary", melodySummary || "");
           
           const res = await fetch("/api/critique-file", {
             method: "POST",
@@ -1072,7 +1094,9 @@ export default function App() {
               gridCohesion: earlyLiveMetrics?.calculatedGridCohesionScore ?? null,
               transientPunch: earlyLiveMetrics?.calculatedTransientPunchScore ?? null,
               melodicStaging: earlyLiveMetrics?.calculatedMelodicStagingScore ?? null,
-              instrumentalWarmth: earlyLiveMetrics?.calculatedInstrumentalWarmthScore ?? null
+              instrumentalWarmth: earlyLiveMetrics?.calculatedInstrumentalWarmthScore ?? null,
+              chordProgressionSummary: chordProgressionSummary,
+              melodySummary: melodySummary
             }),
           });
           
