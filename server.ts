@@ -344,7 +344,9 @@ RUBRIC ANCHOR FOR HARMONIC INTRIGUE AND ACOUSTIC TENSION (dynamicModulation, cli
 
 async function performSubMetricsCall2(
   audioPart: any,
-  parsedCritique: any
+  parsedCritique: any,
+  chordProgressionSummary?: string,
+  melodySummary?: string
 ): Promise<any> {
   const contextSummary = `
 Parent category context already determined:
@@ -353,6 +355,9 @@ Parent category context already determined:
 - Lyrical Impact score: ${parsedCritique?.lyricalImpact?.score}, clarity: ${parsedCritique?.lyricalImpact?.meaningClarity}
 - Vocal Tracking score: ${parsedCritique?.performance?.vocalScore}, notes: ${parsedCritique?.performance?.vocalsCritique}
 - Genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
+
+IF a real detected chord progression is provided below, treat it as genuine, computed ground truth for the song's actual harmonic content - use it as the primary basis for judging harmonicIntrigue, not just your own listening impression:
+Detected Chord Progression: ${chordProgressionSummary || 'not available'}
 
 Listen to the actual audio again and generate specific, deduction-based scores, feedback, and sub-metric commentary for all 4 categories and their 9 sub-fields, consistent with the above context but grounded in what you actually hear this time.`;
 
@@ -435,6 +440,8 @@ For musicTheorySubs and compositionFlowSubs especially: before settling on a sco
 
 RUBRIC ANCHOR FOR CHORD DYNAMICS AND FORM & STRUCTURE: the instruction above applies ONLY when genuine sophistication is actually present - it does not mean every track defaults toward 90+. A score of 90-100 must be reserved for genuine, demonstrated musical sophistication or deviation - real modulations, structural surprises, non-diatonic harmonic movement, or similarly distinctive craft you can point to specifically. Below that ceiling, DO NOT cluster every conventional track into the same narrow band - differentiate genuinely within the 40-89 range based on how much real craft or interest is actually present, even when none of it is exceptional. A track with genuinely minimal chord movement or an extremely bare, repetitive structure should score in the 40-60 range - this is not a penalty, simply an honest reflection of very sparse content, and is common and legitimate in many genres. A track with real, if modest, craft beyond the bare minimum (chord choices that create genuine if unremarkable movement, a structure with at least one real point of interest) should score in the 65-85 range depending on how much genuine interest is present. Two tracks that are both "conventional" are not necessarily equally conventional - listen for the actual difference in craft between them and let the score reflect it, rather than clustering all non-exceptional tracks into the same narrow number. Reserve scores below 40 only for songs that show genuine weaknesses - sloppy execution, unclear structure, or harmonically unconvincing choices, not merely simplicity.
 
+FIELD DEFINITION - chordDynamics: when a real Detected Chord Progression is provided in the context above, use those actual chord names and their sequence as your primary evidence for judging harmonic sophistication, tension/release, and voice-leading - this is genuine computed data, not a guess, and should ground your commentary in specific real chord names rather than generic descriptions like 'diatonic chords.'
+
 FAIRNESS RULE - DO NOT PENALIZE INTENTIONAL GENRE SIMPLICITY:
 A deliberately simple, repetitive, or stripped-down approach (e.g. punk power chords, minimal vocal layering) is not automatically a flaw if it suits the genre and is executed well. Only deduct points for genuine lack of craft or real technical problems, never for simplicity itself.
 
@@ -453,7 +460,7 @@ FIELD DEFINITION - melodicStaging (part of instrumentalStagingSubs): despite its
 
 FIELD DEFINITION - instrumentalWarmth (part of instrumentalStagingSubs): judges the general tonal warmth and richness of the backing instrumentation - full and rounded versus thin and harsh. IMPORTANT - a real, precomputed warmth measurement will be provided above as 'Measured Instrumental Warmth Score' (0-100, based on the real measured ratio of low-mid frequency energy to high-frequency energy). Treat this measured value as the primary, authoritative basis for this score, using your own listening impression only as a secondary supplement.
 
-FIELD DEFINITION - pitchAccuracy (part of vocalTrackingSubs): judges genuine pitch drift and intonation stability ONLY - do not confuse this with vocal timbre. A raspy, gritty, distorted, or aggressive vocal delivery (common in rock, punk, blues, and similar genres) can create the AUDITORY IMPRESSION of pitch instability due to the vocal's harmonic complexity and grain, without the singer actually being off-pitch. Before deducting points, confirm the note is genuinely landing on the wrong pitch relative to the underlying harmony - not simply that the vocal has a rough, unpolished, or grainy tonal quality. A technically in-tune singer with a naturally raspy or aggressive voice should score highly here; reserve deductions for cases where the actual pitch center is audibly wrong, not merely where the vocal timbre sounds "imperfect" or "raw."`;
+FIELD DEFINITION - pitchAccuracy (part of vocalTrackingSubs): judges genuine pitch drift and intonation stability ONLY - do not confuse this with vocal timbre. A raspy, gritty, distorted, or aggressive vocal delivery (common in rock, punk, blues, and similar genres) can create the AUDITORY IMPRESSION of pitch instability due to the vocal's harmonic complexity and grain, without the singer actually being off-pitch. Before deducting points, confirm the note is genuinely landing on the wrong pitch relative to the underlying harmony - not simply that the vocal has a rough, unpolished, or grainy tonal quality. A technically in-tune singer with a naturally raspy or aggressive voice should score highly here; reserve deductions for cases where the actual pitch center is audibly wrong, not merely where the vocal timbre sounds "imperfect" or "raw." ADDITIONALLY: if real Detected Melody/Pitch Data is provided in the context above, use it as supporting evidence, keeping in mind the caveat that it reflects the dominant mix pitch generally, not confirmed-isolated vocal - weight your own listening impression more heavily than this data specifically for pitchAccuracy, unlike chordDynamics and melody where the detected data should be primary.`;
 
 async function performSubMetricsCall3(
   audioPart: any,
@@ -463,7 +470,9 @@ async function performSubMetricsCall3(
   measuredGridCohesion?: number,
   measuredTransientPunch?: number,
   measuredMelodicStaging?: number,
-  measuredInstrumentalWarmth?: number
+  measuredInstrumentalWarmth?: number,
+  chordProgressionSummary?: string,
+  melodySummary?: string
 ): Promise<any> {
   const contextSummary = `
 Parent category context already determined:
@@ -484,6 +493,10 @@ CONSISTENCY REQUIREMENT: Your meaningClarity sub-score and commentary MUST be co
 IF a chromagram image has been provided alongside the audio: this is a time-resolved visualization of pitch-class energy across the song's full duration (12 rows, one per pitch class C through B, x-axis is time). Use it as genuine supporting evidence when scoring musicTheorySubs specifically - look for visual patterns indicating key changes, modal color, unusual harmonic movement, or rhythmic/metric irregularities that might be easy to miss by ear alone. Cross-reference what you see in the image against what you hear before finalizing chordDynamics, harmonicVariety, and formAndStructure scores and commentary.
 
 IF a rhythm onset image has been provided alongside the audio: this is an 800x300 canvas showing rhythmic attack energy (amber bars) plotted over the song's full duration, with thin gridlines marking expected beat positions at the detected tempo (brighter gridlines mark the first beat of each measure). Use this specifically when scoring musicTheorySubs, particularly formAndStructure - look for places where the bars drift off the grid, cluster irregularly, or show grouping patterns inconsistent with a steady 4/4 or 3/4 feel (for example, quintuplet or other non-standard rhythmic groupings, or a meter shift partway through the track). This is strong visual evidence of metric or rhythmic complexity that might otherwise be missed by ear alone, and should directly inform the formAndStructure score and commentary - do not default to describing "no unusual time signatures" if the image shows a clear deviation from the grid.
+
+Detected Chord Progression (real, computed ground truth - use as the primary basis for chordDynamics scoring, not just your own listening impression): ${chordProgressionSummary || 'not available'}
+Detected Melody/Pitch Data (real, computed): ${melodySummary || 'not available'}
+IMPORTANT CAVEAT on the melody data above: this reflects the dominant monophonic pitch detected in the mix at each moment, which is usually but not always the lead vocal - during instrumental sections or dense arrangements it may reflect a lead instrument instead. Use it as genuine supporting evidence for the melody score, but do not treat it as confirmed, isolated vocal data.
 
 Listen to the actual audio again and generate specific, deduction-based scores and commentary for all 16 sub-fields across these 5 categories, consistent with the above context but grounded in what you actually hear this time. Actively scan for genuine technical sophistication before defaulting to surface-level descriptions.`;
 
@@ -968,6 +981,9 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       ? parseFloat(instrumentalWarmthRaw)
       : undefined;
 
+    const chordProgressionSummary = req.body.chordProgressionSummary || undefined;
+    const melodySummary = req.body.melodySummary || undefined;
+
     let userInstruction = "Listen to this songwriter's track and evaluate all aspects of performance, tracking, and mix distribution.";
     if (metaGenre) {
       userInstruction += `\n\n[EMBEDDED FILE METADATA CONTEXT]`;
@@ -1006,7 +1022,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 
     try {
       console.log("[Call 2] Starting Sub-Metrics Call 2...");
-      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique);
+      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique, chordProgressionSummary, melodySummary);
       parsedCritique.subMetricsCall2 = subMetricsCall2;
       parsedCritique.subMetricsCall2Failed = false;
       console.log("[Call 2] Sub-Metrics Call 2 completed successfully.");
@@ -1025,7 +1041,9 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
         gridCohesion,
         transientPunch,
         melodicStaging,
-        instrumentalWarmth
+        instrumentalWarmth,
+        chordProgressionSummary,
+        melodySummary
       );
       parsedCritique.subMetricsCall3 = subMetricsCall3;
       parsedCritique.subMetricsCall3Failed = false;
@@ -1048,6 +1066,8 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 app.post("/api/critique-url", async (req, res) => {
   try {
     const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre, chromagramImage, rhythmImage, spectrogramImage, stereoCorrelation: rawStereoCorrelation, sibilanceSeverity: rawSibilanceSeverity, timbralConsistency: rawTimbralConsistency, gridCohesion: rawGridCohesion, transientPunch: rawTransientPunch, melodicStaging: rawMelodicStaging, instrumentalWarmth: rawInstrumentalWarmth } = req.body;
+    const chordProgressionSummary = req.body.chordProgressionSummary || undefined;
+    const melodySummary = req.body.melodySummary || undefined;
     const metaGenre = isPlaceholderGenre(rawMetaGenre) ? "" : rawMetaGenre;
     const stereoCorrelation = (rawStereoCorrelation !== undefined && rawStereoCorrelation !== null && rawStereoCorrelation !== "")
       ? parseFloat(rawStereoCorrelation)
@@ -1147,7 +1167,7 @@ app.post("/api/critique-url", async (req, res) => {
 
     try {
       console.log("[Call 2] Starting Sub-Metrics Call 2 (URL route)...");
-      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique);
+      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique, chordProgressionSummary, melodySummary);
       parsedCritique.subMetricsCall2 = subMetricsCall2;
       parsedCritique.subMetricsCall2Failed = false;
     } catch (subErr: any) {
@@ -1165,7 +1185,9 @@ app.post("/api/critique-url", async (req, res) => {
         gridCohesion,
         transientPunch,
         melodicStaging,
-        instrumentalWarmth
+        instrumentalWarmth,
+        chordProgressionSummary,
+        melodySummary
       );
       parsedCritique.subMetricsCall3 = subMetricsCall3;
       parsedCritique.subMetricsCall3Failed = false;
