@@ -8,6 +8,7 @@ import UploadSection from "./components/UploadSection";
 import SpotifySection from "./components/SpotifySection";
 import SamplesSection from "./components/SamplesSection";
 import CritiqueDisplay from "./components/CritiqueDisplay";
+import CritiqueSummary from "./components/CritiqueSummary";
 import DefinitionsPage from "./components/DefinitionsPage";
 import MetaDataGenerator from "./components/MetaDataGenerator";
 import WhatIsPage from "./components/WhatIsPage";
@@ -53,6 +54,13 @@ export default function App() {
   const [errorHeader, setErrorHeader] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [critiqueResult, setCritiqueResult] = useState<CritiqueResponse | null>(null);
+  const [viewingFullAudit, setViewingFullAudit] = useState(false);
+
+  React.useEffect(() => {
+    if (critiqueResult) {
+      setViewingFullAudit(false);
+    }
+  }, [critiqueResult]);
 
   // States for definitions routing
   const [viewingDefinitions, setViewingDefinitions] = useState(false);
@@ -1716,42 +1724,51 @@ export default function App() {
             }}
           />
         ) : critiqueResult ? (
-          // Active view: Display completed Studio Critique
-          <div className="animate-fadeIn flex flex-col gap-5">
-            <CritiqueDisplay
-              critique={critiqueResult.critique}
-              trackInfo={critiqueResult.trackInfo}
+          viewingFullAudit ? (
+            // Active view: Display completed Studio Critique
+            <div className="animate-fadeIn flex flex-col gap-5">
+              <CritiqueDisplay
+                critique={critiqueResult.critique}
+                trackInfo={critiqueResult.trackInfo}
+                onClear={clearCritique}
+                localFileBlobUrl={localFileBlobUrl}
+                onViewDefinition={handleViewDefinition}
+                onNavigateToEngineeringStudio={() => {
+                  setViewingEngineeringStudio(true);
+                  setViewingUsefulTools(false);
+                  setViewingDefinitions(false);
+                  setViewingArRep(false);
+                  setViewingDashboard(false);
+                  setViewingAboutPage(false);
+                  setViewingWhatItDoesPage(false);
+                }}
+                onOpenArConsult={() => {
+                  setViewingArRep(true);
+                  setViewingDashboard(false);
+                  setViewingAboutPage(false);
+                  setViewingWhatItDoesPage(false);
+                  setViewingDefinitions(false);
+                  setViewingEngineeringStudio(false);
+                }}
+                onNavigateToRabbitHole={() => {
+                  setViewingRabbitHoleV2(true);
+                  setViewingDefinitions(false);
+                  setViewingArRep(false);
+                  setViewingDashboard(false);
+                  setViewingAboutPage(false);
+                  setViewingWhatItDoesPage(false);
+                  setViewingEngineeringStudio(false);
+                }}
+              />
+            </div>
+          ) : (
+            <CritiqueSummary 
+              critique={critiqueResult.critique} 
+              trackInfo={critiqueResult.trackInfo} 
+              onViewFullAudit={() => setViewingFullAudit(true)} 
               onClear={clearCritique}
-              localFileBlobUrl={localFileBlobUrl}
-              onViewDefinition={handleViewDefinition}
-              onNavigateToEngineeringStudio={() => {
-                setViewingEngineeringStudio(true);
-                setViewingUsefulTools(false);
-                setViewingDefinitions(false);
-                setViewingArRep(false);
-                setViewingDashboard(false);
-                setViewingAboutPage(false);
-                setViewingWhatItDoesPage(false);
-              }}
-              onOpenArConsult={() => {
-                setViewingArRep(true);
-                setViewingDashboard(false);
-                setViewingAboutPage(false);
-                setViewingWhatItDoesPage(false);
-                setViewingDefinitions(false);
-                setViewingEngineeringStudio(false);
-              }}
-              onNavigateToRabbitHole={() => {
-                setViewingRabbitHoleV2(true);
-                setViewingDefinitions(false);
-                setViewingArRep(false);
-                setViewingDashboard(false);
-                setViewingAboutPage(false);
-                setViewingWhatItDoesPage(false);
-                setViewingEngineeringStudio(false);
-              }}
             />
-          </div>
+          )
         ) : (
           // Setup view: Inputs, loaders and sandbox items
           <div className="flex flex-col gap-8 animate-fadeIn">
