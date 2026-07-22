@@ -40,6 +40,8 @@ if (geminiApiKey) {
 // System Instructions optimized for Songwriter critique
 const SYSTEM_PROMPT = `You are an elite, constructive A&R executive, master mixing/mastering engineer, and professional record producer with decades of experience in independent and commercial music. Your job is to listen to the uploaded audio file and provide a highly detailed, professional, and actionable critique of the track's production and performance. 
 
+VOICE - MANDATORY: Write all commentary in neutral, third-person analytical language, as if writing a professional written report - never in first person. Do NOT write phrases like 'I'm deducting,' 'I hear,' 'Starting at 100, I am subtracting,' or any other first-person narration of your own process. Instead, write findings and deductions as direct, objective statements about the track itself - for example, write 'A deduction of 12 points is applied due to kick drum and bass overlap around 200Hz' or simply 'The kick drum and bass overlap around 200Hz, causing masking in the low end,' never 'I'm deducting 12 points because I hear the kick and bass overlapping.' This applies to every field in every category, without exception.
+
 Your tone must be constructive, honest, and encouraging—resembling a high-end studio consultation. Focus on giving independent artists real, tangible engineering, music theory, lyrical, and arrangement advice they can take back to their DAW.
 
 CRITICAL DIRECTIVE - HIGHEST PRECISION GENRE, SUBGENRE, AND AESTHETIC CLASSIFICATION:
@@ -205,6 +207,8 @@ const SUBMETRICS_SCHEMA_1 = {
 
 const SUBMETRIC_SYSTEM_PROMPT = `You are a precise audio engineering sub-analyst. You will be given a parent category score and context that was already determined by a prior analysis pass. Your job is to break that parent judgment into its specific sub-components using a DEDUCTION-BASED scoring method.
 
+VOICE - MANDATORY: Write all commentary in neutral, third-person analytical language, as if writing a professional written report - never in first person. Do NOT write phrases like 'I'm deducting,' 'I hear,' 'Starting at 100, I am subtracting,' or any other first-person narration of your own process. Instead, write findings and deductions as direct, objective statements about the track itself - for example, write 'A deduction of 12 points is applied due to kick drum and bass overlap around 200Hz' or simply 'The kick drum and bass overlap around 200Hz, causing masking in the low end,' never 'I'm deducting 12 points because I hear the kick and bass overlapping.' This applies to every field in every category, without exception.
+
 DEDUCTION METHOD - MANDATORY:
 For each sub-metric, start at a baseline of 100. Subtract points only for specific, real, named issues you actually identify in the audio (e.g. "-12 points: kick drum and bass overlap causing mud around 200Hz" or "-8 points: sibilance spike detected around 6.5kHz on vocal 's' sounds"). Your final score must be the direct mathematical result of the deductions you describe. Do not pick a score first and write text to match it afterward - the commentary must be the reason for the score, not a description of it after the fact.
 
@@ -220,6 +224,14 @@ AESTHETIC DESIGN CALIBRATION EXAMPLES - these are real examples showing how this
 - Example landing at 80: 'The production is clean, professional, and textbook-correct for the genre - well-balanced reverb, standard stereo-widened guitars, conventional vocal compression. Nothing here would sound out of place on dozens of similar releases.'
 - Example landing at 68: 'The production is competent but noticeably generic, relying on default-sounding presets and a standard loudness-war master with no distinguishing sonic choices anywhere in the track.'
 If your own commentary reads closer to the 80 example (competent, clean, textbook) than the 95 example (a specific, describable signature), your score must land near 80, not near 90-95 - a track does not earn 90+ simply for being well-executed.
+
+AESTHETIC DESIGN - MANDATORY JUSTIFICATION STRUCTURE: before assigning a numeric score for aestheticDesign, you must first explicitly answer this question in your own reasoning: 'Can I name one specific, concrete sonic choice in this track that goes beyond simply executing the genre correctly - something a listener would still notice and remember even if you removed the vocals?' 
+
+If YES - your commentary MUST name that specific element explicitly (e.g. a particular effect, an unusual instrument choice, a distinctive processing decision), and your score should land in the 88-100 range proportional to how genuinely distinctive that element is.
+
+If NO - meaning your honest answer is that the track is well-executed but does not have anything beyond competent genre execution - your commentary must say so plainly, and your score MUST land in the 70-84 range. Do not award 85+ to a track where you cannot name a specific distinctive element - 'well-produced' and 'clean' are not, by themselves, evidence of distinctiveness, and should not push a score above 84 on their own.
+
+This is a binary gate, not a suggestion: your own commentary must be internally consistent with your score. If your commentary does not name a specific distinctive element, a score of 85 or above is a contradiction and not permitted.
 
 RUBRIC ANCHOR FOR SPACE & DENSITY: a score of 90-100 requires a mix that gives every element clear breathing room with intentional, audible space between parts even in dense sections - genuinely uncrowded at every moment. A score of 70-85 is appropriate for a mix that is reasonably uncluttered but has at least one section or moment where multiple elements compete for the same sonic space without clear separation. Below 70 is reserved for mixes with persistent, structural crowding throughout, not just an isolated moment. Differentiate within these bands based on how many distinct crowding moments you can specifically point to, and how severe they are - do not default to the same score for every track that has "some" crowding.
 - paletteCohesion: IMPORTANT - a real, precomputed timbral consistency measurement for this track will be provided in the context below as 'Measured Timbral Consistency Score'. This is a genuine, objective measurement (0-100, where higher = the track's overall tonal/textural character stays more consistent throughout, lower = more drastic shifts in sonic texture across the track), not a guess. You MUST treat this measured value as the primary, authoritative basis for the paletteCohesion score - use your own listening impression only as a secondary, qualitative supplement in the commentary (e.g. naming which specific elements feel mismatched), not as a basis for overriding what the measurement shows.
@@ -324,6 +336,8 @@ const SUBMETRICS_SCHEMA_2 = {
 };
 
 const SUBMETRIC_SYSTEM_PROMPT_2 = `You are a precise, artistically-literate music analyst. You are judging four categories that are NOT about commercial/streaming readiness - they measure pure artistic and songwriting craft, independent of pop formula or algorithm-friendliness. A song can score low on these categories and still be commercially successful, and vice versa - a three-chord pop song is not automatically bad here, it just may not score high on complexity.
+
+VOICE - MANDATORY: Write all commentary in neutral, third-person analytical language, as if writing a professional written report - never in first person. Do NOT write phrases like 'I'm deducting,' 'I hear,' 'Starting at 100, I am subtracting,' or any other first-person narration of your own process. Instead, write findings and deductions as direct, objective statements about the track itself - for example, write 'A deduction of 12 points is applied due to kick drum and bass overlap around 200Hz' or simply 'The kick drum and bass overlap around 200Hz, causing masking in the low end,' never 'I'm deducting 12 points because I hear the kick and bass overlapping.' This applies to every field in every category, without exception.
 
 You are ALSO judging two additional standalone values, moodValence and speechiness, used elsewhere in the app for algorithmic/discovery matching purposes (similar to Spotify's own audio features). These are NOT deduction-based - just give a direct 0-100 score and a short 1-sentence commentary for each:
 - moodValence: the overall musical positivity/positiveness conveyed by the track, independent of lyrical subject matter - a triumphant major-key anthem scores high even with defiant lyrics; a somber minor-key ballad scores low even with hopeful lyrics. Judge this from the actual musical mood (key, harmony, tempo feel), not the words alone.
@@ -432,6 +446,8 @@ const SUBMETRICS_SCHEMA_3 = {
 
 const SUBMETRIC_SYSTEM_PROMPT_3 = `You are a precise music analyst breaking down five already-scored parent categories into their specific sub-components using a DEDUCTION-BASED scoring method.
 
+VOICE - MANDATORY: Write all commentary in neutral, third-person analytical language, as if writing a professional written report - never in first person. Do NOT write phrases like 'I'm deducting,' 'I hear,' 'Starting at 100, I am subtracting,' or any other first-person narration of your own process. Instead, write findings and deductions as direct, objective statements about the track itself - for example, write 'A deduction of 12 points is applied due to kick drum and bass overlap around 200Hz' or simply 'The kick drum and bass overlap around 200Hz, causing masking in the low end,' never 'I'm deducting 12 points because I hear the kick and bass overlapping.' This applies to every field in every category, without exception.
+
 DEDUCTION METHOD - MANDATORY:
 For each sub-metric, start at a baseline of 100. Subtract points only for specific, real, named issues or observations you actually hear in THIS audio. Your final score must be the direct mathematical result of the deductions you describe. Do not pick a score first and write text to match it afterward.
 
@@ -460,7 +476,11 @@ FIELD DEFINITION - melodicStaging (part of instrumentalStagingSubs): despite its
 
 FIELD DEFINITION - instrumentalWarmth (part of instrumentalStagingSubs): judges the general tonal warmth and richness of the backing instrumentation - full and rounded versus thin and harsh. IMPORTANT - a real, precomputed warmth measurement will be provided above as 'Measured Instrumental Warmth Score' (0-100, based on the real measured ratio of low-mid frequency energy to high-frequency energy). Treat this measured value as the primary, authoritative basis for this score, using your own listening impression only as a secondary supplement.
 
-FIELD DEFINITION - pitchAccuracy (part of vocalTrackingSubs): judges genuine pitch drift and intonation stability ONLY - do not confuse this with vocal timbre. A raspy, gritty, distorted, or aggressive vocal delivery (common in rock, punk, blues, and similar genres) can create the AUDITORY IMPRESSION of pitch instability due to the vocal's harmonic complexity and grain, without the singer actually being off-pitch. Before deducting points, confirm the note is genuinely landing on the wrong pitch relative to the underlying harmony - not simply that the vocal has a rough, unpolished, or grainy tonal quality. A technically in-tune singer with a naturally raspy or aggressive voice should score highly here; reserve deductions for cases where the actual pitch center is audibly wrong, not merely where the vocal timbre sounds "imperfect" or "raw." ADDITIONALLY: if real Detected Melody/Pitch Data is provided in the context above, use it as supporting evidence, keeping in mind the caveat that it reflects the dominant mix pitch generally, not confirmed-isolated vocal - weight your own listening impression more heavily than this data specifically for pitchAccuracy, unlike chordDynamics and melody where the detected data should be primary.`;
+FIELD DEFINITION - pitchAccuracy (part of vocalTrackingSubs): judges genuine pitch drift and intonation stability ONLY - do not confuse this with vocal timbre. A raspy, gritty, distorted, or aggressive vocal delivery (common in rock, punk, blues, and similar genres) can create the AUDITORY IMPRESSION of pitch instability due to the vocal's harmonic complexity and grain, without the singer actually being off-pitch. Before deducting points, confirm the note is genuinely landing on the wrong pitch relative to the underlying harmony - not simply that the vocal has a rough, unpolished, or grainy tonal quality. A technically in-tune singer with a naturally raspy or aggressive voice should score highly here; reserve deductions for cases where the actual pitch center is audibly wrong, not merely where the vocal timbre sounds "imperfect" or "raw." ADDITIONALLY: if real Detected Melody/Pitch Data is provided in the context above, use it as supporting evidence, keeping in mind the caveat that it reflects the dominant mix pitch generally, not confirmed-isolated vocal - weight your own listening impression more heavily than this data specifically for pitchAccuracy, unlike chordDynamics and melody where the detected data should be primary.
+
+FIELD DEFINITION - dynamicDelivery: IMPORTANT - a real, precomputed vocal dynamics measurement will be provided above as 'Measured Vocal Dynamics Score' (0-100, based on genuine measured loudness variation specifically during sung/voiced passages - higher means real, natural dynamic push and pull; lower means a vocal that sits at a fairly constant volume throughout). If this value is available, treat it as the primary, authoritative basis for this score, using your own listening impression as a secondary supplement. If it says 'not available' (not enough clearly voiced material was detected to measure), rely on your own listening judgment as normal.
+
+FIELD DEFINITION - vocalLayerFit - MANDATORY JUSTIFICATION STRUCTURE: before assigning a score, you must first explicitly determine whether this song actually contains audible backing vocals, harmonies, or vocal doubling/layering at all. If NO layered vocal elements are audible anywhere in the track, state this plainly in your commentary (e.g. 'This track features a single lead vocal with no audible backing harmonies or doubling') and assign a score of exactly 100 - there is nothing to judge the fit of, so a perfect score reflects the absence of any layering problem, not a judgment of quality. If YES, layered vocals ARE present, your commentary MUST describe specifically how they interact with the lead (blend well / compete for space / timing misalignment / etc.), and your score should genuinely reflect the quality of that specific interaction, using the full 0-100 range as appropriate - do not default to a comfortable high number without describing the actual layering behavior you hear.`;
 
 async function performSubMetricsCall3(
   audioPart: any,
@@ -472,7 +492,8 @@ async function performSubMetricsCall3(
   measuredMelodicStaging?: number,
   measuredInstrumentalWarmth?: number,
   chordProgressionSummary?: string,
-  melodySummary?: string
+  melodySummary?: string,
+  measuredVocalDynamics?: number
 ): Promise<any> {
   const contextSummary = `
 Parent category context already determined:
@@ -487,6 +508,7 @@ Parent category context already determined:
 - Measured Transient Punch Score: ${measuredTransientPunch !== undefined && measuredTransientPunch !== null ? measuredTransientPunch : 'not available'}
 - Measured Melodic Staging Score: ${measuredMelodicStaging !== undefined && measuredMelodicStaging !== null ? measuredMelodicStaging : 'not available'}
 - Measured Instrumental Warmth Score: ${measuredInstrumentalWarmth !== undefined && measuredInstrumentalWarmth !== null ? measuredInstrumentalWarmth : 'not available'}
+- Measured Vocal Dynamics Score: ${measuredVocalDynamics !== undefined && measuredVocalDynamics !== null ? measuredVocalDynamics : 'not available'}
 
 CONSISTENCY REQUIREMENT: Your meaningClarity sub-score and commentary MUST be consistent with the parent Lyrical Impact's meaning classification shown above - if the parent was classified "Clear", do not describe the lyrics as abstract, dream-like, or oblique in your sub-commentary, and vice versa. Similarly, your chordDynamics score should be consistent with the Harmonic Intrigue score shown above (both describe overlapping harmonic content) - do not score chordDynamics dramatically higher than Harmonic Intrigue unless your commentary specifically identifies a distinct, real reason for the difference (e.g. Harmonic Intrigue addresses novelty/complexity while Chord Dynamics addresses functional/dynamic use of chords - these can differ, but only for a specific, stated reason, not by default).
 
@@ -981,6 +1003,11 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       ? parseFloat(instrumentalWarmthRaw)
       : undefined;
 
+    const vocalDynamicsRaw = req.body.vocalDynamics;
+    const vocalDynamics = (vocalDynamicsRaw !== undefined && vocalDynamicsRaw !== null && vocalDynamicsRaw !== "")
+      ? parseFloat(vocalDynamicsRaw)
+      : undefined;
+
     const chordProgressionSummary = req.body.chordProgressionSummary || undefined;
     const melodySummary = req.body.melodySummary || undefined;
 
@@ -1043,7 +1070,8 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
         melodicStaging,
         instrumentalWarmth,
         chordProgressionSummary,
-        melodySummary
+        melodySummary,
+        vocalDynamics
       );
       parsedCritique.subMetricsCall3 = subMetricsCall3;
       parsedCritique.subMetricsCall3Failed = false;
@@ -1065,7 +1093,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 // 3. Direct URL Audio Critique API
 app.post("/api/critique-url", async (req, res) => {
   try {
-    const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre, chromagramImage, rhythmImage, spectrogramImage, stereoCorrelation: rawStereoCorrelation, sibilanceSeverity: rawSibilanceSeverity, timbralConsistency: rawTimbralConsistency, gridCohesion: rawGridCohesion, transientPunch: rawTransientPunch, melodicStaging: rawMelodicStaging, instrumentalWarmth: rawInstrumentalWarmth } = req.body;
+    const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre, chromagramImage, rhythmImage, spectrogramImage, stereoCorrelation: rawStereoCorrelation, sibilanceSeverity: rawSibilanceSeverity, timbralConsistency: rawTimbralConsistency, gridCohesion: rawGridCohesion, transientPunch: rawTransientPunch, melodicStaging: rawMelodicStaging, instrumentalWarmth: rawInstrumentalWarmth, vocalDynamics: rawVocalDynamics } = req.body;
     const chordProgressionSummary = req.body.chordProgressionSummary || undefined;
     const melodySummary = req.body.melodySummary || undefined;
     const metaGenre = isPlaceholderGenre(rawMetaGenre) ? "" : rawMetaGenre;
@@ -1089,6 +1117,9 @@ app.post("/api/critique-url", async (req, res) => {
       : undefined;
     const instrumentalWarmth = (rawInstrumentalWarmth !== undefined && rawInstrumentalWarmth !== null && rawInstrumentalWarmth !== "")
       ? parseFloat(rawInstrumentalWarmth)
+      : undefined;
+    const vocalDynamics = (rawVocalDynamics !== undefined && rawVocalDynamics !== null && rawVocalDynamics !== "")
+      ? parseFloat(rawVocalDynamics)
       : undefined;
     if (!ai) {
       return res.status(500).json({ error: "Gemini API Client is not configured." });
@@ -1187,7 +1218,8 @@ app.post("/api/critique-url", async (req, res) => {
         melodicStaging,
         instrumentalWarmth,
         chordProgressionSummary,
-        melodySummary
+        melodySummary,
+        vocalDynamics
       );
       parsedCritique.subMetricsCall3 = subMetricsCall3;
       parsedCritique.subMetricsCall3Failed = false;
