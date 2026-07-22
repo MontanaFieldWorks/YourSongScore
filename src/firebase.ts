@@ -687,6 +687,10 @@ export const saveUserTrack = async (track: StoredTrack): Promise<void> => {
       console.warn("Cover art downscale failed, saving original:", e);
     }
   }
+  if ((workingTrack as any).liveMetrics) {
+    const { timeResolvedChromagram, timeResolvedSpectrogram, ...restLiveMetrics } = (workingTrack as any).liveMetrics;
+    workingTrack = { ...workingTrack, liveMetrics: restLiveMetrics } as StoredTrack;
+  }
   const cleanTrack = deepCleanFirestoreObject(workingTrack);
 
   // Always save to local storage first as fallback
