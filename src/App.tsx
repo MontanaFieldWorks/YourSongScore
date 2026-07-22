@@ -1043,6 +1043,7 @@ export default function App() {
           formData.append("transientPunch", String(earlyLiveMetrics?.calculatedTransientPunchScore ?? ""));
           formData.append("melodicStaging", String(earlyLiveMetrics?.calculatedMelodicStagingScore ?? ""));
           formData.append("instrumentalWarmth", String(earlyLiveMetrics?.calculatedInstrumentalWarmthScore ?? ""));
+          formData.append("vocalDynamics", String(earlyLiveMetrics?.calculatedVocalDynamicsScore ?? ""));
           formData.append("chordProgressionSummary", chordProgressionSummary || "");
           formData.append("melodySummary", melodySummary || "");
           
@@ -1095,6 +1096,7 @@ export default function App() {
               transientPunch: earlyLiveMetrics?.calculatedTransientPunchScore ?? null,
               melodicStaging: earlyLiveMetrics?.calculatedMelodicStagingScore ?? null,
               instrumentalWarmth: earlyLiveMetrics?.calculatedInstrumentalWarmthScore ?? null,
+              vocalDynamics: earlyLiveMetrics?.calculatedVocalDynamicsScore ?? null,
               chordProgressionSummary: chordProgressionSummary,
               melodySummary: melodySummary
             }),
