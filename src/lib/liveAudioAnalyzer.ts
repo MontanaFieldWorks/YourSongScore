@@ -1526,6 +1526,61 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
         stagingScore = Math.round(stagingScore);
       }
       return stagingScore;
+    })(),
+    calculatedVocalDynamicsScore: (() => {
+      // Calculate Vocal Dynamics Score (Coefficient of Variation of envelope during voiced frames)
+      let vocalDynamicsScore: number | null = null;
+      const voicedFrames = melodyFrames.filter(f => f.voiced);
+      if (voicedFrames.length >= 10) {
+        const voicedEnvelopeValues: number[] = [];
+        for (const frame of voicedFrames) {
+          // Map timeSec back to the nearest envelope index
+          // envelope was built with hopSize in fCh0, which is downsampled by 'hop' (4)
+          // So time conversion factor is (hopSize * hop) / sampleRate
+          const envIdx = Math.min(
+            envelope.length - 1,
+            Math.max(0, Math.round((frame.timeSec * sampleRate) / (hopSize * hop)))
+          );
+          voicedEnvelopeValues.push(envelope[envIdx]);
+        }
+
+        const count = voicedEnvelopeValues.length;
+        let sum = 0;
+        for (const val of voicedEnvelopeValues) {
+          sum += val;
+        }
+        const mean = sum / count;
+
+        if (mean > 0) {
+          let sumSqDiff = 0;
+          for (const val of voicedEnvelopeValues) {
+            const diff = val - mean;
+            sumSqDiff += diff * diff;
+          }
+          const variance = sumSqDiff / count;
+          const stdDev = Math.sqrt(variance);
+          const cv = stdDev / mean;
+
+          // Scaling Formula:
+          // - A CV of 0 means absolutely flat / no variation, which gets a minimum score of 10.
+          // - A CV of 0.15 (highly compressed/robotic) maps to 50.
+          // - A CV of 0.45 (ideal dynamic range for standard expressive vocals) maps to 95.
+          // - A CV of 0.75 (very wide expressive/dramatic range) maps to 100.
+          // - CV values above 0.75 remain at 100.
+          if (cv <= 0.15) {
+            vocalDynamicsScore = Math.round(10 + (cv / 0.15) * 40);
+          } else if (cv <= 0.45) {
+            const t = (cv - 0.15) / (0.45 - 0.15);
+            vocalDynamicsScore = Math.round(50 + t * 45);
+          } else if (cv <= 0.75) {
+            const t = (cv - 0.45) / (0.75 - 0.45);
+            vocalDynamicsScore = Math.round(95 + t * 5);
+          } else {
+            vocalDynamicsScore = 100;
+          }
+        }
+      }
+      return vocalDynamicsScore;
     })()
   };
 }
