@@ -554,7 +554,6 @@ export default function Dashboard({
       if (onRegisterLocalTrackFile) {
         onRegisterLocalTrackFile(newTrack.id, mp3File);
       }
-      await loadUserTracks(currentUser.uid);
       setSuccessMsg(`Successfully converted "${wavFile.name}" to "${convertedName}" (${convertedSize} MB)! Saved to account history.`);
       setSelectedWavFile(null);
       setWavTitle(null);
