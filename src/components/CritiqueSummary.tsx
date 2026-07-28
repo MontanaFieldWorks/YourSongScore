@@ -657,12 +657,12 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
             id="glowing-score-portal"
           >
             {/* Portal Header branding */}
-            <div className="text-center relative z-10 flex flex-col items-center justify-center w-[594px] max-w-full">
+            <div className="text-center relative z-10 flex flex-col items-center justify-center w-[420px] max-w-full">
               <div className="w-[48px] h-[48px] bg-blue-500/25 border border-blue-500/30 rounded-xl text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.15)] mb-0 group-hover:scale-110 transition-transform duration-500 flex items-center justify-center">
                 <Rabbit className="w-[32px] h-[32px] stroke-[2]" />
               </div>
               
-              <span className="font-display font-bold text-[36px] text-white tracking-tight flex items-center gap-0.5 mb-0" id="app-heading-portal">
+              <span className="font-['Inter'] font-bold text-[36px] text-white tracking-tight flex items-center gap-0.5 mb-0" id="app-heading-portal">
                 YourSongScore
                 <span className="px-2 py-0.5 text-[8px] uppercase tracking-widest font-mono bg-[#1C202A] border border-white/5 text-slate-400 rounded-md">
                   v6
@@ -675,7 +675,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               </div>
 
               {/* Glowing Ring Score Cards List */}
-              <div className="w-[594px] max-w-full flex flex-col gap-3 relative z-10 mt-[10px] text-left">
+              <div className="w-[420px] max-w-full flex flex-col gap-3 relative z-10 mt-[10px] text-left">
                 {categories.map((cat, i) => {
                   const isWhiteCircle = i === 0;
                   const radius = isWhiteCircle ? 52 : 20;
@@ -737,11 +737,11 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
 
 
                         {/* Pill Tags */}
-                        <div className="flex flex-wrap gap-1.5 mt-2">
+                        <div className="flex flex-nowrap gap-1 mt-2">
                           {cat.tags.map((tag, tIdx) => (
                             <span 
                               key={tIdx} 
-                              className="text-[8px] font-mono bg-white/5 border border-white/5 px-2 py-0.5 rounded text-slate-400 uppercase tracking-tight"
+                              className="text-[8px] font-mono bg-white/5 border border-white/5 px-1.5 py-0.5 rounded text-slate-400 uppercase tracking-tight whitespace-nowrap"
                             >
                               {tag}
                             </span>
