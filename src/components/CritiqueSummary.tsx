@@ -653,7 +653,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
           {/* Glowing Portal Container */}
           <div 
             onClick={onViewFullAudit}
-            className="w-full h-full bg-none border-none relative overflow-hidden transition-all duration-500 rounded-3xl p-6 pt-[3px] flex flex-col gap-5 justify-between cursor-pointer group z-10 translate-x-[100px]"
+            className="w-full h-full bg-none border-none relative overflow-hidden transition-all duration-500 rounded-3xl p-6 pt-[3px] flex flex-col gap-5 justify-between cursor-pointer group z-10"
             id="glowing-score-portal"
           >
             {/* Portal Header branding */}
@@ -691,7 +691,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                       }`}
                     >
                       {/* Glowing Progress SVG Circle */}
-                      <div className={`${isWhiteCircle ? "w-[140px] h-[140px]" : "w-14 h-14"} relative flex-shrink-0`}>
+                      <div className={`${isWhiteCircle ? "w-[140px] h-[140px] absolute left-0 top-1/2 -translate-y-1/2" : "w-14 h-14"} relative flex-shrink-0`}>
                         <svg className="w-full h-full transform -rotate-90">
                           {/* Background track circle */}
                           <circle 
@@ -727,7 +727,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                       </div>
 
                       {/* Metadata, Description and Tag badges */}
-                      <div className="flex-1 min-w-0">
+                      <div className={`flex-1 min-w-0 ${isWhiteCircle ? "pl-[164px]" : ""}`}>
                         <span className={`text-[10px] font-mono font-bold tracking-widest uppercase ${cat.textColor}`}>
                           CATEGORY
                         </span>
