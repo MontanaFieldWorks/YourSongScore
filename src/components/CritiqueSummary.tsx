@@ -653,11 +653,11 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
           {/* Glowing Portal Container */}
           <div 
             onClick={onViewFullAudit}
-            className="w-full h-full bg-none border-none relative overflow-hidden transition-all duration-500 rounded-3xl p-6 pt-[3px] flex flex-col gap-5 justify-between cursor-pointer group z-10"
+            className="w-full h-full bg-none border-none relative overflow-hidden transition-all duration-500 rounded-3xl p-6 pt-[3px] flex flex-col gap-5 justify-between cursor-pointer group z-10 translate-x-[100px]"
             id="glowing-score-portal"
           >
             {/* Portal Header branding */}
-            <div className="text-center relative z-10 flex flex-col items-center justify-center w-[460px] max-w-full">
+            <div className="text-center relative z-10 flex flex-col items-center justify-center w-full max-w-[435px]">
               <div className="w-[48px] h-[48px] bg-blue-500/25 border border-blue-500/30 rounded-xl text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.15)] mb-0 group-hover:scale-110 transition-transform duration-500 flex items-center justify-center">
                 <Rabbit className="w-[32px] h-[32px] stroke-[2]" />
               </div>
@@ -675,7 +675,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               </div>
 
               {/* Glowing Ring Score Cards List */}
-              <div className="w-[460px] max-w-full flex flex-col gap-3 relative z-10 mt-[10px] text-left">
+              <div className="w-full max-w-[435px] flex flex-col gap-3 relative z-10 mt-[10px] text-left">
                 {categories.map((cat, i) => {
                   const isWhiteCircle = i === 0;
                   const radius = isWhiteCircle ? 52 : 20;
@@ -687,12 +687,12 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                     <div 
                       key={i} 
                       className={`bg-black/50 border border-white/5 rounded-2xl flex items-center hover:bg-black/70 transition-colors relative overflow-hidden ${
-                        isWhiteCircle ? "pl-[1px] pr-3 pb-0 pt-[5.5px] gap-6 w-full h-[144px]" : "p-3 gap-8 w-full h-[115px]"
+                        isWhiteCircle ? "pl-[1px] pr-3 pb-0 pt-[2.5px] gap-1.5 w-full h-[115px]" : "p-3 gap-8 w-full h-[115px]"
                       }`}
                     >
                       {/* Glowing Progress SVG Circle */}
-                      <div className={`${isWhiteCircle ? "w-[140px] h-[140px] absolute left-0 top-1/2 -translate-y-1/2" : "w-14 h-14"} relative flex-shrink-0`}>
-                        <svg className="w-full h-full transform -rotate-90">
+                      <div className={`${isWhiteCircle ? "w-[140px] h-[140px] overflow-visible" : "w-14 h-14"} relative flex-shrink-0`}>
+                        <svg className="w-full h-full transform -rotate-90 overflow-visible">
                           {/* Background track circle */}
                           <circle 
                             cx={isWhiteCircle ? 70 : 28} 
@@ -727,8 +727,8 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                       </div>
 
                       {/* Metadata, Description and Tag badges */}
-                      <div className={`flex-1 min-w-0 ${isWhiteCircle ? "pl-[164px]" : ""}`}>
-                        <span className={`text-[10px] font-mono font-bold tracking-widest uppercase ${cat.textColor}`}>
+                      <div className="flex-1 min-w-0">
+                        <span className={`text-[10px] font-mono font-bold tracking-widest uppercase ${isWhiteCircle ? "text-[#60a5fa]" : cat.textColor}`}>
                           CATEGORY
                         </span>
                         <div className={`font-['Inter'] ${isWhiteCircle ? "text-[19px] pt-0 pb-[9px] font-black" : "text-xs font-black"} text-white tracking-wide mt-0.5 uppercase`}>
