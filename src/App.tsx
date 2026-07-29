@@ -29,7 +29,7 @@ import {
   FileAudio, Library, Sparkles, AlertCircle, RefreshCw, 
   Disc, Waves, HelpCircle, ArrowRight, Layers, Music, Compass, Star,
   Fingerprint, Squirrel, Radar, Rose, Orbit, History, Rabbit, ArrowLeft, BookOpen, Gauge, DoorClosed, User, Send,
-  ChevronDown, Lock, Sliders, PackageOpen, Info, WavesLadder
+  ChevronDown, Lock, Sliders, PackageOpen, Info, WavesLadder, Lightbulb
 } from "lucide-react";
 
 export default function App() {
@@ -1264,11 +1264,11 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-slate-200 flex flex-col selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-black text-slate-200 flex flex-col selection:bg-blue-600 selection:text-white overflow-x-hidden">
       
       {/* Upper Navigation Rail */}
       <header className="border-b border-white/5 bg-black/80 backdrop-blur-md sticky top-0 z-40">
-        <div className="w-full max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <div className="w-full max-w-7xl mx-auto px-6 pt-4 pb-[6px] flex flex-col sm:flex-row gap-4 items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Dedicated Main Rabbit Logo */}
             <div 
@@ -1297,6 +1297,66 @@ export default function App() {
           <div className="flex flex-col sm:flex-row items-center sm:items-center gap-3 text-right">
 
             <div className="flex items-center gap-2 flex-nowrap justify-center sm:justify-end overflow-x-auto sm:overflow-visible no-scrollbar max-w-full py-1">
+
+              <button
+                onClick={async () => {
+                  try {
+                    const uidsToTry = currentUser 
+                      ? [currentUser.uid, "usr_ezryn_bypass", "usr_guest"] 
+                      : ["usr_ezryn_bypass", "usr_guest"];
+                    
+                    let targetTrack = null;
+                    for (const uid of uidsToTry) {
+                      try {
+                        const uTracks = await fetchUserTracks(uid);
+                        const found = uTracks.find((t) => {
+                          const matchName = t.name?.toLowerCase() || "";
+                          const matchMeta = t.metaTitle?.toLowerCase() || "";
+                          return matchName.includes("06 - si - copy") || matchMeta.includes("06 - si - copy");
+                        });
+                        if (found) {
+                          targetTrack = found;
+                          break;
+                        }
+                      } catch (e) {
+                        console.warn(`Error fetching tracks for uid ${uid}:`, e);
+                      }
+                    }
+
+                    if (targetTrack && targetTrack.critique) {
+                      setCritiqueResult({
+                        critique: targetTrack.critique,
+                        trackInfo: {
+                          name: targetTrack.metaTitle || targetTrack.name.replace(/_Locker\.[a-zA-Z0-9]+$/i, ""),
+                          artist: targetTrack.metaArtist || "Independent Artist",
+                          coverArt: targetTrack.coverArt || undefined,
+                          hasAudio: true,
+                          statusMessage: "Loaded from Artist Locker via Quick-Test"
+                        }
+                      });
+                      setViewingDashboard(false);
+                      setViewingAboutPage(false);
+                      setViewingWhatItDoesPage(false);
+                      setViewingDefinitions(false);
+                      setViewingUsefulTools(false);
+                      setViewingRabbitHoleV2(false);
+                      setViewingStacks(false);
+                      setViewingArRep(false);
+                      setViewingEngineeringDetails(false);
+                      setViewingFullAudit(false);
+                    } else {
+                      alert("Could not find any track in Artist Locker containing '06 - Si - copy'. Please upload or analyze this track once so it exists in your Locker.");
+                    }
+                  } catch (err) {
+                    console.error("Quick-test button error:", err);
+                    alert("Error loading quick-test track from Artist Locker. See console details.");
+                  }
+                }}
+                className="flex items-center justify-center w-8 h-8 rounded-full border border-yellow-500/20 hover:border-yellow-500/45 bg-[#13161C] hover:bg-[#1E232E] text-yellow-400 hover:text-yellow-350 transition-all cursor-pointer flex-shrink-0 shadow-[0_0_10px_rgba(234,179,8,0.05)]"
+                title="Quick Test Critique Summary ('06 - Si - copy')"
+              >
+                <Lightbulb className="w-4 h-4 text-yellow-400 animate-pulse" />
+              </button>
 
               <button
                 onClick={() => {
@@ -1338,7 +1398,7 @@ export default function App() {
                   }`}
                 >
                   <Info className="w-3.5 h-3.5 text-blue-400" />
-                  <span>The Library</span>
+                  <span className="font-['Inter'] text-[13px]">The Library</span>
                   <ChevronDown className={`w-3 h-3 text-blue-400/70 transition-transform duration-200 ${showLibraryDropdown ? "rotate-180" : ""}`} />
                 </button>
 
@@ -1460,7 +1520,7 @@ export default function App() {
                 }`}
               >
                 <PackageOpen className={`w-3.5 h-3.5 ${viewingRabbitHoleV2 ? "text-white" : "text-[#bd93f9]"}`} />
-                <span>The Rabbit Hole</span>
+                <span className="font-['Inter'] text-[13px]">The Rabbit Hole</span>
               </button>
 
               <button
@@ -1484,7 +1544,7 @@ export default function App() {
                 <div className="w-3.5 h-3.5 flex-shrink-0">
                   {renderActiveAvatarSVG(selectedRepId, false)}
                 </div>
-                <span>Your A&amp;R AI Rep</span>
+                <span className="font-['Inter'] text-[13px]">Your A&amp;R AI Rep</span>
               </button>
 
               <button
@@ -1510,7 +1570,7 @@ export default function App() {
                 }`}
               >
                 <DoorClosed className="w-3.5 h-3.5" />
-                <span>Artist Locker</span>
+                <span className="font-['Inter'] text-[13px] text-[#2563EB]">Artist Locker</span>
               </button>
 
               {/* Overflow Indicator Toggle */}
@@ -1557,7 +1617,7 @@ export default function App() {
       </header>
 
       {/* Main Container Layout */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-4 flex flex-col gap-8">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-6 pt-[1px] pb-4 flex flex-col gap-8">
         
         {viewingArRep ? (
           <ArConsultPage
