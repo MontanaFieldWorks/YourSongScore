@@ -187,9 +187,9 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
           {/* TOP HEADER: Title & Interactive Help Toggle */}
           <div className="flex flex-col gap-2 relative z-10">
             <div className="flex items-center gap-3">
-              <h1 className="text-xl md:text-2xl font-sans font-black tracking-wider uppercase text-white">
+              <div className="text-xl md:text-2xl font-sans font-black tracking-wider uppercase text-white">
                 ALGORITHMIC PERFORMANCE ANALYSIS SUMMARY
-              </h1>
+              </div>
               <button 
                 onClick={(e) => toggleExplanation("header", e)}
                 className={`p-1 rounded-full transition-all cursor-pointer ${
@@ -240,7 +240,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               </div>
 
               <div>
-                <h2 className="text-lg font-black font-sans tracking-tight text-white">{title}</h2>
+                <span className="text-lg font-black font-sans tracking-tight text-white">{title}</span>
                 <p className="text-xs font-semibold text-slate-400 mt-0.5">by {artist}</p>
               </div>
             </div>
@@ -657,7 +657,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
             id="glowing-score-portal"
           >
             {/* Portal Header branding */}
-            <div className="text-center relative z-10 flex flex-col items-center justify-center w-[420px] max-w-full">
+            <div className="text-center relative z-10 flex flex-col items-center justify-center w-[460px] max-w-full">
               <div className="w-[48px] h-[48px] bg-blue-500/25 border border-blue-500/30 rounded-xl text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.15)] mb-0 group-hover:scale-110 transition-transform duration-500 flex items-center justify-center">
                 <Rabbit className="w-[32px] h-[32px] stroke-[2]" />
               </div>
@@ -675,7 +675,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               </div>
 
               {/* Glowing Ring Score Cards List */}
-              <div className="w-[420px] max-w-full flex flex-col gap-3 relative z-10 mt-[10px] text-left">
+              <div className="w-[460px] max-w-full flex flex-col gap-3 relative z-10 mt-[10px] text-left">
                 {categories.map((cat, i) => {
                   const isWhiteCircle = i === 0;
                   const radius = isWhiteCircle ? 52 : 20;
@@ -687,7 +687,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                     <div 
                       key={i} 
                       className={`bg-black/50 border border-white/5 rounded-2xl flex items-center hover:bg-black/70 transition-colors relative overflow-hidden ${
-                        isWhiteCircle ? "pl-[1px] pr-3 pb-0 pt-3 gap-6 w-full h-[150px]" : "p-3 gap-8 w-full h-[115px]"
+                        isWhiteCircle ? "pl-[1px] pr-3 pb-0 pt-[5.5px] gap-6 w-full h-[144px]" : "p-3 gap-8 w-full h-[115px]"
                       }`}
                     >
                       {/* Glowing Progress SVG Circle */}
@@ -731,17 +731,17 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                         <span className={`text-[10px] font-mono font-bold tracking-widest uppercase ${cat.textColor}`}>
                           CATEGORY
                         </span>
-                        <h3 className={`font-['Inter'] ${isWhiteCircle ? "text-[18px] font-black" : "text-xs font-black"} text-white tracking-wide mt-0.5 uppercase`}>
+                        <div className={`font-['Inter'] ${isWhiteCircle ? "text-[19px] pt-0 pb-[9px] font-black" : "text-xs font-black"} text-white tracking-wide mt-0.5 uppercase`}>
                           {cat.title}
-                        </h3>
+                        </div>
 
 
                         {/* Pill Tags */}
-                        <div className="flex flex-nowrap gap-1 mt-2">
+                        <div className={`flex flex-nowrap gap-1.5 ${isWhiteCircle ? "mt-[2px]" : "mt-2"}`}>
                           {cat.tags.map((tag, tIdx) => (
                             <span 
                               key={tIdx} 
-                              className="text-[8px] font-mono bg-white/5 border border-white/5 px-1.5 py-0.5 rounded text-slate-400 uppercase tracking-tight whitespace-nowrap"
+                              className={`${isWhiteCircle ? "text-[8px] leading-[15.25px] px-1.5 py-1" : "text-[9.5px] px-2.5 py-1"} font-mono bg-white/5 border border-white/20 rounded-full text-slate-300 uppercase tracking-tight whitespace-nowrap`}
                             >
                               {tag}
                             </span>
