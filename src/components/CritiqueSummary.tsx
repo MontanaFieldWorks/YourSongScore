@@ -194,12 +194,12 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                 onClick={(e) => toggleExplanation("header", e)}
                 className={`p-1 rounded-full transition-all cursor-pointer ${
                   openExplanations["header"] 
-                    ? "text-cyan-400 bg-cyan-400/15 ring-2 ring-cyan-400/30" 
-                    : "text-slate-500 hover:text-slate-300 bg-white/5 hover:bg-white/10"
+                    ? "text-[#93b7ee] bg-[#74a0f9]/15 ring-2 ring-[#74a0f9]/40 shadow-[0_0_10px_rgba(116,160,249,0.3)]" 
+                    : "text-[#93b7ee] hover:text-[#b4d0ff] bg-white/5 hover:bg-white/10"
                 }`}
                 title="Toggle system details"
               >
-                <Lightbulb className="w-4 h-4" />
+                <Lightbulb className="w-4 h-4 text-[#93b7ee] drop-shadow-[0_0_6px_#74a0f9] drop-shadow-[0_0_10px_#74a0f9]" />
               </button>
             </div>
 
@@ -464,9 +464,9 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               </AnimatePresence>
 
               {/* Scorecard metrics list */}
-              <div className="flex flex-col gap-2 bg-black/40 border border-white/5 rounded-xl px-3 py-1">
+              <div className="flex flex-col gap-[3px] bg-black/40 border border-white/5 rounded-xl px-3 py-1">
                 {/* Pair 1: Div 1 & Div 2 */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border-b border-white/5 pb-1.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border-b border-white/5 pb-[3px]">
                   <div className="flex items-center justify-between text-[10px] font-mono">
                     <div className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.8)] pr-[6px]" />
@@ -488,7 +488,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                 </div>
 
                 {/* Pair 2: Div 3 & Div 4 */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 border-b border-white/5 pb-1.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 border-b border-white/5 pb-[3px]">
                   <div className="flex items-center justify-between text-[10px] font-mono">
                     <div className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.8)] pr-[6px]" />
@@ -510,7 +510,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                 </div>
 
                 {/* Pair 3: Div 5 & Div 6 */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 border-b border-white/5 pb-1.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 border-b border-white/5 pb-[3px]">
                   <div className="flex items-center justify-between text-[10px] font-mono">
                     <div className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.8)] pr-[6px]" />
@@ -670,78 +670,101 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               </span>
               
               <div className="flex items-center justify-center gap-1.5 mt-0 text-cyan-400 text-[10px] font-mono font-bold tracking-widest uppercase group-hover:text-cyan-300 transition-colors">
-                <span className="font-['Inter'] text-[16px] text-[#60a5fa] normal-case">Click to See the Full Analysis</span>
-                <ArrowRight className="w-3.5 h-3.5 text-[#60a5fa] border-[#60a5fa] group-hover:translate-x-1 transition-transform" />
+                <span className="font-['Inter'] text-[16px] text-[#60a5fa] uppercase">Click to See the Full Analysis</span>
+                <ArrowRight className="w-3.5 h-3.5 text-[#60a5fa] border-[#60a5fa] group-hover:translate-x-1 transition-transform drop-shadow-[0_0_6px_rgba(96,165,250,0.9)] drop-shadow-[0_0_10px_rgba(96,165,250,0.6)]" />
               </div>
 
               {/* Glowing Ring Score Cards List */}
               <div className="w-full max-w-[435px] flex flex-col gap-3 relative z-10 mt-[10px] text-left">
                 {categories.map((cat, i) => {
-                  const isWhiteCircle = i === 0;
-                  const radius = isWhiteCircle ? 52 : 20;
-                  const strokeWidth = isWhiteCircle ? 5.25 : 3.5;
+                  const radius = 52;
+                  const strokeWidth = 5.25;
                   const circumference = 2 * Math.PI * radius;
                   const strokeDashoffset = circumference - (cat.score / 100) * circumference;
+                  
+                  const itemColorConfigs = [
+                    {
+                      edgeColor: "#01aba9",
+                      trackColor: "rgba(1, 171, 169, 0.2)",
+                      glowColor: "rgba(1, 171, 169, 0.9)",
+                      textColor: "#01aba9"
+                    },
+                    {
+                      edgeColor: "#3adcc2",
+                      trackColor: "rgba(58, 220, 194, 0.2)",
+                      glowColor: "rgba(58, 220, 194, 0.9)",
+                      textColor: "#3adcc2"
+                    },
+                    {
+                      edgeColor: "#b14ae6",
+                      trackColor: "rgba(177, 74, 230, 0.2)",
+                      glowColor: "rgba(177, 74, 230, 0.9)",
+                      textColor: "#b14ae6"
+                    }
+                  ];
+                  const colorConfig = itemColorConfigs[i] || itemColorConfigs[2];
 
                   return (
                     <div 
                       key={i} 
-                      className={`bg-black/50 border border-white/5 rounded-2xl flex items-center hover:bg-black/70 transition-colors relative overflow-hidden ${
-                        isWhiteCircle ? "pl-[1px] pr-3 pb-0 pt-[2.5px] gap-1.5 w-full h-[115px]" : "p-3 gap-8 w-full h-[115px]"
-                      }`}
+                      className="bg-black/50 border border-white/5 rounded-2xl flex items-center hover:bg-black/70 transition-colors relative overflow-hidden pl-[1px] pr-3 pb-0 pt-[2.5px] gap-1.5 w-full h-[115px]"
                     >
+                      <div 
+                        className="absolute top-0 left-0 w-[3px] h-full" 
+                        style={{ backgroundColor: colorConfig.edgeColor, boxShadow: `0 0 8px ${colorConfig.edgeColor}` }}
+                      />
                       {/* Glowing Progress SVG Circle */}
-                      <div className={`${isWhiteCircle ? "w-[140px] h-[140px] overflow-visible" : "w-14 h-14"} relative flex-shrink-0`}>
+                      <div className="w-[140px] h-[140px] overflow-visible relative flex-shrink-0">
                         <svg className="w-full h-full transform -rotate-90 overflow-visible">
                           {/* Background track circle */}
                           <circle 
-                            cx={isWhiteCircle ? 70 : 28} 
-                            cy={isWhiteCircle ? 70 : 28} 
+                            cx={70} 
+                            cy={70} 
                             r={radius} 
                             fill="transparent" 
-                            stroke={isWhiteCircle ? "rgba(59, 130, 246, 0.15)" : cat.trackColor} 
+                            stroke={colorConfig.trackColor} 
                             strokeWidth={strokeWidth} 
                           />
                           {/* Progress ring circle */}
                           <circle 
-                            cx={isWhiteCircle ? 70 : 28} 
-                            cy={isWhiteCircle ? 70 : 28} 
+                            cx={70} 
+                            cy={70} 
                             r={radius} 
                             fill="transparent" 
-                            stroke={isWhiteCircle ? "rgba(255, 255, 255, 0.95)" : cat.strokeColor} 
+                            stroke="rgba(255, 255, 255, 0.95)" 
                             strokeWidth={strokeWidth} 
                             strokeDasharray={circumference}
                             strokeDashoffset={strokeDashoffset}
                             strokeLinecap="round"
                             style={{
-                              filter: isWhiteCircle 
-                                ? `drop-shadow(0 0 6px rgba(59, 130, 246, 1)) drop-shadow(0 0 12px rgba(59, 130, 246, 0.8)) drop-shadow(0 0 18px rgba(59, 130, 246, 0.5))`
-                                : `drop-shadow(0 0 6px ${cat.glowColor})`
+                              filter: `drop-shadow(0 0 6px ${colorConfig.glowColor}) drop-shadow(0 0 12px ${colorConfig.glowColor}) drop-shadow(0 0 18px ${colorConfig.glowColor})`
                             }}
                           />
                         </svg>
                         {/* Center number */}
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <span className={`${isWhiteCircle ? "font-['Inter'] text-[40px] font-bold" : "font-mono font-black text-xs"} text-white`}>{cat.score}</span>
+                          <span className="font-['Inter'] text-[40px] font-bold text-white">{cat.score}</span>
                         </div>
                       </div>
 
                       {/* Metadata, Description and Tag badges */}
                       <div className="flex-1 min-w-0">
-                        <span className={`text-[10px] font-mono font-bold tracking-widest uppercase ${isWhiteCircle ? "text-[#60a5fa]" : cat.textColor}`}>
+                        <span 
+                          className="text-[10px] font-mono font-bold tracking-widest uppercase"
+                          style={{ color: colorConfig.textColor }}
+                        >
                           CATEGORY
                         </span>
-                        <div className={`font-['Inter'] ${isWhiteCircle ? "text-[19px] pt-0 pb-[9px] font-black" : "text-xs font-black"} text-white tracking-wide mt-0.5 uppercase`}>
+                        <div className="font-['Inter'] text-[19px] pt-0 pb-[9px] font-black text-white tracking-wide mt-0.5 uppercase">
                           {cat.title}
                         </div>
 
-
                         {/* Pill Tags */}
-                        <div className={`flex flex-nowrap gap-1.5 ${isWhiteCircle ? "mt-[2px]" : "mt-2"}`}>
+                        <div className="flex flex-nowrap gap-1.5 mt-[2px]">
                           {cat.tags.map((tag, tIdx) => (
                             <span 
                               key={tIdx} 
-                              className={`${isWhiteCircle ? "text-[8px] leading-[15.25px] px-1.5 py-1" : "text-[9.5px] px-2.5 py-1"} font-mono bg-white/5 border border-white/20 rounded-full text-slate-300 uppercase tracking-tight whitespace-nowrap`}
+                              className="text-[8px] leading-[15.25px] px-1.5 py-1 font-mono bg-white/5 border border-white/20 rounded-full text-slate-300 uppercase tracking-tight whitespace-nowrap"
                             >
                               {tag}
                             </span>
