@@ -190,32 +190,37 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               <div className="text-xl md:text-2xl font-sans font-black tracking-wider uppercase text-white">
                 ALGORITHMIC PERFORMANCE ANALYSIS SUMMARY
               </div>
-              <button 
-                onClick={(e) => toggleExplanation("header", e)}
-                className={`p-1 rounded-full transition-all cursor-pointer ${
-                  openExplanations["header"] 
-                    ? "text-[#93b7ee] bg-[#74a0f9]/15 ring-2 ring-[#74a0f9]/40 shadow-[0_0_10px_rgba(116,160,249,0.3)]" 
-                    : "text-[#93b7ee] hover:text-[#b4d0ff] bg-white/5 hover:bg-white/10"
-                }`}
-                title="Toggle system details"
-              >
-                <Lightbulb className="w-4 h-4 text-[#93b7ee] drop-shadow-[0_0_6px_#74a0f9] drop-shadow-[0_0_10px_#74a0f9]" />
-              </button>
-            </div>
-
-            {/* Dynamic Help Description */}
-            <AnimatePresence>
-              {openExplanations["header"] && (
-                <motion.div 
-                  initial={{ height: 0, opacity: 0, y: -5 }}
-                  animate={{ height: "auto", opacity: 1, y: 0 }}
-                  exit={{ height: 0, opacity: 0, y: -5 }}
-                  className="overflow-hidden bg-cyan-950/20 border border-cyan-500/20 rounded-xl p-4 text-xs text-cyan-300 leading-relaxed font-mono"
+              <div className="relative">
+                <button 
+                  onClick={(e) => toggleExplanation("header", e)}
+                  onMouseEnter={() => setOpenExplanations(prev => ({ ...prev, ["header_temp"]: true }))}
+                  onMouseLeave={() => setOpenExplanations(prev => ({ ...prev, ["header_temp"]: false }))}
+                  className={`p-1 rounded-full transition-all cursor-pointer ${
+                    openExplanations["header"] 
+                      ? "text-[#93b7ee] bg-[#74a0f9]/15 ring-2 ring-[#74a0f9]/40 shadow-[0_0_10px_rgba(116,160,249,0.3)]" 
+                      : "text-[#93b7ee] hover:text-[#b4d0ff] bg-white/5 hover:bg-white/10"
+                  }`}
+                  title="Toggle system details"
                 >
-                  This state-of-the-art diagnostic dashboard maps your music's frequency profile, loudness distribution, and platform tags against commercial streaming engine indexes. Click the circular help icons across each section to reveal detailed structural insights.
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  <Lightbulb className="w-4 h-4 text-[#93b7ee] drop-shadow-[0_0_6px_#74a0f9] drop-shadow-[0_0_10px_#74a0f9]" />
+                </button>
+
+                {/* Dynamic Help Description */}
+                <AnimatePresence>
+                  {(openExplanations["header"] || openExplanations["header_temp"]) && (
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95, x: -5 }}
+                      animate={{ opacity: 1, scale: 1, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, x: -5 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute left-full top-0 ml-2 z-50 w-64 text-[12px] font-['Inter'] text-white leading-relaxed p-3 bg-cyan-950/95 border border-cyan-500/20 rounded-lg shadow-2xl backdrop-blur-sm pointer-events-none"
+                    >
+                      A quick snapshot of how well your song is set up to succeed with streaming platforms and their recommendation systems.
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
           </div>
           
           {/* METADATA BLOCK: Custom Neon Rabbit & Track Info Grid */}
@@ -297,31 +302,36 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                 <span className="font-['Inter'] text-[16px] font-bold tracking-wider text-white uppercase">
                   30s Skip & Playout Simulator
                 </span>
-                <button 
-                  onClick={(e) => toggleExplanation("skip", e)}
-                  className={`p-1 rounded-full transition-all cursor-pointer ${
-                    openExplanations["skip"] 
-                      ? "text-cyan-400 bg-cyan-400/10" 
-                      : "text-slate-500 hover:text-slate-300"
-                  }`}
-                >
-                  <Lightbulb className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Module Help Box */}
-              <AnimatePresence>
-                {openExplanations["skip"] && (
-                  <motion.p 
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden text-[10px] text-cyan-300/80 leading-relaxed font-mono p-2 bg-cyan-950/20 border border-cyan-500/10 rounded-lg"
+                <div className="relative">
+                  <button 
+                    onClick={(e) => toggleExplanation("skip", e)}
+                    onMouseEnter={() => setOpenExplanations(prev => ({ ...prev, ["skip_temp"]: true }))}
+                    onMouseLeave={() => setOpenExplanations(prev => ({ ...prev, ["skip_temp"]: false }))}
+                    className={`p-1 rounded-full transition-all cursor-pointer ${
+                      openExplanations["skip"] 
+                        ? "text-cyan-400 bg-cyan-400/10" 
+                        : "text-slate-500 hover:text-slate-300"
+                    }`}
                   >
-                    Measures hooks, intro brevity, and early spectral dynamics to estimate retention probability within the standard 30-second playout window of playlist index systems.
-                  </motion.p>
-                )}
-              </AnimatePresence>
+                    <Lightbulb className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* Module Help Box */}
+                  <AnimatePresence>
+                    {(openExplanations["skip"] || openExplanations["skip_temp"]) && (
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.95, x: 5 }}
+                        animate={{ opacity: 1, scale: 1, x: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, x: 5 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-full top-0 mr-2 z-50 w-64 text-[12px] font-['Inter'] text-white leading-relaxed p-3 bg-cyan-950/95 border border-cyan-500/20 rounded-lg shadow-2xl backdrop-blur-sm pointer-events-none"
+                      >
+                        Predicts how likely listeners are to skip your song early versus stick around and let it play through, since streaming platforms actively track this in the first 30 seconds.
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 min-h-0 pt-1">
                 <div className="bg-black/40 border border-white/5 rounded-xl px-3 py-1.5 flex flex-col justify-between h-full min-h-0">
@@ -370,31 +380,36 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                     {genreVal}
                   </span>
                 </div>
-                <button 
-                  onClick={(e) => toggleExplanation("loudness", e)}
-                  className={`p-1 rounded-full transition-all cursor-pointer ${
-                    openExplanations["loudness"] 
-                      ? "text-emerald-400 bg-emerald-400/10" 
-                      : "text-slate-500 hover:text-slate-300"
-                  }`}
-                >
-                  <Lightbulb className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Module Help Box */}
-              <AnimatePresence>
-                {openExplanations["loudness"] && (
-                  <motion.p 
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden text-[10px] text-emerald-300/80 leading-relaxed font-mono p-2 bg-emerald-950/20 border border-emerald-500/10 rounded-lg"
+                <div className="relative">
+                  <button 
+                    onClick={(e) => toggleExplanation("loudness", e)}
+                    onMouseEnter={() => setOpenExplanations(prev => ({ ...prev, ["loudness_temp"]: true }))}
+                    onMouseLeave={() => setOpenExplanations(prev => ({ ...prev, ["loudness_temp"]: false }))}
+                    className={`p-1 rounded-full transition-all cursor-pointer ${
+                      openExplanations["loudness"] 
+                        ? "text-emerald-400 bg-emerald-400/10" 
+                        : "text-slate-500 hover:text-slate-300"
+                    }`}
                   >
-                    Loudness standards vary by style. This model analyzes Integrated LUFS and dynamic range headroom targets calibrated to the optimal curves of {genreVal} and streaming normalizers.
-                  </motion.p>
-                )}
-              </AnimatePresence>
+                    <Lightbulb className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* Module Help Box */}
+                  <AnimatePresence>
+                    {(openExplanations["loudness"] || openExplanations["loudness_temp"]) && (
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.95, x: 5 }}
+                        animate={{ opacity: 1, scale: 1, x: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, x: 5 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-full top-0 mr-2 z-50 w-64 text-[12px] font-['Inter'] text-white leading-relaxed p-3 bg-emerald-950/95 border border-emerald-500/20 rounded-lg shadow-2xl backdrop-blur-sm pointer-events-none"
+                      >
+                        Checks whether your track's volume and dynamic range match what's expected for its genre, so it doesn't get turned down or sound weak next to similar songs.
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="border border-emerald-500/20 bg-emerald-500/[0.03] rounded-xl p-3 text-[11px] font-mono text-emerald-400/90 flex flex-col gap-1 shadow-inner">
@@ -437,31 +452,36 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                     {genreVal}
                   </span>
                 </div>
-                <button 
-                  onClick={(e) => toggleExplanation("echonest", e)}
-                  className={`p-1 rounded-full transition-all cursor-pointer ${
-                    openExplanations["echonest"] 
-                      ? "text-cyan-400 bg-cyan-400/10" 
-                      : "text-slate-500 hover:text-slate-300"
-                  }`}
-                >
-                  <Lightbulb className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Module Help Box */}
-              <AnimatePresence>
-                {openExplanations["echonest"] && (
-                  <motion.p 
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden text-[10px] text-cyan-300/80 leading-relaxed font-mono p-2 bg-cyan-950/20 border border-cyan-500/10 rounded-lg"
+                <div className="relative">
+                  <button 
+                    onClick={(e) => toggleExplanation("echonest", e)}
+                    onMouseEnter={() => setOpenExplanations(prev => ({ ...prev, ["echonest_temp"]: true }))}
+                    onMouseLeave={() => setOpenExplanations(prev => ({ ...prev, ["echonest_temp"]: false }))}
+                    className={`p-1 rounded-full transition-all cursor-pointer ${
+                      openExplanations["echonest"] 
+                        ? "text-cyan-400 bg-cyan-400/10" 
+                        : "text-slate-500 hover:text-slate-300"
+                    }`}
                   >
-                    Identifies high-level profile matches and mismatches based on legacy platform indexing parameters (derived danceability, energy, acousticness, valence, speechiness, and liveness).
-                  </motion.p>
-                )}
-              </AnimatePresence>
+                    <Lightbulb className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* Module Help Box */}
+                  <AnimatePresence>
+                    {(openExplanations["echonest"] || openExplanations["echonest_temp"]) && (
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.95, x: 5 }}
+                        animate={{ opacity: 1, scale: 1, x: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, x: 5 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-full top-0 mr-2 z-50 w-64 text-[12px] font-['Inter'] text-white leading-relaxed p-3 bg-cyan-950/95 border border-cyan-500/20 rounded-lg shadow-2xl backdrop-blur-sm pointer-events-none"
+                      >
+                        Compares your song's core traits (energy, mood, danceability, and more) against what similar successful songs in your genre typically look like.
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
 
               {/* Scorecard metrics list */}
               <div className="flex flex-col gap-[3px] bg-black/40 border border-white/5 rounded-xl px-3 py-1">
@@ -568,31 +588,36 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                 <span className="font-['Inter'] text-[16px] font-bold tracking-wider text-white uppercase">
                   6-Band Frequency Energy & Headroom
                 </span>
-                <button 
-                  onClick={(e) => toggleExplanation("bands", e)}
-                  className={`p-1 rounded-full transition-all cursor-pointer ${
-                    openExplanations["bands"] 
-                      ? "text-purple-400 bg-purple-400/10" 
-                      : "text-slate-500 hover:text-slate-300"
-                  }`}
-                >
-                  <Lightbulb className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Module Help Box */}
-              <AnimatePresence>
-                {openExplanations["bands"] && (
-                  <motion.p 
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden text-[10px] text-purple-300/80 leading-relaxed font-mono p-2 bg-purple-950/20 border border-purple-500/10 rounded-lg"
+                <div className="relative">
+                  <button 
+                    onClick={(e) => toggleExplanation("bands", e)}
+                    onMouseEnter={() => setOpenExplanations(prev => ({ ...prev, ["bands_temp"]: true }))}
+                    onMouseLeave={() => setOpenExplanations(prev => ({ ...prev, ["bands_temp"]: false }))}
+                    className={`p-1 rounded-full transition-all cursor-pointer ${
+                      openExplanations["bands"] 
+                        ? "text-purple-400 bg-purple-400/10" 
+                        : "text-slate-500 hover:text-slate-300"
+                    }`}
                   >
-                    Visualizes total energy levels across primary spectral bands to isolate crowding, muddy ranges, vocal dominance, or deficient sub-harmonics in your master.
-                  </motion.p>
-                )}
-              </AnimatePresence>
+                    <Lightbulb className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* Module Help Box */}
+                  <AnimatePresence>
+                    {(openExplanations["bands"] || openExplanations["bands_temp"]) && (
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.95, x: 5 }}
+                        animate={{ opacity: 1, scale: 1, x: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, x: 5 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-full top-0 mr-2 z-50 w-64 text-[12px] font-['Inter'] text-white leading-relaxed p-3 bg-purple-950/95 border border-purple-500/20 rounded-lg shadow-2xl backdrop-blur-sm pointer-events-none"
+                      >
+                        Shows how your song's sound is balanced across the full range of frequencies, from deep bass to bright highs, flagging any areas that are too weak or too overloaded.
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
 
               {/* 6-Band Graphic Equalizer Visualization */}
               <div className="grid grid-cols-6 gap-2 bg-black/40 border border-white/5 rounded-xl px-3 pt-[9px] pb-[9px] items-end h-40">
@@ -684,10 +709,10 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                   
                   const itemColorConfigs = [
                     {
-                      edgeColor: "#01aba9",
-                      trackColor: "rgba(1, 171, 169, 0.2)",
-                      glowColor: "rgba(1, 171, 169, 0.9)",
-                      textColor: "#01aba9"
+                      edgeColor: "#60a5fa",
+                      trackColor: "rgba(96, 165, 250, 0.2)",
+                      glowColor: "rgba(96, 165, 250, 0.9)",
+                      textColor: "#60a5fa"
                     },
                     {
                       edgeColor: "#3adcc2",
