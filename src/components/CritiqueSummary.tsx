@@ -202,7 +202,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                   }`}
                   title="Toggle system details"
                 >
-                  <Lightbulb className="w-4 h-4 text-[#93b7ee] drop-shadow-[0_0_6px_#74a0f9] drop-shadow-[0_0_10px_#74a0f9]" />
+                  <Lightbulb className="w-4 h-4 text-[#a8c8fb] drop-shadow-[0_0_4px_#60a5fa] drop-shadow-[0_0_10px_#60a5fa] drop-shadow-[0_0_18px_#60a5fa]" />
                 </button>
 
                 {/* Dynamic Help Description */}
@@ -298,7 +298,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
 
             <div className="flex-1 max-w-[576px] bg-[#0D0E12] border border-[#3D80EB]/25 hover:border-[#3D80EB]/45 rounded-2xl px-4 py-2.5 h-[120px] flex flex-col justify-between relative overflow-hidden shadow-lg transition-all">
               <div className="absolute top-0 left-0 bg-[#3D80EB] h-[3px] w-full shadow-[0_0_8px_#3D80EB]" />
-              <div className="flex items-center justify-between border-b border-white/5 pb-1 relative z-10 flex-shrink-0">
+              <div className="flex items-center justify-between border-b border-white/5 pb-0 relative z-10 flex-shrink-0">
                 <span className="font-['Inter'] text-[16px] font-bold tracking-wider text-white uppercase">
                   30s Skip & Playout Simulator
                 </span>
@@ -313,7 +313,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                         : "text-slate-500 hover:text-slate-300"
                     }`}
                   >
-                    <Lightbulb className="w-3.5 h-3.5" />
+                    <Lightbulb className="w-3.5 h-3.5 text-[#a8c8fb] drop-shadow-[0_0_4px_#60a5fa] drop-shadow-[0_0_9px_#60a5fa] drop-shadow-[0_0_16px_#60a5fa]" />
                   </button>
 
                   {/* Module Help Box */}
@@ -333,7 +333,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 min-h-0 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 min-h-0">
                 <div className="bg-black/40 border border-white/5 rounded-xl px-3 py-1.5 flex flex-col justify-between h-full min-h-0">
                   <span className="text-[8.5px] font-mono font-bold tracking-wider text-slate-500 uppercase leading-none truncate">PREDICTED SKIP RATE (SR)</span>
                   <div className="flex items-baseline gap-1.5 border-b border-emerald-500/30 pb-0.5 my-0.5">
@@ -369,14 +369,14 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               <span className="text-4xl font-extrabold font-sans text-white transition-colors">2</span>
             </div>
 
-            <div className="flex-1 max-w-[576px] bg-[#0D0E12] border border-[#01aba9]/25 hover:border-[#01aba9]/45 rounded-2xl p-4 flex flex-col gap-3 relative overflow-hidden shadow-lg transition-all">
-              <div className="absolute top-0 left-0 bg-[#01aba9] h-[3px] w-full shadow-[0_0_8px_#01aba9]" />
-              <div className="flex items-center justify-between border-b border-white/5 pb-1 relative z-10">
+            <div className="flex-1 max-w-[576px] bg-[#0D0E12] border border-[#1f9dc4]/25 hover:border-[#1f9dc4]/45 rounded-2xl p-4 flex flex-col gap-[6px] relative overflow-hidden shadow-lg transition-all">
+              <div className="absolute top-0 left-0 bg-[#1f9dc4] h-[3px] w-full shadow-[0_0_8px_#1f9dc4]" />
+              <div className="flex items-center justify-between border-b border-white/5 pb-0 relative z-10">
                 <div className="flex items-center gap-2">
                   <span className="font-['Inter'] text-[16px] font-bold tracking-wider text-white uppercase">
                     Genre-Aware Loudness Assessment
                   </span>
-                  <span className="border border-emerald-500/30 bg-emerald-500/5 text-emerald-400 px-2 py-0.5 rounded text-[9px] font-black uppercase font-mono">
+                  <span className="border border-emerald-500/30 bg-emerald-500/5 text-emerald-400 px-2 py-0 rounded text-[9px] font-black uppercase font-mono">
                     {genreVal}
                   </span>
                 </div>
@@ -391,7 +391,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                         : "text-slate-500 hover:text-slate-300"
                     }`}
                   >
-                    <Lightbulb className="w-3.5 h-3.5" />
+                    <Lightbulb className="w-3.5 h-3.5 text-[#a8c8fb] drop-shadow-[0_0_4px_#60a5fa] drop-shadow-[0_0_9px_#60a5fa] drop-shadow-[0_0_16px_#60a5fa]" />
                   </button>
 
                   {/* Module Help Box */}
@@ -411,7 +411,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div className="border border-emerald-500/20 bg-emerald-500/[0.03] rounded-xl p-3 text-[11px] font-mono text-emerald-400/90 flex flex-col gap-1 shadow-inner">
                   <div className="flex items-center justify-between">
                     <span className="font-black text-xs text-emerald-400 flex items-center gap-1">
@@ -441,14 +441,14 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               <span className="text-4xl font-extrabold font-sans text-white transition-colors">3</span>
             </div>
 
-            <div className="flex-1 max-w-[576px] bg-[#0D0E12] border border-[#01b869]/25 hover:border-[#01b869]/45 rounded-2xl p-4 flex flex-col gap-3 relative overflow-hidden shadow-lg transition-all">
-              <div className="absolute top-0 left-0 bg-[#01b869] h-[3px] w-full shadow-[0_0_8px_#01b869]" />
+            <div className="flex-1 max-w-[576px] bg-[#0D0E12] border border-[#01aba9]/25 hover:border-[#01aba9]/45 rounded-2xl p-4 flex flex-col gap-[6px] relative overflow-hidden shadow-lg transition-all">
+              <div className="absolute top-0 left-0 bg-[#01aba9] h-[3px] w-full shadow-[0_0_8px_#01aba9]" />
               <div className="flex items-center justify-between border-b border-white/5 pb-0 relative z-10">
                 <div className="flex items-center gap-2">
                   <span className="font-['Inter'] text-[16px] font-bold tracking-wider text-white uppercase">
                     The Echo Next Score Card
                   </span>
-                  <span className="border border-cyan-500/30 bg-cyan-500/5 text-cyan-400 px-2 py-0.5 rounded text-[9px] font-black uppercase font-mono">
+                  <span className="border border-cyan-500/30 bg-cyan-500/5 text-cyan-400 px-2 py-0 rounded text-[9px] font-black uppercase font-mono">
                     {genreVal}
                   </span>
                 </div>
@@ -463,7 +463,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                         : "text-slate-500 hover:text-slate-300"
                     }`}
                   >
-                    <Lightbulb className="w-3.5 h-3.5" />
+                    <Lightbulb className="w-3.5 h-3.5 text-[#a8c8fb] drop-shadow-[0_0_4px_#60a5fa] drop-shadow-[0_0_9px_#60a5fa] drop-shadow-[0_0_16px_#60a5fa]" />
                   </button>
 
                   {/* Module Help Box */}
@@ -484,7 +484,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               </div>
 
               {/* Scorecard metrics list */}
-              <div className="flex flex-col gap-[3px] bg-black/40 border border-white/5 rounded-xl px-3 py-1">
+              <div className="flex flex-col gap-[3px] bg-black/40 border border-white/5 rounded-xl px-3 pt-[3px] pb-1">
                 {/* Pair 1: Div 1 & Div 2 */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border-b border-white/5 pb-[3px]">
                   <div className="flex items-center justify-between text-[10px] font-mono">
@@ -582,9 +582,9 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               <span className="text-4xl font-extrabold font-sans text-white transition-colors">4</span>
             </div>
 
-            <div className="flex-1 max-w-[576px] bg-[#0D0E12] border border-[#c545b7]/25 hover:border-[#c545b7]/45 rounded-2xl p-4 flex flex-col gap-3 relative overflow-hidden shadow-lg transition-all">
-              <div className="absolute top-0 left-0 bg-[#c545b7] h-[3px] w-full shadow-[0_0_8px_#c545b7]" />
-              <div className="flex items-center justify-between border-b border-white/5 pb-1 relative z-10">
+            <div className="flex-1 max-w-[576px] bg-[#0D0E12] border border-[#6e97ad]/25 hover:border-[#6e97ad]/45 rounded-2xl p-4 flex flex-col gap-[6px] relative overflow-hidden shadow-lg transition-all">
+              <div className="absolute top-0 left-0 bg-[#6e97ad] h-[3px] w-full shadow-[0_0_8px_#6e97ad]" />
+              <div className="flex items-center justify-between border-b border-white/5 pb-0 relative z-10">
                 <span className="font-['Inter'] text-[16px] font-bold tracking-wider text-white uppercase">
                   6-Band Frequency Energy & Headroom
                 </span>
@@ -599,7 +599,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                         : "text-slate-500 hover:text-slate-300"
                     }`}
                   >
-                    <Lightbulb className="w-3.5 h-3.5" />
+                    <Lightbulb className="w-3.5 h-3.5 text-[#a8c8fb] drop-shadow-[0_0_4px_#60a5fa] drop-shadow-[0_0_9px_#60a5fa] drop-shadow-[0_0_16px_#60a5fa]" />
                   </button>
 
                   {/* Module Help Box */}
@@ -620,7 +620,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               </div>
 
               {/* 6-Band Graphic Equalizer Visualization */}
-              <div className="grid grid-cols-6 gap-2 bg-black/40 border border-white/5 rounded-xl px-3 pt-[9px] pb-[9px] items-end h-40">
+              <div className="grid grid-cols-6 gap-2 bg-black/40 border border-white/5 rounded-xl px-3 pt-[6px] pb-[12px] items-end h-40">
                 {bands.map((band, i) => {
                   const isOverload = band.status === "overload";
                   const isDeficient = band.status === "deficient";
@@ -785,11 +785,11 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                         </div>
 
                         {/* Pill Tags */}
-                        <div className="flex flex-nowrap gap-1.5 mt-[2px]">
+                        <div className="flex flex-nowrap gap-1 mt-[2px]">
                           {cat.tags.map((tag, tIdx) => (
                             <span 
                               key={tIdx} 
-                              className="text-[8px] leading-[15.25px] px-1.5 py-1 font-mono bg-white/5 border border-white/20 rounded-full text-slate-300 uppercase tracking-tight whitespace-nowrap"
+                              className="text-[7.5px] leading-[15.25px] px-1.5 py-1 font-mono bg-white/5 border border-white/20 rounded-full text-slate-300 uppercase tracking-tight whitespace-nowrap"
                             >
                               {tag}
                             </span>
