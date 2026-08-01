@@ -393,7 +393,7 @@ const GENRE_LOUDNESS_BUCKETS: Record<string, { label: string; lufsMin: number; l
   classical: { label: "Classical / Jazz / Folk / Ambient", lufsMin: -18, lufsMax: -14, lraMin: 15, lraMax: null },
 };
 
-function getGenreLoudnessBucket(genre?: string, subgenre?: string): { key: string } & typeof GENRE_LOUDNESS_BUCKETS[string] {
+export function getGenreLoudnessBucket(genre?: string, subgenre?: string): { key: string } & typeof GENRE_LOUDNESS_BUCKETS[string] {
   const text = `${genre || ""} ${subgenre || ""}`.toLowerCase();
   const hasAny = (words: string[]) => words.some(w => text.includes(w));
 
