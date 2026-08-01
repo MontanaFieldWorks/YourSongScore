@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
-  Sparkles, Lightbulb, ArrowRight, X, TrendingUp, CheckCircle2, Activity, Flame, Rabbit
+  Sparkles, Lightbulb, ArrowRight, X, TrendingUp, CheckCircle2, Activity, Flame, Rabbit, XCircle
 } from "lucide-react";
+import { getGenreLoudnessBucket } from "./CritiqueDisplay";
 import { CritiqueData, TrackInfo } from "../types";
 
 interface CritiqueSummaryProps {
@@ -62,12 +63,15 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
   const completionRateText = completionRate >= 75 ? "OPTIMIZED" : completionRate >= 60 ? "STANDARD" : "LOW";
 
   // Dynamic values for Section 2 (Loudness Assessment)
-  const lufs = critique.liveMetrics?.calculatedLufs !== undefined
-    ? critique.liveMetrics.calculatedLufs.toFixed(1)
-    : "-9.2";
-  const dynamicRange = critique.liveMetrics?.calculatedLra !== undefined
-    ? critique.liveMetrics.calculatedLra.toFixed(1)
-    : "8.6";
+  const lufsRaw = critique.liveMetrics?.calculatedLufs;
+  const lraRaw = critique.liveMetrics?.calculatedLra;
+  const lufs = lufsRaw !== undefined ? lufsRaw.toFixed(1) : "--";
+  const dynamicRange = lraRaw !== undefined ? lraRaw.toFixed(1) : "--";
+
+  const loudnessBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+  const lufsPass = lufsRaw !== undefined && lufsRaw >= loudnessBucket.lufsMin && lufsRaw <= loudnessBucket.lufsMax;
+  const lraPass = lraRaw !== undefined && lraRaw >= loudnessBucket.lraMin && (loudnessBucket.lraMax === null || lraRaw <= loudnessBucket.lraMax);
+  const lraTargetText = `${loudnessBucket.lraMin}${loudnessBucket.lraMax !== null ? `-${loudnessBucket.lraMax}` : "+"} LU`;
 
   // Dynamic values for Right-Column ring scores
   const scoreStreamingReadiness = critique.scores?.commercialReadiness || 96;
@@ -429,24 +433,24 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div className="border border-emerald-500/20 bg-emerald-500/[0.03] rounded-xl p-3 text-[11px] font-mono text-emerald-400/90 flex flex-col gap-1 shadow-inner">
+                <div className={`border rounded-xl p-3 text-[11px] font-mono flex flex-col gap-1 shadow-inner ${lufsPass ? "border-emerald-500/20 bg-emerald-500/[0.03] text-emerald-400/90" : "border-red-500/20 bg-red-500/[0.03] text-red-400/90"}`}>
                   <div className="flex items-center justify-between">
-                    <span className="font-black text-xs text-emerald-400 flex items-center gap-1">
-                      <CheckCircle2 className="w-4 h-4" /> PASS – LUFS Loudness
+                    <span className={`font-black text-xs flex items-center gap-1 ${lufsPass ? "text-emerald-400" : "text-red-400"}`}>
+                      {lufsPass ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />} {lufsPass ? "PASS" : "FAIL"} – LUFS Loudness
                     </span>
                     <span className="font-black text-white text-xs">{lufs}</span>
                   </div>
-                  <span className="text-[9px] text-slate-500 uppercase mt-0.5">Target Range: -12 to -9</span>
+                  <span className="text-[9px] text-slate-500 uppercase mt-0.5">Target Range: {loudnessBucket.lufsMin} to {loudnessBucket.lufsMax}</span>
                 </div>
 
-                <div className="border border-emerald-500/20 bg-emerald-500/[0.03] rounded-xl p-3 text-[11px] font-mono text-emerald-400/90 flex flex-col gap-1 shadow-inner">
+                <div className={`border rounded-xl p-3 text-[11px] font-mono flex flex-col gap-1 shadow-inner ${lraPass ? "border-emerald-500/20 bg-emerald-500/[0.03] text-emerald-400/90" : "border-red-500/20 bg-red-500/[0.03] text-red-400/90"}`}>
                   <div className="flex items-center justify-between">
-                    <span className="font-black text-xs text-emerald-400 flex items-center gap-1">
-                      <CheckCircle2 className="w-4 h-4" /> PASS – Dynamic Range
+                    <span className={`font-black text-xs flex items-center gap-1 ${lraPass ? "text-emerald-400" : "text-red-400"}`}>
+                      {lraPass ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />} {lraPass ? "PASS" : "FAIL"} – Dynamic Range
                     </span>
                     <span className="font-black text-white text-xs">{dynamicRange} LU</span>
                   </div>
-                  <span className="text-[9px] text-slate-500 uppercase mt-0.5">Target Range: 6 to 12 LU</span>
+                  <span className="text-[9px] text-slate-500 uppercase mt-0.5">Target Range: {lraTargetText}</span>
                 </div>
               </div>
             </div>
