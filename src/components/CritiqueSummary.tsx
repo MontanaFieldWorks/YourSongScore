@@ -32,16 +32,33 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
   const genreVal = critique.vibe?.genre || "Rock";
   const subgenreVal = critique.vibe?.subgenre || "Power Pop";
 
-  // Dynamic values for Section 1 (Skip & Playout)
-  // Let's dynamically calculate based on actual track metrics, or use mockup's gorgeous default anchors
-  const skipRate = critique.liveMetrics?.calculatedGridCohesionScore !== undefined
-    ? Math.round(35 - (critique.liveMetrics.calculatedGridCohesionScore * 15))
-    : 18;
+  // Dynamic values for Section 1 (Skip & Playout) - real formula matching CritiqueDisplay.tsx exactly
+  const overallProductionVal = critique?.scores?.overallProduction ?? 75;
+  const commercialReadinessVal = critique?.scores?.commercialReadiness ?? 75;
+
+  let liveSkipModifier = 0;
+  if (critique?.liveMetrics) {
+    const { calculatedLufs, calculatedBpm, calculatedStereoCorrelation } = critique.liveMetrics;
+    if (calculatedLufs !== undefined && calculatedLufs < -12.5) {
+      liveSkipModifier += Math.round(Math.abs(calculatedLufs + 12.5) * 1.8);
+    }
+    if (calculatedStereoCorrelation !== undefined) {
+      if (calculatedStereoCorrelation > 0.82) {
+        liveSkipModifier += 6;
+      } else if (calculatedStereoCorrelation < -0.15) {
+        liveSkipModifier += 14;
+      }
+    }
+    if (calculatedBpm !== undefined && (calculatedBpm < 75 || calculatedBpm > 155)) {
+      liveSkipModifier += 5;
+    }
+  }
+
+  const baseSkipProb = Math.min(85, Math.max(10, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
+  const skipRate = baseSkipProb;
   const skipRateText = skipRate <= 20 ? "EXCELLENT" : skipRate <= 32 ? "OPTIMAL" : "CRITICAL";
 
-  const completionRate = critique.scores?.commercialReadiness !== undefined
-    ? Math.round(critique.scores.commercialReadiness * 0.8)
-    : 77;
+  const completionRate = Math.min(96, Math.max(15, 100 - baseSkipProb - 5));
   const completionRateText = completionRate >= 75 ? "OPTIMIZED" : completionRate >= 60 ? "STANDARD" : "LOW";
 
   // Dynamic values for Section 2 (Loudness Assessment)
