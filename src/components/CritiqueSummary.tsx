@@ -77,7 +77,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
   // Custom function to get dynamically calculated heights for Section 4 (6-band chart)
   const getBandHeight = (bandEnergy: number | undefined, defaultHeight: number) => {
     if (bandEnergy === undefined) return defaultHeight;
-    return Math.min(100, Math.max(15, Math.round(bandEnergy * 100)));
+    return Math.min(100, Math.max(15, Math.round(bandEnergy)));
   };
 
   const getBandStatus = (height: number) => {
