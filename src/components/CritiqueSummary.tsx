@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { 
   Sparkles, Lightbulb, ArrowRight, X, TrendingUp, CheckCircle2, Activity, Flame, Rabbit, XCircle
 } from "lucide-react";
-import { getGenreLoudnessBucket } from "./CritiqueDisplay";
+import { getGenreLoudnessBucket, computeEchoNestScorecard } from "./CritiqueDisplay";
 import { CritiqueData, TrackInfo } from "../types";
 
 interface CritiqueSummaryProps {
@@ -72,6 +72,14 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
   const lufsPass = lufsRaw !== undefined && lufsRaw >= loudnessBucket.lufsMin && lufsRaw <= loudnessBucket.lufsMax;
   const lraPass = lraRaw !== undefined && lraRaw >= loudnessBucket.lraMin && (loudnessBucket.lraMax === null || lraRaw <= loudnessBucket.lraMax);
   const lraTargetText = `${loudnessBucket.lraMin}${loudnessBucket.lraMax !== null ? `-${loudnessBucket.lraMax}` : "+"} LU`;
+
+  const echoNestData = computeEchoNestScorecard(critique);
+  const timbralScore = critique.liveMetrics?.calculatedTimbralConsistencyScore;
+  const timbralMatch = timbralScore !== undefined ? (timbralScore >= 70 ? 100 : Math.max(0, timbralScore)) : null;
+  const echoNestDisplayItems = [
+    ...echoNestData,
+    ...(timbralScore !== undefined ? [{ label: "Timbre Clarity", value: Math.round(timbralScore), min: 70, max: 100, matchPercent: timbralMatch }] : [])
+  ];
 
   // Dynamic values for Right-Column ring scores
   const scoreStreamingReadiness = critique.scores?.commercialReadiness || 96;
@@ -506,93 +514,32 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
 
               {/* Scorecard metrics list */}
               <div className="flex flex-col gap-[3px] bg-black/40 border border-white/5 rounded-xl px-3 pt-[3px] pb-1">
-                {/* Pair 1: Div 1 & Div 2 */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border-b border-white/5 pb-[3px]">
-                  <div className="flex items-center justify-between text-[10px] font-mono">
-                    <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.8)] pr-[6px]" />
-                      <span className="font-bold text-slate-300">DANCEABILITY</span>
+                {Array.from({ length: Math.ceil(echoNestDisplayItems.length / 2) }).map((_, rowIdx) => {
+                  const itemA = echoNestDisplayItems[rowIdx * 2];
+                  const itemB = echoNestDisplayItems[rowIdx * 2 + 1];
+                  const isLastRow = rowIdx === Math.ceil(echoNestDisplayItems.length / 2) - 1;
+                  const renderItem = (item: typeof itemA) => {
+                    if (!item) return <div />;
+                    const isMatch = item.matchPercent !== null && item.matchPercent >= 70;
+                    return (
+                      <div className="flex items-center justify-between text-[10px] font-mono">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-1.5 h-1.5 rounded-full ${isMatch ? "bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.8)]" : "bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.8)]"}`} />
+                          <span className="font-bold text-slate-300 uppercase">{item.label}</span>
+                        </div>
+                        <span className={`text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase border ${isMatch ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"}`}>
+                          {isMatch ? "OPTIMAL MATCH" : "MISMATCH"}
+                        </span>
+                      </div>
+                    );
+                  };
+                  return (
+                    <div key={rowIdx} className={`grid grid-cols-1 sm:grid-cols-2 gap-2 ${!isLastRow ? "border-b border-white/5 pb-[3px]" : ""}`}>
+                      {renderItem(itemA)}
+                      {renderItem(itemB)}
                     </div>
-                    <span className="text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                      OPTIMAL MATCH
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] font-mono">
-                    <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.8)]" />
-                      <span className="font-bold text-slate-300">ENERGY</span>
-                    </div>
-                    <span className="text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                      OPTIMAL MATCH
-                    </span>
-                  </div>
-                </div>
-
-                {/* Pair 2: Div 3 & Div 4 */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 border-b border-white/5 pb-[3px]">
-                  <div className="flex items-center justify-between text-[10px] font-mono">
-                    <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.8)] pr-[6px]" />
-                      <span className="font-bold text-slate-300">ACOUSTICNESS</span>
-                    </div>
-                    <span className="text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                      OPTIMAL MATCH
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] font-mono">
-                    <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.8)]" />
-                      <span className="font-bold text-slate-300">MOOD VALENCE</span>
-                    </div>
-                    <span className="text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase border bg-amber-500/10 text-amber-400 border-amber-500/20">
-                      MISMATCH
-                    </span>
-                  </div>
-                </div>
-
-                {/* Pair 3: Div 5 & Div 6 */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 border-b border-white/5 pb-[3px]">
-                  <div className="flex items-center justify-between text-[10px] font-mono">
-                    <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.8)] pr-[6px]" />
-                      <span className="font-bold text-slate-300">SPEECHINESS</span>
-                    </div>
-                    <span className="text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase border bg-amber-500/10 text-amber-400 border-amber-500/20">
-                      MISMATCH
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] font-mono">
-                    <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.8)]" />
-                      <span className="font-bold text-slate-300">INSTRUMENTALNESS</span>
-                    </div>
-                    <span className="text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                      OPTIMAL MATCH
-                    </span>
-                  </div>
-                </div>
-
-                {/* Pair 4: Div 7 & Div 8 */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                  <div className="flex items-center justify-between text-[10px] font-mono">
-                    <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.8)] pr-[6px]" />
-                      <span className="font-bold text-slate-300">LIVENESS</span>
-                    </div>
-                    <span className="text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase border bg-amber-500/10 text-amber-400 border-amber-500/20">
-                      MISMATCH
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] font-mono">
-                    <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.8)]" />
-                      <span className="font-bold text-slate-300">TIMBRE CLARITY</span>
-                    </div>
-                    <span className="text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                      OPTIMAL MATCH
-                    </span>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
             </div>
           </div>
