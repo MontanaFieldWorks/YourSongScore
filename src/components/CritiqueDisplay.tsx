@@ -412,6 +412,114 @@ export function getGenreLoudnessBucket(genre?: string, subgenre?: string): { key
   return { key: "mainstream", ...GENRE_LOUDNESS_BUCKETS.mainstream };
 }
 
+export function computeEchoNestScorecard(critique: any) {
+  const liveMetrics = critique?.liveMetrics;
+  const overallProductionVal = critique?.scores?.overallProduction ?? 75;
+  const commercialReadinessVal = critique?.scores?.commercialReadiness ?? 75;
+  const flowScoreVal = critique?.arrangement?.flowScore ?? 75;
+  const vocalScoreVal = critique?.performance?.vocalScore ?? 75;
+  const instrumentalScoreVal = critique?.performance?.instrumentalScore ?? 75;
+  const theoryScoreVal = critique?.musicTheory?.score ?? 72;
+  const lyricsScoreVal = critique?.lyricalImpact?.score ?? 70;
+  const mixScoreVal = critique?.mixQuality?.score ?? 75;
+
+  const profile = getSubgenreProfile(critique?.vibe?.genre || "", critique?.vibe?.subgenre || "");
+
+  const baseAcousticness = Math.round(((profile.acousticMin + profile.acousticMax) / 2) * 100);
+  const baseDanceability = Math.round(((profile.danceMin + profile.danceMax) / 2) * 100);
+  const baseEnergy = Math.round(((profile.energyMin + profile.energyMax) / 2) * 100);
+  const baseValence = Math.round(((profile.valenceMin + profile.valenceMax) / 2) * 100);
+  const baseInstrumentalness = Math.round(((profile.instMin + profile.instMax) / 2) * 100);
+  const baseSpeechiness = Math.round(((profile.speechMin + profile.speechMax) / 2) * 100);
+  const baseLiveness = Math.round(((profile.liveMin + profile.liveMax) / 2) * 100);
+
+  const acousticnessOffset = Math.round(((instrumentalScoreVal || 70) % 15) - 7);
+  const acousticness = critique?.spotifyOverrides?.acousticness ?? critique?.subMetricsCall2?.acousticness?.score ?? (() => {
+    if (liveMetrics?.calculatedBassEnergy !== undefined && liveMetrics?.calculatedHighEnergy !== undefined) {
+      const bassRatio = liveMetrics.calculatedBassEnergy / Math.max(1, liveMetrics.calculatedHighEnergy);
+      return Math.round(Math.min(95, Math.max(5, (bassRatio / 3) * 100)));
+    }
+    return Math.max(5, Math.min(95, baseAcousticness + acousticnessOffset));
+  })();
+
+  const danceabilityOffset = Math.round(((flowScoreVal || 70) - 72) * 0.4);
+  const danceability = critique?.spotifyOverrides?.danceability ?? Math.max(15, Math.min(95, baseDanceability + danceabilityOffset));
+
+  const energyOffset = Math.round(((overallProductionVal || 75) % 15) - 4);
+  const energy = (() => {
+    if (liveMetrics?.calculatedLufs !== undefined && liveMetrics?.calculatedHighEnergy !== undefined) {
+      const lufsFactor = Math.min(1, Math.max(0, (liveMetrics.calculatedLufs + 22) / 16));
+      const highFactor = Math.min(1, liveMetrics.calculatedHighEnergy / 50);
+      return Math.round(Math.min(96, Math.max(10, (lufsFactor * 0.6 + highFactor * 0.4) * 100)));
+    }
+    return Math.max(10, Math.min(96, baseEnergy + energyOffset));
+  })();
+
+  const valenceOffset = Math.round(((theoryScoreVal || 72) - 72) * 0.3);
+  const valence = critique?.spotifyOverrides?.valence ?? critique?.subMetricsCall2?.moodValence?.score ?? Math.max(8, Math.min(95, baseValence + valenceOffset));
+
+  const instrumentalnessOffset = Math.round(((instrumentalScoreVal || 75) - 75) * 0.3);
+  const instrumentalness = (() => {
+    if (liveMetrics?.calculatedMidEnergy !== undefined && liveMetrics?.calculatedHighEnergy !== undefined) {
+      const vocalPresenceProxy = Math.min(1, liveMetrics.calculatedMidEnergy / Math.max(1, liveMetrics.calculatedHighEnergy));
+      return Math.round(Math.min(98, Math.max(1, (1 - vocalPresenceProxy) * 80)));
+    }
+    return Math.max(1, Math.min(98, baseInstrumentalness + instrumentalnessOffset));
+  })();
+
+  const speechinessOffset = Math.round(((lyricsScoreVal || 70) - 70) * 0.2);
+  const speechiness = critique?.subMetricsCall2?.speechiness?.score ?? Math.max(2, Math.min(92, baseSpeechiness + speechinessOffset));
+
+  const livenessOffset = Math.round(((mixScoreVal || 75) % 10) - 4);
+  const liveness = critique?.spotifyOverrides?.liveness ?? (() => {
+    if (liveMetrics?.calculatedStereoCorrelation !== undefined) {
+      return Math.round(Math.min(95, Math.max(5, (1 - liveMetrics.calculatedStereoCorrelation) * 100)));
+    }
+    return Math.max(5, Math.min(95, baseLiveness + livenessOffset));
+  })();
+
+  const targetDanceability = Math.round(((profile.danceMin + profile.danceMax) / 2) * 100);
+  const targetEnergy = Math.round(((profile.energyMin + profile.energyMax) / 2) * 100);
+  const targetAcousticness = Math.round(((profile.acousticMin + profile.acousticMax) / 2) * 100);
+  const targetValence = Math.round(((profile.valenceMin + profile.valenceMax) / 2) * 100);
+  const targetSpeechiness = Math.round(((profile.speechMin + profile.speechMax) / 2) * 100);
+  const targetInstrumentalness = Math.round(((profile.instMin + profile.instMax) / 2) * 100);
+  const targetLiveness = Math.round(((profile.liveMin + profile.liveMax) / 2) * 100);
+
+  const danceMinBound = Math.round(profile.danceMin * 100);
+  const danceMaxBound = Math.round(profile.danceMax * 100);
+  const energyMinBound = Math.round(profile.energyMin * 100);
+  const energyMaxBound = Math.round(profile.energyMax * 100);
+  const acousticMinBound = Math.round(profile.acousticMin * 100);
+  const acousticMaxBound = Math.round(profile.acousticMax * 100);
+  const valenceMinBound = Math.round(profile.valenceMin * 100);
+  const valenceMaxBound = Math.round(profile.valenceMax * 100);
+  const speechMinBound = Math.round(profile.speechMin * 100);
+  const speechMaxBound = Math.round(profile.speechMax * 100);
+  const instMinBound = Math.round(profile.instMin * 100);
+  const instMaxBound = Math.round(profile.instMax * 100);
+  const liveMinBound = Math.round(profile.liveMin * 100);
+  const liveMaxBound = Math.round(profile.liveMax * 100);
+
+  const danceabilityMatch = danceability >= danceMinBound && danceability <= danceMaxBound ? 100 : Math.max(0, Math.min(100, Math.round(100 - Math.abs(danceability - targetDanceability))));
+  const energyMatch = energy >= energyMinBound && energy <= energyMaxBound ? 100 : Math.max(0, Math.min(100, Math.round(100 - Math.abs(energy - targetEnergy))));
+  const acousticnessMatch = acousticness >= acousticMinBound && acousticness <= acousticMaxBound ? 100 : Math.max(0, Math.min(100, Math.round(100 - Math.abs(acousticness - targetAcousticness))));
+  const valenceMatch = valence >= valenceMinBound && valence <= valenceMaxBound ? 100 : Math.max(0, Math.min(100, Math.round(100 - Math.abs(valence - targetValence))));
+  const speechinessMatch = speechiness >= speechMinBound && speechiness <= speechMaxBound ? 100 : Math.max(0, Math.min(100, Math.round(100 - Math.abs(speechiness - targetSpeechiness))));
+  const instrumentalnessMatch = instrumentalness >= instMinBound && instrumentalness <= instMaxBound ? 100 : Math.max(0, Math.min(100, Math.round(100 - Math.abs(instrumentalness - targetInstrumentalness))));
+  const livenessMatch = liveness >= liveMinBound && liveness <= liveMaxBound ? 100 : Math.max(0, Math.min(100, Math.round(100 - Math.abs(liveness - targetLiveness))));
+
+  return [
+    { label: "Danceability", value: danceability, min: danceMinBound, max: danceMaxBound, matchPercent: danceabilityMatch },
+    { label: "Energy", value: energy, min: energyMinBound, max: energyMaxBound, matchPercent: energyMatch },
+    { label: "Acousticness", value: acousticness, min: acousticMinBound, max: acousticMaxBound, matchPercent: acousticnessMatch },
+    { label: "Mood Valence", value: valence, min: valenceMinBound, max: valenceMaxBound, matchPercent: valenceMatch },
+    { label: "Speechiness", value: speechiness, min: speechMinBound, max: speechMaxBound, matchPercent: speechinessMatch },
+    { label: "Instrumentalness", value: instrumentalness, min: instMinBound, max: instMaxBound, matchPercent: instrumentalnessMatch },
+    { label: "Liveness", value: liveness, min: liveMinBound, max: liveMaxBound, matchPercent: livenessMatch },
+  ];
+}
+
 export default function CritiqueDisplay({ critique, trackInfo, onClear, localFileBlobUrl, onViewDefinition, onOpenArConsult, onNavigateToRabbitHole, onNavigateToEngineeringStudio }: CritiqueDisplayProps) {
   const [activeTab, setActiveTab] = useState<"mix" | "execution" | "arrangement" | "azimuth">("mix");
   const [isPlaying, setIsPlaying] = useState(false);
