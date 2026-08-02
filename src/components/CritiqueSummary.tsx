@@ -82,9 +82,9 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
   ];
 
   // Dynamic values for Right-Column ring scores
-  const scoreStreamingReadiness = critique.scores?.commercialReadiness || 96;
-  const scoreSonicSoundprint = critique.mixQuality?.score || 85;
-  const scoreCompositionalDepth = critique.performance?.instrumentalScore || critique.performance?.vocalScore || 80;
+  const scoreStreamingReadiness = Math.round(((critique.scores?.commercialReadiness ?? 75) + (critique.titleSearchability?.score ?? 75)) / 2);
+  const scoreSonicSoundprint = Math.round(((critique.mixQuality?.score ?? 75) + (critique.performance?.vocalScore ?? 75)) / 2);
+  const scoreCompositionalDepth = Math.round(((critique.lyricalImpact?.score ?? 75) + (critique.musicTheory?.score ?? 75)) / 2);
 
   // Custom function to get dynamically calculated heights for Section 4 (6-band chart)
   const getBandHeight = (bandEnergy: number | undefined, defaultHeight: number) => {
