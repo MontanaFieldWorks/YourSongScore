@@ -1222,8 +1222,8 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     }
   }
   
-  const bandDbFloor = -70;
-  const bandDbCeiling = -15;
+  const bandDbFloor = -22;
+  const bandDbCeiling = 45;
   const bandEnergies = new Float32Array(6);
   
   for (let b = 0; b < 6; b++) {
