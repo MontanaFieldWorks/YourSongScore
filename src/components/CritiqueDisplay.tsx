@@ -1816,9 +1816,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     });
     engRow += 1;
 
-    const bass = lm?.calculatedBassEnergy ?? 35;
-    const mid = lm?.calculatedMidEnergy ?? 40;
-    const high = lm?.calculatedHighEnergy ?? 25;
     const BAND_IDEALS: Record<string, number[]> = {
       hiphop:     [65, 62, 55, 50, 48, 42],
       mainstream: [55, 60, 60, 55, 55, 50],
@@ -1826,12 +1823,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       classical:  [35, 40, 45, 48, 40, 35],
     };
     const ideals = BAND_IDEALS[engBucket.key] ?? BAND_IDEALS.mainstream;
-    const subBassVal = Math.min(99, Math.round(30 + (bass * 1.4)));
-    const bassCorridorVal = Math.min(99, Math.round(35 + (bass * 1.2)));
-    const lowMidVal = Math.min(99, Math.round(20 + (mid * 0.9)));
-    const coreMidVal = Math.min(99, Math.round(15 + (mid * 0.8)));
-    const presenceVal = Math.min(99, Math.round(15 + (high * 1.1)));
-    const airVal = Math.min(99, Math.round(10 + (high * 0.95)));
+    const subBassVal = lm?.calculatedSubBassBandEnergy ?? 50;
+    const bassCorridorVal = lm?.calculatedBassBandEnergy ?? 50;
+    const lowMidVal = lm?.calculatedLowMidsBandEnergy ?? 50;
+    const coreMidVal = lm?.calculatedCoreMidsBandEnergy ?? 50;
+    const presenceVal = lm?.calculatedPresenceBandEnergy ?? 50;
+    const airVal = lm?.calculatedAirBandEnergy ?? 50;
     const getBandStatus = (v: number, ideal: number) =>
       v > ideal + 15 ? "PEAK" : v > ideal + 7 ? "SLIGHT PEAK" : v < ideal - 15 ? "DEFICIT" : v < ideal - 7 ? "SLIGHT DEFICIT" : "NOMINAL";
 
