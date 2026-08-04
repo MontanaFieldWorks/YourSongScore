@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Sparkles, Lightbulb, ArrowRight, X, TrendingUp, CheckCircle2, Activity, Flame, Rabbit, XCircle
@@ -16,6 +16,8 @@ interface CritiqueSummaryProps {
 export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, onClear }: CritiqueSummaryProps) {
   // State for tracking open explanatory banners
   const [openExplanations, setOpenExplanations] = useState<Record<string, boolean>>({});
+  const [animatedScores, setAnimatedScores] = useState<number[]>([0, 0, 0]);
+  const animationRefs = useRef<(number | null)[]>([null, null, null]);
 
   const toggleExplanation = (key: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -146,6 +148,39 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
       tags: ["Artistic Impact", "Songwriting Quality", "Song Architecture"]
     }
   ];
+
+  useEffect(() => {
+    const duration = 1400;
+    const timeoutIds: ReturnType<typeof setTimeout>[] = [];
+    categories.forEach((cat, i) => {
+      const startDelay = i * 400;
+      const timeoutId = setTimeout(() => {
+        const startTime = Date.now();
+        const tick = () => {
+          const elapsed = Date.now() - startTime;
+          const t = Math.min(1, elapsed / duration);
+          const ease = 1 - Math.pow(1 - t, 3);
+          const currentValue = Math.round(ease * cat.score);
+          setAnimatedScores(prev => {
+            const next = [...prev];
+            next[i] = currentValue;
+            return next;
+          });
+          if (t < 1) {
+            animationRefs.current[i] = requestAnimationFrame(tick);
+          }
+        };
+        tick();
+      }, startDelay);
+      timeoutIds.push(timeoutId);
+    });
+    return () => {
+      timeoutIds.forEach(id => clearTimeout(id));
+      animationRefs.current.forEach(id => {
+        if (id) cancelAnimationFrame(id);
+      });
+    };
+  }, []);
 
   return (
     <motion.div 
@@ -673,7 +708,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                   const radius = 52;
                   const strokeWidth = 5.25;
                   const circumference = 2 * Math.PI * radius;
-                  const strokeDashoffset = circumference - (cat.score / 100) * circumference;
+                  const strokeDashoffset = circumference - (animatedScores[i] / 100) * circumference;
                   
                   const itemColorConfigs = [
                     {
@@ -736,7 +771,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                         </svg>
                         {/* Center number */}
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="font-['Inter'] text-[40px] font-bold text-white">{cat.score}</span>
+                          <span className="font-['Inter'] text-[40px] font-bold text-white">{animatedScores[i]}</span>
                         </div>
                       </div>
 
