@@ -494,6 +494,15 @@ export default function App() {
           return; // Already populated in locker!
         }
 
+        const matchingPendingTrack = uTracks.find((t) => {
+          const tCleanName = t.name.replace(/_Locker\.[a-zA-Z0-9]+$/i, "");
+          return (
+            t.status === "pending_analysis" &&
+            (tCleanName.toLowerCase() === cleanSongName.toLowerCase() ||
+             (t.metaTitle && t.metaTitle.toLowerCase() === cleanSongName.toLowerCase()))
+          );
+        });
+
         // Run direct save for this audited song
         const formatToUse = "MP3";
         const convertedSize = 5.4; // generic size for reference
@@ -501,14 +510,15 @@ export default function App() {
         const lockerFileName = cleanSongName + "_Locker.mp3";
 
         const newLockerTrack: StoredTrack = {
-          id: "trk_audit_" + Math.random().toString(36).substr(2, 9),
+          ...(matchingPendingTrack || {}),
+          id: matchingPendingTrack ? matchingPendingTrack.id : "trk_audit_" + Math.random().toString(36).substr(2, 9),
           userId: currentUser.uid,
           name: lockerFileName,
           format: formatToUse,
           size: convertedSize,
           status: "analyzed",
-          createdAt: new Date().toISOString(),
-          convertedMp3Url: undefined,
+          createdAt: matchingPendingTrack ? matchingPendingTrack.createdAt : new Date().toISOString(),
+          convertedMp3Url: matchingPendingTrack ? matchingPendingTrack.convertedMp3Url : undefined,
           coverArt: trackInfo?.coverArt || undefined,
           critique,
           metaTitle: titleToUse,
