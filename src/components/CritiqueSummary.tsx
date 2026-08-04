@@ -150,10 +150,10 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
   ];
 
   useEffect(() => {
-    const duration = 1400;
+    const duration = 1600;
     const timeoutIds: ReturnType<typeof setTimeout>[] = [];
     categories.forEach((cat, i) => {
-      const startDelay = i * 400;
+      const startDelay = i * 500;
       const timeoutId = setTimeout(() => {
         const startTime = Date.now();
         const tick = () => {
