@@ -691,6 +691,13 @@ export const saveUserTrack = async (track: StoredTrack): Promise<void> => {
     const { timeResolvedChromagram, timeResolvedSpectrogram, ...restLiveMetrics } = (workingTrack as any).liveMetrics;
     workingTrack = { ...workingTrack, liveMetrics: restLiveMetrics } as StoredTrack;
   }
+  if ((workingTrack as any).critique?.liveMetrics) {
+    const { timeResolvedChromagram, timeResolvedSpectrogram, ...restNestedLiveMetrics } = (workingTrack as any).critique.liveMetrics;
+    workingTrack = {
+      ...workingTrack,
+      critique: { ...(workingTrack as any).critique, liveMetrics: restNestedLiveMetrics }
+    } as StoredTrack;
+  }
   const cleanTrack = deepCleanFirestoreObject(workingTrack);
 
   // Always save to local storage first as fallback
