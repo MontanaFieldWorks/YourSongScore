@@ -520,6 +520,68 @@ export function computeEchoNestScorecard(critique: any) {
   ];
 }
 
+export function computeCategoryScores(critique: any) {
+  const overallProductionVal = critique?.scores?.overallProduction ?? 75;
+  const commercialReadinessVal = critique?.scores?.commercialReadiness ?? 75;
+
+  let liveSkipModifier = 0;
+  if (critique?.liveMetrics) {
+    const { calculatedLufs, calculatedBpm, calculatedStereoCorrelation } = critique.liveMetrics;
+    if (calculatedLufs !== undefined && calculatedLufs < -12.5) {
+      liveSkipModifier += Math.round(Math.abs(calculatedLufs + 12.5) * 1.8);
+    }
+    if (calculatedStereoCorrelation !== undefined) {
+      if (calculatedStereoCorrelation > 0.82) {
+        liveSkipModifier += 6;
+      } else if (calculatedStereoCorrelation < -0.15) {
+        liveSkipModifier += 14;
+      }
+    }
+    if (calculatedBpm !== undefined && (calculatedBpm < 75 || calculatedBpm > 155)) {
+      liveSkipModifier += 5;
+    }
+  }
+  const baseSkipProb = Math.min(85, Math.max(10, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
+  const completionRate = Math.min(96, Math.max(15, 100 - baseSkipProb - 5));
+
+  const echoNestData = computeEchoNestScorecard(critique);
+  const echoNestAvgMatch = echoNestData.length > 0
+    ? echoNestData.reduce((sum: number, item: any) => sum + (item.matchPercent ?? 0), 0) / echoNestData.length
+    : 75;
+
+  const scoreStreamingReadiness = Math.round(
+    (completionRate * 0.40) +
+    (echoNestAvgMatch * 0.30) +
+    (commercialReadinessVal * 0.20) +
+    ((critique?.titleSearchability?.score ?? 75) * 0.10)
+  );
+
+  const lufsRaw = critique?.liveMetrics?.calculatedLufs;
+  const lraRaw = critique?.liveMetrics?.calculatedLra;
+  const loudnessBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+  const lufsPass = lufsRaw !== undefined && lufsRaw >= loudnessBucket.lufsMin && lufsRaw <= loudnessBucket.lufsMax;
+  const lraPass = lraRaw !== undefined && lraRaw >= loudnessBucket.lraMin && (loudnessBucket.lraMax === null || lraRaw <= loudnessBucket.lraMax);
+  const loudnessComplianceScore = ((lufsPass ? 100 : 50) + (lraPass ? 100 : 50)) / 2;
+
+  const scoreSonicSoundprint = Math.round(
+    ((critique?.mixQuality?.score ?? 75) * 0.45) +
+    (loudnessComplianceScore * 0.25) +
+    ((critique?.performance?.vocalScore ?? 75) * 0.30)
+  );
+
+  const scoreCompositionalDepth = Math.round(
+    ((critique?.musicTheory?.score ?? 75) * 0.35) +
+    ((critique?.lyricalImpact?.score ?? 75) * 0.30) +
+    ((critique?.arrangement?.flowScore ?? 75) * 0.35)
+  );
+
+  return {
+    streamingReadiness: scoreStreamingReadiness,
+    sonicSoundprint: scoreSonicSoundprint,
+    compositionalDepth: scoreCompositionalDepth,
+  };
+}
+
 export default function CritiqueDisplay({ critique, trackInfo, onClear, localFileBlobUrl, onViewDefinition, onOpenArConsult, onNavigateToRabbitHole, onNavigateToEngineeringStudio }: CritiqueDisplayProps) {
   const [activeTab, setActiveTab] = useState<"mix" | "execution" | "arrangement" | "azimuth">("mix");
   const [isPlaying, setIsPlaying] = useState(false);
