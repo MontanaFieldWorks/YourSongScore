@@ -1421,13 +1421,9 @@ export default function Dashboard({
                     <thead className="bg-[#0A0B0E] text-[10px] font-mono text-slate-400 uppercase border-b border-white/5">
                       <tr>
                         <th className="p-3 font-semibold">Song Info</th>
-                        <th className="p-3 text-center font-semibold">Total Index</th>
-                        <th className="p-3 text-center font-semibold hidden md:table-cell">Mix Qual</th>
-                        <th className="p-3 text-center font-semibold hidden lg:table-cell">Voc / Inst</th>
-                        <th className="p-3 text-center font-semibold hidden md:table-cell">Engage</th>
-                        <th className="p-3 text-center font-semibold hidden lg:table-cell">Lyrical</th>
-                        <th className="p-3 text-center font-semibold hidden xl:table-cell">Theory</th>
-                        <th className="p-3 text-center font-semibold hidden lg:table-cell">SEO</th>
+                        <th className="p-3 text-center font-semibold">Streaming</th>
+                        <th className="p-3 text-center font-semibold hidden md:table-cell">Sonic</th>
+                        <th className="p-3 text-center font-semibold hidden md:table-cell">Depth</th>
                         <th className="p-3 text-right font-semibold">Action</th>
                       </tr>
                     </thead>
@@ -1510,15 +1506,11 @@ export default function Dashboard({
                           </td>
                           <td className="p-3 text-center">
                             <span className="font-mono text-xs font-bold px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-400 block w-10 mx-auto">
-                              {track.metrics?.overall}%
+                              {track.metrics?.streamingReadiness}%
                             </span>
                           </td>
-                          <td className="p-3 text-center font-mono text-slate-300 font-bold hidden md:table-cell">{track.metrics?.mix}%</td>
-                          <td className="p-3 text-center font-mono text-slate-300 font-bold hidden lg:table-cell">{track.metrics?.performance}%</td>
-                          <td className="p-3 text-center font-mono text-slate-300 font-bold hidden md:table-cell">{track.metrics?.engagement}%</td>
-                          <td className="p-3 text-center font-mono text-slate-300 font-bold hidden lg:table-cell">{track.metrics?.lyric}%</td>
-                          <td className="p-3 text-center font-mono text-slate-300 font-bold hidden xl:table-cell">{track.metrics?.theory}%</td>
-                          <td className="p-3 text-center font-mono text-slate-300 font-bold hidden lg:table-cell">{track.metrics?.seo}%</td>
+                          <td className="p-3 text-center font-mono text-slate-300 font-bold hidden md:table-cell">{track.metrics?.sonicSoundprint}%</td>
+                          <td className="p-3 text-center font-mono text-slate-300 font-bold hidden md:table-cell">{track.metrics?.compositionalDepth}%</td>
                           <td className="p-3 text-right">
                             <div className="flex items-center justify-end gap-1.5 w-full">
                               <button
