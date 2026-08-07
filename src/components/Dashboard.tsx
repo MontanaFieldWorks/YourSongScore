@@ -665,36 +665,10 @@ export default function Dashboard({
           throw new Error(errorData.error || "A&R pipeline did not complete successfully.");
         }
       } catch (err: any) {
-        console.warn("Using smart dynamic calculation model fallback: ", err);
-        // Fallback to high-fidelity template
-        finalCritique = MOCK_GENERATED_CRITIQUE_TEMPLATE(track.name, track.format, (track as any).metaGenre);
-        // Add robust variability based on the length and metadata of the song name to make it feel calculated
-        const sumChars = track.name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        const shiftAmount = (sumChars % 13) - 6; // range [-6, 6]
-        
-        if (finalCritique.scores) {
-          finalCritique.scores.overallProduction = Math.min(99, Math.max(68, finalCritique.scores.overallProduction + shiftAmount));
-          finalCritique.scores.commercialReadiness = Math.min(99, Math.max(68, finalCritique.scores.commercialReadiness - shiftAmount / 2));
-        }
-        if (finalCritique.mixQuality) {
-          finalCritique.mixQuality.score = Math.min(99, Math.max(68, finalCritique.mixQuality.score + shiftAmount));
-        }
-        if (finalCritique.performance) {
-          finalCritique.performance.vocalScore = Math.min(99, Math.max(68, finalCritique.performance.vocalScore - shiftAmount));
-          finalCritique.performance.instrumentalScore = Math.min(99, Math.max(68, finalCritique.performance.instrumentalScore + shiftAmount));
-        }
-        if (finalCritique.arrangement) {
-          finalCritique.arrangement.flowScore = Math.min(99, Math.max(68, finalCritique.arrangement.flowScore - shiftAmount));
-        }
-        if (finalCritique.lyricalImpact) {
-          finalCritique.lyricalImpact.score = Math.min(99, Math.max(68, finalCritique.lyricalImpact.score + shiftAmount));
-        }
-        if (finalCritique.musicTheory) {
-          finalCritique.musicTheory.score = Math.min(99, Math.max(68, finalCritique.musicTheory.score - shiftAmount));
-        }
-        if (finalCritique.titleSearchability) {
-          finalCritique.titleSearchability.score = Math.min(99, Math.max(68, finalCritique.titleSearchability.score + shiftAmount));
-        }
+        console.error("Analysis pipeline failed:", err);
+        setErrorMsg("Our AI analysis engine is currently busy or unreachable. Your song was not analyzed - please wait a moment and try again. If this keeps happening, check your connection and try re-uploading the file.");
+        setLoading(false);
+        return;
       }
       
       const updatedTrack: StoredTrack = {
