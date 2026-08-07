@@ -7,7 +7,7 @@ import { safeLocalStorage } from "./lib/safeStorage";
 import UploadSection from "./components/UploadSection";
 import SpotifySection from "./components/SpotifySection";
 import SamplesSection from "./components/SamplesSection";
-import CritiqueDisplay from "./components/CritiqueDisplay";
+import CritiqueDisplay, { computeCategoryScores } from "./components/CritiqueDisplay";
 import CritiqueSummary from "./components/CritiqueSummary";
 import DefinitionsPage from "./components/DefinitionsPage";
 import MetaDataGenerator from "./components/MetaDataGenerator";
@@ -524,15 +524,7 @@ export default function App() {
           metaTitle: titleToUse,
           metaArtist: artistName,
           metaGenre: critique.vibe?.genre || undefined,
-          metrics: {
-            overall: Math.round(((critique.scores?.commercialReadiness ?? 75) + (critique.scores?.overallProduction ?? 75) + (critique.mixQuality?.score ?? 75) + (critique.performance?.vocalScore ?? 75) + (critique.lyricalImpact?.score ?? 75) + (critique.musicTheory?.score ?? 75) + (critique.titleSearchability?.score ?? 75)) / 7),
-            mix: critique.mixQuality?.score || 84,
-            performance: critique.performance?.vocalScore || 88,
-            engagement: critique.scores?.commercialReadiness || 89,
-            lyric: critique.lyricalImpact?.score || 91,
-            theory: critique.musicTheory?.score || 86,
-            seo: critique.titleSearchability?.score || 95,
-          }
+          metrics: computeCategoryScores(critique)
         };
 
         try {
@@ -794,15 +786,7 @@ export default function App() {
             metaTitle: titleToUse,
             metaArtist: extractedArtist || undefined,
             metaGenre: finalCritique.vibe?.genre || extractedGenre || undefined,
-            metrics: {
-              overall: Math.round(((finalCritique.scores?.commercialReadiness ?? 75) + (finalCritique.scores?.overallProduction ?? 75) + (finalCritique.mixQuality?.score ?? 75) + (finalCritique.performance?.vocalScore ?? 75) + (finalCritique.lyricalImpact?.score ?? 75) + (finalCritique.musicTheory?.score ?? 75) + (finalCritique.titleSearchability?.score ?? 75)) / 7),
-              mix: finalCritique.mixQuality?.score || 84,
-              performance: finalCritique.performance?.vocalScore || 88,
-              engagement: finalCritique.scores?.commercialReadiness || 89,
-              lyric: finalCritique.lyricalImpact?.score || 91,
-              theory: finalCritique.musicTheory?.score || 86,
-              seo: finalCritique.titleSearchability?.score || 95,
-            }
+            metrics: computeCategoryScores(finalCritique)
           };
           await saveUserTrack(updatedTrack);
         } catch (errScore) {
@@ -1196,15 +1180,7 @@ export default function App() {
         ...track,
         status: "analyzed",
         critique: overriddenFinalCritique,
-        metrics: {
-          overall: Math.round(((overriddenFinalCritique.scores?.commercialReadiness ?? 75) + (overriddenFinalCritique.scores?.overallProduction ?? 75) + (overriddenFinalCritique.mixQuality?.score ?? 75) + (overriddenFinalCritique.performance?.vocalScore ?? 75) + (overriddenFinalCritique.lyricalImpact?.score ?? 75) + (overriddenFinalCritique.musicTheory?.score ?? 75) + (overriddenFinalCritique.titleSearchability?.score ?? 75)) / 7),
-          mix: overriddenFinalCritique.mixQuality?.score || 84,
-          performance: overriddenFinalCritique.performance?.vocalScore || 88,
-          engagement: overriddenFinalCritique.scores?.commercialReadiness || 89,
-          lyric: overriddenFinalCritique.lyricalImpact?.score || 91,
-          theory: overriddenFinalCritique.musicTheory?.score || 86,
-          seo: overriddenFinalCritique.titleSearchability?.score || 95,
-        }
+        metrics: computeCategoryScores(overriddenFinalCritique)
       };
 
       // Instantly persist status transformation
