@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { 
   Sparkles, Lightbulb, ArrowRight, X, TrendingUp, CheckCircle2, Activity, Flame, Rabbit, XCircle
 } from "lucide-react";
-import { getGenreLoudnessBucket, computeEchoNestScorecard } from "./CritiqueDisplay";
+import { getGenreLoudnessBucket, computeEchoNestScorecard, computeCategoryScores } from "./CritiqueDisplay";
 import { CritiqueData, TrackInfo } from "../types";
 
 interface CritiqueSummaryProps {
@@ -84,26 +84,10 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
   ];
 
   // Dynamic values for Right-Column ring scores
-  const echoNestAvgMatch = echoNestData.length > 0
-    ? echoNestData.reduce((sum, item) => sum + (item.matchPercent ?? 0), 0) / echoNestData.length
-    : 75;
-  const scoreStreamingReadiness = Math.round(
-    (completionRate * 0.40) +
-    (echoNestAvgMatch * 0.30) +
-    ((critique.scores?.commercialReadiness ?? 75) * 0.20) +
-    ((critique.titleSearchability?.score ?? 75) * 0.10)
-  );
-  const loudnessComplianceScore = ((lufsPass ? 100 : 50) + (lraPass ? 100 : 50)) / 2;
-  const scoreSonicSoundprint = Math.round(
-    ((critique.mixQuality?.score ?? 75) * 0.45) +
-    (loudnessComplianceScore * 0.25) +
-    ((critique.performance?.vocalScore ?? 75) * 0.30)
-  );
-  const scoreCompositionalDepth = Math.round(
-    ((critique.musicTheory?.score ?? 75) * 0.35) +
-    ((critique.lyricalImpact?.score ?? 75) * 0.30) +
-    ((critique.arrangement?.flowScore ?? 75) * 0.35)
-  );
+  const categoryScores = computeCategoryScores(critique);
+  const scoreStreamingReadiness = categoryScores.streamingReadiness;
+  const scoreSonicSoundprint = categoryScores.sonicSoundprint;
+  const scoreCompositionalDepth = categoryScores.compositionalDepth;
 
   // Custom function to get dynamically calculated heights for Section 4 (6-band chart)
   const getBandHeight = (bandEnergy: number | undefined, defaultHeight: number) => {
