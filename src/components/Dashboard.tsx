@@ -14,6 +14,7 @@ import {
 } from "../firebase";
 import { StoredTrack, UserProfile, CritiqueData } from "../types";
 import { decodeAudioUrl, analyzeAudioBuffer } from "../lib/liveAudioAnalyzer";
+import { computeCategoryScores } from "./CritiqueDisplay";
 
 // Existing helper representing analyzeAudioFile
 async function analyzeAudioFile(url: string) {
@@ -701,15 +702,7 @@ export default function Dashboard({
         status: "analyzed",
         critique: finalCritique,
         metaGenre: finalCritique.vibe?.genre || (track as any).metaGenre,
-        metrics: {
-          overall: Math.round(((finalCritique.scores?.commercialReadiness ?? 75) + (finalCritique.scores?.overallProduction ?? 75) + (finalCritique.mixQuality?.score ?? 75) + (finalCritique.performance?.vocalScore ?? 75) + (finalCritique.lyricalImpact?.score ?? 75) + (finalCritique.musicTheory?.score ?? 75) + (finalCritique.titleSearchability?.score ?? 75)) / 7),
-          mix: finalCritique.mixQuality?.score || 84,
-          performance: finalCritique.performance?.vocalScore || 88,
-          engagement: finalCritique.scores?.commercialReadiness || 89,
-          lyric: finalCritique.lyricalImpact?.score || 91,
-          theory: finalCritique.musicTheory?.score || 86,
-          seo: finalCritique.titleSearchability?.score || 95,
-        }
+        metrics: computeCategoryScores(finalCritique)
       };
 
       // Keep attaching liveMetrics as before
@@ -752,24 +745,7 @@ export default function Dashboard({
         if (critiqueToUse.mixQuality) {
           critiqueToUse.mixQuality.score = track.metrics.mix;
         }
-        if (critiqueToUse.performance) {
-          critiqueToUse.performance.vocalScore = track.metrics.performance;
-        }
-        if (critiqueToUse.arrangement) {
-          critiqueToUse.arrangement.flowScore = track.metrics.engagement;
-        }
-        if (critiqueToUse.scores) {
-          critiqueToUse.scores.commercialReadiness = track.metrics.engagement;
-        }
-        if (critiqueToUse.lyricalImpact) {
-          critiqueToUse.lyricalImpact.score = track.metrics.lyric;
-        }
-        if (critiqueToUse.musicTheory) {
-          critiqueToUse.musicTheory.score = track.metrics.theory;
-        }
-        if (critiqueToUse.titleSearchability) {
-          critiqueToUse.titleSearchability.score = track.metrics.seo;
-        }
+
       }
     }
 
