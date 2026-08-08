@@ -4858,7 +4858,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       
                       <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans">
                         {(() => {
-                          if (isOptimal) {
+                          if (tier.tier === "typical") {
                             const optimalMap: Record<string, string> = {
                               "danceability": "Your track's rhythmic grid, beat stability, and tempo regularity fall within the target corridor for your subgenre. The algorithm will recognize this as a natural fit for your intended playlist neighborhood.",
                               "energy": "Your track's transient density, spectral flatness, and integrated loudness profile align with the perceptual intensity targets for your subgenre. The algorithm will read this as the correct sonic weight for your intended playlist.",
@@ -4893,29 +4893,16 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                           const textFeedback = (item as any).realCommentary || dynamicFeedback?.critique || (isOver ? item.overDesc : item.underDesc);
                           const fixFeedback = (item as any).realCommentary ? "" : (dynamicFeedback?.fix || "");
 
-                          if (isOver) {
-                            return (
-                              <span className="text-amber-400/85 font-medium flex flex-col gap-2">
-                                <span><strong>Overage Mismatch:</strong> {textFeedback}</span>
-                                {fixFeedback && (
-                                  <span className="block mt-1 p-2 bg-amber-500/10 border border-amber-500/15 rounded text-amber-300 font-sans text-[10px] leading-relaxed">
-                                    <strong className="text-white">🔧 Mixing Calibration:</strong> {fixFeedback}
-                                  </span>
-                                )}
-                              </span>
-                            );
-                          } else {
-                            return (
-                              <span className="text-amber-400/85 font-medium flex flex-col gap-2">
-                                <span><strong>Under-Threshold Delta:</strong> {textFeedback}</span>
-                                {fixFeedback && (
-                                  <span className="block mt-1 p-2 bg-amber-500/10 border border-amber-500/15 rounded text-amber-300 font-sans text-[10px] leading-relaxed">
-                                    <strong className="text-white">🔧 Mixing Calibration:</strong> {fixFeedback}
-                                  </span>
-                                )}
-                              </span>
-                            );
-                          }
+                          return (
+                            <span className={`${tier.textClass} font-medium flex flex-col gap-2`}>
+                              <span><strong>{tier.label}:</strong> {textFeedback}</span>
+                              {fixFeedback && (
+                                <span className={`block mt-1 p-2 rounded font-sans text-[10px] leading-relaxed ${tier.badgeClass}`}>
+                                  <strong className="text-white">🔧 Mixing Calibration:</strong> {fixFeedback}
+                                </span>
+                              )}
+                            </span>
+                          );
                         })()}
                       </p>
                     </div>
