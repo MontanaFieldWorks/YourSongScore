@@ -41,6 +41,7 @@ interface ActionItem {
   title: string;
   recommendation: string;
   technicalGuide: string;
+  technicalGuideBullets?: string[];
 }
 
 interface EngineeringStudioPageProps {
@@ -353,6 +354,19 @@ export default function EngineeringStudioPage({ onBack, critique, trackInfo, loc
       recommendation: "Add +1.5dB high shelf starting above 11kHz.",
       technicalGuide: "Use a smooth Baxandall air-boost shelf to improve recording quality depth and premium transient texture."
     }
+  ];
+
+  const frequencyCorrectionItems = harmonicNodes.map(node => ({
+    title: `${node.band}: ${node.frequency}`,
+    recommendation: node.problem,
+    technicalGuide: node.solution,
+    technicalGuideBullets: undefined,
+    isFrequencyCorrection: true,
+    sourceNodeId: node.id,
+  }));
+  const combinedChecklistItems = [
+    ...actionItems.map(item => ({ ...item, isFrequencyCorrection: false })),
+    ...frequencyCorrectionItems,
   ];
 
   useEffect(() => {
@@ -1052,16 +1066,24 @@ const generateHarmonicNodes = () => {
                               <span className="text-[8px] bg-red-400/15 border border-red-500/25 text-red-500 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase font-semibold animate-pulse">Resonance Overload</span>
                             )}
                           </div>
-                          <h3 className="text-white font-bold text-sm tracking-tight">{activeSelectedNode.problem}</h3>
-                          <p className="text-xs text-slate-400 mt-2 leading-relaxed font-sans">{activeSelectedNode.detail}</p>
+                          <h3 className="text-white font-bold text-base tracking-tight">{activeSelectedNode.problem}</h3>
                         </div>
 
-                        <div className="mt-4 pt-3.5 border-t border-white/5 flex gap-2 items-center text-xs text-blue-400">
+                        <div className="mt-4 pt-3.5 border-t border-white/5 flex gap-2 items-center text-xs">
                           <Sliders className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                          <p className="leading-relaxed">
-                            <span className="font-bold text-slate-200 uppercase mr-1">Surgical DAW Guidance:</span>
-                            {activeSelectedNode.solution}
-                          </p>
+                          <button
+                            onClick={() => {
+                              const target = document.getElementById(`checklist-item-${activeSelectedNode.id}`);
+                              if (target) {
+                                target.scrollIntoView({ behavior: "smooth", block: "center" });
+                                target.classList.add("ring-2", "ring-cyan-400");
+                                setTimeout(() => target.classList.remove("ring-2", "ring-cyan-400"), 2000);
+                              }
+                            }}
+                            className="font-bold text-blue-400 hover:text-blue-300 uppercase underline underline-offset-2 transition-colors cursor-pointer text-left"
+                          >
+                            View Surgical DAW Guidance in Checklist →
+                          </button>
                         </div>
                       </div>
 
@@ -1912,46 +1934,63 @@ const generateHarmonicNodes = () => {
                   </div>
                 </div>
                 <span className="text-xs font-mono text-emerald-400 font-bold bg-[#0A0B0E] border border-[#10b981]/25 px-3.5 py-1.5 rounded-xl uppercase shadow-inner block">
-                  {Object.values(checkedTasks).filter(Boolean).length} / {actionItems.length} Solved
+                  {Object.values(checkedTasks).filter(Boolean).length} / {combinedChecklistItems.length} Solved
                 </span>
               </div>
 
-              {/* Spanning clean responsive 3-column rows horizontally across full screen width */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5" id="daw-checklist">
-                {actionItems.map((item, index) => {
+              {/* Spanning clean responsive single-column layout */}
+              <div className="flex flex-col gap-4" id="daw-checklist">
+                {combinedChecklistItems.map((item, index) => {
                   const isChecked = checkedTasks[index] || false;
+                  const isFirstFreq = item.isFrequencyCorrection && (index === 0 || !combinedChecklistItems[index - 1].isFrequencyCorrection);
                   
                   return (
-                    <button
-                      key={index}
-                      onClick={() => toggleTask(index)}
-                      className={`flex items-start text-left gap-3.5 p-4 rounded-2xl border transition-all duration-300 relative group overflow-hidden cursor-pointer ${
-                        isChecked
-                          ? "bg-[#0A0B0E]/40 border-white/5 text-slate-500"
-                          : "bg-[#0A0B0E] border-[#2563EB]/15 hover:border-[#2563EB]/35 hover:bg-white/[0.03] text-slate-300 shadow-md"
-                      }`}
-                    >
-                      <div className="mt-0.5 flex-shrink-0">
-                        {isChecked ? (
-                          <CheckCircle className="w-4.5 h-4.5 text-emerald-500 stroke-[2.5px]" />
-                        ) : (
-                          <Square className="w-4.5 h-4.5 text-slate-600 group-hover:text-blue-500 transition-colors" opacity={0.8} />
-                        )}
-                      </div>
-                      
-                      <div className="flex flex-col min-w-0">
-                        <span className={`text-[12px] font-bold leading-snug tracking-wide ${isChecked ? "line-through text-slate-600" : "text-slate-200"}`}>
-                          {item.title}
-                        </span>
-                        <span className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                          {item.recommendation}
-                        </span>
-                        <div className="mt-3 pt-2.5 border-t border-white/5 font-mono text-[9px] text-blue-400 leading-normal">
-                          <span className="text-slate-500 font-sans font-bold mr-1 uppercase">DAW VALUE:</span>
-                          {item.technicalGuide}
+                    <React.Fragment key={index}>
+                      {isFirstFreq && (
+                        <div className="flex items-center gap-2 mt-2 mb-1 pt-3 border-t border-white/10">
+                          <span className="text-[11px] font-mono font-bold text-cyan-400 uppercase tracking-widest">Frequency Corrections</span>
+                          <span className="text-[9px] text-slate-500">Derived directly from your track's measured spectrum</span>
                         </div>
-                      </div>
-                    </button>
+                      )}
+                      <button
+                        id={item.sourceNodeId ? `checklist-item-${item.sourceNodeId}` : undefined}
+                        onClick={() => toggleTask(index)}
+                        className={`flex items-start text-left gap-3.5 p-4 rounded-2xl border transition-all duration-300 relative group overflow-hidden cursor-pointer ${
+                          isChecked
+                            ? "bg-[#0A0B0E]/40 border-white/5 text-slate-500"
+                            : "bg-[#0A0B0E] border-[#2563EB]/15 hover:border-[#2563EB]/35 hover:bg-white/[0.03] text-slate-300 shadow-md"
+                        }`}
+                      >
+                        <div className="mt-1 flex-shrink-0">
+                          {isChecked ? (
+                            <CheckCircle className="w-5 h-5 text-emerald-500 stroke-[2.5px]" />
+                          ) : (
+                            <Square className="w-5 h-5 text-slate-600 group-hover:text-blue-500 transition-colors" opacity={0.8} />
+                          )}
+                        </div>
+                        
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <span className={`text-base md:text-lg font-bold leading-snug tracking-wide ${isChecked ? "line-through text-slate-600" : "text-slate-200"}`}>
+                            {item.title}
+                          </span>
+                          <span className="text-sm text-slate-400 mt-1 leading-relaxed">
+                            {item.recommendation}
+                          </span>
+                          <div className="mt-3 pt-2.5 border-t border-white/5 font-mono text-xs text-blue-400 leading-normal">
+                            <span className="text-slate-500 font-sans font-bold mr-1 uppercase block mb-1">DAW VALUE:</span>
+                            {item.technicalGuideBullets && item.technicalGuideBullets.length > 0 ? (
+                              <ul className="list-disc list-inside space-y-1.5 mt-1">
+                                {item.technicalGuideBullets.map((bullet, bIdx) => (
+                                  <li key={bIdx} className="text-xs text-cyan-300/90 leading-relaxed">{bullet}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <span className="text-xs text-cyan-300/90 leading-relaxed">{item.technicalGuide}</span>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    </React.Fragment>
                   );
                 })}
               </div>
