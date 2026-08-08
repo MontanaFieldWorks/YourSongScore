@@ -4786,6 +4786,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               
               {/* Render each Echo Nest metric */}
               {metricsData.map((item) => {
+                const tier = getEchoNestTier(item);
                 const isOptimal = item.value >= item.min && item.value <= item.max;
                 const isOver = item.value > item.max;
                 const isUnder = item.value < item.min;
@@ -4834,11 +4835,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                         {/* Song's current marker */}
                         <div 
-                          className={`absolute top-[-2px] w-2.5 h-[12px] rounded-full cursor-help transition-all duration-1000 z-20 ${
-                            isOptimal 
-                              ? "bg-[#1ed760] shadow-[0_0_8px_rgba(30,215,96,0.8)] animate-pulse" 
-                              : "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]"
-                          }`}
+                          className={`absolute top-[-2px] w-2.5 h-[12px] rounded-full cursor-help transition-all duration-1000 z-20 ${tier.dotClass} ${tier.tier === "typical" ? "animate-pulse" : ""}`}
                           style={{ left: `calc(${item.value}% - 5px)` }}
                           title={`Current Value: ${item.value}%`}
                         />
@@ -4847,26 +4844,16 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       {/* Explicit Target and Calibration range display */}
                       <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 mb-2 mt-1">
                         <span>Corridor: <strong className="text-white font-black">{item.min}%–{item.max}%</strong> <span className="opacity-70">(Midpoint: {item.target}%)</span></span>
-                        <span>Current: <strong className={isOptimal ? "text-[#1ed760] font-black" : "text-amber-400 font-black"}>{item.value}%</strong></span>
+                        <span>Current: <strong className={`${tier.textClass} font-black`}>{item.value}%</strong></span>
                       </div>
                     </div>
 
                       {/* Highly descriptive label matching over/under/optimal states exactly */}
                     <div className="mt-2 text-left">
                       <div className="flex items-center gap-1 mb-1.5">
-                        {isOptimal ? (
-                          <span className="text-[9px] font-mono font-black text-emerald-400 bg-[#0A2010]/35 border border-emerald-500/25 px-1.5 py-0.5 rounded uppercase flex items-center gap-1 font-bold">
-                            <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" /> Optimal Match (Safe Zone)
-                          </span>
-                        ) : isOver ? (
-                          <span className="text-[9px] font-mono font-black text-amber-400 bg-amber-500/10 border border-amber-500/15 px-1.5 py-0.5 rounded uppercase font-bold">
-                            ⚠️ Mismatch (+{item.value - item.max}% Overage)
-                          </span>
-                        ) : (
-                          <span className="text-[9px] font-mono font-black text-amber-400 bg-amber-500/10 border border-amber-500/15 px-1.5 py-0.5 rounded uppercase font-bold">
-                            📉 Under Corridor (-{item.min - item.value}% Delta)
-                          </span>
-                        )}
+                        <span className={`text-[9px] font-mono font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-1 font-bold border ${tier.badgeClass}`}>
+                          <span className={`w-1 h-1 rounded-full ${tier.dotClass}`} /> {tier.label}
+                        </span>
                       </div>
                       
                       <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans">
