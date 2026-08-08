@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { 
   Sparkles, Lightbulb, ArrowRight, X, TrendingUp, CheckCircle2, Activity, Flame, Rabbit, XCircle
 } from "lucide-react";
-import { getGenreLoudnessBucket, computeEchoNestScorecard, computeCategoryScores } from "./CritiqueDisplay";
+import { getGenreLoudnessBucket, getEchoNestTier, computeEchoNestScorecard, computeCategoryScores } from "./CritiqueDisplay";
 import { CritiqueData, TrackInfo } from "../types";
 
 interface CritiqueSummaryProps {
@@ -556,15 +556,15 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                   const isLastRow = rowIdx === Math.ceil(echoNestDisplayItems.length / 2) - 1;
                   const renderItem = (item: typeof itemA) => {
                     if (!item) return <div />;
-                    const isMatch = item.matchPercent !== null && item.matchPercent >= 70;
+                    const tier = getEchoNestTier(item);
                     return (
                       <div className="flex items-center justify-between text-[10px] font-mono">
                         <div className="flex items-center gap-2">
-                          <span className={`w-1.5 h-1.5 rounded-full ${isMatch ? "bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.8)]" : "bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.8)]"}`} />
+                          <span className={`w-1.5 h-1.5 rounded-full ${tier.dotClass}`} />
                           <span className="font-bold text-slate-300 uppercase">{item.label}</span>
                         </div>
-                        <span className={`text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase border ${isMatch ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"}`}>
-                          {isMatch ? "OPTIMAL MATCH" : "MISMATCH"}
+                        <span className={`text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded uppercase border ${tier.badgeClass}`}>
+                          {tier.label}
                         </span>
                       </div>
                     );
