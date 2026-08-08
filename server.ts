@@ -168,6 +168,11 @@ const CRITIQUE_SCHEMA = {
           title: { type: Type.STRING, description: "A concise, actionable title (e.g. 'Dynamic EQ on Lead Vocal Presence')." },
           recommendation: { type: Type.STRING, description: "What needs to be fixed and why." },
           technicalGuide: { type: Type.STRING, description: "Exact guidance (e.g. 'Apply a narrow notch filter of -2.5dB at 315Hz on the snare track to eliminate ringing...')." },
+          technicalGuideBullets: {
+            type: Type.ARRAY,
+            description: "2 to 4 distinct, separately actionable techniques for addressing this issue, each as its own short, specific sentence (e.g. one bullet for a narrow-band EQ move, a separate bullet for a complementary technique like sidechain carving or saturation). Each bullet should be independently useful, not a continuation of the previous one.",
+            items: { type: Type.STRING }
+          },
         },
         required: ["title", "recommendation", "technicalGuide"],
       },
@@ -760,7 +765,7 @@ interface AverageableCritique {
   musicTheory?: { score?: number; chordStructures?: string; feedback?: string };
   titleSearchability?: { score?: number; uniquenessLevel?: string; feedback?: string };
   scores?: { overallProduction?: number; commercialReadiness?: number };
-  actionItems?: Array<{ title: string; recommendation: string; technicalGuide: string }>;
+  actionItems?: Array<{ title: string; recommendation: string; technicalGuide: string; technicalGuideBullets?: string[] }>;
   [key: string]: any;
 }
 
