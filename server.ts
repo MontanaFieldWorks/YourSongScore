@@ -662,10 +662,9 @@ function reconcileParentScores(parsedCritique: any): void {
     }
 
     const instrumental = weightedAvg([
-      [c3.instrumentalStagingSubs?.timelineGridCohesion?.score, 25],
-      [c3.instrumentalStagingSubs?.transientPunch?.score, 25],
-      [c3.instrumentalStagingSubs?.melodicStaging?.score, 25],
-      [c3.instrumentalStagingSubs?.instrumentalWarmth?.score, 25],
+      [c3.instrumentalStagingSubs?.timelineGridCohesion?.score, 34],
+      [c3.instrumentalStagingSubs?.transientPunch?.score, 33],
+      [c3.instrumentalStagingSubs?.instrumentalWarmth?.score, 33],
     ]);
     if (instrumental !== null && parsedCritique.performance) {
       parsedCritique.performance.instrumentalScore = instrumental;
