@@ -4,7 +4,7 @@ import {
   ArrowLeft, ArrowRight, Volume2, Sliders, Mic, CheckCircle, Square, Play, Pause, 
   Activity, Sparkles, Cpu, AlertTriangle, Check, RotateCcw, Compass, Layers, CheckSquare,
   Radio, Waves, Settings, ShieldAlert, Info, BarChart2, Disc, Wand2,
-  AudioLines, Gauge, Speaker, Tags, Antenna, LayoutDashboard, DraftingCompass
+  AudioLines, Gauge, Speaker, Tags, Antenna, LayoutDashboard, DraftingCompass, Lightbulb
 } from "lucide-react";
 
 // Helper to map genre icons
@@ -980,16 +980,30 @@ const generateHarmonicNodes = () => {
                               strokeWidth="1.5" 
                               className="opacity-25 animate-pulse"
                             />
-                            <circle 
-                              cx={cx} 
-                              cy={cy} 
-                              r={isSelected ? "6.5" : "4.5"} 
-                              fill={colorCode} 
-                              stroke="#ffffff" 
-                              strokeWidth="1.5" 
-                              className="transition-all duration-300"
-                              style={{ filter: `drop-shadow(0px 0px 8px ${glowCode})` }}
-                            />
+                            <foreignObject 
+                              x={cx - (isSelected ? 12 : 9)} 
+                              y={cy - (isSelected ? 12 : 9)} 
+                              width={isSelected ? 24 : 18} 
+                              height={isSelected ? 24 : 18}
+                              className="overflow-visible"
+                            >
+                              <div 
+                                className="w-full h-full flex items-center justify-center transition-transform duration-200 hover:scale-125 group/node"
+                                style={{ filter: `drop-shadow(0px 0px 6px ${glowCode})` }}
+                              >
+                                <Lightbulb 
+                                  size={isSelected ? 20 : 15} 
+                                  color={colorCode} 
+                                  fill={colorCode}
+                                  fillOpacity={0.25}
+                                  strokeWidth={2}
+                                  className="animate-pulse"
+                                />
+                                <span className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-mono text-white bg-black/90 px-2 py-1 rounded opacity-0 group-hover/node:opacity-100 transition-opacity pointer-events-none">
+                                  Click for guidance
+                                </span>
+                              </div>
+                            </foreignObject>
                           </g>
                         );
                       })}
