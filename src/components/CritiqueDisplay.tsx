@@ -412,6 +412,36 @@ export function getGenreLoudnessBucket(genre?: string, subgenre?: string): { key
   return { key: "mainstream", ...GENRE_LOUDNESS_BUCKETS.mainstream };
 }
 
+export function getEchoNestTier(item: { value: number; min: number; max: number }) {
+  const distance = item.value < item.min ? (item.min - item.value) : item.value > item.max ? (item.value - item.max) : 0;
+
+  if (distance <= 8) {
+    return {
+      tier: "typical" as const,
+      label: "Genre-Typical",
+      dotClass: "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]",
+      badgeClass: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+      textClass: "text-emerald-400",
+    };
+  } else if (distance <= 20) {
+    return {
+      tier: "distinctive" as const,
+      label: "Distinctive",
+      dotClass: "bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.7)]",
+      badgeClass: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+      textClass: "text-cyan-400",
+    };
+  } else {
+    return {
+      tier: "highly-distinctive" as const,
+      label: "Highly Distinctive",
+      dotClass: "bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.7)]",
+      badgeClass: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+      textClass: "text-purple-400",
+    };
+  }
+}
+
 export function computeEchoNestScorecard(critique: any) {
   const liveMetrics = critique?.liveMetrics;
   const overallProductionVal = critique?.scores?.overallProduction ?? 75;
@@ -4940,7 +4970,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
             <span className="text-[#1ed760] block mt-1 text-[11px] leading-relaxed bg-[#1ed760]/5 border border-[#1DB954]/15 p-3 rounded-xl shadow-inner">
               <strong className="font-extrabold uppercase text-[10px] block mb-1">💡 CRITICAL TRADING WINDOW RULE (±3% CORRIDOR):</strong> 
-              Spotify's recommendation engine evaluates content targets within a highly narrow window. A deviation of <strong>up to ±3%</strong> from the ideal benchmark is sufficient to trigger optimal seeder categorization. Going above the target is NOT "extra credit"—it is classed as a <strong>Style Mismatch (Overage Mismatch)</strong>, which flags and excludes the track just as severely as falling under target!
+              Real recommendation systems don't use a strict pass/fail range - they measure how close a song's traits are to what's typical for its genre, then match it to the audience it's genuinely closest to. A song very close to genre-typical values will likely resonate strongly with that genre's core audience. A more distinctive song isn't penalized - it may simply find a different, sometimes unexpected audience instead, which isn't a flaw, just a different path to discovery.
             </span>
 
             {/* Scorecard bottom info bar */}
