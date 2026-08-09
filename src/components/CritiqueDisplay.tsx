@@ -629,6 +629,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   });
   const [isEchoNestExpanded, setIsEchoNestExpanded] = useState(false);
   const [isRecommenderExpanded, setIsRecommenderExpanded] = useState(false);
+  const [isCompletionRateExpanded, setIsCompletionRateExpanded] = useState(false);
   const liveMetrics = critique?.liveMetrics;
 
   React.useEffect(() => {
@@ -4417,102 +4418,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             </div>
           </div>
 
-          {/* Panel D: Skip Rate (SR) & Completion (CR) Simulator */}
-          <div id="panel-d-skip-completion" className="bg-[#0A0B0E] border border-white/5 hover:border-white/10 rounded-2xl p-5 flex flex-col justify-between transition-all duration-500 group shadow-inner min-h-[360px]">
-            <div>
-              <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
-                <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none">
-                  <span className="text-purple-400 font-mono text-[14px]">D</span>
-                  30s Skip &amp; Playout Simulator
-                </span>
-                <span className="text-[10px] font-mono text-slate-500">The 30-Second Rule Gatekeeper</span>
-              </div>
-              <p className="text-xs text-slate-400 leading-relaxed mb-4 text-left">
-                Simulates virtual listener skip behavior during the initial 30 seconds (qualifying monetization milestone).
-              </p>
-            </div>
 
-            {/* Simulator Controls & Playbar */}
-            <div className="bg-black/50 border border-white/5 rounded-xl p-4 flex flex-col gap-3.5 my-1 text-left relative overflow-hidden">
-              <div className="flex items-center justify-between gap-3">
-                <button
-                  onClick={() => {
-                    if (sandboxPlaying) {
-                      setSandboxPlaying(false);
-                    } else {
-                      if (sandboxProgress >= 30) setSandboxProgress(0);
-                      setSandboxPlaying(true);
-                    }
-                  }}
-                  className={`w-9 h-9 cursor-pointer rounded-full border flex items-center justify-center flex-shrink-0 transition-all select-none ${
-                    sandboxPlaying
-                      ? "bg-rose-500/10 border-rose-500/30 text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.15)] animate-pulse"
-                      : "bg-blue-600/10 border-blue-500 text-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.15)]"
-                  }`}
-                >
-                  {sandboxPlaying ? <Pause className="w-4.5 h-4.5 fill-current" /> : <Play className="w-4.5 h-4.5 fill-current ml-0.5" />}
-                </button>
-                
-                <div className="flex-1 flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-[10px] font-mono leading-none">
-                    <span className="text-slate-400 font-bold">{liveStats.status}</span>
-                    <span className="text-blue-400 font-bold bg-neutral-900 border border-white/5 px-2 py-0.5 rounded-full">{sandboxProgress.toFixed(1)}s / 30.0s</span>
-                  </div>
-                  
-                  {/* Outer Bar Progress */}
-                  <div className="w-full h-1.5 bg-neutral-900 rounded-full overflow-hidden relative border border-white/5 mt-1">
-                    <div 
-                      className="absolute top-0 left-0 bottom-0 bg-blue-500/80 transition-all" 
-                      style={{ width: `${(sandboxProgress / 30) * 100}%` }} 
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Output Readout */}
-              <div className="flex flex-col gap-0.5 text-left border-t border-white/5 pt-3">
-                <span className="text-[10px] font-mono tracking-wider uppercase text-slate-400">Predicted Instantaneous Skip Risk:</span>
-                <div className="flex items-center gap-1.5 mt-0.5 text-xs">
-                  <span className={`font-black font-mono transition-all text-sm ${sandboxProgress === 30 ? "text-emerald-400 font-bold animate-ping" : sandboxProgress > 0 ? "text-amber-400 animate-pulse" : "text-slate-500"}`}>
-                    {liveStats.risk}
-                  </span>
-                  <p className="text-[9.5px] text-slate-300 leading-normal">
-                    {liveStats.desc}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Predicted Cumulative Rates */}
-            <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-3.5 pr-1">
-              <div className="flex flex-col text-left">
-                <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest leading-none">PREDICTED SKIP RATE (SR)</span>
-                <span className="text-lg font-black text-white font-mono mt-1 flex items-baseline gap-1">
-                  {predictedSkipRate}%
-                  <span className={`text-[10px] font-sans font-bold uppercase tracking-wider ${getSkipRateLabel(predictedSkipRate).color}`}>
-                    {getSkipRateLabel(predictedSkipRate).label}
-                  </span>
-                </span>
-                <p className="text-[8.5px] text-slate-500 leading-snug mt-0.5 leading-normal">
-                  Typical threshold target: &lt; 32% within 30s. Perfect for early playlist preservation.
-                </p>
-              </div>
-
-              <div className="flex flex-col text-left border-l border-white/5 pl-4">
-                <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest leading-none">PREDICTED COMPLETION (CR)</span>
-                <span className="text-lg font-black text-cyan-400 font-mono mt-1 flex items-baseline gap-1">
-                  {predictedCompletionRate}%
-                  <span className={`text-[10px] font-sans font-bold uppercase tracking-wider ${getCompletionRateLabel(predictedCompletionRate).color}`}>
-                    {getCompletionRateLabel(predictedCompletionRate).label}
-                  </span>
-                </span>
-                <p className="text-[8.5px] text-slate-500 leading-snug mt-0.5 leading-normal">
-                  Probability of full track completion. Indicates structural engagement alignment.
-                </p>
-              </div>
-            </div>
-
-          </div>
 
         </div>
 
@@ -6256,34 +6162,15 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         {/* Card: Completion Rate (cyan/teal theme) */}
         <div className="flex flex-col w-full gap-4" id="sidebar-link-streaming-completion">
           <button
-            onClick={() => {
-              const scrollToPanelD = () => {
-                const el = document.getElementById("panel-d-skip-completion");
-                if (el) {
-                  el.scrollIntoView({ behavior: "smooth", block: "center" });
-                  el.classList.add("ring-2", "ring-cyan-400", "shadow-[0_0_30px_rgba(34,211,238,0.5)]");
-                  setTimeout(() => {
-                    el.classList.remove("ring-2", "ring-cyan-400", "shadow-[0_0_30px_rgba(34,211,238,0.5)]");
-                  }, 2500);
-                }
-              };
-
-              if (activeCategory === "sandbox") {
-                scrollToPanelD();
-              } else {
-                handleCategoryChange("sandbox");
-                setSandboxPlaying(true);
-                setTimeout(scrollToPanelD, 300);
-              }
-            }}
+            onClick={() => setIsCompletionRateExpanded(!isCompletionRateExpanded)}
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
-              activeCategory === "sandbox"
+              isCompletionRateExpanded
                 ? "bg-[#090b0e] border-cyan-500 shadow-[0_0_35px_rgba(6,182,212,0.35)] ring-1 ring-cyan-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-[#06b6d4]/80 hover:border-[#06b6d4] hover:bg-neutral-900/40 text-slate-400"
             }`}
           >
             {/* Background ambient shade */}
-            {activeCategory === "sandbox" ? (
+            {isCompletionRateExpanded ? (
               <div className="absolute inset-0 bg-gradient-to-br from-cyan-950/10 via-neutral-950 to-[#03050a] pointer-events-none" />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#03050a] pointer-events-none" />
@@ -6295,7 +6182,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 {/* Header block */}
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
-                    activeCategory === "sandbox"
+                    isCompletionRateExpanded
                       ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
                       : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-cyan-400"
                   }`}>
@@ -6304,7 +6191,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <div className="flex flex-col">
                     <span 
                       className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
-                        activeCategory === "sandbox" ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                        isCompletionRateExpanded ? "text-white" : "text-slate-400 group-hover:text-slate-200"
                       }`}
                     >
                       COMPLETION RATE
@@ -6315,18 +6202,18 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                 {/* Bottom info block */}
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
-                  activeCategory === "sandbox" ? "border-cyan-500/15" : "border-white/5"
+                  isCompletionRateExpanded ? "border-cyan-500/15" : "border-white/5"
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
                     Predicts listener retention through your song's critical opening window. Skip behavior in the first 30 seconds serves as a primary feedback signal algorithms use to promote or throttle discovery.
                     <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider">RETENTION METRIC DETERMINES ALGORITHMIC FEEDBACK LOOP SCALING.</span>
                   </p>
                   <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
-                    activeCategory === "sandbox"
+                    isCompletionRateExpanded
                       ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-400"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-cyan-400"
                   }`}>
-                    {activeCategory === "sandbox" ? "ACTIVE ⬇" : "TEST RETENTION ⚡"}
+                    {isCompletionRateExpanded ? "ACTIVE ⬇" : "TEST RETENTION ⚡"}
                   </span>
                 </div>
               </div>
@@ -6337,13 +6224,136 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   score={completionRateScore} 
                   size={110} 
                   strokeWidth={7} 
-                  color={activeCategory === "sandbox" ? "#06b6d4" : "rgba(6, 182, 212, 0.45)"} 
-                  glowColor={activeCategory === "sandbox" ? "rgba(6, 182, 212, 0.65)" : "rgba(6, 182, 212, 0.15)"} 
-                  extraGlow={activeCategory === "sandbox"}
+                  color={isCompletionRateExpanded ? "#06b6d4" : "rgba(6, 182, 212, 0.45)"} 
+                  glowColor={isCompletionRateExpanded ? "rgba(6, 182, 212, 0.65)" : "rgba(6, 182, 212, 0.15)"} 
+                  extraGlow={isCompletionRateExpanded}
                 />
               </div>
             </div>
           </button>
+
+          <AnimatePresence initial={false}>
+            {isCompletionRateExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginTop: -8 }}
+                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
+                exit={{ height: 0, opacity: 0, marginTop: -8 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden w-full relative z-0"
+              >
+                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-black/80 border border-[#06b6d4] rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
+                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
+                    COMPLETION & RETENTION SIMULATOR
+                  </div>
+                  <div style={{ marginTop: "-20px", paddingTop: "11px", paddingBottom: "18px" }} className="flex items-center justify-between border-b border-white/5">
+                    <span className="text-xs font-mono font-bold tracking-widest text-[#90a1b9] uppercase flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+                      <span>Active Diagnostics List</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500 text-right">
+                      30-Second Listener Retention & Skip Rate Simulator
+                    </span>
+                  </div>
+
+                  {/* Panel D: Relocated Skip & Completion Simulator */}
+                  <div id="panel-d-skip-completion" className="bg-[#0A0B0E] border border-white/5 hover:border-white/10 rounded-2xl p-5 flex flex-col justify-between transition-all duration-500 group shadow-inner min-h-[360px]">
+                    <div>
+                      <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
+                        <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none">
+                          30S Skip &amp; Completion Rate Simulator
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-500">The 30-Second Rule Gatekeeper</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-relaxed mb-4 text-left">
+                        Simulates virtual listener skip behavior during the initial 30 seconds (qualifying monetization milestone).
+                      </p>
+                    </div>
+
+                    {/* Simulator Controls & Playbar */}
+                    <div className="bg-black/50 border border-white/5 rounded-xl p-4 flex flex-col gap-3.5 my-1 text-left relative overflow-hidden">
+                      <div className="flex items-center justify-between gap-3">
+                        <button
+                          onClick={() => {
+                            if (sandboxPlaying) {
+                              setSandboxPlaying(false);
+                            } else {
+                              if (sandboxProgress >= 30) setSandboxProgress(0);
+                              setSandboxPlaying(true);
+                            }
+                          }}
+                          className={`w-9 h-9 cursor-pointer rounded-full border flex items-center justify-center flex-shrink-0 transition-all select-none ${
+                            sandboxPlaying
+                              ? "bg-rose-500/10 border-rose-500/30 text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.15)] animate-pulse"
+                              : "bg-blue-600/10 border-blue-500 text-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.15)]"
+                          }`}
+                        >
+                          {sandboxPlaying ? <Pause className="w-4.5 h-4.5 fill-current" /> : <Play className="w-4.5 h-4.5 fill-current ml-0.5" />}
+                        </button>
+                        
+                        <div className="flex-1 flex flex-col gap-1">
+                          <div className="flex items-center justify-between text-[10px] font-mono leading-none">
+                            <span className="text-slate-400 font-bold">{liveStats.status}</span>
+                            <span className="text-blue-400 font-bold bg-neutral-900 border border-white/5 px-2 py-0.5 rounded-full">{sandboxProgress.toFixed(1)}s / 30.0s</span>
+                          </div>
+                          
+                          {/* Outer Bar Progress */}
+                          <div className="w-full h-1.5 bg-neutral-900 rounded-full overflow-hidden relative border border-white/5 mt-1">
+                            <div 
+                              className="absolute top-0 left-0 bottom-0 bg-blue-500/80 transition-all" 
+                              style={{ width: `${(sandboxProgress / 30) * 100}%` }} 
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Output Readout */}
+                      <div className="flex flex-col gap-0.5 text-left border-t border-white/5 pt-3">
+                        <span className="text-[10px] font-mono tracking-wider uppercase text-slate-400">Predicted Instantaneous Skip Risk:</span>
+                        <div className="flex items-center gap-1.5 mt-0.5 text-xs">
+                          <span className={`font-black font-mono transition-all text-sm ${sandboxProgress === 30 ? "text-emerald-400 font-bold animate-ping" : sandboxProgress > 0 ? "text-amber-400 animate-pulse" : "text-slate-500"}`}>
+                            {liveStats.risk}
+                          </span>
+                          <p className="text-[9.5px] text-slate-300 leading-normal">
+                            {liveStats.desc}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Predicted Cumulative Rates */}
+                    <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-3.5 pr-1">
+                      <div className="flex flex-col text-left">
+                        <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest leading-none">PREDICTED SKIP RATE (SR)</span>
+                        <span className="text-lg font-black text-white font-mono mt-1 flex items-baseline gap-1">
+                          {predictedSkipRate}%
+                          <span className={`text-[10px] font-sans font-bold uppercase tracking-wider ${getSkipRateLabel(predictedSkipRate).color}`}>
+                            {getSkipRateLabel(predictedSkipRate).label}
+                          </span>
+                        </span>
+                        <p className="text-[8.5px] text-slate-500 leading-snug mt-0.5 leading-normal">
+                          Typical threshold target: &lt; 32% within 30s. Perfect for early playlist preservation.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col text-left border-l border-white/5 pl-4">
+                        <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest leading-none">PREDICTED COMPLETION (CR)</span>
+                        <span className="text-lg font-black text-cyan-400 font-mono mt-1 flex items-baseline gap-1">
+                          {predictedCompletionRate}%
+                          <span className={`text-[10px] font-sans font-bold uppercase tracking-wider ${getCompletionRateLabel(predictedCompletionRate).color}`}>
+                            {getCompletionRateLabel(predictedCompletionRate).label}
+                          </span>
+                        </span>
+                        <p className="text-[8.5px] text-slate-500 leading-snug mt-0.5 leading-normal">
+                          Probability of full track completion. Indicates structural engagement alignment.
+                        </p>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Card 5: Spotify Algorithm Compatibility Panel & Discovery Readiness Scorecard */}
