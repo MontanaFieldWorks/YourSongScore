@@ -692,6 +692,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
   const completionRateScore = Math.min(96, Math.max(15, 100 - baseSkipProb - 5));
 
+  const realCategoryScores = computeCategoryScores(critique);
+
   const predictedSkipRate = baseSkipProb;
   const predictedCompletionRate = Math.min(96, Math.max(15, 100 - baseSkipProb - 5));
 
@@ -6013,6 +6015,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Streaming Readiness</span>
                 </div>
                 <span className="relative z-10 text-[9px] font-mono text-slate-500 ml-auto">Algorithmic curation & discovery potential</span>
+                <span className="relative z-10 text-[40px] font-black text-white leading-none ml-3" style={{ fontFamily: "Inter, sans-serif" }}>
+                  {realCategoryScores.streamingReadiness}
+                </span>
               </div>
 
               {/* Card 1: Mainstream Radio Formatting (blue) */}
@@ -6604,6 +6609,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Sonic Soundprint</span>
           </div>
           <span className="relative z-10 text-[9px] font-mono text-slate-500 ml-auto">Technical mix architecture & engineering diagnostics</span>
+          <span className="relative z-10 text-[40px] font-black text-white leading-none ml-3" style={{ fontFamily: "Inter, sans-serif" }}>
+            {realCategoryScores.sonicSoundprint}
+          </span>
         </div>
 
         {/* The engineering studio invite banner moved here with blue border */}
@@ -7004,6 +7012,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Compositional Depth</span>
             </div>
             <span className="relative z-10 text-[9px] font-mono text-slate-500 ml-auto">Songwriting craft, theory & artistic merit</span>
+            <span className="relative z-10 text-[40px] font-black text-white leading-none ml-3" style={{ fontFamily: "Inter, sans-serif" }}>
+              {realCategoryScores.compositionalDepth}
+            </span>
           </div>
 
           {/* Card 3: Artistic Integrity (purple/pink) */}
