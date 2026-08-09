@@ -79,6 +79,8 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
   const lufsPass = lufsRaw !== undefined && lufsRaw >= loudnessBucket.lufsMin && lufsRaw <= loudnessBucket.lufsMax;
   const lraPass = lraRaw !== undefined && lraRaw >= loudnessBucket.lraMin && (loudnessBucket.lraMax === null || lraRaw <= loudnessBucket.lraMax);
   const lraTargetText = `${loudnessBucket.lraMin}${loudnessBucket.lraMax !== null ? `-${loudnessBucket.lraMax}` : "+"} LU`;
+  const lufsArrow = (lufsRaw !== undefined && lufsRaw < loudnessBucket.lufsMin) ? "▼" : "▲";
+  const lraArrow = (lraRaw !== undefined && lraRaw < loudnessBucket.lraMin) ? "▼" : "▲";
 
   const echoNestData = computeEchoNestScorecard(critique);
   const timbralScore = critique.liveMetrics?.calculatedTimbralConsistencyScore;
@@ -307,20 +309,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                     onError={() => setImageError(true)}
                   />
                 ) : (
-                  <svg viewBox="0 0 100 100" className="w-10 h-10 text-blue-400 drop-shadow-[0_0_6px_rgba(56,189,248,0.7)]">
-                    <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="6 6" className="opacity-30 animate-spin-strobe" style={{ animationDuration: "20s" }} />
-                    <circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-15" />
-                    <path d="M 38 40 C 38 22, 45 14, 48 10 C 50 8, 52 14, 50 28" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M 62 40 C 62 22, 55 14, 52 10 C 50 8, 48 14, 50 28" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M 32 45 C 32 62, 68 62, 68 45 C 68 36, 32 36, 32 45 Z" fill="currentColor" className="opacity-10" />
-                    <path d="M 32 45 C 32 62, 68 62, 68 45" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-                    <path d="M 46 51 L 50 55 L 54 51" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M 50 55 L 50 59" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-                    <path d="M 28 48 L 18 46" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="opacity-40" />
-                    <path d="M 28 52 L 16 52" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="opacity-40" />
-                    <path d="M 72 48 L 82 46" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="opacity-40" />
-                    <path d="M 72 52 L 84 52" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="opacity-40" />
-                  </svg>
+                  <Rabbit className="w-7 h-7 text-blue-400 drop-shadow-[0_0_6px_rgba(56,189,248,0.7)]" />
                 )}
               </div>
 
@@ -380,7 +369,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               <div className="absolute top-0 left-0 bg-[#3D80EB] h-[3px] w-full shadow-[0_0_8px_#3D80EB]" />
               <div className="flex items-center justify-between border-b border-white/5 pb-0 relative z-10 flex-shrink-0">
                 <span className="font-['Inter'] text-[16px] font-bold tracking-wider text-white uppercase">
-                  30s Skip & Playout Simulator
+                  30s Skip & Completion Rate Simulator
                 </span>
                 <div className="relative">
                   <button 
@@ -492,20 +481,20 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div className={`border rounded-xl p-3 text-[11px] font-mono flex flex-col gap-1 shadow-inner ${lufsPass ? "border-emerald-500/20 bg-emerald-500/[0.03] text-emerald-400/90" : "border-red-500/20 bg-red-500/[0.03] text-red-400/90"}`}>
+                <div className={`border rounded-xl p-3 text-[11px] font-mono flex flex-col gap-1 shadow-inner ${lufsPass ? "border-emerald-500/20 bg-emerald-500/[0.03] text-emerald-400/90" : "border-amber-500/20 bg-amber-500/[0.03] text-amber-400/90"}`}>
                   <div className="flex items-center justify-between">
-                    <span className={`font-black text-xs flex items-center gap-1 ${lufsPass ? "text-emerald-400" : "text-red-400"}`}>
-                      {lufsPass ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />} {lufsPass ? "PASS" : "FAIL"} – LUFS Loudness
+                    <span className={`font-black text-xs flex items-center gap-1 ${lufsPass ? "text-emerald-400" : "text-amber-400"}`}>
+                      {lufsPass ? <CheckCircle2 className="w-4 h-4" /> : lufsArrow} {lufsPass ? "PASS" : "Outside"} – LUFS Loudness
                     </span>
                     <span className="font-black text-white text-xs">{lufs}</span>
                   </div>
                   <span className="text-[9px] text-slate-500 uppercase mt-0.5">Target Range: {loudnessBucket.lufsMin} to {loudnessBucket.lufsMax}</span>
                 </div>
 
-                <div className={`border rounded-xl p-3 text-[11px] font-mono flex flex-col gap-1 shadow-inner ${lraPass ? "border-emerald-500/20 bg-emerald-500/[0.03] text-emerald-400/90" : "border-red-500/20 bg-red-500/[0.03] text-red-400/90"}`}>
+                <div className={`border rounded-xl p-3 text-[11px] font-mono flex flex-col gap-1 shadow-inner ${lraPass ? "border-emerald-500/20 bg-emerald-500/[0.03] text-emerald-400/90" : "border-amber-500/20 bg-amber-500/[0.03] text-amber-400/90"}`}>
                   <div className="flex items-center justify-between">
-                    <span className={`font-black text-xs flex items-center gap-1 ${lraPass ? "text-emerald-400" : "text-red-400"}`}>
-                      {lraPass ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />} {lraPass ? "PASS" : "FAIL"} – Dynamic Range
+                    <span className={`font-black text-xs flex items-center gap-1 ${lraPass ? "text-emerald-400" : "text-amber-400"}`}>
+                      {lraPass ? <CheckCircle2 className="w-4 h-4" /> : lraArrow} {lraPass ? "PASS" : "Outside"} – Dynamic Range
                     </span>
                     <span className="font-black text-white text-xs">{dynamicRange} LU</span>
                   </div>
