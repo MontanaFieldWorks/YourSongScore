@@ -580,9 +580,9 @@ export function computeCategoryScores(critique: any) {
     : 75;
 
   const scoreStreamingReadiness = Math.round(
-    (completionRate * 0.44) +
-    (echoNestAvgMatch * 0.33) +
-    (commercialReadinessVal * 0.23)
+    (completionRate * 0.40) +
+    (echoNestAvgMatch * 0.30) +
+    (commercialReadinessVal * 0.30)
   );
 
   const lufsRaw = critique?.liveMetrics?.calculatedLufs;
@@ -667,6 +667,28 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   // --- Spotify Algorithmic Target Matches calculations ---
   const overallProductionVal = critique?.scores?.overallProduction ?? 75;
   const commercialReadinessVal = critique?.scores?.commercialReadiness ?? 75;
+  
+  const completionRateScore = (() => {
+    let liveSkipModifier = 0;
+    if (critique?.liveMetrics) {
+      const { calculatedLufs, calculatedBpm, calculatedStereoCorrelation } = critique.liveMetrics;
+      if (calculatedLufs !== undefined && calculatedLufs < -12.5) {
+        liveSkipModifier += Math.round(Math.abs(calculatedLufs + 12.5) * 1.8);
+      }
+      if (calculatedStereoCorrelation !== undefined) {
+        if (calculatedStereoCorrelation > 0.82) {
+          liveSkipModifier += 6;
+        } else if (calculatedStereoCorrelation < -0.15) {
+          liveSkipModifier += 14;
+        }
+      }
+      if (calculatedBpm !== undefined && (calculatedBpm < 75 || calculatedBpm > 155)) {
+        liveSkipModifier += 5;
+      }
+    }
+    const baseSkipProb = Math.min(85, Math.max(10, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
+    return Math.min(96, Math.max(15, 100 - baseSkipProb - 5));
+  })();
   const flowScoreVal = critique?.arrangement?.flowScore ?? 75;
   const vocalScoreVal = critique?.performance?.vocalScore ?? 75;
   const instrumentalScoreVal = critique?.performance?.instrumentalScore ?? 75;
@@ -4396,7 +4418,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </div>
 
           {/* Panel D: Skip Rate (SR) & Completion (CR) Simulator */}
-          <div className="bg-[#0A0B0E] border border-white/5 hover:border-white/10 rounded-2xl p-5 flex flex-col justify-between transition-all group shadow-inner min-h-[360px]">
+          <div id="panel-d-skip-completion" className="bg-[#0A0B0E] border border-white/5 hover:border-white/10 rounded-2xl p-5 flex flex-col justify-between transition-all duration-500 group shadow-inner min-h-[360px]">
             <div>
               <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
                 <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none">
@@ -6229,6 +6251,99 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
+
+        {/* Card: Completion Rate (cyan/teal theme) */}
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-streaming-completion">
+          <button
+            onClick={() => {
+              const scrollToPanelD = () => {
+                const el = document.getElementById("panel-d-skip-completion");
+                if (el) {
+                  el.scrollIntoView({ behavior: "smooth", block: "center" });
+                  el.classList.add("ring-2", "ring-cyan-400", "shadow-[0_0_30px_rgba(34,211,238,0.5)]");
+                  setTimeout(() => {
+                    el.classList.remove("ring-2", "ring-cyan-400", "shadow-[0_0_30px_rgba(34,211,238,0.5)]");
+                  }, 2500);
+                }
+              };
+
+              if (activeCategory === "sandbox") {
+                scrollToPanelD();
+              } else {
+                handleCategoryChange("sandbox");
+                setSandboxPlaying(true);
+                setTimeout(scrollToPanelD, 300);
+              }
+            }}
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+              activeCategory === "sandbox"
+                ? "bg-[#090b0e] border-cyan-500 shadow-[0_0_35px_rgba(6,182,212,0.35)] ring-1 ring-cyan-500/40 font-black"
+                : "bg-[#0A0B0E]/60 border-[#06b6d4]/80 hover:border-[#06b6d4] hover:bg-neutral-900/40 text-slate-400"
+            }`}
+          >
+            {/* Background ambient shade */}
+            {activeCategory === "sandbox" ? (
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-950/10 via-neutral-950 to-[#03050a] pointer-events-none" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#03050a] pointer-events-none" />
+            )}
+
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+              {/* Left Content Column */}
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                {/* Header block */}
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                    activeCategory === "sandbox"
+                      ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-cyan-400"
+                  }`}>
+                    <Activity className="w-5 h-5 text-cyan-400" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span 
+                      className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                        activeCategory === "sandbox" ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                      }`}
+                    >
+                      COMPLETION RATE
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">First-30-Second Retention Prediction</span>
+                  </div>
+                </div>
+
+                {/* Bottom info block */}
+                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                  activeCategory === "sandbox" ? "border-cyan-500/15" : "border-white/5"
+                }`}>
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                    Predicts listener retention through your song's critical opening window. Skip behavior in the first 30 seconds serves as a primary feedback signal algorithms use to promote or throttle discovery.
+                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider">RETENTION METRIC DETERMINES ALGORITHMIC FEEDBACK LOOP SCALING.</span>
+                  </p>
+                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    activeCategory === "sandbox"
+                      ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-400"
+                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-cyan-400"
+                  }`}>
+                    {activeCategory === "sandbox" ? "ACTIVE ⬇" : "TEST RETENTION ⚡"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right Score display */}
+              <div className="flex-shrink-0 flex items-center justify-center">
+                <ScoreCircle 
+                  score={completionRateScore} 
+                  size={110} 
+                  strokeWidth={7} 
+                  color={activeCategory === "sandbox" ? "#06b6d4" : "rgba(6, 182, 212, 0.45)"} 
+                  glowColor={activeCategory === "sandbox" ? "rgba(6, 182, 212, 0.65)" : "rgba(6, 182, 212, 0.15)"} 
+                  extraGlow={activeCategory === "sandbox"}
+                />
+              </div>
+            </div>
+          </button>
         </div>
 
         {/* Card 5: Spotify Algorithm Compatibility Panel & Discovery Readiness Scorecard */}
