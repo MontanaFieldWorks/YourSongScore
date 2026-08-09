@@ -580,10 +580,9 @@ export function computeCategoryScores(critique: any) {
     : 75;
 
   const scoreStreamingReadiness = Math.round(
-    (completionRate * 0.40) +
-    (echoNestAvgMatch * 0.30) +
-    (commercialReadinessVal * 0.20) +
-    ((critique?.titleSearchability?.score ?? 75) * 0.10)
+    (completionRate * 0.44) +
+    (echoNestAvgMatch * 0.33) +
+    (commercialReadinessVal * 0.23)
   );
 
   const lufsRaw = critique?.liveMetrics?.calculatedLufs;
