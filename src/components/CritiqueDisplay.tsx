@@ -669,7 +669,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const overallProductionVal = critique?.scores?.overallProduction ?? 75;
   const commercialReadinessVal = critique?.scores?.commercialReadiness ?? 75;
   
-  const completionRateScore = (() => {
+  const baseSkipProb = (() => {
     let liveSkipModifier = 0;
     if (critique?.liveMetrics) {
       const { calculatedLufs, calculatedBpm, calculatedStereoCorrelation } = critique.liveMetrics;
@@ -687,9 +687,61 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         liveSkipModifier += 5;
       }
     }
-    const baseSkipProb = Math.min(85, Math.max(10, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
-    return Math.min(96, Math.max(15, 100 - baseSkipProb - 5));
+    return Math.min(85, Math.max(10, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
   })();
+
+  const completionRateScore = Math.min(96, Math.max(15, 100 - baseSkipProb - 5));
+
+  const predictedSkipRate = baseSkipProb;
+  const predictedCompletionRate = Math.min(96, Math.max(15, 100 - baseSkipProb - 5));
+
+  const getSkipRateLabel = (rate: number): { label: string; color: string } => {
+    if (rate <= 20) return { label: "▲ EXCELLENT", color: "text-emerald-400" };
+    if (rate <= 32) return { label: "▲ GOOD", color: "text-green-400" };
+    if (rate <= 45) return { label: "◆ AVERAGE", color: "text-yellow-400" };
+    if (rate <= 60) return { label: "▼ ELEVATED RISK", color: "text-orange-400" };
+    return { label: "▼ HIGH RISK", color: "text-rose-400" };
+  };
+
+  const getCompletionRateLabel = (rate: number): { label: string; color: string } => {
+    if (rate >= 75) return { label: "▲ OPTIMIZED", color: "text-teal-400" };
+    if (rate >= 60) return { label: "▲ GOOD", color: "text-green-400" };
+    if (rate >= 45) return { label: "◆ AVERAGE", color: "text-yellow-400" };
+    if (rate >= 30) return { label: "▼ BELOW TARGET", color: "text-orange-400" };
+    return { label: "▼ POOR", color: "text-rose-400" };
+  };
+
+  const getLiveSimFeedback = (seconds: number) => {
+    if (seconds === 0) return { risk: "0%", status: "Simulation Ready", desc: "Awaiting ignition. Press TEST RUN to model audience response." };
+    if (seconds < 5) {
+      return {
+        risk: `${predictedSkipRate + 12}%`,
+        status: "Aesthetic Immediacy Check (0s - 5s)",
+        desc: "Critical! Immediate sound match check. Clean transients and early hook prevent fast skip."
+      };
+    }
+    if (seconds < 15) {
+      return {
+        risk: `${predictedSkipRate}%`,
+        status: "Vocal & Lead Intro Phase (5s - 15s)",
+        desc: "Vocal/theme introduction anchors attention. Chord cadence resolved."
+      };
+    }
+    if (seconds < 29) {
+      return {
+        risk: `${Math.round(predictedSkipRate * 0.6)}%`,
+        status: "Vibe Consolidation Phase (15s - 29s)",
+        desc: "Steady groove flow. Harmonic content matching expectation parameters."
+      };
+    }
+    return {
+      risk: "0%",
+      status: "🎉 GATEKEEPER CLEARED!",
+      desc: "30-second boundary breached! Stream is monetarily counted in Spotify analytics."
+    };
+  };
+
+  const liveStats = getLiveSimFeedback(sandboxProgress);
   const flowScoreVal = critique?.arrangement?.flowScore ?? 75;
   const vocalScoreVal = critique?.performance?.vocalScore ?? 75;
   const instrumentalScoreVal = critique?.performance?.instrumentalScore ?? 75;
@@ -3970,80 +4022,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     };
 
     const trans = getTransitionStats(vibeTransitionTheme);
-
-    // C. 30-Second Skip & Playthrough Simulation Calculator
-    // Skip risk decreases if overallProduction is high and commercialReadiness is high, modified by live traits
-    let liveSkipModifier = 0;
-    if (critique?.liveMetrics) {
-      const { calculatedLufs, calculatedBpm, calculatedStereoCorrelation } = critique.liveMetrics;
-      // Loudness penalty: if quieter than -12.5 LUFS
-      if (calculatedLufs < -12.5) {
-        liveSkipModifier += Math.round(Math.abs(calculatedLufs + 12.5) * 1.8);
-      }
-      // Out of phase or completely mono penalty
-      if (calculatedStereoCorrelation > 0.82) {
-        liveSkipModifier += 6; // mono
-      } else if (calculatedStereoCorrelation < -0.15) {
-        liveSkipModifier += 14; // out of phase issues
-      }
-      // BPM extreme check
-      if (calculatedBpm < 75 || calculatedBpm > 155) {
-        liveSkipModifier += 5;
-      }
-    }
-    const baseSkipProb = Math.min(85, Math.max(10, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
-    // Completion rate prediction (CR) is inverse of Skip Risk (SR) with some decay
-    const predictedSkipRate = baseSkipProb;
-    const predictedCompletionRate = Math.min(96, Math.max(15, 100 - baseSkipProb - 5));
-
-    // Determine current skip risk status text during the 30-second live playback
-    const getLiveSimFeedback = (seconds: number) => {
-      if (seconds === 0) return { risk: "0%", status: "Simulation Ready", desc: "Awaiting ignition. Press TEST RUN to model audience response." };
-      if (seconds < 5) {
-        return {
-          risk: `${predictedSkipRate + 12}%`,
-          status: "Aesthetic Immediacy Check (0s - 5s)",
-          desc: "Critical! Immediate sound match check. Clean transients and early hook prevent fast skip."
-        };
-      }
-      if (seconds < 15) {
-        return {
-          risk: `${predictedSkipRate}%`,
-          status: "Vocal & Lead Intro Phase (5s - 15s)",
-          desc: "Vocal/theme introduction anchors attention. Chord cadence resolved."
-        };
-      }
-      if (seconds < 29) {
-        return {
-          risk: `${Math.round(predictedSkipRate * 0.6)}%`,
-          status: "Vibe Consolidation Phase (15s - 29s)",
-          desc: "Steady groove flow. Harmonic content matching expectation parameters."
-        };
-      }
-      return {
-        risk: "0%",
-        status: "🎉 GATEKEEPER CLEARED!",
-        desc: "30-second boundary breached! Stream is monetarily counted in Spotify analytics."
-      };
-    };
-
-    const getSkipRateLabel = (rate: number): { label: string; color: string } => {
-      if (rate <= 20) return { label: "▲ EXCELLENT", color: "text-emerald-400" };
-      if (rate <= 32) return { label: "▲ GOOD", color: "text-green-400" };
-      if (rate <= 45) return { label: "◆ AVERAGE", color: "text-yellow-400" };
-      if (rate <= 60) return { label: "▼ ELEVATED RISK", color: "text-orange-400" };
-      return { label: "▼ HIGH RISK", color: "text-rose-400" };
-    };
-
-    const getCompletionRateLabel = (rate: number): { label: string; color: string } => {
-      if (rate >= 75) return { label: "▲ OPTIMIZED", color: "text-teal-400" };
-      if (rate >= 60) return { label: "▲ GOOD", color: "text-green-400" };
-      if (rate >= 45) return { label: "◆ AVERAGE", color: "text-yellow-400" };
-      if (rate >= 30) return { label: "▼ BELOW TARGET", color: "text-orange-400" };
-      return { label: "▼ POOR", color: "text-rose-400" };
-    };
-
-    const liveStats = getLiveSimFeedback(sandboxProgress);
 
     return (
       <div className="bg-[#13161C] border border-white/10 rounded-[32px] p-6 shadow-2xl relative overflow-hidden flex flex-col gap-6 my-2 scroll-mt-[100px]" id="algotorial-sandbox-panel">
