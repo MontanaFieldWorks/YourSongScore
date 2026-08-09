@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import jsmediatags from "jsmediatags";
 import { parseWavFile } from "./lib/wavParser";
-import { CritiqueResponse, SampleSong, StoredTrack, CritiqueData, UserProfile } from "./types";
+import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer } from "./lib/liveAudioAnalyzer";
 import { safeLocalStorage } from "./lib/safeStorage";
 import UploadSection from "./components/UploadSection";
@@ -1258,7 +1258,7 @@ export default function App() {
                         const found = uTracks.find((t) => {
                           const matchName = t.name?.toLowerCase() || "";
                           const matchMeta = t.metaTitle?.toLowerCase() || "";
-                          return matchName.includes("06 - si - copy") || matchMeta.includes("06 - si - copy");
+                          return matchName.includes("dreaming in daylight") || matchMeta.includes("dreaming in daylight");
                         });
                         if (found) {
                           targetTrack = found;
@@ -1273,33 +1273,50 @@ export default function App() {
                       setCritiqueResult({
                         critique: targetTrack.critique,
                         trackInfo: {
-                          name: targetTrack.metaTitle || targetTrack.name.replace(/_Locker\.[a-zA-Z0-9]+$/i, ""),
-                          artist: targetTrack.metaArtist || "Independent Artist",
+                          name: targetTrack.metaTitle || "Dreaming in Daylight",
+                          artist: targetTrack.metaArtist || "The Backyard Project",
                           coverArt: targetTrack.coverArt || undefined,
                           hasAudio: true,
                           statusMessage: "Loaded from Artist Locker via Quick-Test"
                         }
                       });
-                      setViewingDashboard(false);
-                      setViewingAboutPage(false);
-                      setViewingWhatItDoesPage(false);
-                      setViewingDefinitions(false);
-                      setViewingUsefulTools(false);
-                      setViewingRabbitHoleV2(false);
-                      setViewingStacks(false);
-                      setViewingArRep(false);
-                      setViewingEngineeringDetails(false);
-                      setViewingFullAudit(false);
                     } else {
-                      alert("Could not find any track in Artist Locker containing '06 - Si - copy'. Please upload or analyze this track once so it exists in your Locker.");
+                      const sampleSong = SAMPLE_SONGS.find(s => s.title.toLowerCase().includes("dreaming in daylight")) || SAMPLE_SONGS[0];
+                      if (sampleSong) {
+                        setLocalFileBlobUrl(sampleSong.audioUrl);
+                        setSelectedSampleId(sampleSong.id);
+                      }
+                      setCritiqueResult({
+                        critique: MOCK_GENERATED_CRITIQUE_TEMPLATE("Dreaming in Daylight", "mp3", "Indie Pop (Atmospheric Synth-Pop)"),
+                        trackInfo: {
+                          name: "Dreaming in Daylight",
+                          artist: "The Backyard Project",
+                          hasAudio: true,
+                          statusMessage: "Loaded default track 'Dreaming in Daylight'"
+                        }
+                      });
                     }
+                    setViewingDashboard(false);
+                    setViewingAboutPage(false);
+                    setViewingWhatItDoesPage(false);
+                    setViewingDefinitions(false);
+                    setViewingUsefulTools(false);
+                    setViewingRabbitHoleV2(false);
+                    setViewingStacks(false);
+                    setViewingArRep(false);
+                    setViewingEngineeringDetails(false);
+                    setViewingEngineeringStudio(false);
+                    setViewingMarketingPage(false);
+                    setViewingMetadataGenerator(false);
+                    setViewingAlphaPage(false);
+                    setViewingFullAudit(false);
                   } catch (err) {
                     console.error("Quick-test button error:", err);
-                    alert("Error loading quick-test track from Artist Locker. See console details.");
+                    alert("Error loading quick-test track 'Dreaming in Daylight'. See console details.");
                   }
                 }}
                 className="flex items-center justify-center w-8 h-8 rounded-full border border-yellow-500/20 hover:border-yellow-500/45 bg-[#13161C] hover:bg-[#1E232E] text-yellow-400 hover:text-yellow-350 transition-all cursor-pointer flex-shrink-0 shadow-[0_0_10px_rgba(234,179,8,0.05)]"
-                title="Quick Test Critique Summary ('06 - Si - copy')"
+                title="Quick Test Critique Summary ('Dreaming in Daylight')"
               >
                 <Lightbulb className="w-4 h-4 text-yellow-400 animate-pulse" />
               </button>
