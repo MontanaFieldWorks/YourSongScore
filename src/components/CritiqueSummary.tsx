@@ -17,7 +17,12 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
   // State for tracking open explanatory banners
   const [openExplanations, setOpenExplanations] = useState<Record<string, boolean>>({});
   const [animatedScores, setAnimatedScores] = useState<number[]>([0, 0, 0]);
+  const [imageError, setImageError] = useState(false);
   const animationRefs = useRef<(number | null)[]>([null, null, null]);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [trackInfo?.coverArt]);
 
   const toggleExplanation = (key: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -126,7 +131,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
       strokeColor: "#22d3ee",
       trackColor: "rgba(34, 211, 238, 0.1)",
       textColor: "text-cyan-400",
-      tags: ["Commercial Impact", "Streaming Alignment", "Algo Sandbox"]
+      tags: ["Completion Rate", "Echo Nest genre-fit average", "Commercial Impact"]
     },
     {
       title: "SONIC SOUNDPRINT",
@@ -136,7 +141,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
       strokeColor: "#34d399",
       trackColor: "rgba(52, 211, 153, 0.1)",
       textColor: "text-emerald-400",
-      tags: ["Engineering Studio", "Tech Blueprints", "Production Quality"]
+      tags: ["Mix Quality", "Loudness Compliance", "Vocal Performance"]
     },
     {
       title: "COMPOSITIONAL DEPTH",
@@ -146,7 +151,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
       strokeColor: "#c084fc",
       trackColor: "rgba(192, 132, 252, 0.1)",
       textColor: "text-purple-400",
-      tags: ["Artistic Impact", "Songwriting Quality", "Song Architecture"]
+      tags: ["Music Theory", "Lyrical Impact", "Arrangement Flow"]
     }
   ];
 
@@ -289,24 +294,34 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
           </div>
           
           {/* METADATA BLOCK: Custom Neon Rabbit & Track Info Grid */}
-          <div className="grid grid-cols-1 md:flex md:flex-wrap items-center gap-4 bg-[#07090f]/60 border border-white/5 rounded-2xl p-4 relative z-10 w-full">
+          <div className="grid grid-cols-1 md:flex md:flex-wrap items-center gap-4 bg-[#07090f]/60 border border-white/5 rounded-2xl p-4 relative z-10 w-[740px] max-w-full" style={{ width: "740px", maxWidth: "100%" }}>
             {/* Neon Rabbit Icon Container */}
             <div className="flex items-center gap-4 flex-shrink-0">
-              <div className="w-14 h-14 bg-[#0a0f1d] border border-blue-500/25 rounded-xl flex items-center justify-center relative shadow-[0_0_20px_rgba(59,130,246,0.25)] flex-shrink-0">
-                <svg viewBox="0 0 100 100" className="w-10 h-10 text-blue-400 drop-shadow-[0_0_6px_rgba(56,189,248,0.7)]">
-                  <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="6 6" className="opacity-30 animate-spin-strobe" style={{ animationDuration: "20s" }} />
-                  <circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-15" />
-                  <path d="M 38 40 C 38 22, 45 14, 48 10 C 50 8, 52 14, 50 28" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M 62 40 C 62 22, 55 14, 52 10 C 50 8, 48 14, 50 28" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M 32 45 C 32 62, 68 62, 68 45 C 68 36, 32 36, 32 45 Z" fill="currentColor" className="opacity-10" />
-                  <path d="M 32 45 C 32 62, 68 62, 68 45" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-                  <path d="M 46 51 L 50 55 L 54 51" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M 50 55 L 50 59" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-                  <path d="M 28 48 L 18 46" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="opacity-40" />
-                  <path d="M 28 52 L 16 52" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="opacity-40" />
-                  <path d="M 72 48 L 82 46" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="opacity-40" />
-                  <path d="M 72 52 L 84 52" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="opacity-40" />
-                </svg>
+              <div className="w-14 h-14 bg-[#0a0f1d] border border-blue-500/25 rounded-xl flex items-center justify-center relative shadow-[0_0_20px_rgba(59,130,246,0.25)] flex-shrink-0 overflow-hidden">
+                {trackInfo?.coverArt && !imageError ? (
+                  <img
+                    src={trackInfo.coverArt}
+                    alt={title}
+                    className="w-full h-full object-cover rounded-xl"
+                    referrerPolicy="no-referrer"
+                    onError={() => setImageError(true)}
+                  />
+                ) : (
+                  <svg viewBox="0 0 100 100" className="w-10 h-10 text-blue-400 drop-shadow-[0_0_6px_rgba(56,189,248,0.7)]">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="6 6" className="opacity-30 animate-spin-strobe" style={{ animationDuration: "20s" }} />
+                    <circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-15" />
+                    <path d="M 38 40 C 38 22, 45 14, 48 10 C 50 8, 52 14, 50 28" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M 62 40 C 62 22, 55 14, 52 10 C 50 8, 48 14, 50 28" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M 32 45 C 32 62, 68 62, 68 45 C 68 36, 32 36, 32 45 Z" fill="currentColor" className="opacity-10" />
+                    <path d="M 32 45 C 32 62, 68 62, 68 45" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                    <path d="M 46 51 L 50 55 L 54 51" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M 50 55 L 50 59" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                    <path d="M 28 48 L 18 46" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="opacity-40" />
+                    <path d="M 28 52 L 16 52" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="opacity-40" />
+                    <path d="M 72 48 L 82 46" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="opacity-40" />
+                    <path d="M 72 52 L 84 52" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="opacity-40" />
+                  </svg>
+                )}
               </div>
 
               <div>
