@@ -5994,7 +5994,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             {/* SECTION: STREAMING READINESS */}
             {(expandedCategory === "streaming" || expandedCategory === null) && expandedCategory === "streaming" && (
               <div id="section-streaming" className="flex flex-col gap-4">
-              <div className="relative overflow-hidden flex items-center gap-4 px-5 py-3 border-t border-b border-blue-500/20" style={{ background: "linear-gradient(to right, #090b0e 0%, #090b0e 55%, #0d1628 100%)" }}>
+              <div className="relative overflow-hidden flex items-center gap-4 pl-5 pr-2 py-3 border-t border-b border-blue-500/20" style={{ background: "linear-gradient(to right, #090b0e 0%, #090b0e 55%, #0d1628 100%)" }}>
                 {/* Atmospheric glow */}
                 <div className="absolute inset-0 pointer-events-none" style={{
                   background: "linear-gradient(to left, #2f65be 0%, #1c3c73 15%, #040911 50%, #000000 75%)",
@@ -6015,7 +6015,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Streaming Readiness</span>
                 </div>
                 <span className="relative z-10 text-[9px] font-mono text-slate-500 ml-auto">Algorithmic curation & discovery potential</span>
-                <span className="relative z-10 text-[40px] font-black text-white leading-none ml-3" style={{ fontFamily: "Inter, sans-serif" }}>
+                <span className="relative z-10 text-[40px] font-black text-white leading-none ml-[24px]" style={{ fontFamily: "Inter, sans-serif" }}>
                   {realCategoryScores.streamingReadiness}
                 </span>
               </div>
@@ -6592,7 +6592,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       {/* SECTION: SONIC SOUNDPRINT */}
       {expandedCategory === "sonic" && (
         <div id="section-sonic" className="flex flex-col gap-4 mt-8">
-        <div className="relative overflow-hidden flex items-center gap-4 px-5 py-3 border-t border-b border-[#46F4CD]/20" style={{ background: "linear-gradient(to right, #090b0e 0%, #090b0e 55%, #091a14 100%)" }}>
+        <div className="relative overflow-hidden flex items-center gap-4 pl-5 pr-2 py-3 border-t border-b border-[#46F4CD]/20" style={{ background: "linear-gradient(to right, #090b0e 0%, #090b0e 55%, #091a14 100%)" }}>
           <div className="absolute inset-0 pointer-events-none" style={{
             background: "linear-gradient(to left, #168ba0 0%, #094d60 15%, #030809 50%, #000000 75%)",
             opacity: 0.5
@@ -6609,7 +6609,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Sonic Soundprint</span>
           </div>
           <span className="relative z-10 text-[9px] font-mono text-slate-500 ml-auto">Technical mix architecture & engineering diagnostics</span>
-          <span className="relative z-10 text-[40px] font-black text-white leading-none ml-3" style={{ fontFamily: "Inter, sans-serif" }}>
+          <span className="relative z-10 text-[40px] font-black text-white leading-none ml-[24px]" style={{ fontFamily: "Inter, sans-serif" }}>
             {realCategoryScores.sonicSoundprint}
           </span>
         </div>
@@ -6995,7 +6995,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         {/* SECTION: COMPOSITIONAL DEPTH */}
         {expandedCategory === "compositional" && (
           <div id="section-compositional" className="flex flex-col gap-4 mt-8">
-          <div className="relative overflow-hidden flex items-center gap-4 px-5 py-3 border-t border-b border-purple-500/20" style={{ background: "linear-gradient(to right, #090b0e 0%, #090b0e 55%, #12091e 100%)" }}>
+          <div className="relative overflow-hidden flex items-center gap-4 pl-5 pr-2 py-3 border-t border-b border-purple-500/20" style={{ background: "linear-gradient(to right, #090b0e 0%, #090b0e 55%, #12091e 100%)" }}>
             <div className="absolute inset-0 pointer-events-none" style={{
               background: "linear-gradient(to left, #7e3ac7 0%, #50267e 15%, #160d20 50%, #000000 75%)",
               opacity: 0.5
@@ -7012,7 +7012,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Compositional Depth</span>
             </div>
             <span className="relative z-10 text-[9px] font-mono text-slate-500 ml-auto">Songwriting craft, theory & artistic merit</span>
-            <span className="relative z-10 text-[40px] font-black text-white leading-none ml-3" style={{ fontFamily: "Inter, sans-serif" }}>
+            <span className="relative z-10 text-[40px] font-black text-white leading-none ml-[24px]" style={{ fontFamily: "Inter, sans-serif" }}>
               {realCategoryScores.compositionalDepth}
             </span>
           </div>
