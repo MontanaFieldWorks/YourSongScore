@@ -4658,7 +4658,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             <div className="bg-[#0D0E12] border border-[#1DB954]/25 rounded-2xl p-6 text-left flex flex-col gap-6 shadow-lg relative overflow-hidden">
             <div className="absolute top-0 left-0 bg-[#1DB954] h-[3px] w-full shadow-[0_0_8px_#1DB954]" />
             
-            <div className="flex justify-end border-b border-white/5 pb-4">
+            <div className="flex justify-end">
               <button
                 onClick={onNavigateToRabbitHole}
                 className="cursor-pointer flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-[#1DB954] hover:bg-[#1ed760] font-sans font-bold text-xs uppercase tracking-wider text-black transition-all shadow-[0_0_15px_rgba(29,185,84,0.25)] hover:shadow-[0_0_25px_rgba(29,185,84,0.45)]"
@@ -6376,7 +6376,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
                     This is the high level, deep dive audit of your tracks potential alignment against Spotify's content-based acoustic analysis, "Artist Universe" semantic clusters, and 30s skip prevention metrics.
-                    <span className="block mt-1 text-[#1DB954] font-mono text-[8.5px] uppercase tracking-wider">BEFORE YOUR SONG'S FIRST STREAM: THIS ANALYSIS EVALUATES DUAL INDEXING: ACOUSTIC PARAMETERS &amp; WEB NLP CLUSTERING.</span>
                   </p>
                   <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "spotify"
@@ -6398,34 +6397,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   glowColor={activeCategory === "spotify" ? "rgba(30, 215, 96, 0.65)" : "rgba(30, 215, 96, 0.15)"} 
                   extraGlow={activeCategory === "spotify"}
                 />
-              </div>
-
-              {/* Instantly visible compatibility mini scorecard */}
-              <div className="hidden lg:flex flex-col gap-2 bg-black/60 p-4 rounded-2xl border border-white/5 w-[250px] self-stretch justify-center relative overflow-hidden">
-                <div className="absolute left-0 top-0 h-full w-[2px] bg-[#1ed760]/55" />
-                <span className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-widest border-b border-white/5 pb-1 block">
-                  Algorithmic Target Match
-                </span>
-                <div className="flex flex-col gap-1.5 mt-1 font-mono text-[9px]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Danceability Match:</span>
-                    <span className="text-[#1ed760]" style={{ color: '#1ed760', fontWeight: 900 }}>{danceabilityMatch}%</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Energy Match Index:</span>
-                    <span className="text-emerald-400" style={{ color: '#34d399', fontWeight: 900 }}>{energyMatch}%</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Acousticness Match:</span>
-                    <span className="text-emerald-400" style={{ color: '#34d399', fontWeight: 900 }}>{acousticnessMatch}%</span>
-                  </div>
-                  <div className="flex items-center justify-between border-t border-white/5 pt-1 mt-1 text-[8px]">
-                    <span className="text-slate-500">True Peak Limiters:</span>
-                    <span className={spotifyTruePeak > -1.0 ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"} style={spotifyTruePeak > -1.0 ? { color: '#f59e0b' } : { color: '#34d399' }}>
-                      {spotifyTruePeak > -1.0 ? "EXCEEDS -1.0dB" : "PASS (-1.05 dBTP)"}
-                    </span>
-                  </div>
-                </div>
               </div>
             </div>
           </button>
@@ -7796,7 +7767,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
                     This is the high level, deep dive audit of your tracks potential alignment against Spotify's content-based acoustic analysis, "Artist Universe" semantic clusters, and 30s skip prevention metrics.
-                    <span className="block mt-1 text-[#1DB954] font-mono text-[8.5px] uppercase tracking-wider">BEFORE YOUR SONG'S FIRST STREAM: THIS ANALYSIS EVALUATES DUAL INDEXING: ACOUSTIC PARAMETERS &amp; WEB NLP CLUSTERING.</span>
                   </p>
                   <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "spotify"
@@ -7818,34 +7788,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   glowColor={activeCategory === "spotify" ? "rgba(30, 215, 96, 0.65)" : "rgba(30, 215, 96, 0.15)"} 
                   extraGlow={activeCategory === "spotify"}
                 />
-              </div>
-
-              {/* Instantly visible compatibility mini scorecard */}
-              <div className="hidden lg:flex flex-col gap-2 bg-black/60 p-4 rounded-2xl border border-white/5 w-[250px] self-stretch justify-center relative overflow-hidden">
-                <div className="absolute left-0 top-0 h-full w-[2px] bg-[#1ed760]/55" />
-                <span className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-widest border-b border-white/5 pb-1 block">
-                  Algorithmic Target Match
-                </span>
-                <div className="flex flex-col gap-1.5 mt-1 font-mono text-[9px]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Danceability Match:</span>
-                    <span className="text-[#1ed760]" style={{ color: '#1ed760', fontWeight: 900 }}>{danceabilityMatch}%</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Energy Match Index:</span>
-                    <span className="text-emerald-400" style={{ color: '#34d399', fontWeight: 900 }}>{energyMatch}%</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Acousticness Match:</span>
-                    <span className="text-emerald-400" style={{ color: '#34d399', fontWeight: 900 }}>{acousticnessMatch}%</span>
-                  </div>
-                  <div className="flex items-center justify-between border-t border-white/5 pt-1 mt-1 text-[8px]">
-                    <span className="text-slate-500">True Peak Limiters:</span>
-                    <span className={spotifyTruePeak > -1.0 ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"} style={spotifyTruePeak > -1.0 ? { color: '#f59e0b' } : { color: '#34d399' }}>
-                      {spotifyTruePeak > -1.0 ? "EXCEEDS -1.0dB" : "PASS (-1.05 dBTP)"}
-                    </span>
-                  </div>
-                </div>
               </div>
             </div>
           </button>
