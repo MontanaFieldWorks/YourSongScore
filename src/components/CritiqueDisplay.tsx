@@ -608,6 +608,7 @@ export function computeCategoryScores(critique: any) {
     streamingReadiness: scoreStreamingReadiness,
     sonicSoundprint: scoreSonicSoundprint,
     compositionalDepth: scoreCompositionalDepth,
+    echoNestAvgMatch: Math.round(echoNestAvgMatch),
   };
 }
 
@@ -6406,6 +6407,18 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 </div>
               </div>
 
+              {/* Right Score display */}
+              <div className="flex-shrink-0 flex items-center justify-center">
+                <ScoreCircle 
+                  score={realCategoryScores.echoNestAvgMatch} 
+                  size={110} 
+                  strokeWidth={7} 
+                  color={activeCategory === "spotify" ? "#1ed760" : "rgba(30, 215, 96, 0.45)"} 
+                  glowColor={activeCategory === "spotify" ? "rgba(30, 215, 96, 0.65)" : "rgba(30, 215, 96, 0.15)"} 
+                  extraGlow={activeCategory === "spotify"}
+                />
+              </div>
+
               {/* Instantly visible compatibility mini scorecard */}
               <div className="hidden lg:flex flex-col gap-2 bg-black/60 p-4 rounded-2xl border border-white/5 w-[250px] self-stretch justify-center relative overflow-hidden">
                 <div className="absolute left-0 top-0 h-full w-[2px] bg-[#1ed760]/55" />
@@ -7812,6 +7825,18 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     {activeCategory === "spotify" ? "ACTIVE ⬇" : "VIEW SPOTIFY RECOMMENDATION AUDIT ⚡"}
                   </span>
                 </div>
+              </div>
+
+              {/* Right Score display */}
+              <div className="flex-shrink-0 flex items-center justify-center">
+                <ScoreCircle 
+                  score={realCategoryScores.echoNestAvgMatch} 
+                  size={110} 
+                  strokeWidth={7} 
+                  color={activeCategory === "spotify" ? "#1ed760" : "rgba(30, 215, 96, 0.45)"} 
+                  glowColor={activeCategory === "spotify" ? "rgba(30, 215, 96, 0.65)" : "rgba(30, 215, 96, 0.15)"} 
+                  extraGlow={activeCategory === "spotify"}
+                />
               </div>
 
               {/* Instantly visible compatibility mini scorecard */}
