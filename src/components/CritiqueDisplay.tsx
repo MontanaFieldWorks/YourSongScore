@@ -4658,24 +4658,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             <div className="bg-[#0D0E12] border border-[#1DB954]/25 rounded-2xl p-6 text-left flex flex-col gap-6 shadow-lg relative overflow-hidden">
             <div className="absolute top-0 left-0 bg-[#1DB954] h-[3px] w-full shadow-[0_0_8px_#1DB954]" />
             
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-4">
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 bg-[#1DB954]/10 rounded-lg text-[#1ed760] border border-[#1DB954]/20 flex items-center justify-center">
-                  <Activity className="w-4 h-4 text-[#1DB954]" />
-                </span>
-                <div>
-                  <h4 className="text-[10px] font-mono uppercase tracking-wider text-[#1ed760] font-bold">Dual-Filtering Target Compliance:</h4>
-                  <h3 
-                    className="text-[18px] font-sans font-black text-white transition-colors uppercase mt-0.5 flex items-center gap-1"
-                  >
-                    The ECHO NEST SCORECARD
-                  </h3>
-                </div>
-              </div>
-              <div className="bg-black/40 border border-white/5 text-[9px] font-mono text-slate-400 px-3 py-1.5 rounded-full flex items-center gap-1.5 self-start md:self-center">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#1ed760] animate-pulse" />
-                Reference Calibration: Spotify BaRT Core Ingest
-              </div>
+            <div className="flex justify-end border-b border-white/5 pb-4">
+              <button
+                onClick={onNavigateToRabbitHole}
+                className="cursor-pointer flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-[#1DB954] hover:bg-[#1ed760] font-sans font-bold text-xs uppercase tracking-wider text-black transition-all shadow-[0_0_15px_rgba(29,185,84,0.25)] hover:shadow-[0_0_25px_rgba(29,185,84,0.45)]"
+              >
+                <Rabbit className="w-4 h-4 text-black" style={{ fill: "currentColor" }} />
+                <span>The Echo Nest Rabbit Hole</span>
+              </button>
             </div>
 
             <p className="text-xs text-slate-400 leading-normal max-w-3xl">
@@ -4937,16 +4927,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </div>
           )}
 
-          {/* The Echo Nest Rabbit Hole Redirect Button */}
-          <div className="flex justify-end">
-            <button
-              onClick={onNavigateToRabbitHole}
-              className="cursor-pointer flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-[#1DB954] hover:bg-[#1ed760] font-sans font-bold text-xs uppercase tracking-wider text-black transition-all shadow-[0_0_15px_rgba(29,185,84,0.25)] hover:shadow-[0_0_25px_rgba(29,185,84,0.45)]"
-            >
-              <Rabbit className="w-4 h-4 text-black" style={{ fill: "currentColor" }} />
-              <span>The Echo Nest Rabbit Hole</span>
-            </button>
-          </div>
+
 
           {/* Card 2 TRIGGER: RECOMMENDER PERFORMANCE PREDICTION */}
           <button 
