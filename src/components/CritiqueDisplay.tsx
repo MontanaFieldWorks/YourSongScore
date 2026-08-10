@@ -4473,32 +4473,37 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     const speechScore = critique?.streamingAlignment?.echoNestScorecard?.speechiness ?? 20;
 
     // Release Radar — driven by production quality and early hook delivery
+    // Recalibrated: prior weights (0.60 + up to 19 flat) capped this feeder's ceiling at 79,
+    // well below its sibling feeders. New weights bring its ceiling to ~92, in line with the others.
     const releaseRadarChance = Math.min(99, Math.max(10, Math.round(
-      (predictedScore * 0.60) +
-      (spotifyChecks.vocalEntrance ? 8 : 0) +
-      (spotifyChecks.spectralWidth ? 6 : 0) +
-      (hasLufs ? 5 : 0)
+      (predictedScore * 0.70) +
+      (spotifyChecks.vocalEntrance ? 9 : 0) +
+      (spotifyChecks.spectralWidth ? 7 : 0) +
+      (hasLufs ? 6 : 0)
     )));
 
     // Discover Weekly — driven by collaborative filtering: valence + danceability + energy alignment
-    const discoverWeeklyChance = Math.min(95, Math.max(5, Math.round(
-      (predictedScore * 0.45) +
+    // Recalibrated: predictedScore weight raised from 0.45 to 0.50 to lift ceiling from 90 to ~95.
+    const discoverWeeklyChance = Math.min(99, Math.max(5, Math.round(
+      (predictedScore * 0.50) +
       (valenceScore * 0.20) +
       (danceScore * 0.15) +
       (energyScore * 0.10)
     )));
 
     // Daily Mix & Radio — driven by genre consistency and energy profile
+    // Recalibrated: predictedScore weight raised from 0.50 to 0.55 to lift ceiling from 90 to ~95.
     const dailyMixChance = Math.min(99, Math.max(10, Math.round(
-      (predictedScore * 0.50) +
+      (predictedScore * 0.55) +
       (energyScore * 0.18) +
       (danceScore * 0.12) +
       (averageMatch * 0.10)
     )));
 
     // AI Playlist Prompts — driven by mood valence, speechiness, and lyrical theme clarity
+    // Recalibrated: predictedScore weight raised from 0.35 to 0.38, ceiling now ~98 (capped at 99).
     const radioSeedChance = Math.min(99, Math.max(10, Math.round(
-      (predictedScore * 0.35) +
+      (predictedScore * 0.38) +
       (valenceScore * 0.30) +
       (danceScore * 0.15) +
       (speechScore * 0.08) +
@@ -4935,27 +4940,27 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             onClick={() => setIsRecommenderExpanded(!isRecommenderExpanded)}
             className={`w-full text-left border rounded-2xl p-5 cursor-pointer transition-all duration-300 relative overflow-hidden select-none outline-none ${
               isRecommenderExpanded 
-                ? "bg-[#0c1811]/45 border-[#1ed760] shadow-[0_0_15px_rgba(29,185,84,0.15)] ring-1 ring-emerald-500/20" 
-                : "bg-neutral-900/60 border-white/5 hover:border-[#1ed760]/40 text-slate-400 hover:bg-[#071109]/20"
+                ? "bg-[#18120c]/45 border-[#f59e0b] shadow-[0_0_15px_rgba(245,158,11,0.15)] ring-1 ring-amber-500/20" 
+                : "bg-neutral-900/60 border-white/5 hover:border-[#f59e0b]/40 text-slate-400 hover:bg-[#110d07]/20"
             }`}
           >
             {/* Faint left highlight */}
             <div 
               className="absolute left-0 top-0 h-full w-[4px]"
-              style={{ backgroundColor: "#1ed760", boxShadow: "0 0 10px #1ed760" }}
+              style={{ backgroundColor: "#f59e0b", boxShadow: "0 0 10px #f59e0b" }}
             />
             
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-3 font-sans">
                 <span className={`p-1.5 rounded-lg border flex items-center justify-center transition-colors ${
                   isRecommenderExpanded 
-                    ? "bg-[#1DB954]/20 border-[#1DB954]/40 text-[#1ed760]" 
+                    ? "bg-[#f59e0b]/20 border-[#f59e0b]/40 text-[#f59e0b]" 
                     : "bg-neutral-800 border-white/5 text-slate-500"
                 }`}>
-                  <Compass className="w-4 h-4 text-[#1ed760]" />
+                  <Compass className="w-4 h-4 text-[#f59e0b]" />
                 </span>
                 <div>
-                  <span className="text-[9px] font-mono tracking-widest text-[#1ed760] font-bold uppercase block">Predicted Algorithmic Indexing</span>
+                  <span className="text-[9px] font-mono tracking-widest text-[#f59e0b] font-bold uppercase block">Predicted Algorithmic Indexing</span>
                   <p className="text-[17px] font-sans font-black text-white uppercase mt-0.5 animate-fadeIn">
                     RECOMMENDER PERFORMANCE PREDICTION
                   </p>
@@ -4963,13 +4968,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               </div>
               
               <div className="flex items-center gap-3 self-end md:self-auto font-sans">
-                <div className="flex items-center gap-2 bg-black/40 border border-white/5 px-3 py-1 rounded-xl">
-                  <span className="text-[8.5px] font-mono text-slate-400 uppercase tracking-wider font-bold">Index Score:</span>
-                  <span className="text-sm font-black font-mono text-[#1ed760] leading-none">{predictedScore}%</span>
-                </div>
+                <span className="text-[10px] text-white font-mono tracking-wide">
+                  This score is not figured into any averages
+                </span>
                 <span className={`inline-block text-[9px] font-mono tracking-widest px-2.5 py-1 rounded-full border ${
                   isRecommenderExpanded
-                    ? "bg-[#1ed760]/10 border-[#1ed760]/20 text-[#1ed760]"
+                    ? "bg-[#f59e0b]/10 border-[#f59e0b]/20 text-[#f59e0b]"
                     : "bg-neutral-900 border-white/5 text-slate-400"
                 }`}>
                   {isRecommenderExpanded ? "ACTIVE" : "VIEW SPOTIFY RECOMMENDATION AUDIT"}
@@ -4983,7 +4987,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             <div className="flex flex-col gap-6 w-full animate-fadeIn">
 
               {/* Curation Conclusion Card */}
-              <div className="bg-neutral-950 border border-white/10 rounded-2xl p-5 text-left flex flex-col md:flex-row items-center justify-between gap-5 relative overflow-hidden">
+              <div className="bg-neutral-950 border border-white/10 rounded-2xl p-5 text-left flex flex-col relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 opacity-[0.02] pointer-events-none">
               <Activity className="w-40 h-40 text-emerald-500 animate-[spin_20s_linear_infinite]" />
             </div>
@@ -4991,23 +4995,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <span className="text-[10px] font-mono tracking-widest text-[#1DB954] font-bold uppercase block">Predicted Algorithmic Indexing</span>
               <h2 className="text-lg font-extrabold text-white mt-1">Recommender Performance Prediction</h2>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-2xl">
-                Based on acoustic descriptors matching {critique?.vibe?.genre || "your style"}, we index this song's suitability for Spotify's discovery algorithms at **{predictedScore}%**. {
+                Based on acoustic descriptors matching {critique?.vibe?.genre || "your style"}, we index this song's suitability for Spotify's discovery algorithms. {
                   predictedScore >= 85 ? "This track exhibits critical, premium retention properties to seed high-performance collaborative playlists." :
                   predictedScore >= 70 ? "Stable performance potential. Optimize the first 30 seconds for maximum discovery loop acceleration." :
                   "High skip-prone profile. We recommend shifting vocally focused elements earlier in the mix and compressing the transients."
                 }
               </p>
-            </div>
-            <div className="relative z-10 bg-neutral-900 border border-white/10 p-5 rounded-2xl flex flex-col items-center justify-center min-w-[150px] shadow-lg flex-shrink-0 select-none">
-              <span className="text-[9px] font-mono font-bold tracking-wider text-slate-500 uppercase">Indexing Score</span>
-              <span className="text-3xl font-black text-[#1ed760] font-mono mt-1.5 leading-none">{predictedScore}%</span>
-              <span className={`text-[8.5px] font-mono font-bold uppercase px-2 py-0.5 rounded mt-2 text-center select-none border ${
-                predictedScore >= 85 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" :
-                predictedScore >= 70 ? "bg-blue-500/10 border-blue-500/20 text-blue-400" :
-                "bg-[#fe9a00]/10 border-[#fe9a00]/20 text-[#fe9a00]"
-              }`}>
-                {predictedScore >= 85 ? "▲ HIGH SEED CHANCE" : predictedScore >= 70 ? "■ MEDIUM RETENTION" : "▼ LOW SEED RANGE"}
-              </span>
             </div>
           </div>
 
