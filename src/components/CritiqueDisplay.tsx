@@ -4414,6 +4414,238 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     );
   };
 
+  const renderRecommenderPredictionPanel = () => {
+    return (
+            <div className="flex flex-col gap-6 w-full animate-fadeIn">
+
+              {/* Curation Conclusion Card */}
+              <div className="bg-neutral-950 border border-white/10 rounded-2xl p-5 text-left flex flex-col relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 opacity-[0.02] pointer-events-none">
+              <Activity className="w-40 h-40 text-emerald-500 animate-[spin_20s_linear_infinite]" />
+            </div>
+            <div className="relative z-10 flex-1">
+              <span className="text-[10px] font-mono tracking-widest text-violet-400 font-bold uppercase block">Predicted Algorithmic Indexing</span>
+              <h2 className="text-lg font-extrabold text-white mt-1">Recommender Performance Prediction</h2>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-2xl">
+                Based on acoustic descriptors matching {critique?.vibe?.genre || "your style"}, we index this song's suitability for Spotify's discovery algorithms. {
+                  predictedScore >= 85 ? "This track exhibits critical, premium retention properties to seed high-performance collaborative playlists." :
+                  predictedScore >= 70 ? "Stable performance potential. Optimize the first 30 seconds for maximum discovery loop acceleration." :
+                  "High skip-prone profile. We recommend shifting vocally focused elements earlier in the mix and compressing the transients."
+                }
+              </p>
+            </div>
+          </div>
+
+          {/* Sibling columns at the bottom for balanced spatial footprint */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            {/* Card 1: Artist Universe Vector */}
+            <div className="bg-[#0D0E12] border border-white/5 rounded-2xl p-5 text-left flex flex-col justify-between shadow-md">
+              <div>
+                <div className="flex items-center justify-between border-b border-white/5 pb-2.5 mb-3">
+                  <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none">
+                    NLP semantic Clustered Neighborhood
+                  </span>
+                  <span className="text-[8px] bg-sky-500/10 text-sky-400 font-mono px-2 py-0.5 rounded uppercase font-bold border border-sky-500/15 tracking-widest font-semibold">"Artist Universe"</span>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                  Spotify extracts semantic indicators from blogs and websites using LLM transformers. This establishes who your track's close **"Sonic Neighbors"** are:
+                </p>
+              </div>
+
+              <div className="bg-neutral-950 p-4 rounded-xl border border-white/5">
+                <span className="text-[9px] font-mono font-semibold text-slate-500 uppercase tracking-widest block mb-2">Target Cluster Alignment:</span>
+                <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full block w-fit mb-3">
+                  {critique?.vibe?.genre && critique?.vibe?.subgenre 
+                    ? `${critique.vibe.genre} / ${critique.vibe.subgenre} (${clusterName})`
+                    : clusterName}
+                </span>
+
+                <span className="text-[9px] font-mono font-semibold text-slate-500 uppercase tracking-widest block mb-1">Predicted Sonic Neighbors:</span>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {sonicNeighbors.map((artist) => (
+                    <span 
+                      key={artist}
+                      className="text-[10px] font-mono text-slate-300 font-bold bg-white/5 border border-white/10 px-2 py-1 rounded-md hover:bg-[#1ed760]/10 hover:border-[#1ed760]/30 hover:text-[#1ed760] hover:-translate-y-0.5 transition-all duration-300 select-none cursor-pointer"
+                    >
+                      {artist}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-500 font-medium leading-relaxed mt-4">
+                  *Placement logic: Recommenders seed your track onto users' custom Daily Mixes and Radio queues that are already active on these neighbors' discographies.*
+                </p>
+              </div>
+            </div>
+
+            {/* Card 2: Discovery Feeder Distribution Probabilities */}
+            <div className="bg-[#0D0E12] border border-white/5 rounded-2xl p-5 text-left flex flex-col justify-between shadow-md">
+              <div>
+                <div className="flex items-center justify-between border-b border-white/5 pb-2.5 mb-3">
+                  <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none">
+                    Discovery Feeder Distribution Probabilities
+                  </span>
+                  <span className="text-[8px] bg-purple-500/10 text-purple-400 font-mono px-2 py-0.5 rounded uppercase font-bold border border-purple-500/15 tracking-widest font-semibold">Algorithms</span>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                  Predicted seeding chance across key Spotify recommendation feeder channels:
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  { name: "Release Radar", score: releaseRadarChance, color: "text-[#1ed760]", path: "M 0 0", desc: "For organic followers" },
+                  { name: "Discover Weekly", score: discoverWeeklyChance, color: "text-purple-400", path: "M 0 0", desc: "For collaborative users" },
+                  { name: "Daily Mix & Radio", score: dailyMixChance, color: "text-blue-400", path: "M 0 0", desc: "For neighborhood clusters" },
+                  { name: "AI Playlist Prompts", score: radioSeedChance, color: "text-cyan-400", path: "M 0 0", desc: "For NLP matching terms" }
+                ].map((item) => (
+                  <div key={item.name} className="bg-neutral-950 p-3.5 rounded-xl border border-white/5 flex gap-3 items-center">
+                    <div className="relative flex items-center justify-center flex-shrink-0">
+                      <svg className="w-12 h-12 transform -rotate-90">
+                        <circle cx="24" cy="24" r="21" fill="none" className="stroke-white/5" strokeWidth="3" />
+                        <circle 
+                          cx="24" 
+                          cy="24" 
+                          r="21" 
+                          fill="none" 
+                          className={item.color === "text-[#1ed760]" ? "stroke-emerald-500" : item.color === "text-purple-400" ? "stroke-purple-500" : item.color === "text-blue-400" ? "stroke-blue-500" : "stroke-cyan-500"} 
+                          strokeWidth="3.2" 
+                          strokeDasharray={2 * Math.PI * 21}
+                          strokeDashoffset={2 * Math.PI * 21 * (1 - item.score / 100)}
+                          strokeLinecap="round"
+                          style={{ filter: "drop-shadow(0 0 3px currentColor)" }}
+                        />
+                      </svg>
+                      <span className="absolute text-[10px] font-mono font-black text-white">{item.score}%</span>
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="text-[10px] font-bold text-white font-sans">{item.name}</span>
+                      <span className="text-[8.5px] text-slate-500 mt-0.5 leading-none font-mono font-semibold">{item.desc}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+
+          {/* 30s Skip Prevention Checklist */}
+          <div className="bg-[#0D0E12] border border-white/5 rounded-2xl p-5 text-left shadow-md">
+            <div className="flex items-center justify-between border-b border-white/5 pb-2.5 mb-4">
+              <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none">
+                Collaborative Filtering Prevention Checklist (First 30 Seconds)
+              </span>
+              <span className="text-[8px] bg-amber-500/10 text-amber-500 font-mono px-2 py-0.5 rounded uppercase font-bold border border-amber-500/15 tracking-widest font-semibold">Collaborative Filter</span>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed mb-4">
+              Under collaborative filtering, <strong>early skips represent negative feedback</strong> that diminishes algorithmic authority. On Spotify, a listener must listen to a track for more than 30 seconds to register a play. 
+            </p>
+            <div className="text-xs text-[#1DB954]/90 leading-relaxed bg-[#1DB954]/5 border border-[#1DB954]/15 p-4 rounded-xl mb-5 space-y-2">
+              <div>
+                <span className="text-white font-extrabold font-sans uppercase text-[10px] block mb-1">Algorithmic Performance Analysis:</span>
+                These parameters assess how your track's physical composition and early structure protects you from skip-out triggers to dynamically raise your simulated <strong>Discovery Feeder Distribution Probabilities ("03")</strong> above.
+              </div>
+              <div className="pt-2 border-t border-[#1DB954]/15 text-slate-300/90 font-normal">
+                {(() => {
+                  const bucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                  const lufs = critique?.liveMetrics?.calculatedLufs;
+                  const lra = critique?.liveMetrics?.calculatedLra;
+                  const lufsPass = lufs !== undefined && lufs >= bucket.lufsMin && lufs <= bucket.lufsMax;
+                  const lraPass = lra !== undefined && lra >= bucket.lraMin && (bucket.lraMax === null || lra <= bucket.lraMax);
+                  return (
+                    <>
+                      <span className="text-white font-extrabold font-sans uppercase text-[10px] block mb-1">
+                        Genre-Aware Loudness Assessment ({bucket.label})
+                      </span>
+                      Target window for this genre: <strong className="text-white">{bucket.lufsMin} to {bucket.lufsMax} LUFS</strong>, dynamic range window: <strong className="text-white">{bucket.lraMin}{bucket.lraMax !== null ? `-${bucket.lraMax}` : "+"} LU</strong>.
+                      <br />
+                      Measured loudness: <strong className="text-white">{lufs ?? "--"} LUFS</strong> ({lufsPass ? "within target window" : "outside target window for this genre"}).
+                      <br />
+                      Measured dynamic range: <strong className="text-white">{lra ?? "--"} LU</strong> ({lraPass ? "within target window" : "outside target window - track may sound over-compressed or under-produced for this genre"}).
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                {
+                  id: "vocalEntrance",
+                  title: "Vocal/Lead Theme enters < 12 seconds",
+                  desc: "Hooks attention instantly. Delayed hooks increase listening hesitation and skip likelihood."
+                },
+                {
+                  id: "spectralWidth",
+                  title: "Instant Spectrum Width Expansion",
+                  desc: "Bass and high sibilance dropped in early, creating immediate psychoacoustic investment."
+                },
+                {
+                  id: "lufsConformity",
+                  title: "LUFS Loudness Compliance (Genre-Aware)",
+                  desc: "Loudness falls within the target window for this song's genre."
+                },
+                {
+                  id: "lraConformity",
+                  title: "Dynamic Range Compliance (Genre-Aware)",
+                  desc: "Dynamic range (LRA) falls within the target window for this song's genre - avoids over-compression or under-production."
+                },
+                {
+                  id: "transientStability",
+                  title: "Transient Grid Stability (Grid Cohesion)",
+                  desc: "Prevents initial rhythmic fatigue or timeline drift. Critical for headphone listeners."
+                }
+              ].map((check) => {
+                const checked = spotifyChecks[check.id];
+                const bucketForDesc = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                const displayDesc = check.id === "lufsConformity"
+                  ? (checked 
+                      ? `Loudness (${critique?.liveMetrics?.calculatedLufs ?? "--"} LUFS) is within the ${bucketForDesc.lufsMin} to ${bucketForDesc.lufsMax} LUFS target window for ${bucketForDesc.label}.` 
+                      : `Loudness (${critique?.liveMetrics?.calculatedLufs ?? "--"} LUFS) falls outside the ${bucketForDesc.lufsMin} to ${bucketForDesc.lufsMax} LUFS target window for ${bucketForDesc.label}.`)
+                  : check.id === "lraConformity"
+                  ? (checked
+                      ? `Dynamic range (${critique?.liveMetrics?.calculatedLra ?? "--"} LU) is within the ${bucketForDesc.lraMin}${bucketForDesc.lraMax !== null ? `-${bucketForDesc.lraMax}` : "+"} LU target window for ${bucketForDesc.label}.`
+                      : `Dynamic range (${critique?.liveMetrics?.calculatedLra ?? "--"} LU) falls outside the ${bucketForDesc.lraMin}${bucketForDesc.lraMax !== null ? `-${bucketForDesc.lraMax}` : "+"} LU target window for ${bucketForDesc.label}.`)
+                  : check.desc;
+
+                return (
+                  <button
+                    key={check.id}
+                    type="button"
+                    disabled
+                    className={`flex items-start gap-3.5 p-4 rounded-xl border text-left cursor-default w-full select-none transition-all duration-300 ${
+                      checked 
+                        ? "bg-[#0A2010]/35 border-emerald-500/25 shadow-sm" 
+                        : "bg-[#201c10]/30 border-[#ffba00]/15"
+                    }`}
+                  >
+                    <div className="mt-0.5 flex-shrink-0">
+                      {checked ? (
+                        <CheckCircle className="w-4 h-4 text-[#1ed760]" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-[#ffba00]" />
+                      )}
+                    </div>
+                    <div className="flex-1 flex flex-col gap-0.5">
+                      <span 
+                        className="text-xs font-bold leading-tight"
+                        style={{ color: checked ? "#1ed760" : "#ffba00" }}
+                      >
+                        {check.title}
+                      </span>
+                      <p className="text-[10px] text-slate-400 leading-relaxed mt-0.5">{displayDesc}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+            </div>
+
+    );
+  };
+
   const renderSpotifyRecommendationPanel = () => {
     const profile = getSubgenreProfile(critique?.vibe?.genre || "", critique?.vibe?.subgenre || "");
     const archetype = profile?.archetype || "GRID_ELEC";
@@ -4933,232 +5165,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           )}
 
 
-
-              {/* Curation Conclusion Card */}
-              <div className="bg-neutral-950 border border-white/10 rounded-2xl p-5 text-left flex flex-col relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-8 opacity-[0.02] pointer-events-none">
-              <Activity className="w-40 h-40 text-emerald-500 animate-[spin_20s_linear_infinite]" />
-            </div>
-            <div className="relative z-10 flex-1">
-              <span className="text-[10px] font-mono tracking-widest text-[#1DB954] font-bold uppercase block">Predicted Algorithmic Indexing</span>
-              <h2 className="text-lg font-extrabold text-white mt-1">Recommender Performance Prediction</h2>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-2xl">
-                Based on acoustic descriptors matching {critique?.vibe?.genre || "your style"}, we index this song's suitability for Spotify's discovery algorithms. {
-                  predictedScore >= 85 ? "This track exhibits critical, premium retention properties to seed high-performance collaborative playlists." :
-                  predictedScore >= 70 ? "Stable performance potential. Optimize the first 30 seconds for maximum discovery loop acceleration." :
-                  "High skip-prone profile. We recommend shifting vocally focused elements earlier in the mix and compressing the transients."
-                }
-              </p>
-            </div>
-          </div>
-
-          {/* Sibling columns at the bottom for balanced spatial footprint */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-            {/* Card 1: Artist Universe Vector */}
-            <div className="bg-[#0D0E12] border border-white/5 rounded-2xl p-5 text-left flex flex-col justify-between shadow-md">
-              <div>
-                <div className="flex items-center justify-between border-b border-white/5 pb-2.5 mb-3">
-                  <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none">
-                    <span className="text-[#1ed760] font-mono text-[14px]">02</span>
-                    NLP semantic Clustered Neighborhood
-                  </span>
-                  <span className="text-[8px] bg-sky-500/10 text-sky-400 font-mono px-2 py-0.5 rounded uppercase font-bold border border-sky-500/15 tracking-widest font-semibold">"Artist Universe"</span>
-                </div>
-                <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                  Spotify extracts semantic indicators from blogs and websites using LLM transformers. This establishes who your track's close **"Sonic Neighbors"** are:
-                </p>
-              </div>
-
-              <div className="bg-neutral-950 p-4 rounded-xl border border-white/5">
-                <span className="text-[9px] font-mono font-semibold text-slate-500 uppercase tracking-widest block mb-2">Target Cluster Alignment:</span>
-                <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full block w-fit mb-3">
-                  {critique?.vibe?.genre && critique?.vibe?.subgenre 
-                    ? `${critique.vibe.genre} / ${critique.vibe.subgenre} (${clusterName})`
-                    : clusterName}
-                </span>
-
-                <span className="text-[9px] font-mono font-semibold text-slate-500 uppercase tracking-widest block mb-1">Predicted Sonic Neighbors:</span>
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {sonicNeighbors.map((artist) => (
-                    <span 
-                      key={artist}
-                      className="text-[10px] font-mono text-slate-300 font-bold bg-white/5 border border-white/10 px-2 py-1 rounded-md hover:bg-[#1ed760]/10 hover:border-[#1ed760]/30 hover:text-[#1ed760] hover:-translate-y-0.5 transition-all duration-300 select-none cursor-pointer"
-                    >
-                      {artist}
-                    </span>
-                  ))}
-                </div>
-                <p className="text-[10px] text-slate-500 font-medium leading-relaxed mt-4">
-                  *Placement logic: Recommenders seed your track onto users' custom Daily Mixes and Radio queues that are already active on these neighbors' discographies.*
-                </p>
-              </div>
-            </div>
-
-            {/* Card 2: Discovery Feeder Distribution Probabilities */}
-            <div className="bg-[#0D0E12] border border-white/5 rounded-2xl p-5 text-left flex flex-col justify-between shadow-md">
-              <div>
-                <div className="flex items-center justify-between border-b border-white/5 pb-2.5 mb-3">
-                  <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none">
-                    <span className="text-[#1ed760] font-mono text-[14px]">03</span>
-                    Discovery Feeder Distribution Probabilities
-                  </span>
-                  <span className="text-[8px] bg-purple-500/10 text-purple-400 font-mono px-2 py-0.5 rounded uppercase font-bold border border-purple-500/15 tracking-widest font-semibold">Algorithms</span>
-                </div>
-                <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                  Predicted seeding chance across key Spotify recommendation feeder channels:
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { name: "Release Radar", score: releaseRadarChance, color: "text-[#1ed760]", path: "M 0 0", desc: "For organic followers" },
-                  { name: "Discover Weekly", score: discoverWeeklyChance, color: "text-purple-400", path: "M 0 0", desc: "For collaborative users" },
-                  { name: "Daily Mix & Radio", score: dailyMixChance, color: "text-blue-400", path: "M 0 0", desc: "For neighborhood clusters" },
-                  { name: "AI Playlist Prompts", score: radioSeedChance, color: "text-cyan-400", path: "M 0 0", desc: "For NLP matching terms" }
-                ].map((item) => (
-                  <div key={item.name} className="bg-neutral-950 p-3.5 rounded-xl border border-white/5 flex gap-3 items-center">
-                    <div className="relative flex items-center justify-center flex-shrink-0">
-                      <svg className="w-12 h-12 transform -rotate-90">
-                        <circle cx="24" cy="24" r="21" fill="none" className="stroke-white/5" strokeWidth="3" />
-                        <circle 
-                          cx="24" 
-                          cy="24" 
-                          r="21" 
-                          fill="none" 
-                          className={item.color === "text-[#1ed760]" ? "stroke-emerald-500" : item.color === "text-purple-400" ? "stroke-purple-500" : item.color === "text-blue-400" ? "stroke-blue-500" : "stroke-cyan-500"} 
-                          strokeWidth="3.2" 
-                          strokeDasharray={2 * Math.PI * 21}
-                          strokeDashoffset={2 * Math.PI * 21 * (1 - item.score / 100)}
-                          strokeLinecap="round"
-                          style={{ filter: "drop-shadow(0 0 3px currentColor)" }}
-                        />
-                      </svg>
-                      <span className="absolute text-[10px] font-mono font-black text-white">{item.score}%</span>
-                    </div>
-                    <div className="flex flex-col text-left">
-                      <span className="text-[10px] font-bold text-white font-sans">{item.name}</span>
-                      <span className="text-[8.5px] text-slate-500 mt-0.5 leading-none font-mono font-semibold">{item.desc}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-          </div>
-
-          {/* 30s Skip Prevention Checklist */}
-          <div className="bg-[#0D0E12] border border-white/5 rounded-2xl p-5 text-left shadow-md">
-            <div className="flex items-center justify-between border-b border-white/5 pb-2.5 mb-4">
-              <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none">
-                <span className="text-[#1ed760] font-mono text-[14px]">04</span>
-                Collaborative Filtering Prevention Checklist (First 30 Seconds)
-              </span>
-              <span className="text-[8px] bg-amber-500/10 text-amber-500 font-mono px-2 py-0.5 rounded uppercase font-bold border border-amber-500/15 tracking-widest font-semibold">Collaborative Filter</span>
-            </div>
-            <p className="text-xs text-slate-400 leading-relaxed mb-4">
-              Under collaborative filtering, <strong>early skips represent negative feedback</strong> that diminishes algorithmic authority. On Spotify, a listener must listen to a track for more than 30 seconds to register a play. 
-            </p>
-            <div className="text-xs text-[#1DB954]/90 leading-relaxed bg-[#1DB954]/5 border border-[#1DB954]/15 p-4 rounded-xl mb-5 space-y-2">
-              <div>
-                <span className="text-white font-extrabold font-sans uppercase text-[10px] block mb-1">Algorithmic Performance Analysis:</span>
-                These parameters assess how your track's physical composition and early structure protects you from skip-out triggers to dynamically raise your simulated <strong>Discovery Feeder Distribution Probabilities ("03")</strong> above.
-              </div>
-              <div className="pt-2 border-t border-[#1DB954]/15 text-slate-300/90 font-normal">
-                {(() => {
-                  const bucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
-                  const lufs = critique?.liveMetrics?.calculatedLufs;
-                  const lra = critique?.liveMetrics?.calculatedLra;
-                  const lufsPass = lufs !== undefined && lufs >= bucket.lufsMin && lufs <= bucket.lufsMax;
-                  const lraPass = lra !== undefined && lra >= bucket.lraMin && (bucket.lraMax === null || lra <= bucket.lraMax);
-                  return (
-                    <>
-                      <span className="text-white font-extrabold font-sans uppercase text-[10px] block mb-1">
-                        Genre-Aware Loudness Assessment ({bucket.label})
-                      </span>
-                      Target window for this genre: <strong className="text-white">{bucket.lufsMin} to {bucket.lufsMax} LUFS</strong>, dynamic range window: <strong className="text-white">{bucket.lraMin}{bucket.lraMax !== null ? `-${bucket.lraMax}` : "+"} LU</strong>.
-                      <br />
-                      Measured loudness: <strong className="text-white">{lufs ?? "--"} LUFS</strong> ({lufsPass ? "within target window" : "outside target window for this genre"}).
-                      <br />
-                      Measured dynamic range: <strong className="text-white">{lra ?? "--"} LU</strong> ({lraPass ? "within target window" : "outside target window - track may sound over-compressed or under-produced for this genre"}).
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[
-                {
-                  id: "vocalEntrance",
-                  title: "Vocal/Lead Theme enters < 12 seconds",
-                  desc: "Hooks attention instantly. Delayed hooks increase listening hesitation and skip likelihood."
-                },
-                {
-                  id: "spectralWidth",
-                  title: "Instant Spectrum Width Expansion",
-                  desc: "Bass and high sibilance dropped in early, creating immediate psychoacoustic investment."
-                },
-                {
-                  id: "lufsConformity",
-                  title: "LUFS Loudness Compliance (Genre-Aware)",
-                  desc: "Loudness falls within the target window for this song's genre."
-                },
-                {
-                  id: "lraConformity",
-                  title: "Dynamic Range Compliance (Genre-Aware)",
-                  desc: "Dynamic range (LRA) falls within the target window for this song's genre - avoids over-compression or under-production."
-                },
-                {
-                  id: "transientStability",
-                  title: "Transient Grid Stability (Grid Cohesion)",
-                  desc: "Prevents initial rhythmic fatigue or timeline drift. Critical for headphone listeners."
-                }
-              ].map((check) => {
-                const checked = spotifyChecks[check.id];
-                const bucketForDesc = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
-                const displayDesc = check.id === "lufsConformity"
-                  ? (checked 
-                      ? `Loudness (${critique?.liveMetrics?.calculatedLufs ?? "--"} LUFS) is within the ${bucketForDesc.lufsMin} to ${bucketForDesc.lufsMax} LUFS target window for ${bucketForDesc.label}.` 
-                      : `Loudness (${critique?.liveMetrics?.calculatedLufs ?? "--"} LUFS) falls outside the ${bucketForDesc.lufsMin} to ${bucketForDesc.lufsMax} LUFS target window for ${bucketForDesc.label}.`)
-                  : check.id === "lraConformity"
-                  ? (checked
-                      ? `Dynamic range (${critique?.liveMetrics?.calculatedLra ?? "--"} LU) is within the ${bucketForDesc.lraMin}${bucketForDesc.lraMax !== null ? `-${bucketForDesc.lraMax}` : "+"} LU target window for ${bucketForDesc.label}.`
-                      : `Dynamic range (${critique?.liveMetrics?.calculatedLra ?? "--"} LU) falls outside the ${bucketForDesc.lraMin}${bucketForDesc.lraMax !== null ? `-${bucketForDesc.lraMax}` : "+"} LU target window for ${bucketForDesc.label}.`)
-                  : check.desc;
-
-                return (
-                  <button
-                    key={check.id}
-                    type="button"
-                    disabled
-                    className={`flex items-start gap-3.5 p-4 rounded-xl border text-left cursor-default w-full select-none transition-all duration-300 ${
-                      checked 
-                        ? "bg-[#0A2010]/35 border-emerald-500/25 shadow-sm" 
-                        : "bg-[#201c10]/30 border-[#ffba00]/15"
-                    }`}
-                  >
-                    <div className="mt-0.5 flex-shrink-0">
-                      {checked ? (
-                        <CheckCircle className="w-4 h-4 text-[#1ed760]" />
-                      ) : (
-                        <AlertCircle className="w-4 h-4 text-[#ffba00]" />
-                      )}
-                    </div>
-                    <div className="flex-1 flex flex-col gap-0.5">
-                      <span 
-                        className="text-xs font-bold leading-tight"
-                        style={{ color: checked ? "#1ed760" : "#ffba00" }}
-                      >
-                        {check.title}
-                      </span>
-                      <p className="text-[10px] text-slate-400 leading-relaxed mt-0.5">{displayDesc}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
         </div>
 
@@ -6370,10 +6376,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </AnimatePresence>
         </div>
 
-        {/* Card 3: Recommender Performance Prediction */}
-        <div className="flex flex-col w-full gap-4" id="sidebar-link-recommender">
+        {/* Card: Recommender Performance Prediction — standalone info card, not part of any average */}
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-streaming-recommender">
           <button
-            type="button"
             onClick={() => {
               if (activeCategory === "recommender") {
                 handleCategoryChange(null);
@@ -6383,15 +6388,15 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             }}
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "recommender"
-                ? "bg-[#090b0e] border-[#f59e0b] shadow-[0_0_35px_rgba(245,158,11,0.25)] ring-1 ring-amber-500/30 font-black"
-                : "bg-[#0A0B0E]/60 border-[#f59e0b] hover:border-[#f59e0b] hover:bg-[#110d07]/20 text-slate-400"
+                ? "bg-[#0c0a14] border-violet-500 shadow-[0_0_35px_rgba(139,92,246,0.25)] ring-1 ring-violet-500/30 font-black"
+                : "bg-[#0A0B0E]/60 border-violet-500/60 hover:border-violet-500 hover:bg-[#0b0a12]/40 text-slate-400"
             }`}
           >
             {/* Background ambient shade */}
             {activeCategory === "recommender" ? (
-              <div className="absolute inset-0 bg-gradient-to-br from-[#24180c]/30 via-neutral-950 to-[#030509] pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-950/20 via-neutral-950 to-[#030509] pointer-events-none" />
             ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-[#120d07]/10 via-neutral-950 to-[#030509] pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#0c0d11] pointer-events-none" />
             )}
 
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 w-full h-full">
@@ -6401,13 +6406,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     activeCategory === "recommender"
-                      ? "bg-[#f59e0b]/20 border-[#f59e0b]/40 text-[#f59e0b] shadow-[0_0_15px_rgba(245,158,11,0.3)]"
-                      : "p-2 rounded-xl border border-white/5 bg-neutral-900 text-slate-500 group-hover:text-[#f59e0b] group-hover:border-[#f59e0b]/20 group-hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                      ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-[0_0_15px_rgba(139,92,246,0.3)]"
+                      : "p-2 rounded-xl border border-white/5 bg-neutral-900 text-slate-500 group-hover:text-violet-400 group-hover:border-violet-500/20 group-hover:shadow-[0_0_15px_rgba(139,92,246,0.2)]"
                   }`}>
-                    <Compass className="w-5 h-5 text-[#f59e0b]" />
+                    <Compass className="w-5 h-5 text-violet-400" />
                   </div>
                   <div className="flex flex-col text-left">
-                    <span 
+                    <span
                       className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
                         activeCategory === "recommender" ? "text-white" : "text-slate-200 group-hover:text-white"
                       }`}
@@ -6420,24 +6425,26 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                 {/* Bottom info block */}
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
-                  activeCategory === "recommender" ? "border-amber-500/15" : "border-white/5"
+                  activeCategory === "recommender" ? "border-violet-500/15" : "border-white/5"
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
-                    Predictive analysis of how Spotify's recommender engine processes track acoustic properties and collaborative filtering signals.
+                    Contains information specific to Spotify's algorithmic decisions as to where your song may fit compared to other artists in the genre, and probabilities for discovery feeder distribution.
                   </p>
-                  <div className="flex items-center gap-3 font-sans">
-                    <span className="text-[10px] text-white font-mono tracking-wide">
-                      This score is not figured into any averages
-                    </span>
-                    <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
-                      activeCategory === "recommender"
-                        ? "bg-[#f59e0b]/10 border-[#f59e0b]/20 text-[#f59e0b]"
-                        : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-[#f59e0b]/80"
-                    }`}>
-                      {activeCategory === "recommender" ? "ACTIVE ⬇" : "VIEW SPOTIFY RECOMMENDATION AUDIT ⚡"}
-                    </span>
-                  </div>
+                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    activeCategory === "recommender"
+                      ? "bg-violet-500/10 border-violet-500/20 text-violet-400"
+                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-violet-400/80"
+                  }`}>
+                    {activeCategory === "recommender" ? "ACTIVE ⬇" : "VIEW METRICS ⚡"}
+                  </span>
                 </div>
+              </div>
+
+              {/* Right side: informational, not a scored circle */}
+              <div className="flex-shrink-0 flex items-center justify-center px-4">
+                <span className="text-[11px] font-sans font-bold text-white text-center leading-snug max-w-[150px]">
+                  This score is not figured into any averages
+                </span>
               </div>
             </div>
           </button>
@@ -6451,21 +6458,21 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                 className="overflow-hidden w-full relative z-0"
               >
-                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-[#f59e0b] rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
+                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-violet-500 rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
                   <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
-                    RECOMMENDER PERFORMANCE PREDICTION
+                    RECOMMENDER PERFORMANCE PREDICTION AUDIT
                   </div>
                   <div style={{ marginTop: "-20px", paddingTop: "11px", paddingBottom: "18px" }} className="flex items-center justify-between border-b border-white/5">
                     <span className="text-xs font-mono font-bold tracking-widest text-[#90a1b9] uppercase flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#f59e0b] animate-pulse" />
-                      <span>RECOMMENDER PERFORMANCE AUDIT</span>
+                      <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+                      <span>ADDITIONAL INFO · NOT PART OF SUMMARY SCORE</span>
                     </span>
                     <span className="text-[10px] font-mono text-slate-500 text-right">
-                      Predictive algorithmic retention and collaborative filtering assessment
+                      Discovery feeder and semantic clustering probability audit
                     </span>
                   </div>
                   <div className="w-full">
-                    {renderSpotifyRecommendationPanel()}
+                    {renderRecommenderPredictionPanel()}
                   </div>
                 </div>
               </motion.div>
@@ -7864,10 +7871,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </AnimatePresence>
         </div>
 
-        {/* Card 3: Recommender Performance Prediction */}
-        <div className="flex flex-col w-full gap-4">
+        {/* Card: Recommender Performance Prediction — standalone info card, not part of any average */}
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-streaming-recommender">
           <button
-            type="button"
             onClick={() => {
               if (activeCategory === "recommender") {
                 handleCategoryChange(null);
@@ -7877,15 +7883,15 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             }}
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "recommender"
-                ? "bg-[#090b0e] border-[#f59e0b] shadow-[0_0_35px_rgba(245,158,11,0.25)] ring-1 ring-amber-500/30 font-black"
-                : "bg-[#0A0B0E]/60 border-[#f59e0b] hover:border-[#f59e0b] hover:bg-[#110d07]/20 text-slate-400"
+                ? "bg-[#0c0a14] border-violet-500 shadow-[0_0_35px_rgba(139,92,246,0.25)] ring-1 ring-violet-500/30 font-black"
+                : "bg-[#0A0B0E]/60 border-violet-500/60 hover:border-violet-500 hover:bg-[#0b0a12]/40 text-slate-400"
             }`}
           >
             {/* Background ambient shade */}
             {activeCategory === "recommender" ? (
-              <div className="absolute inset-0 bg-gradient-to-br from-[#24180c]/30 via-neutral-950 to-[#030509] pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-950/20 via-neutral-950 to-[#030509] pointer-events-none" />
             ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-[#120d07]/10 via-neutral-950 to-[#030509] pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#0c0d11] pointer-events-none" />
             )}
 
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 w-full h-full">
@@ -7895,13 +7901,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     activeCategory === "recommender"
-                      ? "bg-[#f59e0b]/20 border-[#f59e0b]/40 text-[#f59e0b] shadow-[0_0_15px_rgba(245,158,11,0.3)]"
-                      : "p-2 rounded-xl border border-white/5 bg-neutral-900 text-slate-500 group-hover:text-[#f59e0b] group-hover:border-[#f59e0b]/20 group-hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                      ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-[0_0_15px_rgba(139,92,246,0.3)]"
+                      : "p-2 rounded-xl border border-white/5 bg-neutral-900 text-slate-500 group-hover:text-violet-400 group-hover:border-violet-500/20 group-hover:shadow-[0_0_15px_rgba(139,92,246,0.2)]"
                   }`}>
-                    <Compass className="w-5 h-5 text-[#f59e0b]" />
+                    <Compass className="w-5 h-5 text-violet-400" />
                   </div>
                   <div className="flex flex-col text-left">
-                    <span 
+                    <span
                       className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
                         activeCategory === "recommender" ? "text-white" : "text-slate-200 group-hover:text-white"
                       }`}
@@ -7914,24 +7920,26 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                 {/* Bottom info block */}
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
-                  activeCategory === "recommender" ? "border-amber-500/15" : "border-white/5"
+                  activeCategory === "recommender" ? "border-violet-500/15" : "border-white/5"
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
-                    Predictive analysis of how Spotify's recommender engine processes track acoustic properties and collaborative filtering signals.
+                    Contains information specific to Spotify's algorithmic decisions as to where your song may fit compared to other artists in the genre, and probabilities for discovery feeder distribution.
                   </p>
-                  <div className="flex items-center gap-3 font-sans">
-                    <span className="text-[10px] text-white font-mono tracking-wide">
-                      This score is not figured into any averages
-                    </span>
-                    <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
-                      activeCategory === "recommender"
-                        ? "bg-[#f59e0b]/10 border-[#f59e0b]/20 text-[#f59e0b]"
-                        : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-[#f59e0b]/80"
-                    }`}>
-                      {activeCategory === "recommender" ? "ACTIVE ⬇" : "VIEW SPOTIFY RECOMMENDATION AUDIT ⚡"}
-                    </span>
-                  </div>
+                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    activeCategory === "recommender"
+                      ? "bg-violet-500/10 border-violet-500/20 text-violet-400"
+                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-violet-400/80"
+                  }`}>
+                    {activeCategory === "recommender" ? "ACTIVE ⬇" : "VIEW METRICS ⚡"}
+                  </span>
                 </div>
+              </div>
+
+              {/* Right side: informational, not a scored circle */}
+              <div className="flex-shrink-0 flex items-center justify-center px-4">
+                <span className="text-[11px] font-sans font-bold text-white text-center leading-snug max-w-[150px]">
+                  This score is not figured into any averages
+                </span>
               </div>
             </div>
           </button>
@@ -7945,21 +7953,21 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                 className="overflow-hidden w-full relative z-0"
               >
-                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-[#f59e0b] rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
+                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-violet-500 rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
                   <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
-                    RECOMMENDER PERFORMANCE PREDICTION
+                    RECOMMENDER PERFORMANCE PREDICTION AUDIT
                   </div>
                   <div style={{ marginTop: "-20px", paddingTop: "11px", paddingBottom: "18px" }} className="flex items-center justify-between border-b border-white/5">
                     <span className="text-xs font-mono font-bold tracking-widest text-[#90a1b9] uppercase flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#f59e0b] animate-pulse" />
-                      <span>RECOMMENDER PERFORMANCE AUDIT</span>
+                      <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+                      <span>ADDITIONAL INFO · NOT PART OF SUMMARY SCORE</span>
                     </span>
                     <span className="text-[10px] font-mono text-slate-500 text-right">
-                      Predictive algorithmic retention and collaborative filtering assessment
+                      Discovery feeder and semantic clustering probability audit
                     </span>
                   </div>
                   <div className="w-full">
-                    {renderSpotifyRecommendationPanel()}
+                    {renderRecommenderPredictionPanel()}
                   </div>
                 </div>
               </motion.div>
