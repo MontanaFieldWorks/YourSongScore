@@ -4414,6 +4414,71 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     );
   };
 
+  // --- Shared Recommender/Streaming Alignment calculations (component-level so both
+  // renderRecommenderPredictionPanel and renderSpotifyRecommendationPanel can access them) ---
+  // 3. Checklist Effect on Score
+  const hasLufs = spotifyChecks.lufsConformity;
+  const activeChecksCount = (spotifyChecks.vocalEntrance ? 1 : 0) + (spotifyChecks.spectralWidth ? 1 : 0) + (spotifyChecks.transientStability ? 1 : 0);
+  const standardChecklistMaxBoost = 10;
+  const standardChecklistBoost = Math.round((activeChecksCount / 3) * standardChecklistMaxBoost);
+
+  // Predict recommendation score reflecting the average target matching of the Echo Nest features
+  const averageMatch = Math.round((danceabilityMatch + energyMatch + acousticnessMatch + valenceMatch + instrumentalnessMatch + speechinessMatch + livenessMatch) / 7);
+  const baseRecScore = Math.round((commercialReadinessVal * 0.4) + (overallProductionVal * 0.15) + (mixScoreVal * 0.20) + (averageMatch * 0.25));
+  const rawPredictedScore = Math.min(99, Math.max(30, baseRecScore + standardChecklistBoost - 5));
+
+  // Scale predictedScore down to mirror the low compatibility mapping, as requested by the user
+  // Ties the ultimate algorithm feeder chances proportionally with the raw feature compatibility matches!
+  const complianceFactor = (averageMatch / 100);
+  let predictedScore = Math.round(rawPredictedScore * (0.35 + 0.65 * complianceFactor));
+  if (hasLufs) {
+    predictedScore = Math.min(100, predictedScore + 7);
+  }
+
+  // Feeder Channel Chances aligned directly and proportionally with overall compatibility score
+  const valenceScore = critique?.streamingAlignment?.echoNestScorecard?.moodValence ?? 50;
+  const danceScore = critique?.streamingAlignment?.echoNestScorecard?.danceability ?? 50;
+  const energyScore = critique?.streamingAlignment?.echoNestScorecard?.energyIntensity ?? 50;
+  const speechScore = critique?.streamingAlignment?.echoNestScorecard?.speechiness ?? 20;
+
+  // Release Radar — driven by production quality and early hook delivery
+  // Recalibrated: prior weights (0.60 + up to 19 flat) capped this feeder's ceiling at 79,
+  // well below its sibling feeders. New weights bring its ceiling to ~92, in line with the others.
+  const releaseRadarChance = Math.min(99, Math.max(10, Math.round(
+    (predictedScore * 0.70) +
+    (spotifyChecks.vocalEntrance ? 9 : 0) +
+    (spotifyChecks.spectralWidth ? 7 : 0) +
+    (hasLufs ? 6 : 0)
+  )));
+
+  // Discover Weekly — driven by collaborative filtering: valence + danceability + energy alignment
+  // Recalibrated: predictedScore weight raised from 0.45 to 0.50 to lift ceiling from 90 to ~95.
+  const discoverWeeklyChance = Math.min(99, Math.max(5, Math.round(
+    (predictedScore * 0.50) +
+    (valenceScore * 0.20) +
+    (danceScore * 0.15) +
+    (energyScore * 0.10)
+  )));
+
+  // Daily Mix & Radio — driven by genre consistency and energy profile
+  // Recalibrated: predictedScore weight raised from 0.50 to 0.55 to lift ceiling from 90 to ~95.
+  const dailyMixChance = Math.min(99, Math.max(10, Math.round(
+    (predictedScore * 0.55) +
+    (energyScore * 0.18) +
+    (danceScore * 0.12) +
+    (averageMatch * 0.10)
+  )));
+
+  // AI Playlist Prompts — driven by mood valence, speechiness, and lyrical theme clarity
+  // Recalibrated: predictedScore weight raised from 0.35 to 0.38, ceiling now ~98 (capped at 99).
+  const radioSeedChance = Math.min(99, Math.max(10, Math.round(
+    (predictedScore * 0.38) +
+    (valenceScore * 0.30) +
+    (danceScore * 0.15) +
+    (speechScore * 0.08) +
+    (spotifyChecks.vocalEntrance ? 7 : 0)
+  )));
+
   const renderRecommenderPredictionPanel = () => {
     return (
             <div className="flex flex-col gap-6 w-full animate-fadeIn">
@@ -4679,68 +4744,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       clusterName = "Modern Soul, Funk & Jazz Fusion";
     }
 
-    // 3. Checklist Effect on Score
-    const hasLufs = spotifyChecks.lufsConformity;
-    const activeChecksCount = (spotifyChecks.vocalEntrance ? 1 : 0) + (spotifyChecks.spectralWidth ? 1 : 0) + (spotifyChecks.transientStability ? 1 : 0);
-    const standardChecklistMaxBoost = 10;
-    const standardChecklistBoost = Math.round((activeChecksCount / 3) * standardChecklistMaxBoost);
-
-    // Predict recommendation score reflecting the average target matching of the Echo Nest features
-    const averageMatch = Math.round((danceabilityMatch + energyMatch + acousticnessMatch + valenceMatch + instrumentalnessMatch + speechinessMatch + livenessMatch) / 7);
-    const baseRecScore = Math.round((commercialReadinessVal * 0.4) + (overallProductionVal * 0.15) + (mixScoreVal * 0.20) + (averageMatch * 0.25));
-    const rawPredictedScore = Math.min(99, Math.max(30, baseRecScore + standardChecklistBoost - 5));
-
-    // Scale predictedScore down to mirror the low compatibility mapping, as requested by the user
-    // Ties the ultimate algorithm feeder chances proportionally with the raw feature compatibility matches!
-    const complianceFactor = (averageMatch / 100);
-    let predictedScore = Math.round(rawPredictedScore * (0.35 + 0.65 * complianceFactor));
-    if (hasLufs) {
-      predictedScore = Math.min(100, predictedScore + 7);
-    }
-
-    // Feeder Channel Chances aligned directly and proportionally with overall compatibility score
-    const valenceScore = critique?.streamingAlignment?.echoNestScorecard?.moodValence ?? 50;
-    const danceScore = critique?.streamingAlignment?.echoNestScorecard?.danceability ?? 50;
-    const energyScore = critique?.streamingAlignment?.echoNestScorecard?.energyIntensity ?? 50;
-    const speechScore = critique?.streamingAlignment?.echoNestScorecard?.speechiness ?? 20;
-
-    // Release Radar — driven by production quality and early hook delivery
-    // Recalibrated: prior weights (0.60 + up to 19 flat) capped this feeder's ceiling at 79,
-    // well below its sibling feeders. New weights bring its ceiling to ~92, in line with the others.
-    const releaseRadarChance = Math.min(99, Math.max(10, Math.round(
-      (predictedScore * 0.70) +
-      (spotifyChecks.vocalEntrance ? 9 : 0) +
-      (spotifyChecks.spectralWidth ? 7 : 0) +
-      (hasLufs ? 6 : 0)
-    )));
-
-    // Discover Weekly — driven by collaborative filtering: valence + danceability + energy alignment
-    // Recalibrated: predictedScore weight raised from 0.45 to 0.50 to lift ceiling from 90 to ~95.
-    const discoverWeeklyChance = Math.min(99, Math.max(5, Math.round(
-      (predictedScore * 0.50) +
-      (valenceScore * 0.20) +
-      (danceScore * 0.15) +
-      (energyScore * 0.10)
-    )));
-
-    // Daily Mix & Radio — driven by genre consistency and energy profile
-    // Recalibrated: predictedScore weight raised from 0.50 to 0.55 to lift ceiling from 90 to ~95.
-    const dailyMixChance = Math.min(99, Math.max(10, Math.round(
-      (predictedScore * 0.55) +
-      (energyScore * 0.18) +
-      (danceScore * 0.12) +
-      (averageMatch * 0.10)
-    )));
-
-    // AI Playlist Prompts — driven by mood valence, speechiness, and lyrical theme clarity
-    // Recalibrated: predictedScore weight raised from 0.35 to 0.38, ceiling now ~98 (capped at 99).
-    const radioSeedChance = Math.min(99, Math.max(10, Math.round(
-      (predictedScore * 0.38) +
-      (valenceScore * 0.30) +
-      (danceScore * 0.15) +
-      (speechScore * 0.08) +
-      (spotifyChecks.vocalEntrance ? 7 : 0)
-    )));
 
     const metricsData = [
       {
@@ -4844,54 +4847,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         {/* Indented parent container representing hierarchy */}
         <div className="border-l border-white/5 pl-4 md:pl-6 ml-0 md:ml-4 flex flex-col gap-6">
 
-          {/* Card 1 TRIGGER: The ECHO NEST SCORECARD */}
-          <div 
-            onClick={() => setIsEchoNestExpanded(!isEchoNestExpanded)}
-            className={`border rounded-2xl p-5 text-left cursor-pointer transition-all duration-300 relative overflow-hidden select-none ${
-              isEchoNestExpanded 
-                ? "bg-[#0c1811]/45 border-[#1ed760] shadow-[0_0_15px_rgba(29,185,84,0.15)] ring-1 ring-emerald-500/20" 
-                : "bg-neutral-900/60 border-white/5 hover:border-[#1ed760]/40 text-slate-400 hover:bg-[#071109]/20"
-            }`}
-          >
-            {/* Faint left highlight */}
-            <div 
-              className="absolute left-0 top-0 h-full w-[4px]"
-              style={{ backgroundColor: "#1ed760", boxShadow: "0 0 10px #1ed760" }}
-            />
-            
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <span className={`p-1.5 rounded-lg border flex items-center justify-center transition-colors ${
-                  isEchoNestExpanded 
-                    ? "bg-[#1DB954]/20 border-[#1DB954]/40 text-[#1ed760]" 
-                    : "bg-neutral-800 border-white/5 text-slate-500"
-                }`}>
-                  <Activity className="w-4 h-4" />
-                </span>
-                <div>
-                  <span className="text-[9px] font-mono uppercase tracking-widest text-[#1ed760] font-bold block">Dual-Filtering Target Compliance</span>
-                  <h3 className="text-base font-sans font-black text-white uppercase mt-0.5">
-                    The ECHO NEST SCORECARD
-                  </h3>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="hidden sm:inline-block text-[9px] font-mono text-slate-500">
-                  {isEchoNestExpanded ? "COLLAPSE AUDIT ▲" : "EXPAND AUDIT ▼"}
-                </span>
-                <span className={`inline-block text-[9px] font-mono tracking-widest px-2.5 py-1 rounded-full border ${
-                  isEchoNestExpanded
-                    ? "bg-[#1ed760]/10 border-[#1ed760]/20 text-[#1ed760]"
-                    : "bg-neutral-900 border-white/5 text-slate-400"
-                }`}>
-                  {isEchoNestExpanded ? "ACTIVE" : "VIEW DETAILED METRICS"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 1 Dropdown Content */}
-          {isEchoNestExpanded && (
+          {/* Card 1 Content — always visible, no longer gated behind a second click */}
+          {(
             <div className="bg-[#0D0E12] border border-[#1DB954]/25 rounded-2xl p-6 text-left flex flex-col gap-6 shadow-lg relative overflow-hidden">
             <div className="absolute top-0 left-0 bg-[#1DB954] h-[3px] w-full shadow-[0_0_8px_#1DB954]" />
             
@@ -6356,16 +6313,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               >
                 <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-[#1ed760] rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
                   <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
-                    SPOTIFY ALGORITHMIC ALIGNMENT & COMPATIBILITY
-                  </div>
-                  <div style={{ marginTop: "-20px", paddingTop: "11px", paddingBottom: "18px" }} className="flex items-center justify-between border-b border-white/5">
-                    <span className="text-xs font-mono font-bold tracking-widest text-[#90a1b9] uppercase flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-pulse" />
-                      <span>AUTOMATED ALGORITHM AUDIT</span>
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-500 text-right">
-                      Mapping content acoustic parameters and NLP semantic embeddings
-                    </span>
+                    THE ECHO NEST SCORECARD
                   </div>
                   <div className="w-full">
                     {renderSpotifyRecommendationPanel()}
@@ -7851,16 +7799,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               >
                 <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-[#1ed760] rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
                   <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
-                    SPOTIFY ALGORITHMIC ALIGNMENT & COMPATIBILITY
-                  </div>
-                  <div style={{ marginTop: "-20px", paddingTop: "11px", paddingBottom: "18px" }} className="flex items-center justify-between border-b border-white/5">
-                    <span className="text-xs font-mono font-bold tracking-widest text-[#90a1b9] uppercase flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#1ed760] animate-pulse" />
-                      <span>AUTOMATED ALGORITHM AUDIT</span>
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-500 text-right">
-                      Mapping content acoustic parameters and NLP semantic embeddings
-                    </span>
+                    THE ECHO NEST SCORECARD
                   </div>
                   <div className="w-full">
                     {renderSpotifyRecommendationPanel()}
