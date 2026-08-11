@@ -617,7 +617,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioRef] = useState(() => new Audio());
   const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({});
-  const [activeCategory, setActiveCategory] = useState<"mainstream" | "artistic" | "dna" | "sandbox" | "spotify" | "azimuth" | "blueprints" | "architecture" | null>(null);
+  const [activeCategory, setActiveCategory] = useState<"mainstream" | "artistic" | "dna" | "sandbox" | "spotify" | "azimuth" | "blueprints" | "architecture" | "recommender" | null>(null);
   const [azimuthActiveTab, setAzimuthActiveTab] = useState<"outline" | "waveform" | "melodic" | "spectrogram" | "pitch" | "key" | "azimuth">("azimuth");
   const [azimuthRefMode, setAzimuthRefMode] = useState<"user" | "benchmark" | "overlap">("user");
   const [azimuthPlaying, setAzimuthPlaying] = useState(false);
@@ -2040,7 +2040,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     URL.revokeObjectURL(url);
   };
 
-  const getFilteredMetrics = (cat: "mainstream" | "artistic" | "dna" | "sandbox" | "spotify" | "azimuth" | "blueprints" | "architecture" | null = activeCategory) => {
+  const getFilteredMetrics = (cat: "mainstream" | "artistic" | "dna" | "sandbox" | "spotify" | "azimuth" | "blueprints" | "architecture" | "recommender" | null = activeCategory) => {
     if (cat === "mainstream") {
       return [
         METRICS_LIST.find(m => m.id === "readiness"),
@@ -2073,7 +2073,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     return [];
   };
 
-  const handleCategoryChange = (category: "mainstream" | "artistic" | "dna" | "sandbox" | "spotify" | "azimuth" | "blueprints" | "architecture" | null) => {
+  const handleCategoryChange = (category: "mainstream" | "artistic" | "dna" | "sandbox" | "spotify" | "azimuth" | "blueprints" | "architecture" | "recommender" | null) => {
     if (activeCategory === category) {
       setActiveCategory(null);
     } else {
@@ -4934,58 +4934,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
 
 
-          {/* Card 2 TRIGGER: RECOMMENDER PERFORMANCE PREDICTION */}
-          <button 
-            type="button"
-            onClick={() => setIsRecommenderExpanded(!isRecommenderExpanded)}
-            className={`w-full text-left border rounded-2xl p-5 cursor-pointer transition-all duration-300 relative overflow-hidden select-none outline-none ${
-              isRecommenderExpanded 
-                ? "bg-[#18120c]/45 border-[#f59e0b] shadow-[0_0_15px_rgba(245,158,11,0.15)] ring-1 ring-amber-500/20" 
-                : "bg-neutral-900/60 border-white/5 hover:border-[#f59e0b]/40 text-slate-400 hover:bg-[#110d07]/20"
-            }`}
-          >
-            {/* Faint left highlight */}
-            <div 
-              className="absolute left-0 top-0 h-full w-[4px]"
-              style={{ backgroundColor: "#f59e0b", boxShadow: "0 0 10px #f59e0b" }}
-            />
-            
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-3 font-sans">
-                <span className={`p-1.5 rounded-lg border flex items-center justify-center transition-colors ${
-                  isRecommenderExpanded 
-                    ? "bg-[#f59e0b]/20 border-[#f59e0b]/40 text-[#f59e0b]" 
-                    : "bg-neutral-800 border-white/5 text-slate-500"
-                }`}>
-                  <Compass className="w-4 h-4 text-[#f59e0b]" />
-                </span>
-                <div>
-                  <span className="text-[9px] font-mono tracking-widest text-[#f59e0b] font-bold uppercase block">Predicted Algorithmic Indexing</span>
-                  <p className="text-[17px] font-sans font-black text-white uppercase mt-0.5 animate-fadeIn">
-                    RECOMMENDER PERFORMANCE PREDICTION
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3 self-end md:self-auto font-sans">
-                <span className="text-[10px] text-white font-mono tracking-wide">
-                  This score is not figured into any averages
-                </span>
-                <span className={`inline-block text-[9px] font-mono tracking-widest px-2.5 py-1 rounded-full border ${
-                  isRecommenderExpanded
-                    ? "bg-[#f59e0b]/10 border-[#f59e0b]/20 text-[#f59e0b]"
-                    : "bg-neutral-900 border-white/5 text-slate-400"
-                }`}>
-                  {isRecommenderExpanded ? "ACTIVE" : "VIEW SPOTIFY RECOMMENDATION AUDIT"}
-                </span>
-              </div>
-            </div>
-          </button>
-
-          {/* Card 2 Dropdown Content */}
-          {isRecommenderExpanded && (
-            <div className="flex flex-col gap-6 w-full animate-fadeIn">
-
               {/* Curation Conclusion Card */}
               <div className="bg-neutral-950 border border-white/10 rounded-2xl p-5 text-left flex flex-col relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 opacity-[0.02] pointer-events-none">
@@ -5211,9 +5159,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               })}
             </div>
           </div>
-
-            </div>
-          )}
 
         </div>
 
@@ -6414,6 +6359,109 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     </span>
                     <span className="text-[10px] font-mono text-slate-500 text-right">
                       Mapping content acoustic parameters and NLP semantic embeddings
+                    </span>
+                  </div>
+                  <div className="w-full">
+                    {renderSpotifyRecommendationPanel()}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Card 3: Recommender Performance Prediction */}
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-recommender">
+          <button
+            type="button"
+            onClick={() => {
+              if (activeCategory === "recommender") {
+                handleCategoryChange(null);
+              } else {
+                handleCategoryChange("recommender");
+              }
+            }}
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+              activeCategory === "recommender"
+                ? "bg-[#090b0e] border-[#f59e0b] shadow-[0_0_35px_rgba(245,158,11,0.25)] ring-1 ring-amber-500/30 font-black"
+                : "bg-[#0A0B0E]/60 border-[#f59e0b] hover:border-[#f59e0b] hover:bg-[#110d07]/20 text-slate-400"
+            }`}
+          >
+            {/* Background ambient shade */}
+            {activeCategory === "recommender" ? (
+              <div className="absolute inset-0 bg-gradient-to-br from-[#24180c]/30 via-neutral-950 to-[#030509] pointer-events-none" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-[#120d07]/10 via-neutral-950 to-[#030509] pointer-events-none" />
+            )}
+
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 w-full h-full">
+              {/* Left Content Column */}
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full font-sans">
+                {/* Header block */}
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                    activeCategory === "recommender"
+                      ? "bg-[#f59e0b]/20 border-[#f59e0b]/40 text-[#f59e0b] shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+                      : "p-2 rounded-xl border border-white/5 bg-neutral-900 text-slate-500 group-hover:text-[#f59e0b] group-hover:border-[#f59e0b]/20 group-hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                  }`}>
+                    <Compass className="w-5 h-5 text-[#f59e0b]" />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span 
+                      className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                        activeCategory === "recommender" ? "text-white" : "text-slate-200 group-hover:text-white"
+                      }`}
+                    >
+                      RECOMMENDER PERFORMANCE PREDICTION
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium tracking-wide">Predicted Algorithmic Indexing</span>
+                  </div>
+                </div>
+
+                {/* Bottom info block */}
+                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                  activeCategory === "recommender" ? "border-amber-500/15" : "border-white/5"
+                }`}>
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                    Predictive analysis of how Spotify's recommender engine processes track acoustic properties and collaborative filtering signals.
+                  </p>
+                  <div className="flex items-center gap-3 font-sans">
+                    <span className="text-[10px] text-white font-mono tracking-wide">
+                      This score is not figured into any averages
+                    </span>
+                    <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                      activeCategory === "recommender"
+                        ? "bg-[#f59e0b]/10 border-[#f59e0b]/20 text-[#f59e0b]"
+                        : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-[#f59e0b]/80"
+                    }`}>
+                      {activeCategory === "recommender" ? "ACTIVE ⬇" : "VIEW SPOTIFY RECOMMENDATION AUDIT ⚡"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {activeCategory === "recommender" && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginTop: -8 }}
+                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
+                exit={{ height: 0, opacity: 0, marginTop: -8 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden w-full relative z-0"
+              >
+                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-[#f59e0b] rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
+                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
+                    RECOMMENDER PERFORMANCE PREDICTION
+                  </div>
+                  <div style={{ marginTop: "-20px", paddingTop: "11px", paddingBottom: "18px" }} className="flex items-center justify-between border-b border-white/5">
+                    <span className="text-xs font-mono font-bold tracking-widest text-[#90a1b9] uppercase flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#f59e0b] animate-pulse" />
+                      <span>RECOMMENDER PERFORMANCE AUDIT</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500 text-right">
+                      Predictive algorithmic retention and collaborative filtering assessment
                     </span>
                   </div>
                   <div className="w-full">
@@ -7805,6 +7853,109 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     </span>
                     <span className="text-[10px] font-mono text-slate-500 text-right">
                       Mapping content acoustic parameters and NLP semantic embeddings
+                    </span>
+                  </div>
+                  <div className="w-full">
+                    {renderSpotifyRecommendationPanel()}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Card 3: Recommender Performance Prediction */}
+        <div className="flex flex-col w-full gap-4">
+          <button
+            type="button"
+            onClick={() => {
+              if (activeCategory === "recommender") {
+                handleCategoryChange(null);
+              } else {
+                handleCategoryChange("recommender");
+              }
+            }}
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+              activeCategory === "recommender"
+                ? "bg-[#090b0e] border-[#f59e0b] shadow-[0_0_35px_rgba(245,158,11,0.25)] ring-1 ring-amber-500/30 font-black"
+                : "bg-[#0A0B0E]/60 border-[#f59e0b] hover:border-[#f59e0b] hover:bg-[#110d07]/20 text-slate-400"
+            }`}
+          >
+            {/* Background ambient shade */}
+            {activeCategory === "recommender" ? (
+              <div className="absolute inset-0 bg-gradient-to-br from-[#24180c]/30 via-neutral-950 to-[#030509] pointer-events-none" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-[#120d07]/10 via-neutral-950 to-[#030509] pointer-events-none" />
+            )}
+
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 w-full h-full">
+              {/* Left Content Column */}
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full font-sans">
+                {/* Header block */}
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                    activeCategory === "recommender"
+                      ? "bg-[#f59e0b]/20 border-[#f59e0b]/40 text-[#f59e0b] shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+                      : "p-2 rounded-xl border border-white/5 bg-neutral-900 text-slate-500 group-hover:text-[#f59e0b] group-hover:border-[#f59e0b]/20 group-hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                  }`}>
+                    <Compass className="w-5 h-5 text-[#f59e0b]" />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span 
+                      className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                        activeCategory === "recommender" ? "text-white" : "text-slate-200 group-hover:text-white"
+                      }`}
+                    >
+                      RECOMMENDER PERFORMANCE PREDICTION
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium tracking-wide">Predicted Algorithmic Indexing</span>
+                  </div>
+                </div>
+
+                {/* Bottom info block */}
+                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                  activeCategory === "recommender" ? "border-amber-500/15" : "border-white/5"
+                }`}>
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                    Predictive analysis of how Spotify's recommender engine processes track acoustic properties and collaborative filtering signals.
+                  </p>
+                  <div className="flex items-center gap-3 font-sans">
+                    <span className="text-[10px] text-white font-mono tracking-wide">
+                      This score is not figured into any averages
+                    </span>
+                    <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                      activeCategory === "recommender"
+                        ? "bg-[#f59e0b]/10 border-[#f59e0b]/20 text-[#f59e0b]"
+                        : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-[#f59e0b]/80"
+                    }`}>
+                      {activeCategory === "recommender" ? "ACTIVE ⬇" : "VIEW SPOTIFY RECOMMENDATION AUDIT ⚡"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {activeCategory === "recommender" && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginTop: -8 }}
+                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
+                exit={{ height: 0, opacity: 0, marginTop: -8 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden w-full relative z-0"
+              >
+                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-[#f59e0b] rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
+                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
+                    RECOMMENDER PERFORMANCE PREDICTION
+                  </div>
+                  <div style={{ marginTop: "-20px", paddingTop: "11px", paddingBottom: "18px" }} className="flex items-center justify-between border-b border-white/5">
+                    <span className="text-xs font-mono font-bold tracking-widest text-[#90a1b9] uppercase flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#f59e0b] animate-pulse" />
+                      <span>RECOMMENDER PERFORMANCE AUDIT</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500 text-right">
+                      Predictive algorithmic retention and collaborative filtering assessment
                     </span>
                   </div>
                   <div className="w-full">
