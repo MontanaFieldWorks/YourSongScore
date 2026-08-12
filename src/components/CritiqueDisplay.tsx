@@ -4479,6 +4479,35 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     (spotifyChecks.vocalEntrance ? 7 : 0)
   )));
 
+  // 2. Sonic Neighbors (NLP clusters)
+  let sonicNeighbors = ["Tame Impala", "Roosevelt", "Phoenix", "Glass Animals", "Toro y Moi"];
+  let clusterName = "Dream Gaze & Indie Crossover";
+
+  const genreLower = (critique?.vibe?.genre || "").toLowerCase();
+
+  if (genreLower.includes("country") || genreLower.includes("americana") || genreLower.includes("bluegrass")) {
+    sonicNeighbors = ["Chris Stapleton", "Kacey Musgraves", "Zach Bryan", "Sturgill Simpson", "Tyler Childers"];
+    clusterName = "Modern Country & Outlaw Americana Roots";
+  } else if (isHipHopGenre) {
+    sonicNeighbors = ["Travis Scott", "J. Cole", "Kendrick Lamar", "Mac Miller", "Metro Boomin"];
+    clusterName = "Contemporary Hip-Hop & Hybrid Beats";
+  } else if (isElectronicGenre) {
+    sonicNeighbors = ["Kavinsky", "Daft Punk", "Justice", "RÜFÜS DU SOL", "Disclosure"];
+    clusterName = "Neon Retro Electro & House Grid";
+  } else if (isAcousticGenre) {
+    sonicNeighbors = ["Bon Iver", "Phoebe Bridgers", "Sufjan Stevens", "Iron & Wine", "Fleet Foxes"];
+    clusterName = "Intimate Acoustic & Organic Folk Universe";
+  } else if (isRockGenre) {
+    sonicNeighbors = ["Foo Fighters", "Royal Blood", "Queens of the Stone Age", "The Black Keys", "Arctic Monkeys"];
+    clusterName = "Alternative & Modern Rock Currents";
+  } else if (isPopGenre) {
+    sonicNeighbors = ["Dua Lipa", "The Weeknd", "Harry Styles", "Billie Eilish", "Olivia Rodrigo"];
+    clusterName = "Contemporary Pop & Mainstream Anthems";
+  } else if (isJazzGenre) {
+    sonicNeighbors = ["Leon Bridges", "SZA", "Anderson .Paak", "Bruno Mars", "Ezra Collective"];
+    clusterName = "Modern Soul, Funk & Jazz Fusion";
+  }
+
   const renderRecommenderPredictionPanel = () => {
     return (
             <div className="flex flex-col gap-6 w-full animate-fadeIn">
@@ -4608,7 +4637,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             <div className="text-xs text-[#1DB954]/90 leading-relaxed bg-[#1DB954]/5 border border-[#1DB954]/15 p-4 rounded-xl mb-5 space-y-2">
               <div>
                 <span className="text-white font-extrabold font-sans uppercase text-[10px] block mb-1">Algorithmic Performance Analysis:</span>
-                These parameters assess how your track's physical composition and early structure protects you from skip-out triggers to dynamically raise your simulated <strong>Discovery Feeder Distribution Probabilities ("03")</strong> above.
+                These parameters assess how your track's physical composition and early structure protects you from skip-out triggers to dynamically raise your simulated <strong>Discovery Feeder Distribution Probabilities</strong> above.
               </div>
               <div className="pt-2 border-t border-[#1DB954]/15 text-slate-300/90 font-normal">
                 {(() => {
@@ -4714,35 +4743,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const renderSpotifyRecommendationPanel = () => {
     const profile = getSubgenreProfile(critique?.vibe?.genre || "", critique?.vibe?.subgenre || "");
     const archetype = profile?.archetype || "GRID_ELEC";
-
-    // 2. Sonic Neighbors (NLP clusters)
-    let sonicNeighbors = ["Tame Impala", "Roosevelt", "Phoenix", "Glass Animals", "Toro y Moi"];
-    let clusterName = "Dream Gaze & Indie Crossover";
-
-    const genreLower = (critique?.vibe?.genre || "").toLowerCase();
-
-    if (genreLower.includes("country") || genreLower.includes("americana") || genreLower.includes("bluegrass")) {
-      sonicNeighbors = ["Chris Stapleton", "Kacey Musgraves", "Zach Bryan", "Sturgill Simpson", "Tyler Childers"];
-      clusterName = "Modern Country & Outlaw Americana Roots";
-    } else if (isHipHopGenre) {
-      sonicNeighbors = ["Travis Scott", "J. Cole", "Kendrick Lamar", "Mac Miller", "Metro Boomin"];
-      clusterName = "Contemporary Hip-Hop & Hybrid Beats";
-    } else if (isElectronicGenre) {
-      sonicNeighbors = ["Kavinsky", "Daft Punk", "Justice", "RÜFÜS DU SOL", "Disclosure"];
-      clusterName = "Neon Retro Electro & House Grid";
-    } else if (isAcousticGenre) {
-      sonicNeighbors = ["Bon Iver", "Phoebe Bridgers", "Sufjan Stevens", "Iron & Wine", "Fleet Foxes"];
-      clusterName = "Intimate Acoustic & Organic Folk Universe";
-    } else if (isRockGenre) {
-      sonicNeighbors = ["Foo Fighters", "Royal Blood", "Queens of the Stone Age", "The Black Keys", "Arctic Monkeys"];
-      clusterName = "Alternative & Modern Rock Currents";
-    } else if (isPopGenre) {
-      sonicNeighbors = ["Dua Lipa", "The Weeknd", "Harry Styles", "Billie Eilish", "Olivia Rodrigo"];
-      clusterName = "Contemporary Pop & Mainstream Anthems";
-    } else if (isJazzGenre) {
-      sonicNeighbors = ["Leon Bridges", "SZA", "Anderson .Paak", "Bruno Mars", "Ezra Collective"];
-      clusterName = "Modern Soul, Funk & Jazz Fusion";
-    }
 
 
     const metricsData = [
