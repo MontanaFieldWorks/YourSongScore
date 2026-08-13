@@ -7086,37 +7086,152 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         </div>
 
         {/* Card: Mix Balance Quality — promoted to standalone; reuses the existing RowMetricCard + renderExpandedBreakdown untouched */}
-        <div className="flex flex-col gap-1.5 relative mt-6" id="sidebar-link-sonic-4">
+        {/* Card: Mix Balance Quality — hero-style header matching Production Quality/Loudness Compliance, dropdown reuses renderExpandedBreakdown untouched */}
+        <div className="flex flex-col w-full gap-4 mt-6" id="sidebar-link-sonic-4">
           {(() => {
             const mixMetric = METRICS_LIST.find(m => m.id === "mix");
             if (!mixMetric) return null;
             const isExpanded = expandedMetric === "mix";
             return (
               <>
-                <RowMetricCard
-                  metric={mixMetric}
-                  isExpanded={isExpanded}
+                <button
                   onClick={() => setExpandedMetric(isExpanded ? null : "mix")}
-                />
+                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+                    isExpanded
+                      ? "bg-[#090b0e] border-[#ff66cc] shadow-[0_0_35px_rgba(255,102,204,0.35)] ring-1 ring-[#ff66cc]/40 font-black"
+                      : "bg-[#0A0B0E]/60 border-[#ff66cc]/60 hover:border-[#ff66cc] hover:bg-neutral-900/40 text-slate-400"
+                  }`}
+                >
+                  {isExpanded ? (
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#ff66cc]/10 via-neutral-950 to-[#03050a] pointer-events-none" />
+                  ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#03050a] pointer-events-none" />
+                  )}
+
+                  <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+                    <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                          isExpanded
+                            ? "bg-[#ff66cc]/10 border-[#ff66cc]/30 text-[#ff66cc] shadow-[0_0_15px_rgba(255,102,204,0.3)]"
+                            : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-[#ff66cc]"
+                        }`}>
+                          <Sliders className="w-5 h-5 text-[#ff66cc]" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                            isExpanded ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                          }`}>
+                            {mixMetric.name}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-medium">{mixMetric.subtitle}</span>
+                        </div>
+                      </div>
+
+                      <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                        isExpanded ? "border-[#ff66cc]/15" : "border-white/5"
+                      }`}>
+                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                          {mixMetric.callout}
+                        </p>
+                        <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                          isExpanded
+                            ? "bg-[#ff66cc]/10 border-[#ff66cc]/20 text-[#ff66cc]"
+                            : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-[#ff66cc]"
+                        }`}>
+                          {isExpanded ? "ACTIVE ⬇" : "VIEW METRICS ⚡"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex-shrink-0 flex items-center justify-center">
+                      <ScoreCircle
+                        score={mixMetric.score}
+                        size={110}
+                        strokeWidth={7}
+                        color={isExpanded ? "#ff66cc" : "rgba(255, 102, 204, 0.45)"}
+                        glowColor={isExpanded ? "rgba(255, 102, 204, 0.65)" : "rgba(255, 102, 204, 0.15)"}
+                        extraGlow={isExpanded}
+                      />
+                    </div>
+                  </div>
+                </button>
                 {isExpanded && renderExpandedBreakdown("mix")}
               </>
             );
           })()}
         </div>
 
-        {/* Card: Vocal Tracking — promoted to standalone; reuses the existing RowMetricCard + renderExpandedBreakdown untouched */}
-        <div className="flex flex-col gap-1.5 relative mt-6" id="sidebar-link-sonic-5">
+        {/* Card: Vocal Tracking — hero-style header matching Production Quality/Loudness Compliance, dropdown reuses renderExpandedBreakdown untouched */}
+        <div className="flex flex-col w-full gap-4 mt-6" id="sidebar-link-sonic-5">
           {(() => {
             const vocalsMetric = METRICS_LIST.find(m => m.id === "vocals");
             if (!vocalsMetric) return null;
             const isExpanded = expandedMetric === "vocals";
             return (
               <>
-                <RowMetricCard
-                  metric={vocalsMetric}
-                  isExpanded={isExpanded}
+                <button
                   onClick={() => setExpandedMetric(isExpanded ? null : "vocals")}
-                />
+                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+                    isExpanded
+                      ? "bg-[#090b0e] border-[#9999ff] shadow-[0_0_35px_rgba(153,153,255,0.35)] ring-1 ring-[#9999ff]/40 font-black"
+                      : "bg-[#0A0B0E]/60 border-[#9999ff]/60 hover:border-[#9999ff] hover:bg-neutral-900/40 text-slate-400"
+                  }`}
+                >
+                  {isExpanded ? (
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#9999ff]/10 via-neutral-950 to-[#03050a] pointer-events-none" />
+                  ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#03050a] pointer-events-none" />
+                  )}
+
+                  <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+                    <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                          isExpanded
+                            ? "bg-[#9999ff]/10 border-[#9999ff]/30 text-[#9999ff] shadow-[0_0_15px_rgba(153,153,255,0.3)]"
+                            : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-[#9999ff]"
+                        }`}>
+                          <Mic className="w-5 h-5 text-[#9999ff]" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                            isExpanded ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                          }`}>
+                            {vocalsMetric.name}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-medium">{vocalsMetric.subtitle}</span>
+                        </div>
+                      </div>
+
+                      <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                        isExpanded ? "border-[#9999ff]/15" : "border-white/5"
+                      }`}>
+                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                          {vocalsMetric.callout}
+                        </p>
+                        <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                          isExpanded
+                            ? "bg-[#9999ff]/10 border-[#9999ff]/20 text-[#9999ff]"
+                            : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-[#9999ff]"
+                        }`}>
+                          {isExpanded ? "ACTIVE ⬇" : "VIEW METRICS ⚡"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex-shrink-0 flex items-center justify-center">
+                      <ScoreCircle
+                        score={vocalsMetric.score}
+                        size={110}
+                        strokeWidth={7}
+                        color={isExpanded ? "#9999ff" : "rgba(153, 153, 255, 0.45)"}
+                        glowColor={isExpanded ? "rgba(153, 153, 255, 0.65)" : "rgba(153, 153, 255, 0.15)"}
+                        extraGlow={isExpanded}
+                      />
+                    </div>
+                  </div>
+                </button>
                 {isExpanded && renderExpandedBreakdown("vocals")}
               </>
             );
