@@ -1613,6 +1613,7 @@ export default function App() {
               setActiveUploadFile(null);
               setCritiqueResult({ critique: applyGenreOverride(crit), trackInfo: tInfo });
               setViewingDashboard(false);
+              window.scrollTo({ top: 0, behavior: 'auto' });
             }}
             activeUploadFile={activeUploadFile}
             activeUploadTitle={extractedTitle}
