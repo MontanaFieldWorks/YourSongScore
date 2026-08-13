@@ -2054,8 +2054,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ].filter(Boolean);
     } else if (cat === "blueprints") {
       return [
-        METRICS_LIST.find(m => m.id === "mix"),
-        METRICS_LIST.find(m => m.id === "vocals"),
         METRICS_LIST.find(m => m.id === "instrumental"),
         AUX_METRICS_LIST.find(m => m.id === "searchability"),
       ].filter(Boolean);
@@ -3426,7 +3424,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             {/* A&R Diagnostic Focus Block */}
             <div className="p-4 bg-[#020203] border border-white/10 rounded-xl">
               <span className={`text-[10px] font-mono uppercase tracking-wider block mb-1 font-bold ${
-                activeCategory === "blueprints" ? "text-cyan-400" : activeCategory === "mainstream" ? "text-blue-400" : activeCategory === "dna" ? "text-emerald-400" : "text-purple-400"
+                (activeCategory === "blueprints" || selectedObj.id === "mix" || selectedObj.id === "vocals") ? "text-cyan-400" : activeCategory === "mainstream" ? "text-blue-400" : activeCategory === "dna" ? "text-emerald-400" : "text-purple-400"
               }`}>
                 A&amp;R Diagnostic Focus Assessment Description
               </span>
@@ -7085,6 +7083,44 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               );
             })()}
           </AnimatePresence>
+        </div>
+
+        {/* Card: Mix Balance Quality — promoted to standalone; reuses the existing RowMetricCard + renderExpandedBreakdown untouched */}
+        <div className="flex flex-col gap-1.5 relative mt-6" id="sidebar-link-sonic-4">
+          {(() => {
+            const mixMetric = METRICS_LIST.find(m => m.id === "mix");
+            if (!mixMetric) return null;
+            const isExpanded = expandedMetric === "mix";
+            return (
+              <>
+                <RowMetricCard
+                  metric={mixMetric}
+                  isExpanded={isExpanded}
+                  onClick={() => setExpandedMetric(isExpanded ? null : "mix")}
+                />
+                {isExpanded && renderExpandedBreakdown("mix")}
+              </>
+            );
+          })()}
+        </div>
+
+        {/* Card: Vocal Tracking — promoted to standalone; reuses the existing RowMetricCard + renderExpandedBreakdown untouched */}
+        <div className="flex flex-col gap-1.5 relative mt-6" id="sidebar-link-sonic-5">
+          {(() => {
+            const vocalsMetric = METRICS_LIST.find(m => m.id === "vocals");
+            if (!vocalsMetric) return null;
+            const isExpanded = expandedMetric === "vocals";
+            return (
+              <>
+                <RowMetricCard
+                  metric={vocalsMetric}
+                  isExpanded={isExpanded}
+                  onClick={() => setExpandedMetric(isExpanded ? null : "vocals")}
+                />
+                {isExpanded && renderExpandedBreakdown("vocals")}
+              </>
+            );
+          })()}
         </div>
       </div> /* End of section-sonic */
       )}
