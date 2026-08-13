@@ -133,7 +133,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
       strokeColor: "#22d3ee",
       trackColor: "rgba(34, 211, 238, 0.1)",
       textColor: "text-cyan-400",
-      tags: ["Completion Rate", "Echo Nest genre-fit average", "Commercial Impact"]
+      tags: ["Completion Rate", "Algorithmic Alignment", "Commercial Impact"]
     },
     {
       title: "SONIC SOUNDPRINT",
