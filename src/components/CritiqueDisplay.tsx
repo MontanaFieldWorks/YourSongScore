@@ -5910,7 +5910,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "mainstream"
                 ? "bg-[#090b0e] border-blue-500 shadow-[0_0_35px_rgba(59,130,246,0.35)] ring-1 ring-blue-500/40 font-black"
-                : "bg-[#0A0B0E]/60 border-[#2a7eff] hover:border-[#2a7eff] hover:bg-neutral-900/40 text-slate-400"
+                : "bg-[#0A0B0E]/60 border-[#2a7eff]/40 hover:border-[#2a7eff] hover:bg-neutral-900/40 text-slate-400"
             }`}
           >
             {/* Background ambient shade */}
@@ -6032,7 +6032,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               isCompletionRateExpanded
                 ? "bg-[#090b0e] border-cyan-500 shadow-[0_0_35px_rgba(6,182,212,0.35)] ring-1 ring-cyan-500/40 font-black"
-                : "bg-[#0A0B0E]/60 border-[#06b6d4]/80 hover:border-[#06b6d4] hover:bg-neutral-900/40 text-slate-400"
+                : "bg-[#0A0B0E]/60 border-[#06b6d4]/40 hover:border-[#06b6d4] hover:bg-neutral-900/40 text-slate-400"
             }`}
           >
             {/* Background ambient shade */}
@@ -6237,7 +6237,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "spotify"
                 ? "bg-[#090b0e] border-emerald-500 shadow-[0_0_35px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500/30 font-black"
-                : "bg-[#0A0B0E]/60 border-[#1ed760] hover:border-[#1ed760] hover:bg-[#090c0a]/40 text-slate-400"
+                : "bg-[#0A0B0E]/60 border-[#1ed760]/40 hover:border-[#1ed760] hover:bg-[#090c0a]/40 text-slate-400"
             }`}
           >
             {/* Background ambient shade */}
@@ -6337,7 +6337,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "recommender"
                 ? "bg-[#0c0a14] border-violet-500 shadow-[0_0_35px_rgba(139,92,246,0.25)] ring-1 ring-violet-500/30 font-black"
-                : "bg-[#0A0B0E]/60 border-violet-500/60 hover:border-violet-500 hover:bg-[#0b0a12]/40 text-slate-400"
+                : "bg-[#0A0B0E]/60 border-violet-500/40 hover:border-violet-500 hover:bg-[#0b0a12]/40 text-slate-400"
             }`}
           >
             {/* Background ambient shade */}
@@ -6442,7 +6442,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "sandbox"
                 ? "bg-[#090b0e] border-amber-500 shadow-[0_0_35px_rgba(245,158,11,0.35)] ring-1 ring-amber-500/40 font-black"
-                : "bg-[#0A0B0E]/60 border-[#f59e0b] hover:border-[#f59e0b] hover:bg-neutral-900/40 text-slate-400"
+                : "bg-[#0A0B0E]/60 border-[#f59e0b]/40 hover:border-[#f59e0b] hover:bg-neutral-900/40 text-slate-400"
             }`}
           >
             {/* Background ambient shade */}
@@ -6616,151 +6616,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </div>
         </div>
 
-        {/* Card: Technical and Diagnostic Blueprints (cyan) */}
-        <div className="flex flex-col w-full gap-4" id="sidebar-link-sonic-1">
-          <button
-            onClick={() => handleCategoryChange("blueprints")}
-            id="blueprint-category-selector"
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
-              activeCategory === "blueprints"
-                ? "bg-[#090b0e] border-cyan-500 shadow-[0_0_35px_rgba(6,182,212,0.35)] ring-1 ring-cyan-500/40 font-black"
-                : "bg-[#0A0B0E]/60 border-[#06b6d4] hover:border-[#06b6d4] hover:bg-neutral-900/40 text-slate-400"
-            }`}
-          >
-            {/* Background ambient shade */}
-            {activeCategory === "blueprints" ? (
-              <div className="absolute inset-0 bg-gradient-to-br from-cyan-950/5 via-neutral-950 to-[#030509] pointer-events-none" />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#030509] pointer-events-none" />
-            )}
-
-            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
-              {/* Left Content Column */}
-              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
-                {/* Header block */}
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
-                    activeCategory === "blueprints"
-                      ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.25)]"
-                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-slate-300"
-                  }`}>
-                    <Layers className="w-5 h-5 text-cyan-400" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span 
-                      className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
-                        activeCategory === "blueprints" ? "text-white" : "text-slate-400 group-hover:text-slate-200"
-                      }`}
-                    >
-                      TECHNICAL AND DIAGNOSTIC BLUEPRINTS
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Core Metric Integration</span>
-                  </div>
-                </div>
-
-                {/* Bottom info block */}
-                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
-                  activeCategory === "blueprints" ? "border-cyan-500/15" : "border-white/5"
-                }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
-                    Integrated assessment linking Composition Flow, Stereo Mix Balance, Vocal Tracking, Instrumental Staging, and Title Searchability.
-                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider">A highly precise look at the acoustic parameters and indexing metadata of the track.</span>
-                  </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
-                    activeCategory === "blueprints"
-                      ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-400"
-                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
-                  }`}>
-                    {activeCategory === "blueprints" ? "ACTIVE ⬇" : "VIEW METRICS"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Right Blueprint Vector schematic visual */}
-              <div className="flex-shrink-0 flex items-center justify-center relative w-[110px] h-[110px]">
-                {/* Outer pulsing ring */}
-                <div className={`absolute inset-0 rounded-full border border-dashed duration-[30s] ${
-                  activeCategory === "blueprints" ? "border-cyan-500/50 animate-spin" : "border-cyan-500/20 group-hover:animate-spin"
-                }`} />
-                <div className={`absolute inset-2 rounded-full border bg-[#05070a]/90 flex flex-col items-center justify-center shadow-inner overflow-hidden transition-colors ${
-                  activeCategory === "blueprints" ? "border-cyan-500/40" : "border-white/5 group-hover:border-cyan-500/30"
-                }`}>
-                  {/* Tech drawing lines layout */}
-                  <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
-                    {/* Grid overlay */}
-                    <div className="w-full h-full border border-cyan-500/40 relative">
-                      <div className="absolute left-1/2 top-0 bottom-0 border-l border-cyan-500/40" />
-                      <div className="absolute top-1/2 left-0 right-0 border-t border-cyan-500/40" />
-                      <div className="absolute inset-4 rounded-full border border-cyan-500/40" />
-                    </div>
-                  </div>
-                  
-                  {/* Visual icon representation */}
-                  <div className="flex items-center justify-center gap-1.5 z-10">
-                    <Sliders className={`w-6 h-6 transition-transform duration-500 ${
-                      activeCategory === "blueprints" ? "text-cyan-400 scale-110 rotate-12" : "text-slate-500 group-hover:text-cyan-400/80"
-                    }`} />
-                  </div>
-                  <span className={`text-[8.5px] font-mono tracking-wider font-bold mt-2 z-10 uppercase ${
-                    activeCategory === "blueprints" ? "text-cyan-400" : "text-slate-500"
-                  }`}>
-                    BLUEPRINT
-                  </span>
-                  <span className="text-[7.5px] font-mono text-slate-600 z-10">DIAGN: ON</span>
-                </div>
-              </div>
-            </div>
-          </button>
-
-          <AnimatePresence initial={false}>
-            {activeCategory === "blueprints" && (
-              <motion.div
-                initial={{ height: 0, opacity: 0, marginTop: -8 }}
-                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
-                exit={{ height: 0, opacity: 0, marginTop: -8 }}
-                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                className="overflow-hidden w-full relative z-0"
-              >
-                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-black/80 border border-[#06b6d4] rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
-                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
-                    TECHNICAL & DIAGNOSTIC SYSTEM BLUEPRINTS
-                  </div>
-                  <div style={{ marginTop: "-20px", paddingTop: "11px", paddingBottom: "18px" }} className="flex items-center justify-between border-b border-white/5">
-                    <span className="text-xs font-mono font-bold tracking-widest text-[#90a1b9] uppercase flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                      <span>DIAGNOSTIC SYSTEM BLUEPRINTS</span>
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-500 text-right">
-                      Exposing critical audio performance vectors & Search Indexing blueprints
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col gap-5 relative">
-                    {getFilteredMetrics("blueprints").map((metric) => {
-                      if (!metric) return null;
-                      const isExpanded = expandedMetric === metric.id;
-                      return (
-                        <div key={metric.id} className="flex flex-col gap-1.5 relative" id={`metric-wrapper-${metric.id}`}>
-                          <RowMetricCard
-                            metric={metric}
-                            isExpanded={isExpanded}
-                            onClick={() => {
-                              setExpandedMetric(isExpanded ? null : metric.id);
-                            }}
-                          />
-                          {isExpanded && renderExpandedBreakdown(metric.id)}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
         {/* Card: Production Quality (Turquoise-Lime #46F4CD) */}
-        <div className="flex flex-col w-full gap-4 mt-6" id="sidebar-link-sonic-2">
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-sonic-2">
           <button
             onClick={() => setProductionQualityExpanded(!productionQualityExpanded)}
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
@@ -6952,13 +6809,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         </div>
 
         {/* Card: Loudness Compliance (blue theme) */}
-        <div className="flex flex-col w-full gap-4 mt-6" id="sidebar-link-sonic-3">
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-sonic-3">
           <button
             onClick={() => setIsLoudnessComplianceExpanded(!isLoudnessComplianceExpanded)}
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               isLoudnessComplianceExpanded
                 ? "bg-[#090b0e] border-blue-500 shadow-[0_0_35px_rgba(59,130,246,0.35)] ring-1 ring-blue-500/40 font-black"
-                : "bg-[#0A0B0E]/60 border-blue-500/60 hover:border-blue-500 hover:bg-neutral-900/40 text-slate-400"
+                : "bg-[#0A0B0E]/60 border-blue-500/40 hover:border-blue-500 hover:bg-neutral-900/40 text-slate-400"
             }`}
           >
             {/* Background ambient shade */}
@@ -7087,7 +6944,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
         {/* Card: Mix Balance Quality — promoted to standalone; reuses the existing RowMetricCard + renderExpandedBreakdown untouched */}
         {/* Card: Mix Balance Quality — hero-style header matching Production Quality/Loudness Compliance, dropdown reuses renderExpandedBreakdown untouched */}
-        <div className="flex flex-col w-full gap-4 mt-6" id="sidebar-link-sonic-4">
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-sonic-4">
           {(() => {
             const mixMetric = METRICS_LIST.find(m => m.id === "mix");
             if (!mixMetric) return null;
@@ -7099,7 +6956,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
                     isExpanded
                       ? "bg-[#090b0e] border-[#ff66cc] shadow-[0_0_35px_rgba(255,102,204,0.35)] ring-1 ring-[#ff66cc]/40 font-black"
-                      : "bg-[#0A0B0E]/60 border-[#ff66cc]/60 hover:border-[#ff66cc] hover:bg-neutral-900/40 text-slate-400"
+                      : "bg-[#0A0B0E]/60 border-[#ff66cc]/40 hover:border-[#ff66cc] hover:bg-neutral-900/40 text-slate-400"
                   }`}
                 >
                   {isExpanded ? (
@@ -7163,7 +7020,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         </div>
 
         {/* Card: Vocal Tracking — hero-style header matching Production Quality/Loudness Compliance, dropdown reuses renderExpandedBreakdown untouched */}
-        <div className="flex flex-col w-full gap-4 mt-6" id="sidebar-link-sonic-5">
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-sonic-5">
           {(() => {
             const vocalsMetric = METRICS_LIST.find(m => m.id === "vocals");
             if (!vocalsMetric) return null;
@@ -7175,7 +7032,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
                     isExpanded
                       ? "bg-[#090b0e] border-[#9999ff] shadow-[0_0_35px_rgba(153,153,255,0.35)] ring-1 ring-[#9999ff]/40 font-black"
-                      : "bg-[#0A0B0E]/60 border-[#9999ff]/60 hover:border-[#9999ff] hover:bg-neutral-900/40 text-slate-400"
+                      : "bg-[#0A0B0E]/60 border-[#9999ff]/40 hover:border-[#9999ff] hover:bg-neutral-900/40 text-slate-400"
                   }`}
                 >
                   {isExpanded ? (
@@ -7236,6 +7093,149 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               </>
             );
           })()}
+        </div>
+
+        {/* Card: Technical and Diagnostic Blueprints (cyan) */}
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-sonic-1">
+          <button
+            onClick={() => handleCategoryChange("blueprints")}
+            id="blueprint-category-selector"
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+              activeCategory === "blueprints"
+                ? "bg-[#090b0e] border-cyan-500 shadow-[0_0_35px_rgba(6,182,212,0.35)] ring-1 ring-cyan-500/40 font-black"
+                : "bg-[#0A0B0E]/60 border-[#06b6d4]/40 hover:border-[#06b6d4] hover:bg-neutral-900/40 text-slate-400"
+            }`}
+          >
+            {/* Background ambient shade */}
+            {activeCategory === "blueprints" ? (
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-950/5 via-neutral-950 to-[#030509] pointer-events-none" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#030509] pointer-events-none" />
+            )}
+
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+              {/* Left Content Column */}
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                {/* Header block */}
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                    activeCategory === "blueprints"
+                      ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.25)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-slate-300"
+                  }`}>
+                    <Layers className="w-5 h-5 text-cyan-400" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span 
+                      className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                        activeCategory === "blueprints" ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                      }`}
+                    >
+                      TECHNICAL AND DIAGNOSTIC BLUEPRINTS
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">Core Metric Integration</span>
+                  </div>
+                </div>
+
+                {/* Bottom info block */}
+                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                  activeCategory === "blueprints" ? "border-cyan-500/15" : "border-white/5"
+                }`}>
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                    Integrated assessment linking Composition Flow, Stereo Mix Balance, Vocal Tracking, Instrumental Staging, and Title Searchability.
+                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider">A highly precise look at the acoustic parameters and indexing metadata of the track.</span>
+                  </p>
+                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    activeCategory === "blueprints"
+                      ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-400"
+                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
+                  }`}>
+                    {activeCategory === "blueprints" ? "ACTIVE ⬇" : "VIEW METRICS"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right Blueprint Vector schematic visual */}
+              <div className="flex-shrink-0 flex items-center justify-center relative w-[110px] h-[110px]">
+                {/* Outer pulsing ring */}
+                <div className={`absolute inset-0 rounded-full border border-dashed duration-[30s] ${
+                  activeCategory === "blueprints" ? "border-cyan-500/50 animate-spin" : "border-cyan-500/20 group-hover:animate-spin"
+                }`} />
+                <div className={`absolute inset-2 rounded-full border bg-[#05070a]/90 flex flex-col items-center justify-center shadow-inner overflow-hidden transition-colors ${
+                  activeCategory === "blueprints" ? "border-cyan-500/40" : "border-white/5 group-hover:border-cyan-500/30"
+                }`}>
+                  {/* Tech drawing lines layout */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
+                    {/* Grid overlay */}
+                    <div className="w-full h-full border border-cyan-500/40 relative">
+                      <div className="absolute left-1/2 top-0 bottom-0 border-l border-cyan-500/40" />
+                      <div className="absolute top-1/2 left-0 right-0 border-t border-cyan-500/40" />
+                      <div className="absolute inset-4 rounded-full border border-cyan-500/40" />
+                    </div>
+                  </div>
+                  
+                  {/* Visual icon representation */}
+                  <div className="flex items-center justify-center gap-1.5 z-10">
+                    <Sliders className={`w-6 h-6 transition-transform duration-500 ${
+                      activeCategory === "blueprints" ? "text-cyan-400 scale-110 rotate-12" : "text-slate-500 group-hover:text-cyan-400/80"
+                    }`} />
+                  </div>
+                  <span className={`text-[8.5px] font-mono tracking-wider font-bold mt-2 z-10 uppercase ${
+                    activeCategory === "blueprints" ? "text-cyan-400" : "text-slate-500"
+                  }`}>
+                    BLUEPRINT
+                  </span>
+                  <span className="text-[7.5px] font-mono text-slate-600 z-10">DIAGN: ON</span>
+                </div>
+              </div>
+            </div>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {activeCategory === "blueprints" && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginTop: -8 }}
+                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
+                exit={{ height: 0, opacity: 0, marginTop: -8 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden w-full relative z-0"
+              >
+                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-black/80 border border-[#06b6d4] rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
+                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
+                    TECHNICAL & DIAGNOSTIC SYSTEM BLUEPRINTS
+                  </div>
+                  <div style={{ marginTop: "-20px", paddingTop: "11px", paddingBottom: "18px" }} className="flex items-center justify-between border-b border-white/5">
+                    <span className="text-xs font-mono font-bold tracking-widest text-[#90a1b9] uppercase flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                      <span>DIAGNOSTIC SYSTEM BLUEPRINTS</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500 text-right">
+                      Exposing critical audio performance vectors & Search Indexing blueprints
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-5 relative">
+                    {getFilteredMetrics("blueprints").map((metric) => {
+                      if (!metric) return null;
+                      const isExpanded = expandedMetric === metric.id;
+                      return (
+                        <div key={metric.id} className="flex flex-col gap-1.5 relative" id={`metric-wrapper-${metric.id}`}>
+                          <RowMetricCard
+                            metric={metric}
+                            isExpanded={isExpanded}
+                            onClick={() => {
+                              setExpandedMetric(isExpanded ? null : metric.id);
+                            }}
+                          />
+                          {isExpanded && renderExpandedBreakdown(metric.id)}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div> /* End of section-sonic */
       )}
