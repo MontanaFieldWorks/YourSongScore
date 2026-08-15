@@ -4843,14 +4843,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
     return (
       <div className="flex flex-col gap-6 w-full animate-fadeIn" id="spotify-recommendation-panel">
-        
-        {/* Indented parent container representing hierarchy */}
-        <div className="border-l border-white/5 pl-4 md:pl-6 ml-0 md:ml-4 flex flex-col gap-6">
 
-          {/* Card 1 Content — always visible, no longer gated behind a second click */}
-          {(
-            <div className="bg-[#0D0E12] border border-[#1DB954]/25 rounded-2xl p-6 text-left flex flex-col gap-6 shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 left-0 bg-[#1DB954] h-[3px] w-full shadow-[0_0_8px_#1DB954]" />
+        {/* Card 1 Content — always visible, no longer gated behind a second click */}
+        {(
+            <div className="flex flex-col gap-6 text-left">
             
             <div className="flex justify-end">
               <button
@@ -5123,9 +5119,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
 
 
-        </div>
-
       </div>
+
     );
   };
 
