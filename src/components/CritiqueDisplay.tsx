@@ -4863,7 +4863,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             </div>
 
             <p className="text-xs text-slate-400 leading-normal max-w-3xl">
-              This panel shows an analysis of your song against all <strong className="text-white">7 Echo Nest sensory descriptors</strong>{" "}(<button onClick={() => onViewDefinition && onViewDefinition("Dual-Filtering Ingestion Target Compliance")} className="text-[#1ed760] font-sans font-black hover:underline cursor-pointer transition-colors hover:text-white" title="Click to view explanation inside Glossary">View Explanation</button>){" "}for your song's subgenre, mapping your track directly against content-based filtering ranges utilized in Spotify's recommender framework. (+/-5% confidence - Our targets are highly researched assumptions of the targets Spotify uses.)
+              This panel shows an analysis of your song against all <strong className="text-white">7 Echo Nest sensory descriptors</strong>{" "}(<button onClick={() => onViewDefinition && onViewDefinition("what-the-echo-nest-does")} className="text-[#1ed760] font-sans font-black hover:underline cursor-pointer transition-colors hover:text-white" title="Click to view explanation inside Glossary">View Explanation</button>){" "}for your song's subgenre, mapping your track directly against content-based filtering ranges utilized in Spotify's recommender framework. (+/-5% confidence - Our targets are highly researched assumptions of the targets Spotify uses.)
             </p>
             {(critique?.vibe?.genre || critique?.vibe?.subgenre) && (
               <div className="flex items-center gap-2 mt-1">
@@ -6251,19 +6251,19 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <div className="absolute inset-0 bg-gradient-to-br from-[#040c07]/10 via-neutral-950 to-[#030509] pointer-events-none" />
             )}
 
-            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 w-full h-full">
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
               {/* Left Content Column */}
-              <div className="flex flex-col flex-1 justify-between gap-3 h-full font-sans">
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
                 {/* Header block */}
                 <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     activeCategory === "spotify"
                       ? "bg-[#1DB954]/10 border-[#1DB954]/30 text-[#1DB954] shadow-[0_0_15px_rgba(29,185,84,0.3)]"
-                      : "p-2 rounded-xl border border-white/5 bg-neutral-900 text-slate-500 group-hover:text-[#1DB954] group-hover:border-[#1DB954]/20 group-hover:shadow-[0_0_15px_rgba(29,185,84,0.2)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-[#1DB954] group-hover:border-[#1DB954]/20 group-hover:shadow-[0_0_15px_rgba(29,185,84,0.2)]"
                   }`}>
                     <Activity className="w-5 h-5 text-[#1DB954]" />
                   </div>
-                  <div className="flex flex-col text-left">
+                  <div className="flex flex-col">
                     <span 
                       className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
                         activeCategory === "spotify" ? "text-white" : "text-slate-200 group-hover:text-white"
@@ -6271,16 +6271,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     >
                       STREAMING ALGORITHMIC ALIGNMENT
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium tracking-wide">Pillars of Content &amp; Collaborative Filtering</span>
+                    <span className="text-[10px] text-slate-500 font-medium">Pillars of Content &amp; Collaborative Filtering</span>
                   </div>
                 </div>
 
                 {/* Bottom info block */}
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
-                  activeCategory === "spotify" ? "border-emerald-500/15" : "border-white/5"
+                  activeCategory === "spotify" ? "border-[#1ed760]/15" : "border-white/5"
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
-                    This is the high level, deep dive audit of your tracks potential alignment against Spotify's content-based acoustic analysis, "Artist Universe" semantic clusters, and 30s skip prevention metrics.
+                    This is the high level, deep dive audit of your track's potential alignment against Spotify's content-based acoustic analysis — mapping your song's core audio features against genre-specific target ranges.
+                    <span className="block mt-1 text-[#1ed760]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>ESTIMATES SPOTIFY'S ACOUSTIC TARGET RANGES BY GENRE</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -8011,10 +8012,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 handleCategoryChange("spotify");
               }
             }}
-            className={`relative z-10 flex flex-col justify-between p-6 rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "spotify"
                 ? "bg-[#090b0e] border-emerald-500 shadow-[0_0_35px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500/30 font-black"
-                : "bg-[#0A0B0E]/60 border-[#1ed760] hover:border-[#1ed760] hover:bg-[#090c0a]/40 text-slate-400"
+                : "bg-[#0A0B0E]/60 border-[#1ed760]/40 hover:border-[#1ed760] hover:bg-[#090c0a]/40 text-slate-400"
             }`}
           >
             {/* Background ambient shade */}
@@ -8024,19 +8025,19 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <div className="absolute inset-0 bg-gradient-to-br from-[#040c07]/10 via-neutral-950 to-[#030509] pointer-events-none" />
             )}
 
-            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 w-full h-full">
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
               {/* Left Content Column */}
               <div className="flex flex-col flex-1 justify-between gap-3 h-full">
                 {/* Header block */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     activeCategory === "spotify"
                       ? "bg-[#1DB954]/10 border-[#1DB954]/30 text-[#1DB954] shadow-[0_0_15px_rgba(29,185,84,0.3)]"
-                      : "p-2 rounded-xl border border-white/5 bg-neutral-900 text-slate-500 group-hover:text-[#1DB954] group-hover:border-[#1DB954]/20 group-hover:shadow-[0_0_15px_rgba(29,185,84,0.2)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-[#1DB954] group-hover:border-[#1DB954]/20 group-hover:shadow-[0_0_15px_rgba(29,185,84,0.2)]"
                   }`}>
                     <Activity className="w-5 h-5 text-[#1DB954]" />
                   </div>
-                  <div className="flex flex-col text-left">
+                  <div className="flex flex-col">
                     <span 
                       className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
                         activeCategory === "spotify" ? "text-white" : "text-slate-200 group-hover:text-white"
@@ -8044,18 +8045,21 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     >
                       STREAMING ALGORITHMIC ALIGNMENT
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium tracking-wide">Pillars of Content &amp; Collaborative Filtering</span>
+                    <span className="text-[10px] text-slate-500 font-medium">Pillars of Content &amp; Collaborative Filtering</span>
                   </div>
                 </div>
 
                 {/* Bottom info block */}
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
-                  activeCategory === "spotify" ? "border-emerald-500/15" : "border-white/5"
+                  activeCategory === "spotify" ? "border-[#1ed760]/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
-                    This is the high level, deep dive audit of your tracks potential alignment against Spotify's content-based acoustic analysis, "Artist Universe" semantic clusters, and 30s skip prevention metrics.
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                    This is the high level, deep dive audit of your track's potential alignment against Spotify's content-based acoustic analysis — mapping your song's core audio features against genre-specific target ranges.
+                    <span className="block mt-1 text-[#1ed760]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>ESTIMATES SPOTIFY'S ACOUSTIC TARGET RANGES BY GENRE</span>
                   </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                  <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "spotify"
                       ? "bg-[#1ed760]/10 border-[#1ed760]/20 text-[#1ed760]"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-[#1ed760]/80"
