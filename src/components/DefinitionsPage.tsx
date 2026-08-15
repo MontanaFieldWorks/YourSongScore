@@ -116,6 +116,27 @@ export const MOCK_GENERATED_CRITIQUE_TEMPLATE = (title: string, format: string, 
 };
 };
 
+// Glossary term content, keyed by the same term string passed to onViewDefinition()
+// throughout the app. Add new terms here as they're written.
+export const GLOSSARY_TERMS: Record<string, { title: string; body: string }> = {
+  "what-the-echo-nest-does": {
+    title: "What The Echo Nest Does",
+    body: "Streaming platforms use acoustic content analysis primarily to solve the \"cold start\" problem — a brand new song has no listener behavior data yet (no skips, saves, or completions to learn from), so the system leans on the audio itself to make an initial guess about where the song fits: what genre, what mood, what energy level, and which existing songs it resembles. That initial guess determines early algorithmic seeding — whether your track gets a shot at landing on Discover Weekly, Release Radar, or genre-adjacent playlists before any real listener data exists to correct or refine that placement.\n\nFor your song, this means: the closer your acoustic profile sits to what's typical for your genre, the more confidently the algorithm can categorize and seed it early. A profile that sits far outside the norm doesn't get penalized exactly — it just becomes harder for the system to confidently place, which can mean fewer early algorithmic opportunities during the window when a song most needs them. Once real listeners start streaming, skipping, and saving your track, that behavioral data increasingly takes over from the acoustic guess."
+  },
+  "lufs-paradox": {
+    title: "The LUFS Paradox",
+    body: "Definition coming soon."
+  },
+  "cosine-similarity": {
+    title: "Cosine Similarity Mapping",
+    body: "Definition coming soon."
+  },
+  "vibe-transition": {
+    title: "Vibe Transition",
+    body: "Definition coming soon."
+  }
+};
+
 interface DashboardProps {
   onBack: () => void;
   onLoadCritique: (critique: CritiqueData, trackInfo: { name: string; artist: string; hasAudio: boolean; coverArt?: string; id?: string }) => void;
@@ -130,6 +151,7 @@ interface DashboardProps {
   overrideThreeXMode?: boolean;
   onClearAutoStart?: () => void;
   onRegisterLocalTrackFile?: (trackId: string, file: File) => void;
+  initialSelectedTerm?: string;
 }
 
 export default function Dashboard({ 
@@ -146,6 +168,8 @@ export default function Dashboard({
   overrideThreeXMode,
   onClearAutoStart,
   onRegisterLocalTrackFile
+  ,
+  initialSelectedTerm
 }: DashboardProps) {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
@@ -704,6 +728,41 @@ export default function Dashboard({
   // Divide tracks into categories
   const analyzedTracks = tracks.filter((t) => t.status === "analyzed");
   const pendingTracks = tracks.filter((t) => t.status === "pending_analysis");
+
+  if (initialSelectedTerm) {
+    const term = GLOSSARY_TERMS[initialSelectedTerm];
+    return (
+      <div className="w-full text-slate-100 flex flex-col gap-6" id="glossary-term-container">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#13161C] border border-white/5 p-6 rounded-3xl shadow-xl w-full">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={onBack}
+              className="p-3 bg-[#0A0B0E] hover:bg-white/5 border border-white/5 hover:border-white/10 rounded-2xl transition-all cursor-pointer text-slate-400 hover:text-white"
+              title="Go back"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div>
+              <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold block font-mono">GLOSSARY</span>
+              <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                {term ? term.title : "Term Not Found"}
+              </h1>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-[#13161C] border border-white/5 p-8 rounded-3xl shadow-xl w-full">
+          {term ? (
+            <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">{term.body}</p>
+          ) : (
+            <p className="text-sm text-slate-400 leading-relaxed">
+              We couldn't find a definition for this term yet.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full text-slate-100 flex flex-col gap-6" id="dashboard-system-container">
