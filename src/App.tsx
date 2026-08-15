@@ -1597,7 +1597,7 @@ export default function App() {
           <Dashboard
             knownCurrentUser={currentUser}
             onBack={() => setViewingDashboard(false)}
-            onLoadCritique={(crit, tInfo) => {
+            onLoadCritique={(crit, tInfo, destination) => {
               // Clear any stale audio blob URL from a previous upload/analysis session -
               // older Locker reports don't have their original audio file persisted, so
               // the Reference Monitor should honestly show "no audio available" rather
@@ -1613,6 +1613,7 @@ export default function App() {
               setActiveUploadFile(null);
               setCritiqueResult({ critique: applyGenreOverride(crit), trackInfo: tInfo });
               setViewingDashboard(false);
+              setViewingFullAudit(destination === "critique");
               window.scrollTo({ top: 0, behavior: 'auto' });
             }}
             activeUploadFile={activeUploadFile}
