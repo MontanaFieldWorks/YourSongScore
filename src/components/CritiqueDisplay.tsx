@@ -3368,7 +3368,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       case "flow":
         return ["#fbbf24", "#fcd74a", "#fde972", "#fef59e"];
       case "mix":
-        return ["#ff7dd6", "#ff8fde", "#ffaeeb", "#ffc8f6"];
+        return ["#ff66cc", "#ff8fde", "#ffaeeb", "#ffc8f6"];
       case "vocals":
         return ["#8e7dff", "#9b8fff", "#b3aeff"];
       case "instrumental":
@@ -3491,7 +3491,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   }
                 } else if (selectedObj.id === "mix") {
                   if (index === 0) {
-                    ringColor = "#ff7dd6";
+                    ringColor = "#ff66cc";
                   } else if (index === 1) {
                     ringColor = "#ff8fde";
                   } else if (index === 2) {
@@ -5907,7 +5907,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <div className="flex flex-col w-full gap-4" id="sidebar-link-streaming-0">
           <button
             onClick={() => handleCategoryChange("mainstream")}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "mainstream"
                 ? "bg-[#090b0e] border-blue-500 shadow-[0_0_35px_rgba(59,130,246,0.35)] ring-1 ring-blue-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-[#2a7eff]/40 hover:border-[#2a7eff] hover:bg-neutral-900/40 text-slate-400"
@@ -5924,7 +5924,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Left Content Column */}
               <div className="flex flex-col flex-1 justify-between gap-3 h-full">
                 {/* Header block */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     activeCategory === "mainstream"
                       ? "bg-blue-500/10 border-blue-500/30 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
@@ -5948,11 +5948,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "mainstream" ? "border-blue-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     This is a generalized, "quick view" analysis of how streaming services algorithms might assess your song upon upload: streaming readiness (80% weight) & production quality (20% weight).
-                    <span className="block mt-1 text-blue-400/90 font-mono text-[8.5px] uppercase tracking-wider">THIS METRIC IS HOW STREAMING SERVICES EVALUATE YOUR SONG UPON UPLOAD.</span>
+                    <span className="block mt-1 text-blue-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>THIS METRIC IS HOW STREAMING SERVICES EVALUATE YOUR SONG UPON UPLOAD.</span>
                   </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                  <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "mainstream"
                       ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
@@ -6029,7 +6031,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         <div className="flex flex-col w-full gap-4" id="sidebar-link-streaming-completion">
           <button
             onClick={() => setIsCompletionRateExpanded(!isCompletionRateExpanded)}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               isCompletionRateExpanded
                 ? "bg-[#090b0e] border-cyan-500 shadow-[0_0_35px_rgba(6,182,212,0.35)] ring-1 ring-cyan-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-[#06b6d4]/40 hover:border-[#06b6d4] hover:bg-neutral-900/40 text-slate-400"
@@ -6046,7 +6048,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Left Content Column */}
               <div className="flex flex-col flex-1 justify-between gap-3 h-full">
                 {/* Header block */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     isCompletionRateExpanded
                       ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
@@ -6070,11 +6072,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   isCompletionRateExpanded ? "border-cyan-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Predicts listener retention through your song's critical opening window. Skip behavior in the first 30 seconds serves as a primary feedback signal algorithms use to promote or throttle discovery.
-                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider">RETENTION METRIC DETERMINES ALGORITHMIC FEEDBACK LOOP SCALING.</span>
+                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>RETENTION METRIC DETERMINES ALGORITHMIC FEEDBACK LOOP SCALING.</span>
                   </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                  <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     isCompletionRateExpanded
                       ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-400"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-cyan-400"
@@ -6234,7 +6238,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 handleCategoryChange("spotify");
               }
             }}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "spotify"
                 ? "bg-[#090b0e] border-emerald-500 shadow-[0_0_35px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500/30 font-black"
                 : "bg-[#0A0B0E]/60 border-[#1ed760]/40 hover:border-[#1ed760] hover:bg-[#090c0a]/40 text-slate-400"
@@ -6251,7 +6255,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Left Content Column */}
               <div className="flex flex-col flex-1 justify-between gap-3 h-full font-sans">
                 {/* Header block */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     activeCategory === "spotify"
                       ? "bg-[#1DB954]/10 border-[#1DB954]/30 text-[#1DB954] shadow-[0_0_15px_rgba(29,185,84,0.3)]"
@@ -6275,10 +6279,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "spotify" ? "border-emerald-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     This is the high level, deep dive audit of your tracks potential alignment against Spotify's content-based acoustic analysis, "Artist Universe" semantic clusters, and 30s skip prevention metrics.
                   </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                  <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "spotify"
                       ? "bg-[#1ed760]/10 border-[#1ed760]/20 text-[#1ed760]"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-[#1ed760]/80"
@@ -6334,7 +6340,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 handleCategoryChange("recommender");
               }
             }}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "recommender"
                 ? "bg-[#0c0a14] border-violet-500 shadow-[0_0_35px_rgba(139,92,246,0.25)] ring-1 ring-violet-500/30 font-black"
                 : "bg-[#0A0B0E]/60 border-violet-500/40 hover:border-violet-500 hover:bg-[#0b0a12]/40 text-slate-400"
@@ -6351,7 +6357,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Left Content Column */}
               <div className="flex flex-col flex-1 justify-between gap-3 h-full font-sans">
                 {/* Header block */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     activeCategory === "recommender"
                       ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-[0_0_15px_rgba(139,92,246,0.3)]"
@@ -6375,10 +6381,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "recommender" ? "border-violet-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Contains information specific to Spotify's algorithmic decisions as to where your song may fit compared to other artists in the genre, and probabilities for discovery feeder distribution.
                   </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                  <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "recommender"
                       ? "bg-violet-500/10 border-violet-500/20 text-violet-400"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-violet-400/80"
@@ -6439,7 +6447,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 setSandboxPlaying(true);
               }
             }}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "sandbox"
                 ? "bg-[#090b0e] border-amber-500 shadow-[0_0_35px_rgba(245,158,11,0.35)] ring-1 ring-amber-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-[#f59e0b]/40 hover:border-[#f59e0b] hover:bg-neutral-900/40 text-slate-400"
@@ -6456,7 +6464,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Left Content Column */}
               <div className="flex flex-col flex-1 justify-between gap-3 h-full font-sans">
                 {/* Header block */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     activeCategory === "sandbox"
                       ? "bg-amber-500/10 border-amber-500/30 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
@@ -6478,11 +6486,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "sandbox" ? "border-amber-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 text-left leading-relaxed font-semibold mb-2">
+                  <p className="text-[10px] text-slate-400 text-left leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Simulate streaming skip-rates and metric feedback parameters inside curators' placement filters.
-                    <span className="block mt-1 text-[#fe9a00] font-mono text-[9px] tracking-widest uppercase transition-colors">THIS METRIC SIMULATES HOW STREAMING SERVICES DETERMINE YOUR SONG'S IMPACT AFTER IT BEGINS STREAMING.</span>
+                    <span className="block mt-1 text-[#fe9a00] font-mono text-[9px] tracking-widest uppercase transition-colors" style={{ marginBottom: "2px" }}>THIS METRIC SIMULATES HOW STREAMING SERVICES DETERMINE YOUR SONG'S IMPACT AFTER IT BEGINS STREAMING.</span>
                   </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                  <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "sandbox"
                       ? "bg-amber-500/10 border-amber-500/20 text-amber-500"
                       : "bg-[#0A0B0E]/60 border-white/5 hover:border-amber-500/40 hover:bg-neutral-900/40 text-slate-500 group-hover:text-amber-400"
@@ -6959,12 +6969,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       : "bg-[#0A0B0E]/60 border-[#ff66cc]/40 hover:border-[#ff66cc] hover:bg-neutral-900/40 text-slate-400"
                   }`}
                 >
-                  {isExpanded ? (
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#ff66cc]/10 via-neutral-950 to-[#03050a] pointer-events-none" />
-                  ) : (
-                    <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#03050a] pointer-events-none" />
-                  )}
-
                   <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
                     <div className="flex flex-col flex-1 justify-between gap-3 h-full">
                       <div className="flex items-center gap-3">
