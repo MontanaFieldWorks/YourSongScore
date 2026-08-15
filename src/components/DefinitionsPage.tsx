@@ -307,6 +307,23 @@ export default function DefinitionsPage({ onBack, initialSelectedTerm, onNavigat
             </p>
           </div>
 
+          {/* DEFINITION: What The Echo Nest Does */}
+          <div id="def-what-the-echo-nest-does" className="bg-[#020203] border border-blue-500/20 rounded-xl p-5 shadow-inner transition-all duration-300 text-left relative overflow-hidden">
+            <div className="absolute top-4 right-4 px-2 py-0.5 bg-blue-500/10 border border-blue-500/30 rounded text-[9px] font-mono font-bold text-blue-400 uppercase tracking-widest">
+              A&amp;R Concept
+            </div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              <span>What The Echo Nest Does</span>
+            </h3>
+            <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+              Streaming platforms use acoustic content analysis primarily to solve the "cold start" problem — a brand new song has no listener behavior data yet (no skips, saves, or completions to learn from), so the system leans on the audio itself to make an initial guess about where the song fits: what genre, what mood, what energy level, and which existing songs it resembles. That initial guess determines early algorithmic seeding — whether your track gets a shot at landing on Discover Weekly, Release Radar, or genre-adjacent playlists before any real listener data exists to correct or refine that placement.
+            </p>
+            <p className="text-xs text-slate-300 mt-3 leading-relaxed">
+              For your song, this means: the closer your acoustic profile sits to what's typical for your genre, the more confidently the algorithm can categorize and seed it early. A profile that sits far outside the norm doesn't get penalized exactly — it just becomes harder for the system to confidently place, which can mean fewer early algorithmic opportunities during the window when a song most needs them. Once real listeners start streaming, skipping, and saving your track, that behavioral data increasingly takes over from the acoustic guess.
+            </p>
+          </div>
+
           {/* DEFINITION: Sequential Variance / Transition Lab */}
           <div id="def-vibe-transition" className="bg-[#020203] border border-emerald-500/20 rounded-xl p-5 shadow-inner transition-all duration-300 text-left relative overflow-hidden">
             <div className="absolute top-4 right-4 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded text-[9px] font-mono font-bold text-emerald-400 uppercase tracking-widest">
