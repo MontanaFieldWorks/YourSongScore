@@ -6631,7 +6631,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         <div className="flex flex-col w-full gap-4" id="sidebar-link-sonic-2">
           <button
             onClick={() => setProductionQualityExpanded(!productionQualityExpanded)}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               productionQualityExpanded
                 ? "bg-[#090b0e] border-[#46F4CD] shadow-[0_0_35px_rgba(70,244,205,0.35)] ring-1 ring-[#46F4CD]/40 font-black"
                 : "bg-[#0A0B0E]/60 border-[#46F4CD]/40 hover:border-[#46F4CD] hover:bg-neutral-900/40 text-slate-400"
@@ -6648,7 +6648,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Left Content Column */}
               <div className="flex flex-col flex-1 justify-between gap-3 h-full">
                 {/* Header block */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     productionQualityExpanded
                       ? "bg-[#46F4CD]/10 border-[#46F4CD]/30 text-[#46F4CD] shadow-[0_0_15px_rgba(70,244,205,0.25)]"
@@ -6672,11 +6672,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   productionQualityExpanded ? "border-[#46F4CD]/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     A diagnostic of arrangement, sonic texture, low-end power, stereo depth, vocals, and energy.
-                    <span className="block mt-1 text-[#46F4CD]/90 font-mono text-[8.5px] uppercase tracking-wider">This metric is crucial for algorithmic reach and listener retention.</span>
+                    <span className="block mt-1 text-[#46F4CD]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for algorithmic reach and listener retention.</span>
                   </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                  <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     productionQualityExpanded
                       ? "bg-[#46F4CD]/10 border-[#46F4CD]/20 text-[#46F4CD]"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
@@ -6823,7 +6825,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         <div className="flex flex-col w-full gap-4" id="sidebar-link-sonic-3">
           <button
             onClick={() => setIsLoudnessComplianceExpanded(!isLoudnessComplianceExpanded)}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               isLoudnessComplianceExpanded
                 ? "bg-[#090b0e] border-blue-500 shadow-[0_0_35px_rgba(59,130,246,0.35)] ring-1 ring-blue-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-blue-500/40 hover:border-blue-500 hover:bg-neutral-900/40 text-slate-400"
@@ -6840,7 +6842,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Left Content Column */}
               <div className="flex flex-col flex-1 justify-between gap-3 h-full">
                 {/* Header block */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     isLoudnessComplianceExpanded
                       ? "bg-blue-500/10 border-blue-500/30 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
@@ -6864,11 +6866,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   isLoudnessComplianceExpanded ? "border-blue-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Measures whether your track's integrated loudness (LUFS) and dynamic range (LRA) fall within the target windows for your genre — the same real pass/fail data used elsewhere in your streaming audit.
-                    <span className="block mt-1 text-blue-400/90 font-mono text-[8.5px] uppercase tracking-wider">DRIVES 25% OF YOUR SONIC SOUNDPRINT SCORE.</span>
+                    <span className="block mt-1 text-blue-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>DRIVES 25% OF YOUR SONIC SOUNDPRINT SCORE.</span>
                   </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                  <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     isLoudnessComplianceExpanded
                       ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-blue-400"
@@ -6964,7 +6968,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <>
                 <button
                   onClick={() => setExpandedMetric(isExpanded ? null : "mix")}
-                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
                     isExpanded
                       ? "bg-[#090b0e] border-[#ff66cc] shadow-[0_0_35px_rgba(255,102,204,0.35)] ring-1 ring-[#ff66cc]/40 font-black"
                       : "bg-[#0A0B0E]/60 border-[#ff66cc]/40 hover:border-[#ff66cc] hover:bg-neutral-900/40 text-slate-400"
@@ -6972,7 +6976,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 >
                   <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
                     <div className="flex flex-col flex-1 justify-between gap-3 h-full">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                         <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                           isExpanded
                             ? "bg-[#ff66cc]/10 border-[#ff66cc]/30 text-[#ff66cc] shadow-[0_0_15px_rgba(255,102,204,0.3)]"
@@ -6993,10 +6997,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                         isExpanded ? "border-[#ff66cc]/15" : "border-white/5"
                       }`}>
-                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                           {mixMetric.callout}
                         </p>
-                        <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                        <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                           isExpanded
                             ? "bg-[#ff66cc]/10 border-[#ff66cc]/20 text-[#ff66cc]"
                             : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-[#ff66cc]"
@@ -7034,7 +7040,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <>
                 <button
                   onClick={() => setExpandedMetric(isExpanded ? null : "vocals")}
-                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
                     isExpanded
                       ? "bg-[#090b0e] border-[#9999ff] shadow-[0_0_35px_rgba(153,153,255,0.35)] ring-1 ring-[#9999ff]/40 font-black"
                       : "bg-[#0A0B0E]/60 border-[#9999ff]/40 hover:border-[#9999ff] hover:bg-neutral-900/40 text-slate-400"
@@ -7048,7 +7054,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                   <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
                     <div className="flex flex-col flex-1 justify-between gap-3 h-full">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                         <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                           isExpanded
                             ? "bg-[#9999ff]/10 border-[#9999ff]/30 text-[#9999ff] shadow-[0_0_15px_rgba(153,153,255,0.3)]"
@@ -7069,10 +7075,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                         isExpanded ? "border-[#9999ff]/15" : "border-white/5"
                       }`}>
-                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                           {vocalsMetric.callout}
                         </p>
-                        <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                        <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                           isExpanded
                             ? "bg-[#9999ff]/10 border-[#9999ff]/20 text-[#9999ff]"
                             : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-[#9999ff]"
@@ -7105,7 +7113,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           <button
             onClick={() => handleCategoryChange("blueprints")}
             id="blueprint-category-selector"
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "blueprints"
                 ? "bg-[#090b0e] border-cyan-500 shadow-[0_0_35px_rgba(6,182,212,0.35)] ring-1 ring-cyan-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-[#06b6d4]/40 hover:border-[#06b6d4] hover:bg-neutral-900/40 text-slate-400"
@@ -7122,7 +7130,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Left Content Column */}
               <div className="flex flex-col flex-1 justify-between gap-3 h-full">
                 {/* Header block */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     activeCategory === "blueprints"
                       ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.25)]"
@@ -7146,11 +7154,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "blueprints" ? "border-cyan-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Integrated assessment linking Composition Flow, Stereo Mix Balance, Vocal Tracking, Instrumental Staging, and Title Searchability.
-                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider">A highly precise look at the acoustic parameters and indexing metadata of the track.</span>
+                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>A highly precise look at the acoustic parameters and indexing metadata of the track.</span>
                   </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                  <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "blueprints"
                       ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-400"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
@@ -7274,7 +7284,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-0">
           <button
             onClick={() => handleCategoryChange("artistic")}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "artistic"
                 ? "bg-[#090b0e] border-purple-500 shadow-[0_0_35px_rgba(168,85,247,0.35)] ring-1 ring-purple-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-[#a855f7] hover:border-[#a855f7] hover:bg-neutral-900/40 text-slate-400"
@@ -7291,7 +7301,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Left Content Column */}
               <div className="flex flex-col flex-1 justify-between gap-3 h-full">
                 {/* Header block */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     activeCategory === "artistic"
                       ? "bg-purple-500/10 border-purple-500/30 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.25)]"
@@ -7315,11 +7325,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "artistic" ? "border-purple-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     An evaluation of creative authenticity, harmonic depth, and musical competence.
-                    <span className="block mt-1 text-purple-400/90 font-mono text-[8.5px] uppercase tracking-wider">This metric is not considered by streaming services.</span>
+                    <span className="block mt-1 text-purple-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is not considered by streaming services.</span>
                   </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                  <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "artistic"
                       ? "bg-purple-500/10 border-purple-500/20 text-purple-400"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
@@ -7422,7 +7434,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-1">
           <button
             onClick={() => handleCategoryChange("dna")}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "dna"
                 ? "bg-[#090b0e] border-emerald-500 shadow-[0_0_35px_rgba(16,185,129,0.35)] ring-1 ring-emerald-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-[#10b981] hover:border-[#10b981] hover:bg-neutral-900/40 text-slate-400"
@@ -7439,7 +7451,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Left Content Column */}
               <div className="flex flex-col flex-1 justify-between gap-3 h-full">
                 {/* Header block */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     activeCategory === "dna"
                       ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.25)]"
@@ -7463,11 +7475,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "dna" ? "border-emerald-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     An analysis of the underlying strength of the songwriting compared to popular songwriting parameters.
-                    <span className="block mt-1 text-emerald-400/90 font-mono text-[8.5px] uppercase tracking-wider">This metric is not considered by streaming services.</span>
+                    <span className="block mt-1 text-emerald-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is not considered by streaming services.</span>
                   </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                  <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "dna"
                       ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
@@ -7542,7 +7556,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-2">
           <button
             onClick={() => handleCategoryChange("architecture")}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "architecture"
                 ? "bg-[#090b0e] border-violet-500 shadow-[0_0_35px_rgba(139,92,246,0.35)] ring-1 ring-violet-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-[#8b5cf6] hover:border-[#8b5cf6] hover:bg-neutral-900/40 text-slate-400"
@@ -7559,7 +7573,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Left Content Column */}
               <div className="flex flex-col flex-1 justify-between gap-3 h-full">
                 {/* Header block */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     activeCategory === "architecture"
                       ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-[0_0_15px_rgba(139,92,246,0.25)]"
@@ -7583,11 +7597,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "architecture" ? "border-violet-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     A visual breakdown of your song's structural sections with timestamps, loudness arc, and hook placement audit.
-                    <span className="block mt-1 text-violet-400/90 font-mono text-[8.5px] uppercase tracking-wider">This metric is not considered by streaming services.</span>
+                    <span className="block mt-1 text-violet-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is not considered by streaming services.</span>
                   </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                  <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "architecture"
                       ? "bg-violet-500/10 border-violet-500/20 text-violet-400"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
