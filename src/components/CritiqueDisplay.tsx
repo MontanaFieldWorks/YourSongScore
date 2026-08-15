@@ -6865,7 +6865,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Measures whether your track's integrated loudness (LUFS) and dynamic range (LRA) fall within the target windows for your genre — the same real pass/fail data used elsewhere in your streaming audit.
-                    <span className="block mt-1 text-blue-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>DRIVES 25% OF YOUR SONIC SOUNDPRINT SCORE.</span>
+                    <span className="block mt-1 text-blue-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for playlist consistency and algorithmic trust.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -6996,6 +6996,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       }`}>
                         <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                           {mixMetric.callout}
+                          <span className="block mt-1 text-[#ff66cc]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for algorithmic clarity and professional sonic competitiveness.</span>
                         </p>
                         <span 
                     style={{ paddingTop: "2px" }}
@@ -7074,6 +7075,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       }`}>
                         <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                           {vocalsMetric.callout}
+                          <span className="block mt-1 text-[#9999ff]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for listener connection and professional vocal presentation.</span>
                         </p>
                         <span 
                     style={{ paddingTop: "2px" }}
