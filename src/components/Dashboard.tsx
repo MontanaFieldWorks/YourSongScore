@@ -119,7 +119,7 @@ export const MOCK_GENERATED_CRITIQUE_TEMPLATE = (title: string, format: string, 
 
 interface DashboardProps {
   onBack: () => void;
-  onLoadCritique: (critique: CritiqueData, trackInfo: { name: string; artist: string; hasAudio: boolean; coverArt?: string; id?: string }) => void;
+  onLoadCritique: (critique: CritiqueData, trackInfo: { name: string; artist: string; hasAudio: boolean; coverArt?: string; id?: string }, destination?: "summary" | "critique") => void;
   activeUploadFile: File | null;
   activeUploadTitle?: string | null;
   activeUploadArtist?: string | null;
@@ -704,7 +704,7 @@ export default function Dashboard({
     }
   };
 
-  const loadReport = (track: StoredTrack) => {
+  const loadReport = (track: StoredTrack, destination: "summary" | "critique" = "summary") => {
     let critiqueToUse = track.critique;
 
     // Robust self-healing fallback: if track is analyzed but lacks a critique field (due to pruning or sync limits), 
@@ -733,7 +733,7 @@ export default function Dashboard({
         hasAudio: true,
         coverArt: track.coverArt,
         id: track.id
-      });
+      }, destination);
     } else {
       // If it is in the pending waitlist and clicked, trigger analysis immediately to view it
       startAnalysis(track);
@@ -1488,7 +1488,14 @@ export default function Dashboard({
                           <td className="p-3 text-right">
                             <div className="flex items-center justify-end gap-1.5 w-full">
                               <button
-                                onClick={() => loadReport(track)}
+                                onClick={() => loadReport(track, "summary")}
+                                className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-all text-[10px] font-bold tracking-tight uppercase cursor-pointer hover:scale-103 select-none flex items-center justify-center gap-1 shrink-0 leading-none border border-white/10"
+                              >
+                                <span>Summary</span>
+                                <ChevronRight className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => loadReport(track, "critique")}
                                 className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all text-[10px] font-bold tracking-tight uppercase cursor-pointer hover:scale-103 select-none flex items-center justify-center gap-1 shrink-0 leading-none"
                               >
                                 <span>Report</span>
