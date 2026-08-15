@@ -55,10 +55,15 @@ export default function App() {
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [critiqueResult, setCritiqueResult] = useState<CritiqueResponse | null>(null);
   const [viewingFullAudit, setViewingFullAudit] = useState(false);
+  // Carries an explicit destination (set by the Locker's Report/Summary buttons) through to
+  // the effect below, so it isn't clobbered by the effect's default "always start at Summary"
+  // behavior for every other flow (fresh analysis, etc.) that doesn't specify one.
+  const pendingViewOverride = React.useRef<"summary" | "critique" | null>(null);
 
   React.useEffect(() => {
     if (critiqueResult) {
-      setViewingFullAudit(false);
+      setViewingFullAudit(pendingViewOverride.current === "critique");
+      pendingViewOverride.current = null;
     }
   }, [critiqueResult]);
 
@@ -1611,9 +1616,9 @@ export default function App() {
               // indefinitely, which can cause it to be re-imported as a duplicate Locker
               // waitlist entry the next time the Dashboard is viewed.
               setActiveUploadFile(null);
+              pendingViewOverride.current = destination ?? "summary";
               setCritiqueResult({ critique: applyGenreOverride(crit), trackInfo: tInfo });
               setViewingDashboard(false);
-              setViewingFullAudit(destination === "critique");
               window.scrollTo({ top: 0, behavior: 'auto' });
             }}
             activeUploadFile={activeUploadFile}
