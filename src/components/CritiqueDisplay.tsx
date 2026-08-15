@@ -610,6 +610,8 @@ export function computeCategoryScores(critique: any) {
     compositionalDepth: scoreCompositionalDepth,
     echoNestAvgMatch: Math.round(echoNestAvgMatch),
     loudnessComplianceScore: Math.round(loudnessComplianceScore),
+    overall: Math.round(overallProductionVal),
+    mix: Math.round(critique?.mixQuality?.score ?? 75),
   };
 }
 
