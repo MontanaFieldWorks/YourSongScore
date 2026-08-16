@@ -1973,19 +1973,41 @@ const generateHarmonicNodes = () => {
                           <span className={`text-base md:text-lg font-bold leading-snug tracking-wide ${isChecked ? "line-through text-slate-600" : "text-slate-200"}`}>
                             {item.title}
                           </span>
-                          <span className="text-sm text-slate-400 mt-1 leading-relaxed">
+                          <span 
+                            style={{ marginTop: "-1px" }}
+                            className="text-sm text-slate-400 leading-relaxed"
+                          >
                             {item.recommendation}
                           </span>
-                          <div className="mt-3 pt-2.5 border-t border-white/5 font-mono text-xs text-blue-400 leading-normal">
-                            <span className="text-slate-500 font-sans font-bold mr-1 uppercase block mb-1">DAW VALUE:</span>
+                          <div 
+                            style={{ marginTop: "0px", paddingTop: "5px" }}
+                            className="border-t border-white/5 font-mono text-xs text-blue-400 leading-normal"
+                          >
+                            <span 
+                              style={{ marginBottom: "-3px", marginRight: "0px", fontSize: "11px" }}
+                              className="text-slate-500 font-sans font-bold uppercase block"
+                            >
+                              DAW VALUE:
+                            </span>
                             {item.technicalGuideBullets && item.technicalGuideBullets.length > 0 ? (
                               <ul className="list-disc list-inside space-y-1.5 mt-1">
                                 {item.technicalGuideBullets.map((bullet, bIdx) => (
-                                  <li key={bIdx} className="text-xs text-cyan-300/90 leading-relaxed">{bullet}</li>
+                                  <li 
+                                    key={bIdx} 
+                                    style={{ fontFamily: "Inter, sans-serif", fontSize: "13px", color: "#50a2ff" }}
+                                    className="leading-relaxed"
+                                  >
+                                    {bullet}
+                                  </li>
                                 ))}
                               </ul>
                             ) : (
-                              <span className="text-xs text-cyan-300/90 leading-relaxed">{item.technicalGuide}</span>
+                              <span 
+                                style={{ fontFamily: "Inter, sans-serif", fontSize: "13px", color: "#50a2ff" }}
+                                className="leading-relaxed"
+                              >
+                                {item.technicalGuide}
+                              </span>
                             )}
                           </div>
                         </div>
