@@ -7586,6 +7586,102 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           })()}
         </div>
 
+        {/* Card: Arrangement Flow — new card built from scratch (critique.arrangement.flowScore + transitionsAndArc) */}
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-5">
+          <button
+            onClick={() => setExpandedMetric(expandedMetric === "flow" ? null : "flow")}
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+              expandedMetric === "flow"
+                ? "bg-[#0f0b06] border-amber-500 shadow-[0_0_35px_rgba(245,158,11,0.35)] ring-1 ring-amber-500/40 font-black"
+                : "bg-[#0A0B0E]/60 border-amber-500/40 hover:border-amber-500 hover:bg-neutral-900/40 text-slate-400"
+            }`}
+          >
+            {expandedMetric === "flow" ? (
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-950/10 via-neutral-950 to-[#03050a] pointer-events-none" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#03050a] pointer-events-none" />
+            )}
+
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
+                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                    expandedMetric === "flow"
+                      ? "bg-amber-500/10 border-amber-500/30 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-amber-500"
+                  }`}>
+                    <Waves className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                      expandedMetric === "flow" ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                    }`}>
+                      ARRANGEMENT FLOW
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">Structural Build &amp; Dynamic Arc</span>
+                  </div>
+                </div>
+
+                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                  expandedMetric === "flow" ? "border-amber-500/15" : "border-white/5"
+                }`}>
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                    Assesses whether transitions between sections build tension and release effectively, keeping the arrangement's energy scaling coherent from intro to outro.
+                    <span className="block mt-1 text-amber-500/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for structural pacing and dynamic build, driving 35% of Compositional Depth.</span>
+                  </p>
+                  <span
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    expandedMetric === "flow"
+                      ? "bg-amber-500/10 border-amber-500/20 text-amber-500"
+                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-amber-500"
+                  }`}>
+                    {expandedMetric === "flow" ? "ACTIVE ⬇" : "VIEW METRICS ⚡"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex-shrink-0 flex items-center justify-center">
+                <ScoreCircle
+                  score={Math.round(critique?.arrangement?.flowScore ?? 75)}
+                  size={110}
+                  strokeWidth={7}
+                  color={expandedMetric === "flow" ? "#f59e0b" : "rgba(245, 158, 11, 0.45)"}
+                  glowColor={expandedMetric === "flow" ? "rgba(245, 158, 11, 0.65)" : "rgba(245, 158, 11, 0.15)"}
+                  extraGlow={expandedMetric === "flow"}
+                />
+              </div>
+            </div>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {expandedMetric === "flow" && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginTop: -8 }}
+                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
+                exit={{ height: 0, opacity: 0, marginTop: -8 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden w-full relative z-0"
+              >
+                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-amber-500 rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
+                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
+                    ARRANGEMENT FLOW AUDIT
+                  </div>
+                  <div className="p-4 bg-[#020203] border border-white/10 rounded-xl">
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500 block mb-1.5">Transitions &amp; Dynamic Arc</span>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      {critique?.arrangement?.transitionsAndArc ?? "Arrangement transitions and dynamic arc data unavailable."}
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
+                    Arrangement Flow is weighted at 35% into your overall Compositional Depth score — tied with Music Theory as the largest ingredient in that category.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
         {/* Card 4: Songwriting DNA & Potential (emerald) */}
         <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-1">
           <button
