@@ -1017,7 +1017,15 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   const yinHopSize = 512;
   const yinMaxTau = Math.round((800 * sampleRate) / 48000);
   const totalYinFrames = Math.floor((ch0.length - yinWindowSize) / yinHopSize);
-  const yinStep = Math.max(1, Math.ceil(totalYinFrames / 800));
+  // Frame budget raised from 800 to 2000 (~2.5x temporal resolution). Ground-truth testing
+  // against real sheet music showed a ~95% undercounting gap (9 detected vs 186 real vocal
+  // notes) - far more than threshold tuning alone could explain. At the old 800-frame cap,
+  // analyzed frames were spaced roughly a quarter-second apart on a typical song, which is
+  // coarser than real melodic note changes in faster-moving vocal lines. This trades longer
+  // analysis time for meaningfully denser sampling. Worth confirming in real testing whether
+  // this closes enough of the gap, or whether a smarter energy-prioritized sampling strategy
+  // is still needed on top of this.
+  const yinStep = Math.max(1, Math.ceil(totalYinFrames / 2000));
 
   const melodyFrames: { voiced: boolean; frequencyHz?: number; midiNote?: number; timeSec: number }[] = [];
 
