@@ -1422,8 +1422,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   // Gemini's single holistic Music Theory score.
   const v2MelodyData = liveMetrics?.detectedMelodyNotes ?? null;
   let v2MelodyScore: number | null = null;
-  let v2MelodyDetail = "Not enough transcribed melody data to compute a real score yet.";
-  if (v2MelodyData && v2MelodyData.notes && v2MelodyData.notes.length >= 8) {
+  let v2MelodyDetail = "No transcribed melody data detected for this track yet.";
+  if (v2MelodyData && v2MelodyData.notes && v2MelodyData.notes.length > 0 && v2MelodyData.notes.length < 30) {
+    v2MelodyDetail = `Only ${v2MelodyData.notes.length} pitch events detected — too few for a reliable score (30+ needed). This usually means the melody transcription pass isn't picking up enough of the vocal line on this track.`;
+  }
+  if (v2MelodyData && v2MelodyData.notes && v2MelodyData.notes.length >= 30) {
     const { totalSteps, totalLeaps, totalRepeats } = v2MelodyData;
     const totalMotion = totalSteps + totalLeaps;
     const stepRatio = totalMotion > 0 ? totalSteps / totalMotion : 0;
