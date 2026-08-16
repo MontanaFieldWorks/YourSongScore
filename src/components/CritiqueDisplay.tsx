@@ -5947,7 +5947,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     This is a generalized, "quick view" analysis of how streaming services algorithms might assess your song upon upload: streaming readiness (80% weight) & production quality (20% weight).
-                    <span className="block mt-1 text-blue-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>THIS METRIC IS HOW STREAMING SERVICES EVALUATE YOUR SONG UPON UPLOAD.</span>
+                    <span className="block mt-1 text-blue-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for predicting first-listen algorithmic scoring and playlist eligibility.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -6071,7 +6071,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Predicts listener retention through your song's critical opening window. Skip behavior in the first 30 seconds serves as a primary feedback signal algorithms use to promote or throttle discovery.
-                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>RETENTION METRIC DETERMINES ALGORITHMIC FEEDBACK LOOP SCALING.</span>
+                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for surviving the first-30-second skip window that shapes algorithmic trust.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -6278,7 +6278,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     This is the high level, deep dive audit of your track's potential alignment against Spotify's content-based acoustic analysis — mapping your song's core audio features against genre-specific target ranges.
-                    <span className="block mt-1 text-[#1ed760]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>ESTIMATES SPOTIFY'S ACOUSTIC TARGET RANGES BY GENRE</span>
+                    <span className="block mt-1 text-[#1ed760]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for matching the acoustic profile Spotify expects from your genre.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -6351,19 +6351,19 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#0c0d11] pointer-events-none" />
             )}
 
-            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 w-full h-full">
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
               {/* Left Content Column */}
-              <div className="flex flex-col flex-1 justify-between gap-3 h-full font-sans">
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
                 {/* Header block */}
                 <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     activeCategory === "recommender"
                       ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-[0_0_15px_rgba(139,92,246,0.3)]"
-                      : "p-2 rounded-xl border border-white/5 bg-neutral-900 text-slate-500 group-hover:text-violet-400 group-hover:border-violet-500/20 group-hover:shadow-[0_0_15px_rgba(139,92,246,0.2)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-violet-400 group-hover:border-violet-500/20 group-hover:shadow-[0_0_15px_rgba(139,92,246,0.2)]"
                   }`}>
                     <Compass className="w-5 h-5 text-violet-400" />
                   </div>
-                  <div className="flex flex-col text-left">
+                  <div className="flex flex-col">
                     <span
                       className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
                         activeCategory === "recommender" ? "text-white" : "text-slate-200 group-hover:text-white"
@@ -6371,7 +6371,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     >
                       RECOMMENDER PERFORMANCE PREDICTION
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium tracking-wide">Predicted Algorithmic Indexing</span>
+                    <span className="text-[10px] text-slate-500 font-medium">Predicted Algorithmic Indexing</span>
                   </div>
                 </div>
 
@@ -6381,6 +6381,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Contains information specific to Spotify's algorithmic decisions as to where your song may fit compared to other artists in the genre, and probabilities for discovery feeder distribution.
+                    <span className="block mt-1 text-violet-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for anticipating playlist placement, though excluded from your overall score.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -6460,13 +6461,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
             <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
               {/* Left Content Column */}
-              <div className="flex flex-col flex-1 justify-between gap-3 h-full font-sans">
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
                 {/* Header block */}
                 <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     activeCategory === "sandbox"
                       ? "bg-amber-500/10 border-amber-500/30 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
-                      : "p-2 rounded-xl border border-white/5 bg-neutral-900 text-slate-500 group-hover:text-amber-400 group-hover:border-amber-500/20 group-hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-amber-400 group-hover:border-amber-500/20 group-hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]"
                   }`}>
                     <Compass className="w-5 h-5 text-amber-500" />
                   </div>
@@ -6476,7 +6477,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     }`}>
                       ALGORITHMIC SANDBOX
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium font-sans">Placement & Retention Simulator</span>
+                    <span className="text-[10px] text-slate-500 font-medium">Placement & Retention Simulator</span>
                   </div>
                 </div>
 
@@ -6485,8 +6486,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   activeCategory === "sandbox" ? "border-amber-500/15" : "border-white/5"
                 }`}>
                   <p className="text-[10px] text-slate-400 text-left leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
-                    Simulate streaming skip-rates and metric feedback parameters inside curators' placement filters.
-                    <span className="block mt-1 text-[#fe9a00] font-mono text-[9px] tracking-widest uppercase transition-colors" style={{ marginBottom: "2px" }}>THIS METRIC SIMULATES HOW STREAMING SERVICES DETERMINE YOUR SONG'S IMPACT AFTER IT BEGINS STREAMING.</span>
+                    Simulate mood positioning, sonic similarity to reference tracks, playlist transition compatibility, and skip-rate risk inside curators' placement filters.
+                    <span className="block mt-1 text-[#fe9a00]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for anticipating how curators and algorithms will place your song.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -7155,7 +7156,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Integrated assessment linking Composition Flow, Stereo Mix Balance, Vocal Tracking, Instrumental Staging, and Title Searchability.
-                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>A highly precise look at the acoustic parameters and indexing metadata of the track.</span>
+                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for pinpointing exact engineering fixes across your mix.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -7326,7 +7327,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     An evaluation of creative authenticity, harmonic depth, and musical competence.
-                    <span className="block mt-1 text-purple-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is not considered by streaming services.</span>
+                    <span className="block mt-1 text-purple-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for artistic legacy and creative depth, though not factored into streaming algorithms.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -7476,7 +7477,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     An analysis of the underlying strength of the songwriting compared to popular songwriting parameters.
-                    <span className="block mt-1 text-emerald-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is not considered by streaming services.</span>
+                    <span className="block mt-1 text-emerald-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for structural songwriting strength, though not factored into streaming algorithms.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -7598,7 +7599,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     A visual breakdown of your song's structural sections with timestamps, loudness arc, and hook placement audit.
-                    <span className="block mt-1 text-violet-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is not considered by streaming services.</span>
+                    <span className="block mt-1 text-violet-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for visualizing your track's pacing and hook placement, though not factored into streaming algorithms.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -8070,7 +8071,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     This is the high level, deep dive audit of your track's potential alignment against Spotify's content-based acoustic analysis — mapping your song's core audio features against genre-specific target ranges.
-                    <span className="block mt-1 text-[#1ed760]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>ESTIMATES SPOTIFY'S ACOUSTIC TARGET RANGES BY GENRE</span>
+                    <span className="block mt-1 text-[#1ed760]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for matching the acoustic profile Spotify expects from your genre.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -8130,10 +8131,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 handleCategoryChange("recommender");
               }
             }}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[180px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "recommender"
                 ? "bg-[#0c0a14] border-violet-500 shadow-[0_0_35px_rgba(139,92,246,0.25)] ring-1 ring-violet-500/30 font-black"
-                : "bg-[#0A0B0E]/60 border-violet-500/60 hover:border-violet-500 hover:bg-[#0b0a12]/40 text-slate-400"
+                : "bg-[#0A0B0E]/60 border-violet-500/40 hover:border-violet-500 hover:bg-[#0b0a12]/40 text-slate-400"
             }`}
           >
             {/* Background ambient shade */}
@@ -8143,19 +8144,19 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#0c0d11] pointer-events-none" />
             )}
 
-            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 w-full h-full">
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
               {/* Left Content Column */}
-              <div className="flex flex-col flex-1 justify-between gap-3 h-full font-sans">
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
                 {/* Header block */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     activeCategory === "recommender"
                       ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-[0_0_15px_rgba(139,92,246,0.3)]"
-                      : "p-2 rounded-xl border border-white/5 bg-neutral-900 text-slate-500 group-hover:text-violet-400 group-hover:border-violet-500/20 group-hover:shadow-[0_0_15px_rgba(139,92,246,0.2)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-violet-400 group-hover:border-violet-500/20 group-hover:shadow-[0_0_15px_rgba(139,92,246,0.2)]"
                   }`}>
                     <Compass className="w-5 h-5 text-violet-400" />
                   </div>
-                  <div className="flex flex-col text-left">
+                  <div className="flex flex-col">
                     <span
                       className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
                         activeCategory === "recommender" ? "text-white" : "text-slate-200 group-hover:text-white"
@@ -8163,7 +8164,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     >
                       RECOMMENDER PERFORMANCE PREDICTION
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium tracking-wide">Predicted Algorithmic Indexing</span>
+                    <span className="text-[10px] text-slate-500 font-medium">Predicted Algorithmic Indexing</span>
                   </div>
                 </div>
 
@@ -8171,10 +8172,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "recommender" ? "border-violet-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold mb-2">
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Contains information specific to Spotify's algorithmic decisions as to where your song may fit compared to other artists in the genre, and probabilities for discovery feeder distribution.
+                    <span className="block mt-1 text-violet-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for anticipating playlist placement, though excluded from your overall score.</span>
                   </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                  <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "recommender"
                       ? "bg-violet-500/10 border-violet-500/20 text-violet-400"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-violet-400/80"
@@ -8252,11 +8256,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Left Content Column */}
               <div className="flex flex-col flex-1 justify-between gap-3 h-full">
                 {/* Header block */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
                   <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
                     activeCategory === "sandbox"
                       ? "bg-amber-500/10 border-amber-500/30 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
-                      : "p-2 rounded-xl border border-white/5 bg-neutral-900 text-slate-500 group-hover:text-amber-400 group-hover:border-amber-500/20 group-hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-amber-400 group-hover:border-amber-500/20 group-hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]"
                   }`}>
                     <Compass className="w-5 h-5 text-amber-500" />
                   </div>
@@ -8274,11 +8278,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "sandbox" ? "border-amber-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 text-left leading-relaxed font-semibold mb-2">
-                    Simulate streaming skip-rates and metric feedback parameters inside curators' placement filters.
-                    <span className="block mt-1 text-[#fe9a00] font-mono text-[9px] tracking-widest uppercase transition-colors">THIS METRIC SIMULATES HOW STREAMING SERVICES DETERMINE YOUR SONG'S IMPACT AFTER IT BEGINS STREAMING.</span>
+                  <p className="text-[10px] text-slate-400 text-left leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                    Simulate mood positioning, sonic similarity to reference tracks, playlist transition compatibility, and skip-rate risk inside curators' placement filters.
+                    <span className="block mt-1 text-[#fe9a00]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for anticipating how curators and algorithms will place your song.</span>
                   </p>
-                  <span className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                  <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "sandbox"
                       ? "bg-amber-500/10 border-amber-500/20 text-amber-500"
                       : "bg-[#0A0B0E]/60 border-white/5 hover:border-amber-500/40 hover:bg-neutral-900/40 text-slate-500 group-hover:text-amber-400"
