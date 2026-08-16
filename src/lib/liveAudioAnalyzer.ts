@@ -1025,6 +1025,21 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     const t = f * yinHopSize;
     const timeSec = parseFloat((t / sampleRate).toFixed(2));
 
+    // 0. RMS energy gate — skip near-silent frames (intros, gaps between vocal phrases)
+    // before running the expensive per-tau difference function on them. Silent frames
+    // produce unreliable/noisy pitch estimates either way, so this both saves compute
+    // and avoids feeding the detector frames it was never going to read correctly.
+    let frameEnergySum = 0;
+    for (let j = 0; j < yinWindowSize; j++) {
+      const v = ch0[t + j] || 0;
+      frameEnergySum += v * v;
+    }
+    const frameRms = Math.sqrt(frameEnergySum / yinWindowSize);
+    if (frameRms < 0.01) {
+      melodyFrames.push({ voiced: false, timeSec });
+      continue;
+    }
+
     // 1. Difference function d(tau)
     const d = new Float32Array(yinMaxTau + 1);
     for (let tau = 1; tau <= yinMaxTau; tau++) {
@@ -1052,9 +1067,13 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     }
 
     // 3. Absolute threshold + local minimum check
+    // Threshold loosened from 0.25 to 0.30 — real mixed/mastered audio (background
+    // instrumentation, reverb, compression) blurs periodicity clarity even during
+    // genuinely sung passages, which was causing too many real vocal frames to be
+    // rejected as "unvoiced." This accepts a slightly weaker periodicity dip as valid.
     let bestTau = -1;
     for (let tau = 2; tau < yinMaxTau; tau++) {
-      if (cmndf[tau] < 0.25) {
+      if (cmndf[tau] < 0.30) {
         if (cmndf[tau] < cmndf[tau - 1] && cmndf[tau] < cmndf[tau + 1]) {
           bestTau = tau;
           break;
