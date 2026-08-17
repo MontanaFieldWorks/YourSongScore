@@ -1142,6 +1142,42 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     }
   }
 
+  // Pitch smoothing pass. The move to dense, energy-prioritized sampling (closer frame
+  // spacing within active regions) exposed normal frame-to-frame pitch-tracking jitter that
+  // was invisible at the old, much coarser sampling rate. At fine spacing, a genuinely
+  // sustained note's raw MIDI estimate can bounce +/-1 semitone between adjacent frames,
+  // which was breaking the "same note" streak the segmentation logic below relies on -
+  // fragmenting real sustained notes into noise almost entirely, rather than detecting them.
+  // A small mode filter (most common value in a 5-frame window) absorbs that single-frame
+  // jitter while still tracking genuine pitch changes, since a real change dominates its own
+  // window once it persists for more than a frame or two.
+  const smoothingHalfWindow = 2;
+  const smoothedMidiNotes: (number | undefined)[] = melodyFrames.map(f => f.midiNote);
+  for (let i = 0; i < melodyFrames.length; i++) {
+    if (!melodyFrames[i].voiced || melodyFrames[i].midiNote === undefined) continue;
+    const counts = new Map<number, number>();
+    for (let k = Math.max(0, i - smoothingHalfWindow); k <= Math.min(melodyFrames.length - 1, i + smoothingHalfWindow); k++) {
+      const note = melodyFrames[k].midiNote;
+      if (melodyFrames[k].voiced && note !== undefined) {
+        counts.set(note, (counts.get(note) || 0) + 1);
+      }
+    }
+    let bestNote = melodyFrames[i].midiNote!;
+    let bestCount = 0;
+    for (const [note, count] of counts) {
+      if (count > bestCount) {
+        bestCount = count;
+        bestNote = note;
+      }
+    }
+    smoothedMidiNotes[i] = bestNote;
+  }
+  for (let i = 0; i < melodyFrames.length; i++) {
+    if (melodyFrames[i].voiced) {
+      melodyFrames[i].midiNote = smoothedMidiNotes[i];
+    }
+  }
+
   // Segment melodyFrames into distinct notes and calculate interval statistics
   const rawNoteSegments: { midiNote: number; startTimeSec: number; endTimeSec: number; frameCount: number }[] = [];
   let currentNote: { midiNote: number; startTimeSec: number; endTimeSec: number; frameCount: number } | null = null;
@@ -1179,9 +1215,12 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     rawNoteSegments.push(currentNote);
   }
 
-  // Discard any note segment shorter than 2 frames
+  // Discard any note segment shorter than 45ms. Duration-based rather than frame-count-based
+  // deliberately - frame count only meant something when every frame was evenly spaced across
+  // the whole song; with energy-prioritized sampling, spacing varies, so actual elapsed time
+  // is the only sampling-density-invariant way to reject spuriously short fragments.
   const noteSegments = rawNoteSegments
-    .filter(seg => seg.frameCount >= 2)
+    .filter(seg => (seg.endTimeSec - seg.startTimeSec) >= 0.045)
     .map(({ midiNote, startTimeSec, endTimeSec }) => ({
       midiNote,
       startTimeSec,
