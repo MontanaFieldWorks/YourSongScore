@@ -1017,36 +1017,55 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   const yinHopSize = 512;
   const yinMaxTau = Math.round((800 * sampleRate) / 48000);
   const totalYinFrames = Math.floor((ch0.length - yinWindowSize) / yinHopSize);
-  // Frame budget raised from 800 to 2000 (~2.5x temporal resolution). Ground-truth testing
-  // against real sheet music showed a ~95% undercounting gap (9 detected vs 186 real vocal
-  // notes) - far more than threshold tuning alone could explain. At the old 800-frame cap,
-  // analyzed frames were spaced roughly a quarter-second apart on a typical song, which is
-  // coarser than real melodic note changes in faster-moving vocal lines. This trades longer
-  // analysis time for meaningfully denser sampling. Worth confirming in real testing whether
-  // this closes enough of the gap, or whether a smarter energy-prioritized sampling strategy
-  // is still needed on top of this.
-  const yinStep = Math.max(1, Math.ceil(totalYinFrames / 2000));
+
+  // Two-pass energy-prioritized sampling. The old approach spent a fixed frame budget
+  // evenly across the ENTIRE song regardless of content - wasting most of that budget on
+  // intros, gaps between vocal phrases, and instrumental-only sections. Ground-truth testing
+  // against real sheet music showed this was leaving most real vocal notes undetected even
+  // after raising the raw budget (9 -> 57 out of 186 real notes on one test song).
+  //
+  // Pass 1 (cheap): scan every hop in the song for RMS energy - O(windowSize/stride) per
+  // hop, much cheaper than the full YIN difference function - to find which hops actually
+  // have meaningful signal present.
+  // Pass 2 (expensive): spend the fixed YIN analysis budget only on those active hops, in
+  // chronological order, so the budget concentrates on content instead of silence. Where
+  // hops are skipped (either genuine silence or spacing within a dense active region), an
+  // explicit "unvoiced" marker frame is inserted so the note-assembly logic downstream can't
+  // accidentally merge two coincidentally-same-pitch notes across a real gap.
+  const activeHopIndices: number[] = [];
+  const energyStride = 4; // subsample within each window during the cheap scan for speed
+  for (let f = 0; f < totalYinFrames; f++) {
+    const t = f * yinHopSize;
+    let sum = 0;
+    let sampleCount = 0;
+    for (let j = 0; j < yinWindowSize; j += energyStride) {
+      const v = ch0[t + j] || 0;
+      sum += v * v;
+      sampleCount++;
+    }
+    const rms = Math.sqrt(sum / sampleCount);
+    if (rms >= 0.01) {
+      activeHopIndices.push(f);
+    }
+  }
+
+  const yinFrameBudget = 2000;
+  const activeStep = Math.max(1, Math.ceil(activeHopIndices.length / yinFrameBudget));
 
   const melodyFrames: { voiced: boolean; frequencyHz?: number; midiNote?: number; timeSec: number }[] = [];
+  let lastProcessedHop = -999;
 
-  for (let f = 0; f < totalYinFrames; f += yinStep) {
+  for (let idx = 0; idx < activeHopIndices.length; idx += activeStep) {
+    const f = activeHopIndices[idx];
     const t = f * yinHopSize;
     const timeSec = parseFloat((t / sampleRate).toFixed(2));
 
-    // 0. RMS energy gate — skip near-silent frames (intros, gaps between vocal phrases)
-    // before running the expensive per-tau difference function on them. Silent frames
-    // produce unreliable/noisy pitch estimates either way, so this both saves compute
-    // and avoids feeding the detector frames it was never going to read correctly.
-    let frameEnergySum = 0;
-    for (let j = 0; j < yinWindowSize; j++) {
-      const v = ch0[t + j] || 0;
-      frameEnergySum += v * v;
-    }
-    const frameRms = Math.sqrt(frameEnergySum / yinWindowSize);
-    if (frameRms < 0.01) {
+    if (f - lastProcessedHop > 1) {
+      // Non-contiguous jump (silence gap, or spacing within a dense active region) -
+      // insert a break marker so note-assembly doesn't wrongly merge notes across it.
       melodyFrames.push({ voiced: false, timeSec });
-      continue;
     }
+    lastProcessedHop = f;
 
     // 1. Difference function d(tau)
     const d = new Float32Array(yinMaxTau + 1);
