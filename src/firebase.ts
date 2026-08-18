@@ -1,6 +1,7 @@
 import { initializeApp, getApp, getApps } from "firebase/app";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously, User } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc, getDocFromServer, deleteDoc } from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { StoredTrack, UserProfile } from "./types";
 import { safeLocalStorage } from "./lib/safeStorage";
 import firebaseConfig from "../firebase-applet-config.json";
@@ -81,6 +82,7 @@ const isPlaceholder =
 
 let dbInstance: any = null;
 let authInstance: any = null;
+let storageInstance: any = null;
 let isFirebaseActive = false;
 
 function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
@@ -109,6 +111,7 @@ if (!isPlaceholder) {
     const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     dbInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId);
     authInstance = getAuth(app);
+    storageInstance = getStorage(app);
     isFirebaseActive = true;
     console.log("Firebase has been initialized with active credentials.");
 
@@ -759,4 +762,21 @@ export const deleteUserTrack = async (trackId: string): Promise<void> => {
       console.warn("Firestore deleteUserTrack error:", err);
     }
   }
+};
+
+// 9. Upload a converted audio file to persistent Firebase Storage and return its real,
+// permanent download URL. This exists specifically to replace the previous pattern of
+// saving a browser-session-only blob URL (URL.createObjectURL) directly into a track's
+// convertedMp3Url field - blob URLs are only valid in the tab that created them, so any
+// track saved that way became permanently unanalyzable the moment the page was reloaded
+// or a new session started, and could never be resolved server-side at all even within
+// the same session, since blob URLs are not reachable outside the browser that made them.
+export const uploadConvertedAudio = async (userId: string, trackId: string, file: File): Promise<string> => {
+  if (!isFirebaseActive || !storageInstance) {
+    throw new Error("Firebase Storage is not active - cannot upload converted audio.");
+  }
+  const storagePath = `converted-audio/${userId}/${trackId}.mp3`;
+  const fileRef = ref(storageInstance, storagePath);
+  await uploadBytes(fileRef, file);
+  return await getDownloadURL(fileRef);
 };
