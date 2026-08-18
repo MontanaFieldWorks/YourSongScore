@@ -10,7 +10,7 @@ import {
 import { 
   subscribeToAuth, registerUser, loginUser, logoutUser, 
   fetchUserTracks, saveUserTrack, updateTrackFields,
-  loginOrRegisterBypass, deleteUserTrack
+  loginOrRegisterBypass, deleteUserTrack, uploadConvertedAudio
 } from "../firebase";
 import { StoredTrack, UserProfile, CritiqueData } from "../types";
 import { decodeAudioUrl, analyzeAudioBuffer } from "../lib/liveAudioAnalyzer";
@@ -521,7 +521,6 @@ export default function Dashboard({
     if (!currentUser) return;
 
     const convertedSize = parseFloat((mp3Blob.size / 1024 / 1024).toFixed(2));
-    const mp3ObjectUrl = URL.createObjectURL(mp3Blob);
 
     const titleFromMeta = wavTitle ? wavTitle.trim() : "";
     const convertedName = titleFromMeta ? `${titleFromMeta}_Mastered320.mp3` : wavFile.name.replace(/\.wav$/i, "") + "_Mastered320.mp3";
@@ -529,6 +528,22 @@ export default function Dashboard({
     const uniqueTrackId = "trk_" + Date.now().toString() + "_" + Math.random().toString(36).substr(2, 5);
 
     const mp3File = new File([mp3Blob], convertedName, { type: "audio/mp3" });
+
+    // Upload the converted MP3 to persistent Firebase Storage instead of saving a
+    // browser-session-only blob URL. Blob URLs only exist in the tab that created them -
+    // saving one directly to the track record meant the track became unanalyzable the
+    // moment the page was reloaded or a new session started, and could never be resolved
+    // server-side at all even within the same session. Falls back to a local blob URL
+    // only for local-only (non-Firebase-backed) sessions, where this same limitation
+    // already exists for the whole session regardless.
+    let persistedMp3Url: string;
+    try {
+      setConversionLogs((prev) => [...prev, "☁️ Uploading converted MP3 to permanent storage..."]);
+      persistedMp3Url = await uploadConvertedAudio(currentUser.uid, uniqueTrackId, mp3File);
+    } catch (uploadErr) {
+      console.warn("Firebase Storage upload failed, falling back to local session-only blob URL:", uploadErr);
+      persistedMp3Url = URL.createObjectURL(mp3Blob);
+    }
 
     const newTrack: StoredTrack & { metaTitle?: string; metaArtist?: string; metaGenre?: string } = {
       id: uniqueTrackId,
@@ -538,7 +553,7 @@ export default function Dashboard({
       size: convertedSize,
       status: "pending_analysis",
       createdAt: new Date().toISOString(),
-      convertedMp3Url: mp3ObjectUrl,
+      convertedMp3Url: persistedMp3Url,
       coverArt: wavCoverArt || undefined,
       metaTitle: titleFromMeta || wavFile.name.replace(/\.wav$/i, ""),
       metaArtist: wavArtist ? wavArtist.trim() : "Independent Artist",
