@@ -599,8 +599,7 @@ export function computeCategoryScores(critique: any) {
   );
 
   const scoreCompositionalDepth = Math.round(
-    ((critique?.musicTheory?.score ?? 75) * 0.35) +
-    ((critique?.lyricalImpact?.score ?? 75) * 0.30) +
+    ((critique?.musicTheory?.score ?? 75) * 0.65) +
     ((critique?.arrangement?.flowScore ?? 75) * 0.35)
   );
 
@@ -7299,7 +7298,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       }`}>
                         <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                           {theoryMetric.description}
-                          <span className="block mt-1 text-[#818cf8]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for harmonic craft and musicological structure, driving 35% of Compositional Depth.</span>
+                          <span className="block mt-1 text-[#818cf8]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for harmonic craft and musicological structure, driving 65% of Compositional Depth.</span>
                         </p>
                         <span
                           style={{ paddingTop: "2px" }}
@@ -7326,85 +7325,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   </div>
                 </button>
                 {isExpanded && renderExpandedBreakdown("theory")}
-              </>
-            );
-          })()}
-        </div>
-
-        {/* Card: Lyrical Impact — promoted to standalone; reuses the existing RowMetricCard + renderExpandedBreakdown untouched */}
-        <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-4">
-          {(() => {
-            const lyricsMetric = AUX_METRICS_LIST.find(m => m.id === "lyrics");
-            if (!lyricsMetric) return null;
-            const isExpanded = expandedMetric === "lyrics";
-            return (
-              <>
-                <button
-                  onClick={() => setExpandedMetric(isExpanded ? null : "lyrics")}
-                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
-                    isExpanded
-                      ? "bg-[#090b0e] border-cyan-400 shadow-[0_0_35px_rgba(34,211,238,0.35)] ring-1 ring-cyan-400/40 font-black"
-                      : "bg-[#0A0B0E]/60 border-cyan-400/40 hover:border-cyan-400 hover:bg-neutral-900/40 text-slate-400"
-                  }`}
-                >
-                  {isExpanded ? (
-                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-950/10 via-neutral-950 to-[#03050a] pointer-events-none" />
-                  ) : (
-                    <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#03050a] pointer-events-none" />
-                  )}
-
-                  <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
-                    <div className="flex flex-col flex-1 justify-between gap-3 h-full">
-                      <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
-                        <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
-                          isExpanded
-                            ? "bg-cyan-400/10 border-cyan-400/30 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.3)]"
-                            : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-cyan-400"
-                        }`}>
-                          <Feather className="w-5 h-5 text-cyan-400" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
-                            isExpanded ? "text-white" : "text-slate-400 group-hover:text-slate-200"
-                          }`}>
-                            {lyricsMetric.name}
-                          </span>
-                          <span className="text-[10px] text-slate-500 font-medium">{lyricsMetric.subtitle}</span>
-                        </div>
-                      </div>
-
-                      <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
-                        isExpanded ? "border-cyan-400/15" : "border-white/5"
-                      }`}>
-                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
-                          {lyricsMetric.description}
-                          <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for lyrical clarity and originality, driving 30% of Compositional Depth.</span>
-                        </p>
-                        <span
-                          style={{ paddingTop: "2px" }}
-                          className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
-                          isExpanded
-                            ? "bg-cyan-400/10 border-cyan-400/20 text-cyan-400"
-                            : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-cyan-400"
-                        }`}>
-                          {isExpanded ? "ACTIVE ⬇" : "VIEW METRICS ⚡"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex-shrink-0 flex items-center justify-center">
-                      <ScoreCircle
-                        score={lyricsMetric.score}
-                        size={110}
-                        strokeWidth={7}
-                        color={isExpanded ? "#22d3ee" : "rgba(34, 211, 238, 0.45)"}
-                        glowColor={isExpanded ? "rgba(34, 211, 238, 0.65)" : "rgba(34, 211, 238, 0.15)"}
-                        extraGlow={isExpanded}
-                      />
-                    </div>
-                  </div>
-                </button>
-                {isExpanded && renderExpandedBreakdown("lyrics")}
               </>
             );
           })()}
@@ -7513,6 +7433,85 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             </span>
             <div className="w-full h-px bg-gradient-to-r from-transparent via-purple-500/30 to-transparent" />
           </div>
+
+        {/* Card: Lyrical Impact — promoted to standalone; reuses the existing RowMetricCard + renderExpandedBreakdown untouched */}
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-4">
+          {(() => {
+            const lyricsMetric = AUX_METRICS_LIST.find(m => m.id === "lyrics");
+            if (!lyricsMetric) return null;
+            const isExpanded = expandedMetric === "lyrics";
+            return (
+              <>
+                <button
+                  onClick={() => setExpandedMetric(isExpanded ? null : "lyrics")}
+                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+                    isExpanded
+                      ? "bg-[#090b0e] border-cyan-400 shadow-[0_0_35px_rgba(34,211,238,0.35)] ring-1 ring-cyan-400/40 font-black"
+                      : "bg-[#0A0B0E]/60 border-cyan-400/40 hover:border-cyan-400 hover:bg-neutral-900/40 text-slate-400"
+                  }`}
+                >
+                  {isExpanded ? (
+                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-950/10 via-neutral-950 to-[#03050a] pointer-events-none" />
+                  ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#03050a] pointer-events-none" />
+                  )}
+
+                  <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+                    <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                      <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
+                        <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                          isExpanded
+                            ? "bg-cyan-400/10 border-cyan-400/30 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.3)]"
+                            : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-cyan-400"
+                        }`}>
+                          <Feather className="w-5 h-5 text-cyan-400" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                            isExpanded ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                          }`}>
+                            {lyricsMetric.name}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-medium">{lyricsMetric.subtitle}</span>
+                        </div>
+                      </div>
+
+                      <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                        isExpanded ? "border-cyan-400/15" : "border-white/5"
+                      }`}>
+                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                          {lyricsMetric.description}
+                          <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for lyrical clarity and originality, though not factored into your overall score.</span>
+                        </p>
+                        <span
+                          style={{ paddingTop: "2px" }}
+                          className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                          isExpanded
+                            ? "bg-cyan-400/10 border-cyan-400/20 text-cyan-400"
+                            : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-cyan-400"
+                        }`}>
+                          {isExpanded ? "ACTIVE ⬇" : "VIEW METRICS ⚡"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex-shrink-0 flex items-center justify-center">
+                      <ScoreCircle
+                        score={lyricsMetric.score}
+                        size={110}
+                        strokeWidth={7}
+                        color={isExpanded ? "#22d3ee" : "rgba(34, 211, 238, 0.45)"}
+                        glowColor={isExpanded ? "rgba(34, 211, 238, 0.65)" : "rgba(34, 211, 238, 0.15)"}
+                        extraGlow={isExpanded}
+                      />
+                    </div>
+                  </div>
+                </button>
+                {isExpanded && renderExpandedBreakdown("lyrics")}
+              </>
+            );
+          })()}
+        </div>
 
           {/* Card 3: Artistic Integrity (purple/pink) */}
           <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-0">
