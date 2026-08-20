@@ -740,6 +740,17 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
 
   const frameGuesses: { root: number; quality: "major" | "minor" | "power" | "sus4" | "unclear"; bassPitchClass: number }[] = [];
 
+  // Minimum Pearson correlation required to accept a frame's best-matching chord template
+  // as a confident guess. Previously every frame with any energy was forced into whichever
+  // (root, quality) pair scored highest, even when that correlation was weak - meaning
+  // genuinely ambiguous or non-triadic chroma content (chord transitions, passing tones, or
+  // real multi-instrument mixes where other instruments blur the harmonic content) still
+  // produced a specific, often-wrong chord guess instead of being marked "unclear" - the
+  // classification this pipeline already has a clean, existing mechanism to filter out
+  // downstream. Ground-truth testing against real sheet music showed a 6x chord-count
+  // overcounting gap (36 detected vs. 6 real unique chords), consistent with this gap.
+  const MIN_CHORD_CONFIDENCE = 0.55;
+
   for (let f = 0; f < chromaFrames.length; f++) {
     const frame = chromaFrames[f];
     const bassPC = frameBassPitchClasses[f] ?? -1;
@@ -787,7 +798,11 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
       }
     }
 
-    frameGuesses.push({ root: bestRoot, quality: bestQuality, bassPitchClass: bassPC });
+    if (bestCorr >= MIN_CHORD_CONFIDENCE) {
+      frameGuesses.push({ root: bestRoot, quality: bestQuality, bassPitchClass: bassPC });
+    } else {
+      frameGuesses.push({ root: -1, quality: "unclear", bassPitchClass: bassPC });
+    }
   }
 
   // Smoothing pass: merge consecutive frames with identical (root, quality, bassPitchClass)
