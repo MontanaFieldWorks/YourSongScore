@@ -148,12 +148,12 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
     {
       title: "COMPOSITIONAL DEPTH",
       score: scoreCompositionalDepth,
-      desc: "Artistic impact, songwriting quality, and song architecture — the elements that make a song worth remembering.",
+      desc: "Harmonic craft and structural pacing — the music theory choices that give a song staying power.",
       glowColor: "rgba(192, 132, 252, 0.6)",
       strokeColor: "#c084fc",
       trackColor: "rgba(192, 132, 252, 0.1)",
       textColor: "text-purple-400",
-      tags: ["Music Theory", "Lyrical Impact", "Arrangement Flow"]
+      tags: ["Music Theory", "Arrangement Flow"]
     }
   ];
 
