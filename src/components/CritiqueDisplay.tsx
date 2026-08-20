@@ -7251,6 +7251,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             </span>
           </div>
 
+          <p className="text-[12px] text-slate-400 leading-relaxed px-1" style={{ fontFamily: "Inter, sans-serif" }}>
+            Compositional Depth reflects craft and songwriting sophistication for your own growth as an artist — it typically has no bearing on whether streaming services surface your song to curated playlists or algorithmic feeds.
+          </p>
+
         {/* Card: Music Theory Analysis — promoted to standalone; reuses the existing RowMetricCard + renderExpandedBreakdown untouched */}
         <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-3">
           {(() => {
