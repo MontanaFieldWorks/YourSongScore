@@ -7330,29 +7330,29 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 </button>
                 {isExpanded && renderExpandedBreakdown("theory")}
                 {isExpanded && (() => {
-                  const chordData = liveMetrics?.detectedChordProgressionNamed ?? [];
-                  const uniqueChords = new Set(chordData.map((c: any) => `${c.root}-${c.quality}`)).size;
-                  const sequenceNames = chordData.map((c: any) => c.name);
-                  const maxShown = 40;
-                  const shownSequence = sequenceNames.slice(0, maxShown).join(" → ");
-                  const extraCount = sequenceNames.length - maxShown;
+                  const analysis = critique?.chordKeyAnalysis;
+                  const chordsUsed = analysis?.chordsUsed ?? [];
                   return (
                     <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-[#818cf8]/30 rounded-3xl p-5 mt-3 flex flex-col gap-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#818cf8]">Real Detected Chord Data</span>
-                        <span className="text-[8.5px] font-mono text-slate-500 uppercase">Fed to AI as grounding evidence</span>
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#818cf8]">AI-Detected Key &amp; Chord Vocabulary</span>
+                        <span className="text-[8.5px] font-mono text-slate-500 uppercase text-right">Direct Gemini audio analysis, not DSP measurement</span>
                       </div>
-                      {chordData.length > 0 ? (
+                      {analysis?.keySignature ? (
                         <>
                           <p className="text-[10px] text-slate-400">
-                            {uniqueChords} unique chord{uniqueChords === 1 ? "" : "s"} detected across {chordData.length} segment{chordData.length === 1 ? "" : "s"}.
+                            Key: <span className="text-slate-200 font-semibold">{analysis.keySignature}</span>
                           </p>
-                          <p className="text-[10px] text-slate-500 font-mono leading-relaxed break-words">
-                            {shownSequence}{extraCount > 0 ? ` … (+${extraCount} more)` : ""}
-                          </p>
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {chordsUsed.map((c: any, i: number) => (
+                              <span key={i} className="text-[10px] font-mono text-slate-300 bg-[#818cf8]/10 border border-[#818cf8]/20 rounded-full px-2 py-0.5">
+                                {c.chord} <span className="text-slate-500">({c.romanNumeral})</span>
+                              </span>
+                            ))}
+                          </div>
                         </>
                       ) : (
-                        <p className="text-[10px] text-slate-500">No real chord data detected for this track yet.</p>
+                        <p className="text-[10px] text-slate-500">No AI chord/key analysis available for this track yet.</p>
                       )}
                     </div>
                   );
