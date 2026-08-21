@@ -361,6 +361,59 @@ RULES:
 
 RUBRIC ANCHOR FOR HARMONIC INTRIGUE AND ACOUSTIC TENSION (dynamicModulation, climaxTrajectory): a score of 90-100 must be reserved for genuine, demonstrated sophistication or deviation - real harmonic complexity, an unusual or surprising dynamic arc, a build/release structure that goes beyond the genre's default expectation. Below that ceiling, DO NOT default every conventional track to the same narrow band - differentiate genuinely within the 40-89 range based on how much real harmonic or dynamic interest is actually present, even when none of it rises to "exceptional." A track with genuinely minimal harmonic movement (essentially one or two chords repeated, no real tension-and-release at all) should score in the 40-60 range - this is not a penalty, simply an honest reflection of very sparse harmonic content, and is common and legitimate in many genres. A track with some real, if modest, harmonic or dynamic interest beyond the bare minimum (a few chord changes that create genuine movement, a real if unremarkable build) should score in the 65-85 range depending on how much genuine interest is present. Two tracks that are both "conventional" are not necessarily equally conventional - listen for the actual difference in harmonic or dynamic richness between them and let the score reflect it, rather than clustering all non-exceptional tracks into the same narrow number.`;
 
+// Direct Gemini audio analysis for key signature and overall chord vocabulary only.
+// Deliberately scoped narrow: manual testing (3 repeated runs on the same song) showed key
+// and overall chord vocabulary came back consistent run-to-run, while section-by-section
+// progressions (verse/chorus/bridge specific sequences) did not - they genuinely disagreed
+// between runs. So this only asks for the parts shown to be reliable, not the parts shown
+// not to be. This exists as an alternative/replacement for the app's own DSP-based chord
+// detection, which has a known, unresolved harmonic-pollution accuracy problem.
+const CHORD_KEY_ANALYSIS_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    keySignature: { type: Type.STRING },
+    chordsUsed: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          chord: { type: Type.STRING },
+          romanNumeral: { type: Type.STRING },
+        },
+        required: ["chord", "romanNumeral"],
+      },
+    },
+  },
+  required: ["keySignature", "chordsUsed"],
+};
+
+const CHORD_KEY_ANALYSIS_PROMPT = `You are an expert music theorist analyzing raw audio directly. Determine two things about this song, and only these two things:
+
+1. KEY SIGNATURE: Identify the song's overall, primary tonal center (e.g., "G Major", "D Minor"). If you hear clear modal inflections (Mixolydian, Dorian, etc.), note them alongside the closest major/minor key (e.g., "G Major (Mixolydian inflections)").
+
+2. CHORD VOCABULARY: List every distinct chord used across the entire song, regardless of where or how often it appears. For each chord, give its name (e.g., "G", "Cmaj7", "Em") and its Roman numeral function relative to the key you identified (e.g., "I", "IV", "vi").
+
+Do NOT attempt to describe section-by-section progressions, timestamps, verse/chorus/bridge structure, or the order chords appear in. Only report the overall key and the complete, deduplicated set of chords used somewhere in the song. Listen to the full track before answering - do not extrapolate from only the intro.
+
+Output strictly valid JSON matching the provided schema, with no conversational text.`;
+
+async function performChordKeyAnalysis(audioPart: any): Promise<any> {
+  const response = await generateContentWithRetry({
+    model: "gemini-2.5-flash",
+    contents: {
+      parts: [audioPart],
+    },
+    config: {
+      systemInstruction: CHORD_KEY_ANALYSIS_PROMPT,
+      responseMimeType: "application/json",
+      responseSchema: CHORD_KEY_ANALYSIS_SCHEMA,
+      temperature: 0.1,
+    },
+  });
+
+  return JSON.parse(response.text);
+}
+
 async function performSubMetricsCall2(
   audioPart: any,
   parsedCritique: any,
@@ -1063,6 +1116,17 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
     }
 
     try {
+      console.log("[Chord/Key] Starting direct Gemini chord/key analysis...");
+      const chordKeyAnalysis = await performChordKeyAnalysis(audioPart);
+      parsedCritique.chordKeyAnalysis = chordKeyAnalysis;
+      parsedCritique.chordKeyAnalysisFailed = false;
+      console.log("[Chord/Key] Direct Gemini chord/key analysis completed successfully.");
+    } catch (subErr: any) {
+      console.error("[Chord/Key] Direct Gemini chord/key analysis failed, continuing without it:", subErr.message || subErr);
+      parsedCritique.chordKeyAnalysisFailed = true;
+    }
+
+    try {
       console.log("[Call 3] Starting Sub-Metrics Call 3...");
       const subMetricsCall3 = await performSubMetricsCall3(
         audioPart,
@@ -1208,6 +1272,16 @@ app.post("/api/critique-url", async (req, res) => {
     } catch (subErr: any) {
       console.error("[Call 2] Failed (URL route), continuing without it:", subErr.message || subErr);
       parsedCritique.subMetricsCall2Failed = true;
+    }
+
+    try {
+      console.log("[Chord/Key] Starting direct Gemini chord/key analysis (URL route)...");
+      const chordKeyAnalysis = await performChordKeyAnalysis(audioPart);
+      parsedCritique.chordKeyAnalysis = chordKeyAnalysis;
+      parsedCritique.chordKeyAnalysisFailed = false;
+    } catch (subErr: any) {
+      console.error("[Chord/Key] Failed (URL route), continuing without it:", subErr.message || subErr);
+      parsedCritique.chordKeyAnalysisFailed = true;
     }
 
     try {
@@ -1370,6 +1444,16 @@ app.post("/api/critique-spotify", async (req, res) => {
     } catch (subErr: any) {
       console.error("[Call 2] Failed (Spotify route), continuing without it:", subErr.message || subErr);
       critique.subMetricsCall2Failed = true;
+    }
+
+    try {
+      console.log("[Chord/Key] Starting direct Gemini chord/key analysis (Spotify route)...");
+      const chordKeyAnalysis = await performChordKeyAnalysis(audioPart);
+      critique.chordKeyAnalysis = chordKeyAnalysis;
+      critique.chordKeyAnalysisFailed = false;
+    } catch (subErr: any) {
+      console.error("[Chord/Key] Failed (Spotify route), continuing without it:", subErr.message || subErr);
+      critique.chordKeyAnalysisFailed = true;
     }
 
     try {
