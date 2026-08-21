@@ -7329,6 +7329,34 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   </div>
                 </button>
                 {isExpanded && renderExpandedBreakdown("theory")}
+                {isExpanded && (() => {
+                  const chordData = liveMetrics?.detectedChordProgressionNamed ?? [];
+                  const uniqueChords = new Set(chordData.map((c: any) => `${c.root}-${c.quality}`)).size;
+                  const sequenceNames = chordData.map((c: any) => c.name);
+                  const maxShown = 40;
+                  const shownSequence = sequenceNames.slice(0, maxShown).join(" → ");
+                  const extraCount = sequenceNames.length - maxShown;
+                  return (
+                    <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-[#818cf8]/30 rounded-3xl p-5 mt-3 flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#818cf8]">Real Detected Chord Data</span>
+                        <span className="text-[8.5px] font-mono text-slate-500 uppercase">Fed to AI as grounding evidence</span>
+                      </div>
+                      {chordData.length > 0 ? (
+                        <>
+                          <p className="text-[10px] text-slate-400">
+                            {uniqueChords} unique chord{uniqueChords === 1 ? "" : "s"} detected across {chordData.length} segment{chordData.length === 1 ? "" : "s"}.
+                          </p>
+                          <p className="text-[10px] text-slate-500 font-mono leading-relaxed break-words">
+                            {shownSequence}{extraCount > 0 ? ` … (+${extraCount} more)` : ""}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-[10px] text-slate-500">No real chord data detected for this track yet.</p>
+                      )}
+                    </div>
+                  );
+                })()}
               </>
             );
           })()}
