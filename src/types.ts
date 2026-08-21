@@ -138,6 +138,8 @@ export interface CritiqueData {
   subMetricsCall1?: any;
   subMetricsCall2?: any;
   subMetricsCall3?: any;
+  chordKeyAnalysis?: { keySignature: string; chordsUsed: { chord: string; romanNumeral: string }[] };
+  chordKeyAnalysisFailed?: boolean;
   subMetricsCall1Failed?: boolean;
   subMetricsCall2Failed?: boolean;
   subMetricsCall3Failed?: boolean;
