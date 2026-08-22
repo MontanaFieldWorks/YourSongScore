@@ -5713,6 +5713,41 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               </div>
             </button>
 
+            {/* COMPOSITIONAL DEPTH nav item (4th, non-scored slot - nested within the Structural Engagement section) */}
+            <button
+              onClick={() => {
+                setActiveSection("compositional");
+                setExpandedCategory("compositional");
+                setTimeout(() => {
+                  const el = document.getElementById("section-compositionaldepth");
+                  if (el) {
+                    const top = el.getBoundingClientRect().top + window.scrollY - 80;
+                    window.scrollTo({ top, behavior: "smooth" });
+                  }
+                }, 150);
+              }}
+              className={`relative flex items-center justify-between gap-2.5 min-h-[58px] px-3.5 py-3 rounded-xl border transition-all cursor-pointer text-left ${
+                activeSection === "compositional" 
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.05)]" 
+                  : "bg-[#0b0c10]/50 border-white/5 text-slate-500 hover:text-slate-300 hover:border-white/10"
+              }`}
+            >
+              {activeSection === "compositional" && (
+                <div className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-amber-500 shadow-[0_0_8px_#f59e0b]" />
+              )}
+              
+              <div className="flex items-center gap-2.5 min-w-0 w-full">
+                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeSection === "compositional" ? "bg-amber-400 shadow-[0_0_6px_#f59e0b]" : "bg-slate-600"}`} />
+                {!sidebarCollapsed && (
+                  <>
+                    <div className="flex flex-col min-w-0 truncate">
+                      <span className="text-[11px] font-mono font-bold uppercase tracking-widest leading-none">COMPOSITIONAL DEPTH</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </button>
+
             {/* Sub-links for compositional */}
             {activeSection === "compositional" && !sidebarCollapsed && (
               <div className="flex flex-col gap-0.5 pl-3 border-l border-purple-500/20 ml-3.5 py-1">
@@ -7561,7 +7596,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         </div>
 
 
-          <div className="relative overflow-hidden flex items-center gap-4 pl-5 pr-2 py-3 border-t border-b border-slate-500/20 mt-4" style={{ background: "linear-gradient(to right, #090b0e 0%, #090b0e 55%, #14141a 100%)" }}>
+          <div id="section-compositionaldepth" className="relative overflow-hidden flex items-center gap-4 pl-5 pr-2 py-3 border-t border-b border-slate-500/20 mt-4" style={{ background: "linear-gradient(to right, #090b0e 0%, #090b0e 55%, #14141a 100%)" }}>
             <div className="absolute inset-0 pointer-events-none" style={{
               background: "linear-gradient(to left, #4b4b57 0%, #26262e 15%, #0d0d10 50%, #000000 75%)",
               opacity: 0.5
