@@ -1356,6 +1356,9 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
 
   let dynamicModulationScore: number | null = null;
   let dynamicRangeDb: number | null = null;
+  let dynamic85thPctDb: number | null = null;
+  let dynamic15thPctDb: number | null = null;
+  let dynamicEnvelopeDb: number[] | null = null;
   let climaxTrajectoryScore: number | null = null;
   let climaxPositionRatio: number | null = null;
   let climaxBuildDb: number | null = null;
@@ -1366,6 +1369,9 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     const highP = pIndex(0.85);
     const lowP = pIndex(0.15);
     dynamicRangeDb = parseFloat((highP - lowP).toFixed(1));
+    dynamic85thPctDb = parseFloat(highP.toFixed(1));
+    dynamic15thPctDb = parseFloat(lowP.toFixed(1));
+    dynamicEnvelopeDb = windowRmsDb.map(v => parseFloat(v.toFixed(1)));
 
     // Reasoned mapping: <3dB range = essentially flat/compressed throughout (low score);
     // 3-10dB = moderate, genuine verse/chorus-style contrast; 10dB+ = strong dynamic arc.
@@ -1763,6 +1769,9 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     })(),
     calculatedDynamicModulationScore: dynamicModulationScore,
     calculatedDynamicRangeDb: dynamicRangeDb,
+    calculatedDynamic85thPctDb: dynamic85thPctDb,
+    calculatedDynamic15thPctDb: dynamic15thPctDb,
+    calculatedDynamicEnvelopeDb: dynamicEnvelopeDb,
     calculatedClimaxTrajectoryScore: climaxTrajectoryScore,
     calculatedClimaxPositionRatio: climaxPositionRatio,
     calculatedClimaxBuildDb: climaxBuildDb
