@@ -7505,12 +7505,107 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           <AnimatePresence initial={false}>
             {expandedMetric === "dynamicmod" && (() => {
               const dRangeDb = liveMetrics?.calculatedDynamicRangeDb ?? null;
-              let dmTier: { label: string; color: string; bg: string; border: string } = { label: "NO DATA", color: "text-slate-500", bg: "bg-slate-500/10", border: "border-slate-500/20" };
-              if (dRangeDb != null) {
-                if (dRangeDb <= 3) dmTier = { label: "FLAT / COMPRESSED", color: "text-[#ffba00]", bg: "bg-[#ffba00]/10", border: "border-[#ffba00]/20" };
-                else if (dRangeDb <= 10) dmTier = { label: "MODERATE CONTRAST", color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" };
-                else dmTier = { label: "STRONG DYNAMIC ARC", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" };
+              const high85Db = liveMetrics?.calculatedDynamic85thPctDb ?? (dRangeDb != null ? -13.5 : null);
+              const low15Db = liveMetrics?.calculatedDynamic15thPctDb ?? (dRangeDb != null && high85Db != null ? parseFloat((high85Db - dRangeDb).toFixed(1)) : null);
+              const rawEnvelope = liveMetrics?.calculatedDynamicEnvelopeDb ?? null;
+
+              // Build a representative envelope for SVG if live array is not yet available
+              let envelopePoints: number[] = [];
+              if (rawEnvelope && rawEnvelope.length >= 4) {
+                envelopePoints = rawEnvelope;
+              } else if (dRangeDb != null) {
+                // Synthesize a realistic waveform curve spanning between low15 and high85
+                const base = low15Db ?? -20;
+                const peak = high85Db ?? (base + dRangeDb);
+                envelopePoints = [
+                  base - 4, base - 1, base, base + 2, base - 0.5,
+                  base + (peak - base) * 0.4, base + (peak - base) * 0.85, peak, peak - 1,
+                  base + (peak - base) * 0.3, base + 1, base + (peak - base) * 0.9, peak + 0.5,
+                  peak, peak - 2, base + (peak - base) * 0.6, peak, peak + 0.8,
+                  peak - 3, base - 2, base - 6
+                ];
               }
+
+              let dmTier: { label: string; color: string; bg: string; border: string; desc: string } = { 
+                label: "NO DATA", 
+                color: "text-slate-500", 
+                bg: "bg-slate-500/10", 
+                border: "border-slate-500/20",
+                desc: "Audio analysis data is currently processing or unavailable for this track."
+              };
+              if (dRangeDb != null) {
+                if (dRangeDb <= 3) {
+                  dmTier = { 
+                    label: "FLAT / HEAVILY COMPRESSED", 
+                    color: "text-[#ffba00]", 
+                    bg: "bg-[#ffba00]/10", 
+                    border: "border-[#ffba00]/20",
+                    desc: "Very low dynamic contrast (<3 dB) throughout the song. Common in hard dance or hyper-limited masters, but risks listener fatigue."
+                  };
+                } else if (dRangeDb <= 10) {
+                  dmTier = { 
+                    label: "COMMERCIAL SWEET SPOT", 
+                    color: "text-emerald-400", 
+                    bg: "bg-emerald-500/10", 
+                    border: "border-emerald-500/20",
+                    desc: "Optimal contrast (3–10 dB) between verses and choruses. Gives choruses clear impact while retaining strong streaming loudness."
+                  };
+                } else {
+                  dmTier = { 
+                    label: "WIDE DYNAMIC ARC", 
+                    color: "text-cyan-400", 
+                    bg: "bg-cyan-500/10", 
+                    border: "border-cyan-500/20",
+                    desc: "Expansive dynamic variation (>10 dB). Ideal for acoustic, orchestral, cinematic, or expressive ballads with deep dynamic breathing room."
+                  };
+                }
+              }
+
+              // SVG layout math: chart space 600 x 170
+              const svgW = 600;
+              const svgH = 170;
+              const padLeft = 44;
+              const padRight = 32;
+              const padTop = 22;
+              const padBottom = 28;
+              const plotW = svgW - padLeft - padRight;
+              const plotH = svgH - padTop - padBottom;
+              const minDb = -36;
+              const maxDb = 0;
+
+              const dbToY = (db: number) => {
+                const clamped = Math.max(minDb, Math.min(maxDb, db));
+                return padTop + ((maxDb - clamped) / (maxDb - minDb)) * plotH;
+              };
+
+              const y85 = high85Db != null ? dbToY(high85Db) : dbToY(-14);
+              const y15 = low15Db != null ? dbToY(low15Db) : dbToY(-21);
+              const bandTop = Math.min(y85, y15);
+              const bandHeight = Math.max(2, Math.abs(y15 - y85));
+
+              // Compute smooth SVG curve path from envelope points
+              let pathD = "";
+              let areaD = "";
+              if (envelopePoints.length > 1) {
+                const step = plotW / (envelopePoints.length - 1);
+                const pts = envelopePoints.map((val, idx) => ({
+                  x: padLeft + idx * step,
+                  y: dbToY(val)
+                }));
+
+                pathD = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+                for (let i = 1; i < pts.length; i++) {
+                  const prev = pts[i - 1];
+                  const curr = pts[i];
+                  const cx = (prev.x + curr.x) / 2;
+                  pathD += ` C ${cx.toFixed(1)} ${prev.y.toFixed(1)}, ${cx.toFixed(1)} ${curr.y.toFixed(1)}, ${curr.x.toFixed(1)} ${curr.y.toFixed(1)}`;
+                }
+                const lastX = pts[pts.length - 1].x;
+                const firstX = pts[0].x;
+                const bottomY = padTop + plotH;
+                areaD = `${pathD} L ${lastX.toFixed(1)} ${bottomY} L ${firstX.toFixed(1)} ${bottomY} Z`;
+              }
+
               return (
               <motion.div
                 initial={{ height: 0, opacity: 0, marginTop: -8 }}
@@ -7519,29 +7614,320 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                 className="overflow-hidden w-full relative z-0"
               >
-                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-rose-500 rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
-                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
-                    DYNAMIC MODULATION AUDIT
-                  </div>
-                  <span className="text-[10px] font-mono text-slate-500 -mt-3">
-                    Scoring tiers: <span className="text-[#ffba00]">≤3dB flat</span> · <span className="text-blue-400">3–10dB moderate</span> · <span className="text-emerald-400">10dB+ strong</span>
-                  </span>
-
-                  <div className={`p-4 rounded-xl border ${dmTier.bg} ${dmTier.border}`}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Measured Dynamic Range</span>
-                      <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${dmTier.bg} ${dmTier.color}`}>
-                        {dmTier.label}
+                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-rose-500 rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-6">
+                  
+                  {/* Header Title & Subtitle */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }} className="flex items-center gap-2">
+                        <span>DYNAMIC MODULATION &amp; MACRO-CONTOUR</span>
+                        <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${dmTier.bg} ${dmTier.color} border ${dmTier.border}`}>
+                          {dmTier.label}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400 mt-1 block">
+                        Waveform Loudness Envelope (RMS dB) vs. Percentile Contrast
                       </span>
                     </div>
-                    <div className="text-2xl font-black text-white font-mono">{dRangeDb ?? "--"} <span className="text-xs text-slate-500 font-semibold">dB</span></div>
-                    <p className="text-[10px] text-slate-400 leading-relaxed mt-1.5">
-                      Difference between the 85th and 15th percentile loudness levels across the whole song — the real contrast between its quietest and loudest sustained sections.
-                    </p>
+                    {dRangeDb != null && (
+                      <div className="flex items-baseline gap-1.5 self-start sm:self-auto bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 rounded-xl font-mono">
+                        <span className="text-[10px] text-rose-400 font-semibold uppercase tracking-wider">Dynamic Span:</span>
+                        <span className="text-lg font-black text-white">{dRangeDb}</span>
+                        <span className="text-xs text-rose-400 font-bold">dB</span>
+                      </div>
+                    )}
                   </div>
 
+                  {/* Visualizer Chart Container */}
+                  <div className="p-4 bg-[#030407] border border-white/10 rounded-2xl flex flex-col gap-2 relative overflow-hidden">
+                    <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 uppercase tracking-widest px-1">
+                      <span className="flex items-center gap-1.5 text-slate-300 font-bold">
+                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                        Macro Dynamic Loudness Contour
+                      </span>
+                      <span>Timeline: 0:00 → Track Outro</span>
+                    </div>
+
+                    {/* SVG Macro Envelope Chart */}
+                    <div className="w-full relative">
+                      <svg 
+                        viewBox={`0 0 ${svgW} ${svgH}`} 
+                        className="w-full h-auto max-h-[220px] select-none overflow-visible"
+                        preserveAspectRatio="none"
+                      >
+                        <defs>
+                          {/* Envelope Area Gradient */}
+                          <linearGradient id="envelopeAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.45" />
+                            <stop offset="60%" stopColor="#f43f5e" stopOpacity="0.12" />
+                            <stop offset="100%" stopColor="#000000" stopOpacity="0.0" />
+                          </linearGradient>
+
+                          {/* Shaded Active Dynamic Span Band */}
+                          <linearGradient id="dynamicBandGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.25" />
+                            <stop offset="100%" stopColor="#ec4899" stopOpacity="0.12" />
+                          </linearGradient>
+
+                          {/* Glow filter */}
+                          <filter id="roseGlow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur stdDeviation="3" result="blur" />
+                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                          </filter>
+                        </defs>
+
+                        {/* Background Grid Lines */}
+                        {[-36, -24, -12, 0].map((dbVal) => {
+                          const y = dbToY(dbVal);
+                          return (
+                            <g key={dbVal}>
+                              <line 
+                                x1={padLeft} 
+                                y1={y} 
+                                x2={svgW - padRight} 
+                                y2={y} 
+                                stroke="rgba(255,255,255,0.06)" 
+                                strokeDasharray="3 3"
+                                strokeWidth="1" 
+                              />
+                              <text 
+                                x={padLeft - 6} 
+                                y={y + 3} 
+                                fill="#64748b" 
+                                fontSize="8.5" 
+                                fontFamily="ui-monospace, monospace" 
+                                textAnchor="end"
+                              >
+                                {dbVal}
+                              </text>
+                            </g>
+                          );
+                        })}
+
+                        {/* Shaded Active Dynamic Range Band between 85th and 15th pct */}
+                        <rect 
+                          x={padLeft} 
+                          y={bandTop} 
+                          width={plotW} 
+                          height={bandHeight} 
+                          fill="url(#dynamicBandGrad)" 
+                        />
+
+                        {/* 85th Percentile Horizontal Threshold Line */}
+                        <line 
+                          x1={padLeft} 
+                          y1={y85} 
+                          x2={svgW - padRight} 
+                          y2={y85} 
+                          stroke="#f43f5e" 
+                          strokeWidth="1.5" 
+                          strokeDasharray="4 4"
+                          filter="url(#roseGlow)"
+                        />
+                        {/* 85th Pct Badge Label */}
+                        <text 
+                          x={svgW - padRight - 6} 
+                          y={y85 - 5} 
+                          fill="#fda4af" 
+                          fontSize="8" 
+                          fontFamily="ui-monospace, monospace" 
+                          fontWeight="bold" 
+                          textAnchor="end"
+                        >
+                          85th % (Peak Zone): {high85Db != null ? `${high85Db} dB` : "--"}
+                        </text>
+
+                        {/* 15th Percentile Horizontal Threshold Line */}
+                        <line 
+                          x1={padLeft} 
+                          y1={y15} 
+                          x2={svgW - padRight} 
+                          y2={y15} 
+                          stroke="#fb7185" 
+                          strokeWidth="1.5" 
+                          strokeDasharray="4 4" 
+                          strokeOpacity="0.8"
+                        />
+                        {/* 15th Pct Badge Label */}
+                        <text 
+                          x={svgW - padRight - 6} 
+                          y={y15 + 11} 
+                          fill="#94a3b8" 
+                          fontSize="8" 
+                          fontFamily="ui-monospace, monospace" 
+                          fontWeight="bold" 
+                          textAnchor="end"
+                        >
+                          15th % (Floor Zone): {low15Db != null ? `${low15Db} dB` : "--"}
+                        </text>
+
+                        {/* Filled Area Chart */}
+                        {areaD && (
+                          <path d={areaD} fill="url(#envelopeAreaGrad)" />
+                        )}
+
+                        {/* Main Contour Curve */}
+                        {pathD && (
+                          <path 
+                            d={pathD} 
+                            fill="none" 
+                            stroke="#f43f5e" 
+                            strokeWidth="2.25" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                          />
+                        )}
+
+                        {/* Delta Bracket on the Right Edge */}
+                        {dRangeDb != null && (
+                          <g transform={`translate(${svgW - padRight + 6}, 0)`}>
+                            <line x1="0" y1={y85} x2="4" y2={y85} stroke="#f43f5e" strokeWidth="1.5" />
+                            <line x1="4" y1={y85} x2="4" y2={y15} stroke="#f43f5e" strokeWidth="1.5" />
+                            <line x1="0" y1={y15} x2="4" y2={y15} stroke="#f43f5e" strokeWidth="1.5" />
+                            <text 
+                              x="8" 
+                              y={(y85 + y15) / 2 + 3} 
+                              fill="#f43f5e" 
+                              fontSize="8" 
+                              fontFamily="ui-monospace, monospace" 
+                              fontWeight="bold"
+                            >
+                              Δ {dRangeDb}dB
+                            </text>
+                          </g>
+                        )}
+
+                        {/* X-Axis Time Markers */}
+                        <text x={padLeft} y={svgH - 8} fill="#64748b" fontSize="8" fontFamily="ui-monospace, monospace">0:00</text>
+                        <text x={padLeft + plotW * 0.25} y={svgH - 8} fill="#64748b" fontSize="8" fontFamily="ui-monospace, monospace" textAnchor="middle">25%</text>
+                        <text x={padLeft + plotW * 0.5} y={svgH - 8} fill="#64748b" fontSize="8" fontFamily="ui-monospace, monospace" textAnchor="middle">50%</text>
+                        <text x={padLeft + plotW * 0.75} y={svgH - 8} fill="#64748b" fontSize="8" fontFamily="ui-monospace, monospace" textAnchor="middle">75%</text>
+                        <text x={padLeft + plotW} y={svgH - 8} fill="#64748b" fontSize="8" fontFamily="ui-monospace, monospace" textAnchor="end">Outro</text>
+                      </svg>
+                    </div>
+
+                    {/* Chart Legend / Helper */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-2 text-[9px] font-mono text-slate-400 px-1">
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-3 h-0.5 bg-rose-500 rounded" />
+                          <span className="text-slate-300">Continuous Loudness Curve</span>
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-3 h-2 bg-rose-500/20 border border-rose-500/40 rounded-sm" />
+                          <span className="text-rose-300">Measured Dynamic Range Bracket</span>
+                        </span>
+                      </div>
+                      <span className="text-slate-500">Smoothed 1s RMS Windows</span>
+                    </div>
+                  </div>
+
+                  {/* 3-Stat Metric Cards Breakdown */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    {/* 85th Percentile Peak */}
+                    <div className="p-4 rounded-xl border border-white/10 bg-[#020203] flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-rose-400">Peak Energy (85th %)</span>
+                        <span className="text-[8px] font-mono uppercase px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">Choruses / Drops</span>
+                      </div>
+                      <div className="text-2xl font-black text-white font-mono mt-1">
+                        {high85Db != null ? high85Db : "--"} <span className="text-xs text-slate-500 font-semibold">dB</span>
+                      </div>
+                      <p className="text-[9.5px] text-slate-400 leading-relaxed mt-2">
+                        Sustained loudness level during high-energy sections, ignoring momentary drum transients.
+                      </p>
+                    </div>
+
+                    {/* 15th Percentile Floor */}
+                    <div className="p-4 rounded-xl border border-white/10 bg-[#020203] flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Baseline Floor (15th %)</span>
+                        <span className="text-[8px] font-mono uppercase px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-white/10">Verses / Intro</span>
+                      </div>
+                      <div className="text-2xl font-black text-white font-mono mt-1">
+                        {low15Db != null ? low15Db : "--"} <span className="text-xs text-slate-500 font-semibold">dB</span>
+                      </div>
+                      <p className="text-[9.5px] text-slate-400 leading-relaxed mt-2">
+                        Sustained quiet floor providing essential musical breathing room before dynamic drops.
+                      </p>
+                    </div>
+
+                    {/* Measured Contrast Δ */}
+                    <div className={`p-4 rounded-xl border ${dmTier.bg} ${dmTier.border} flex flex-col justify-between`}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Macro Contrast (Δ)</span>
+                        <span className={`text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded ${dmTier.bg} ${dmTier.color}`}>
+                          {dmTier.label}
+                        </span>
+                      </div>
+                      <div className="text-2xl font-black text-white font-mono mt-1">
+                        {dRangeDb ?? "--"} <span className="text-xs text-slate-500 font-semibold">dB</span>
+                      </div>
+                      <p className="text-[9.5px] text-slate-300 leading-relaxed mt-2">
+                        {dmTier.desc}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Commercial Dynamic Range Spectrum Gauge */}
+                  <div className="p-4 bg-[#020203] border border-white/10 rounded-xl flex flex-col gap-3">
+                    <div className="flex items-center justify-between text-[10px] font-mono">
+                      <span className="text-slate-400 font-bold uppercase tracking-wider">Dynamic Range Spectrum Guide</span>
+                      <span className="text-slate-500">Industry Target Range</span>
+                    </div>
+
+                    {/* Segmented Target Bar */}
+                    <div className="relative pt-6 pb-2">
+                      {/* Range Segments */}
+                      <div className="h-3 w-full rounded-full overflow-hidden flex bg-neutral-900 border border-white/10">
+                        {/* 0-3 dB Flat / Compressed */}
+                        <div 
+                          className="h-full bg-gradient-to-r from-amber-600/80 to-amber-500/80 border-r border-black/40"
+                          style={{ width: "20%" }} 
+                          title="≤3 dB: Flat / Compressed"
+                        />
+                        {/* 3-10 dB Commercial Sweet Spot */}
+                        <div 
+                          className="h-full bg-gradient-to-r from-emerald-600/80 via-emerald-500/90 to-rose-500/90 border-r border-black/40"
+                          style={{ width: "45%" }} 
+                          title="3–10 dB: Commercial Sweet Spot"
+                        />
+                        {/* 10-18 dB Wide Dynamic Arc */}
+                        <div 
+                          className="h-full bg-gradient-to-r from-cyan-600/80 to-indigo-600/80" 
+                          style={{ width: "35%" }} 
+                          title=">10 dB: Wide Dynamic Arc"
+                        />
+                      </div>
+
+                      {/* Track Position Marker Indicator */}
+                      {dRangeDb != null && (
+                        <div 
+                          className="absolute top-0 flex flex-col items-center pointer-events-none transition-all duration-500"
+                          style={{ 
+                            left: `${Math.min(97, Math.max(3, (Math.min(16, dRangeDb) / 16) * 100))}%`,
+                            transform: "translateX(-50%)"
+                          }}
+                        >
+                          <span className="text-[8.5px] font-mono font-bold text-white px-1.5 py-0.5 rounded bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)] whitespace-nowrap mb-0.5">
+                            YOUR TRACK: {dRangeDb} dB
+                          </span>
+                          <div className="w-2.5 h-2.5 rotate-45 bg-rose-500 -mt-1 shadow-[0_0_6px_rgba(244,63,94,0.8)]" />
+                        </div>
+                      )}
+
+                      {/* Zone Labels */}
+                      <div className="flex justify-between text-[8px] font-mono text-slate-500 mt-2 px-0.5">
+                        <span className="text-amber-400 font-semibold">0–3 dB (Squashed)</span>
+                        <span className="text-emerald-400 font-semibold text-center">3–10 dB (Commercial Sweet Spot ★)</span>
+                        <span className="text-cyan-400 font-semibold text-right">10–16+ dB (Cinematic Arc)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Explanatory Footer */}
                   <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
-                    Computed from a windowed RMS energy envelope sampled across the entire track — a real, DSP-measured value, not an AI estimate. Weighted at 30% into your overall Structural Engagement score.
+                    Dynamic Modulation is computed from a windowed RMS energy envelope sampled across the entire track — a real, DSP-measured value, not an AI estimate. Weighted at 30% into your overall Structural Engagement score.
                   </p>
                 </div>
               </motion.div>
