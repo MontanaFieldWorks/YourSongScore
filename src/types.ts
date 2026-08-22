@@ -106,6 +106,10 @@ export interface LiveAudioMetrics {
   calculatedTransientPunchScore?: number;
   calculatedMelodicStagingScore?: number;
   calculatedVocalDynamicsScore?: number | null;
+  calculatedDynamicModulationScore?: number | null;
+  calculatedDynamicRangeDb?: number | null;
+  calculatedClimaxTrajectoryScore?: number | null;
+  calculatedClimaxPositionRatio?: number | null;
 }
 
 export interface CritiqueData {
