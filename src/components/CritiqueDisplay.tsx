@@ -599,8 +599,9 @@ export function computeCategoryScores(critique: any) {
   );
 
   const scoreCompositionalDepth = Math.round(
-    ((critique?.musicTheory?.score ?? 75) * 0.65) +
-    ((critique?.arrangement?.flowScore ?? 75) * 0.35)
+    ((critique?.arrangement?.flowScore ?? 75) * 0.40) +
+    ((critique?.liveMetrics?.calculatedDynamicModulationScore ?? 75) * 0.30) +
+    ((critique?.liveMetrics?.calculatedClimaxTrajectoryScore ?? 75) * 0.30)
   );
 
   return {
@@ -7243,16 +7244,338 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-purple-400 to-purple-600" />
             <div className="relative z-10 flex flex-col gap-0.5">
               <span className="text-[9px] font-mono font-bold text-purple-400 uppercase tracking-[0.2em]">Category</span>
-              <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Compositional Depth</span>
+              <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Structural Engagement</span>
             </div>
-            <span className="relative z-10 text-[9px] font-mono text-slate-500 ml-auto">Songwriting craft, theory & artistic merit</span>
+            <span className="relative z-10 text-[9px] font-mono text-slate-500 ml-auto">Pacing and dynamics that keep listeners engaged</span>
             <span className="relative z-10 text-[40px] font-black text-white leading-none ml-[24px]" style={{ fontFamily: "Inter, sans-serif" }}>
               {realCategoryScores.compositionalDepth}
             </span>
           </div>
 
           <p className="text-[12px] text-slate-400 leading-relaxed px-1" style={{ fontFamily: "Inter, sans-serif" }}>
-            Compositional Depth reflects craft and songwriting sophistication for your own growth as an artist — it typically has no bearing on whether streaming services surface your song to curated playlists or algorithmic feeds.
+            Structural Engagement reflects your song's pacing, dynamic build, and energy trajectory — the retention dynamics that influence whether listeners, and streaming algorithms, stay engaged past the critical early moments of a track.
+          </p>
+
+        {/* Card: Arrangement Flow — new card built from scratch (critique.arrangement.flowScore + transitionsAndArc) */}
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-5">
+          <button
+            onClick={() => setExpandedMetric(expandedMetric === "flow" ? null : "flow")}
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+              expandedMetric === "flow"
+                ? "bg-[#0f0b06] border-amber-500 shadow-[0_0_35px_rgba(245,158,11,0.35)] ring-1 ring-amber-500/40 font-black"
+                : "bg-[#0A0B0E]/60 border-amber-500/40 hover:border-amber-500 hover:bg-neutral-900/40 text-slate-400"
+            }`}
+          >
+            {expandedMetric === "flow" ? (
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-950/10 via-neutral-950 to-[#03050a] pointer-events-none" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#03050a] pointer-events-none" />
+            )}
+
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
+                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                    expandedMetric === "flow"
+                      ? "bg-amber-500/10 border-amber-500/30 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-amber-500"
+                  }`}>
+                    <Waves className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                      expandedMetric === "flow" ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                    }`}>
+                      ARRANGEMENT FLOW
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">Structural Build &amp; Dynamic Arc</span>
+                  </div>
+                </div>
+
+                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                  expandedMetric === "flow" ? "border-amber-500/15" : "border-white/5"
+                }`}>
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                    Assesses whether transitions between sections build tension and release effectively, keeping the arrangement's energy scaling coherent from intro to outro.
+                    <span className="block mt-1 text-amber-500/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for structural pacing and dynamic build, driving 40% of Structural Engagement.</span>
+                  </p>
+                  <span
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    expandedMetric === "flow"
+                      ? "bg-amber-500/10 border-amber-500/20 text-amber-500"
+                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-amber-500"
+                  }`}>
+                    {expandedMetric === "flow" ? "ACTIVE ⬇" : "VIEW METRICS ⚡"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex-shrink-0 flex items-center justify-center">
+                <ScoreCircle
+                  score={Math.round(critique?.arrangement?.flowScore ?? 75)}
+                  size={110}
+                  strokeWidth={7}
+                  color={expandedMetric === "flow" ? "#f59e0b" : "rgba(245, 158, 11, 0.45)"}
+                  glowColor={expandedMetric === "flow" ? "rgba(245, 158, 11, 0.65)" : "rgba(245, 158, 11, 0.15)"}
+                  extraGlow={expandedMetric === "flow"}
+                />
+              </div>
+            </div>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {expandedMetric === "flow" && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginTop: -8 }}
+                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
+                exit={{ height: 0, opacity: 0, marginTop: -8 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden w-full relative z-0"
+              >
+                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-amber-500 rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
+                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
+                    ARRANGEMENT FLOW AUDIT
+                  </div>
+                  <div className="p-4 bg-[#020203] border border-white/10 rounded-xl">
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500 block mb-1.5">Transitions &amp; Dynamic Arc</span>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      {critique?.arrangement?.transitionsAndArc ?? "Arrangement transitions and dynamic arc data unavailable."}
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
+                    Arrangement Flow is weighted at 40% into your overall Structural Engagement score — the largest single ingredient, alongside Dynamic Modulation and Climax Trajectory.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Card: Dynamic Modulation — new card built from scratch (liveMetrics.calculatedDynamicModulationScore) */}
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-6">
+          <button
+            onClick={() => setExpandedMetric(expandedMetric === "dynamicmod" ? null : "dynamicmod")}
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+              expandedMetric === "dynamicmod"
+                ? "bg-[#0f0609] border-rose-500 shadow-[0_0_35px_rgba(244,63,94,0.35)] ring-1 ring-rose-500/40 font-black"
+                : "bg-[#0A0B0E]/60 border-rose-500/40 hover:border-rose-500 hover:bg-neutral-900/40 text-slate-400"
+            }`}
+          >
+            {expandedMetric === "dynamicmod" ? (
+              <div className="absolute inset-0 bg-gradient-to-br from-rose-950/10 via-neutral-950 to-[#03050a] pointer-events-none" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#03050a] pointer-events-none" />
+            )}
+
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
+                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                    expandedMetric === "dynamicmod"
+                      ? "bg-rose-500/10 border-rose-500/30 text-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-rose-500"
+                  }`}>
+                    <AudioLines className="w-5 h-5 text-rose-500" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                      expandedMetric === "dynamicmod" ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                    }`}>
+                      DYNAMIC MODULATION
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">Loud/Quiet Contrast Across the Song</span>
+                  </div>
+                </div>
+
+                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                  expandedMetric === "dynamicmod" ? "border-rose-500/15" : "border-white/5"
+                }`}>
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                    Measures real loudness contrast between the song's quietest and loudest sustained sections — the difference that keeps a listener locked in rather than tuning out.
+                    <span className="block mt-1 text-rose-500/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for listener retention and engagement dynamics, driving 30% of Structural Engagement.</span>
+                  </p>
+                  <span
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    expandedMetric === "dynamicmod"
+                      ? "bg-rose-500/10 border-rose-500/20 text-rose-500"
+                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-rose-500"
+                  }`}>
+                    {expandedMetric === "dynamicmod" ? "ACTIVE ⬇" : "VIEW METRICS ⚡"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex-shrink-0 flex items-center justify-center">
+                {liveMetrics?.calculatedDynamicModulationScore != null ? (
+                  <ScoreCircle
+                    score={liveMetrics.calculatedDynamicModulationScore}
+                    size={110}
+                    strokeWidth={7}
+                    color={expandedMetric === "dynamicmod" ? "#f43f5e" : "rgba(244, 63, 94, 0.45)"}
+                    glowColor={expandedMetric === "dynamicmod" ? "rgba(244, 63, 94, 0.65)" : "rgba(244, 63, 94, 0.15)"}
+                    extraGlow={expandedMetric === "dynamicmod"}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center w-[110px] h-[110px] rounded-full border border-dashed border-rose-500/30">
+                    <span className="text-[9px] font-mono text-slate-500 text-center px-3 uppercase tracking-wide">Insufficient Real Data</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {expandedMetric === "dynamicmod" && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginTop: -8 }}
+                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
+                exit={{ height: 0, opacity: 0, marginTop: -8 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden w-full relative z-0"
+              >
+                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-rose-500 rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
+                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
+                    DYNAMIC MODULATION AUDIT
+                  </div>
+                  <div className="p-4 bg-[#020203] border border-white/10 rounded-xl">
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500 block mb-1.5">Measured Dynamic Range</span>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      {liveMetrics?.calculatedDynamicRangeDb != null
+                        ? `${liveMetrics.calculatedDynamicRangeDb} dB of real measured range between this track's quietest and loudest sustained sections.`
+                        : "Not enough audio data to measure real dynamic range for this track yet."}
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
+                    This is a real, computed measurement from the actual audio waveform — not an AI estimate.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Card: Climax Trajectory — new card built from scratch (liveMetrics.calculatedClimaxTrajectoryScore) */}
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-7">
+          <button
+            onClick={() => setExpandedMetric(expandedMetric === "climax" ? null : "climax")}
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+              expandedMetric === "climax"
+                ? "bg-[#06100e] border-teal-500 shadow-[0_0_35px_rgba(20,184,166,0.35)] ring-1 ring-teal-500/40 font-black"
+                : "bg-[#0A0B0E]/60 border-teal-500/40 hover:border-teal-500 hover:bg-neutral-900/40 text-slate-400"
+            }`}
+          >
+            {expandedMetric === "climax" ? (
+              <div className="absolute inset-0 bg-gradient-to-br from-teal-950/10 via-neutral-950 to-[#03050a] pointer-events-none" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#03050a] pointer-events-none" />
+            )}
+
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
+                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                    expandedMetric === "climax"
+                      ? "bg-teal-500/10 border-teal-500/30 text-teal-500 shadow-[0_0_15px_rgba(20,184,166,0.3)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-teal-500"
+                  }`}>
+                    <TrendingUp className="w-5 h-5 text-teal-500" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                      expandedMetric === "climax" ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                    }`}>
+                      CLIMAX TRAJECTORY
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">Does The Song Build Toward A Peak?</span>
+                  </div>
+                </div>
+
+                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                  expandedMetric === "climax" ? "border-teal-500/15" : "border-white/5"
+                }`}>
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                    Measures whether the song's energy genuinely builds toward a later peak, rather than front-loading its most intense moment early with nothing left to climb toward.
+                    <span className="block mt-1 text-teal-500/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for listener retention and engagement dynamics, driving 30% of Structural Engagement.</span>
+                  </p>
+                  <span
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    expandedMetric === "climax"
+                      ? "bg-teal-500/10 border-teal-500/20 text-teal-500"
+                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-teal-500"
+                  }`}>
+                    {expandedMetric === "climax" ? "ACTIVE ⬇" : "VIEW METRICS ⚡"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex-shrink-0 flex items-center justify-center">
+                {liveMetrics?.calculatedClimaxTrajectoryScore != null ? (
+                  <ScoreCircle
+                    score={liveMetrics.calculatedClimaxTrajectoryScore}
+                    size={110}
+                    strokeWidth={7}
+                    color={expandedMetric === "climax" ? "#14b8a6" : "rgba(20, 184, 166, 0.45)"}
+                    glowColor={expandedMetric === "climax" ? "rgba(20, 184, 166, 0.65)" : "rgba(20, 184, 166, 0.15)"}
+                    extraGlow={expandedMetric === "climax"}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center w-[110px] h-[110px] rounded-full border border-dashed border-teal-500/30">
+                    <span className="text-[9px] font-mono text-slate-500 text-center px-3 uppercase tracking-wide">Insufficient Real Data</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {expandedMetric === "climax" && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginTop: -8 }}
+                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
+                exit={{ height: 0, opacity: 0, marginTop: -8 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden w-full relative z-0"
+              >
+                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-teal-500 rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
+                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
+                    CLIMAX TRAJECTORY AUDIT
+                  </div>
+                  <div className="p-4 bg-[#020203] border border-white/10 rounded-xl">
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500 block mb-1.5">Detected Peak Position</span>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      {liveMetrics?.calculatedClimaxPositionRatio != null
+                        ? `The song's loudest sustained moment lands at roughly ${Math.round(liveMetrics.calculatedClimaxPositionRatio * 100)}% through its runtime.`
+                        : "Not enough audio data to detect a real climax position for this track yet."}
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
+                    This is a real, computed measurement from the actual audio waveform — not an AI estimate.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+
+          <div className="relative overflow-hidden flex items-center gap-4 pl-5 pr-2 py-3 border-t border-b border-slate-500/20 mt-4" style={{ background: "linear-gradient(to right, #090b0e 0%, #090b0e 55%, #14141a 100%)" }}>
+            <div className="absolute inset-0 pointer-events-none" style={{
+              background: "linear-gradient(to left, #4b4b57 0%, #26262e 15%, #0d0d10 50%, #000000 75%)",
+              opacity: 0.5
+            }} />
+            <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-slate-400 to-slate-600" />
+            <div className="relative z-10 flex flex-col gap-0.5">
+              <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-[0.2em]">Additional Insights</span>
+              <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Songwriting &amp; Craft</span>
+            </div>
+            <span className="relative z-10 text-[9px] font-mono text-slate-500 ml-auto">Not used in your overall summary score</span>
+          </div>
+
+          <p className="text-[12px] text-slate-400 leading-relaxed px-1" style={{ fontFamily: "Inter, sans-serif" }}>
+            These reflect craft and artistic sophistication for your own growth as a songwriter — they typically have no bearing on whether streaming services surface your song to curated playlists or algorithmic feeds.
           </p>
 
         {/* Card: Music Theory Analysis — promoted to standalone; reuses the existing RowMetricCard + renderExpandedBreakdown untouched */}
@@ -7302,7 +7625,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       }`}>
                         <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                           {theoryMetric.description}
-                          <span className="block mt-1 text-[#818cf8]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for harmonic craft and musicological structure, driving 65% of Compositional Depth.</span>
+                          <span className="block mt-1 text-[#818cf8]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for harmonic craft and musicological structure, though not factored into your overall score.</span>
                         </p>
                         <span
                           style={{ paddingTop: "2px" }}
@@ -7362,109 +7685,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           })()}
         </div>
 
-        {/* Card: Arrangement Flow — new card built from scratch (critique.arrangement.flowScore + transitionsAndArc) */}
-        <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-5">
-          <button
-            onClick={() => setExpandedMetric(expandedMetric === "flow" ? null : "flow")}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
-              expandedMetric === "flow"
-                ? "bg-[#0f0b06] border-amber-500 shadow-[0_0_35px_rgba(245,158,11,0.35)] ring-1 ring-amber-500/40 font-black"
-                : "bg-[#0A0B0E]/60 border-amber-500/40 hover:border-amber-500 hover:bg-neutral-900/40 text-slate-400"
-            }`}
-          >
-            {expandedMetric === "flow" ? (
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-950/10 via-neutral-950 to-[#03050a] pointer-events-none" />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#03050a] pointer-events-none" />
-            )}
-
-            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
-              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
-                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
-                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
-                    expandedMetric === "flow"
-                      ? "bg-amber-500/10 border-amber-500/30 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
-                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-amber-500"
-                  }`}>
-                    <Waves className="w-5 h-5 text-amber-500" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
-                      expandedMetric === "flow" ? "text-white" : "text-slate-400 group-hover:text-slate-200"
-                    }`}>
-                      ARRANGEMENT FLOW
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Structural Build &amp; Dynamic Arc</span>
-                  </div>
-                </div>
-
-                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
-                  expandedMetric === "flow" ? "border-amber-500/15" : "border-white/5"
-                }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
-                    Assesses whether transitions between sections build tension and release effectively, keeping the arrangement's energy scaling coherent from intro to outro.
-                    <span className="block mt-1 text-amber-500/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for structural pacing and dynamic build, driving 35% of Compositional Depth.</span>
-                  </p>
-                  <span
-                    style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
-                    expandedMetric === "flow"
-                      ? "bg-amber-500/10 border-amber-500/20 text-amber-500"
-                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-amber-500"
-                  }`}>
-                    {expandedMetric === "flow" ? "ACTIVE ⬇" : "VIEW METRICS ⚡"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex-shrink-0 flex items-center justify-center">
-                <ScoreCircle
-                  score={Math.round(critique?.arrangement?.flowScore ?? 75)}
-                  size={110}
-                  strokeWidth={7}
-                  color={expandedMetric === "flow" ? "#f59e0b" : "rgba(245, 158, 11, 0.45)"}
-                  glowColor={expandedMetric === "flow" ? "rgba(245, 158, 11, 0.65)" : "rgba(245, 158, 11, 0.15)"}
-                  extraGlow={expandedMetric === "flow"}
-                />
-              </div>
-            </div>
-          </button>
-
-          <AnimatePresence initial={false}>
-            {expandedMetric === "flow" && (
-              <motion.div
-                initial={{ height: 0, opacity: 0, marginTop: -8 }}
-                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
-                exit={{ height: 0, opacity: 0, marginTop: -8 }}
-                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                className="overflow-hidden w-full relative z-0"
-              >
-                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-amber-500 rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
-                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
-                    ARRANGEMENT FLOW AUDIT
-                  </div>
-                  <div className="p-4 bg-[#020203] border border-white/10 rounded-xl">
-                    <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500 block mb-1.5">Transitions &amp; Dynamic Arc</span>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
-                      {critique?.arrangement?.transitionsAndArc ?? "Arrangement transitions and dynamic arc data unavailable."}
-                    </p>
-                  </div>
-                  <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
-                    Arrangement Flow is weighted at 35% into your overall Compositional Depth score — tied with Music Theory as the largest ingredient in that category.
-                  </p>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-
-          <div className="flex flex-col items-center gap-2 py-4">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500 text-center">
-              The Below Data Is Not Used In the Overall Summary Score
-            </span>
-            <div className="w-full h-px bg-gradient-to-r from-transparent via-purple-500/30 to-transparent" />
-          </div>
 
         {/* Card: Lyrical Impact — promoted to standalone; reuses the existing RowMetricCard + renderExpandedBreakdown untouched */}
         <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-4">
