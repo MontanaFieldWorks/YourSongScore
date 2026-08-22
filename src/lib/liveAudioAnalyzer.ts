@@ -1358,6 +1358,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   let dynamicRangeDb: number | null = null;
   let climaxTrajectoryScore: number | null = null;
   let climaxPositionRatio: number | null = null;
+  let climaxBuildDb: number | null = null;
 
   if (windowRmsDb.length >= 8) {
     const sortedDb = [...windowRmsDb].sort((a, b) => a - b);
@@ -1405,6 +1406,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     const firstThirdCount = Math.max(1, Math.floor(smoothed.length / 3));
     const openingAvgDb = smoothed.slice(0, firstThirdCount).reduce((a, b) => a + b, 0) / firstThirdCount;
     const buildDb = smoothed[peakIdx] - openingAvgDb;
+    climaxBuildDb = parseFloat(buildDb.toFixed(1));
     const magnitudeScore = Math.max(0, Math.min(100, Math.round((buildDb / 6) * 100)));
 
     climaxTrajectoryScore = Math.round(positionScore * 0.5 + magnitudeScore * 0.5);
@@ -1762,6 +1764,7 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     calculatedDynamicModulationScore: dynamicModulationScore,
     calculatedDynamicRangeDb: dynamicRangeDb,
     calculatedClimaxTrajectoryScore: climaxTrajectoryScore,
-    calculatedClimaxPositionRatio: climaxPositionRatio
+    calculatedClimaxPositionRatio: climaxPositionRatio,
+    calculatedClimaxBuildDb: climaxBuildDb
   };
 }
