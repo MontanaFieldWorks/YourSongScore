@@ -1630,7 +1630,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     const CATS: Record<string, { dark: string; agg: string; core: string }> = {
       "STREAMING READINESS": { dark: "FF1E3A8A", agg: "FFA5B0D0", core: "FFD2D8E8" },
       "SONIC SOUNDPRINT": { dark: "FF065F46", agg: "FF9BBFB5", core: "FFCDDFDA" },
-      "SONGWRITING & CRAFT": { dark: "FF5B21B6", agg: "FFBDA6E2", core: "FFDED3F0" },
+      "COMPOSITIONAL DEPTH": { dark: "FF5B21B6", agg: "FFBDA6E2", core: "FFDED3F0" },
     };
     const PLACEHOLDER = "FFFEF3C7";
     const PLACEHOLDER_TEXT = "FF92400E";
@@ -1767,12 +1767,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       vocals: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
       instrumental: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
       searchability: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
-      artistic: { category: "SONGWRITING & CRAFT", agg: null },
-      lyrics: { category: "SONGWRITING & CRAFT", agg: null },
-      theory: { category: "SONGWRITING & CRAFT", agg: null },
-      "dna-melodic": { category: "SONGWRITING & CRAFT", agg: "SONGWRITING QUALITY" },
-      "dna-tension": { category: "SONGWRITING & CRAFT", agg: "SONGWRITING QUALITY" },
-      "dna-density": { category: "SONGWRITING & CRAFT", agg: "SONGWRITING QUALITY" },
+      artistic: { category: "COMPOSITIONAL DEPTH", agg: null },
+      lyrics: { category: "COMPOSITIONAL DEPTH", agg: null },
+      theory: { category: "COMPOSITIONAL DEPTH", agg: null },
+      "dna-melodic": { category: "COMPOSITIONAL DEPTH", agg: "SONGWRITING QUALITY" },
+      "dna-tension": { category: "COMPOSITIONAL DEPTH", agg: "SONGWRITING QUALITY" },
+      "dna-density": { category: "COMPOSITIONAL DEPTH", agg: "SONGWRITING QUALITY" },
     };
 
     const aggScoreMap: Record<string, number | null> = {
@@ -7227,7 +7227,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       </div> /* End of section-sonic */
       )}
 
-        {/* SECTION: STRUCTURAL ENGAGEMENT (Songwriting & Craft nested below) */}
+        {/* SECTION: STRUCTURAL ENGAGEMENT (Compositional Depth nested below as 4th, non-scored slot) */}
         {expandedCategory === "compositional" && (
           <div id="section-compositional" className="flex flex-col gap-4 mt-8">
           <div className="relative overflow-hidden flex items-center gap-4 pl-5 pr-2 py-3 border-t border-b border-purple-500/20" style={{ background: "linear-gradient(to right, #090b0e 0%, #090b0e 55%, #12091e 100%)" }}>
@@ -7569,13 +7569,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-slate-400 to-slate-600" />
             <div className="relative z-10 flex flex-col gap-0.5">
               <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-[0.2em]">Additional Insights</span>
-              <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Songwriting &amp; Craft</span>
+              <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Compositional Depth</span>
             </div>
             <span className="relative z-10 text-[9px] font-mono text-slate-500 ml-auto">Not used in your overall summary score</span>
           </div>
 
           <p className="text-[12px] text-slate-400 leading-relaxed px-1" style={{ fontFamily: "Inter, sans-serif" }}>
-            These reflect craft and artistic sophistication for your own growth as a songwriter — they typically have no bearing on whether streaming services surface your song to curated playlists or algorithmic feeds.
+            Compositional Depth reflects craft and artistic sophistication for your own growth as a songwriter — it typically has no bearing on whether streaming services surface your song to curated playlists or algorithmic feeds.
           </p>
 
         {/* Card: Music Theory Analysis — promoted to standalone; reuses the existing RowMetricCard + renderExpandedBreakdown untouched */}
