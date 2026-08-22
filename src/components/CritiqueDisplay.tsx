@@ -1340,9 +1340,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const [productionQualityExpanded, setProductionQualityExpanded] = useState(false);
   const [selectedPQMetric, setSelectedPQMetric] = useState<string | null>(null);
   const [artistAudienceExpanded, setArtistAudienceExpanded] = useState(false);
-  const [activeSection, setActiveSection] = useState<"streaming" | "sonic" | "compositional">("streaming");
+  const [activeSection, setActiveSection] = useState<"streaming" | "sonic" | "compositional" | "compositionaldepth">("streaming");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [expandedCategory, setExpandedCategory] = useState<"streaming" | "sonic" | "compositional" | null>(null);
+  const [expandedCategory, setExpandedCategory] = useState<"streaming" | "sonic" | "compositional" | "compositionaldepth" | null>(null);
 
   // Dynamic Category Scores for Sidebar and Mobile Tabs
   const streamingScore = Math.round(
@@ -5713,11 +5713,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               </div>
             </button>
 
-            {/* COMPOSITIONAL DEPTH nav item (4th, non-scored slot - nested within the Structural Engagement section) */}
+            {/* COMPOSITIONAL DEPTH nav item (4th, non-scored slot - fully independent section) */}
             <button
               onClick={() => {
-                setActiveSection("compositional");
-                setExpandedCategory("compositional");
+                setActiveSection("compositionaldepth");
+                setExpandedCategory("compositionaldepth");
                 setTimeout(() => {
                   const el = document.getElementById("section-compositionaldepth");
                   if (el) {
@@ -5727,17 +5727,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }, 150);
               }}
               className={`relative flex items-center justify-between gap-2.5 min-h-[58px] px-3.5 py-3 rounded-xl border transition-all cursor-pointer text-left ${
-                activeSection === "compositional" 
+                activeSection === "compositionaldepth" 
                   ? "bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.05)]" 
                   : "bg-[#0b0c10]/50 border-white/5 text-slate-500 hover:text-slate-300 hover:border-white/10"
               }`}
             >
-              {activeSection === "compositional" && (
+              {activeSection === "compositionaldepth" && (
                 <div className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-amber-500 shadow-[0_0_8px_#f59e0b]" />
               )}
               
               <div className="flex items-center gap-2.5 min-w-0 w-full">
-                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeSection === "compositional" ? "bg-amber-400 shadow-[0_0_6px_#f59e0b]" : "bg-slate-600"}`} />
+                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeSection === "compositionaldepth" ? "bg-amber-400 shadow-[0_0_6px_#f59e0b]" : "bg-slate-600"}`} />
                 {!sidebarCollapsed && (
                   <>
                     <div className="flex flex-col min-w-0 truncate">
@@ -5748,14 +5748,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               </div>
             </button>
 
-            {/* Sub-links for compositional */}
-            {activeSection === "compositional" && !sidebarCollapsed && (
-              <div className="flex flex-col gap-0.5 pl-3 border-l border-purple-500/20 ml-3.5 py-1">
+            {/* Sub-links for compositionaldepth */}
+            {activeSection === "compositionaldepth" && !sidebarCollapsed && (
+              <div className="flex flex-col gap-0.5 pl-3 border-l border-amber-500/20 ml-3.5 py-1">
                 {["Artistic Impact", "Songwriting Quality", "Song Architecture"].map((label, i) => (
                   <button
                     key={i}
                     onClick={() => {
-                      setExpandedCategory('compositional');
+                      setExpandedCategory('compositionaldepth');
                       setTimeout(() => {
                         const el = document.getElementById(`sidebar-link-compositional-${i}`);
                         if (el) {
@@ -5764,7 +5764,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         }
                       }, 150);
                     }}
-                    className="text-[12px] font-display font-normal text-slate-500 hover:text-purple-400 hover:bg-purple-500/5 px-2 py-1 rounded-md transition-all text-left cursor-pointer truncate w-full"
+                    className="text-[12px] font-display font-normal text-slate-500 hover:text-amber-400 hover:bg-amber-500/5 px-2 py-1 rounded-md transition-all text-left cursor-pointer truncate w-full"
                   >
                     · {label}
                   </button>
@@ -7372,6 +7372,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
                     ARRANGEMENT FLOW AUDIT
                   </div>
+                  <p className="text-[10px] text-slate-500 leading-relaxed -mt-3">
+                    Evaluates whether transitions between sections build tension and release effectively, and whether the arrangement's energy scaling feels coherent from intro to outro — an AI assessment of pacing and structure, not a raw waveform measurement.
+                  </p>
                   <div className="p-4 bg-[#020203] border border-white/10 rounded-xl">
                     <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500 block mb-1.5">Transitions &amp; Dynamic Arc</span>
                     <p className="text-[11px] text-slate-300 leading-relaxed">
@@ -7379,7 +7382,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     </p>
                   </div>
                   <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
-                    Arrangement Flow is weighted at 40% into your overall Structural Engagement score — the largest single ingredient, alongside Dynamic Modulation and Climax Trajectory.
+                    Arrangement Flow is weighted at 40% into your overall Structural Engagement score — the largest single ingredient, alongside Dynamic Modulation (30%) and Climax Trajectory (30%).
                   </p>
                 </div>
               </motion.div>
@@ -7462,7 +7465,15 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </button>
 
           <AnimatePresence initial={false}>
-            {expandedMetric === "dynamicmod" && (
+            {expandedMetric === "dynamicmod" && (() => {
+              const dRangeDb = liveMetrics?.calculatedDynamicRangeDb ?? null;
+              let dmTier: { label: string; color: string; bg: string; border: string } = { label: "NO DATA", color: "text-slate-500", bg: "bg-slate-500/10", border: "border-slate-500/20" };
+              if (dRangeDb != null) {
+                if (dRangeDb <= 3) dmTier = { label: "FLAT / COMPRESSED", color: "text-[#ffba00]", bg: "bg-[#ffba00]/10", border: "border-[#ffba00]/20" };
+                else if (dRangeDb <= 10) dmTier = { label: "MODERATE CONTRAST", color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" };
+                else dmTier = { label: "STRONG DYNAMIC ARC", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" };
+              }
+              return (
               <motion.div
                 initial={{ height: 0, opacity: 0, marginTop: -8 }}
                 animate={{ height: "auto", opacity: 1, marginTop: 4 }}
@@ -7474,20 +7485,30 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
                     DYNAMIC MODULATION AUDIT
                   </div>
-                  <div className="p-4 bg-[#020203] border border-white/10 rounded-xl">
-                    <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500 block mb-1.5">Measured Dynamic Range</span>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
-                      {liveMetrics?.calculatedDynamicRangeDb != null
-                        ? `${liveMetrics.calculatedDynamicRangeDb} dB of real measured range between this track's quietest and loudest sustained sections.`
-                        : "Not enough audio data to measure real dynamic range for this track yet."}
+                  <span className="text-[10px] font-mono text-slate-500 -mt-3">
+                    Scoring tiers: <span className="text-[#ffba00]">≤3dB flat</span> · <span className="text-blue-400">3–10dB moderate</span> · <span className="text-emerald-400">10dB+ strong</span>
+                  </span>
+
+                  <div className={`p-4 rounded-xl border ${dmTier.bg} ${dmTier.border}`}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Measured Dynamic Range</span>
+                      <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${dmTier.bg} ${dmTier.color}`}>
+                        {dmTier.label}
+                      </span>
+                    </div>
+                    <div className="text-2xl font-black text-white font-mono">{dRangeDb ?? "--"} <span className="text-xs text-slate-500 font-semibold">dB</span></div>
+                    <p className="text-[10px] text-slate-400 leading-relaxed mt-1.5">
+                      Difference between the 85th and 15th percentile loudness levels across the whole song — the real contrast between its quietest and loudest sustained sections.
                     </p>
                   </div>
+
                   <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
-                    This is a real, computed measurement from the actual audio waveform — not an AI estimate.
+                    Computed from a windowed RMS energy envelope sampled across the entire track — a real, DSP-measured value, not an AI estimate. Weighted at 30% into your overall Structural Engagement score.
                   </p>
                 </div>
               </motion.div>
-            )}
+              );
+            })()}
           </AnimatePresence>
         </div>
 
@@ -7566,7 +7587,22 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </button>
 
           <AnimatePresence initial={false}>
-            {expandedMetric === "climax" && (
+            {expandedMetric === "climax" && (() => {
+              const posRatio = liveMetrics?.calculatedClimaxPositionRatio ?? null;
+              const buildDb = liveMetrics?.calculatedClimaxBuildDb ?? null;
+              let posTier: { label: string; color: string; bg: string; border: string } = { label: "NO DATA", color: "text-slate-500", bg: "bg-slate-500/10", border: "border-slate-500/20" };
+              if (posRatio != null) {
+                if (posRatio < 0.55) posTier = { label: "EARLY / FRONT-LOADED", color: "text-[#ffba00]", bg: "bg-[#ffba00]/10", border: "border-[#ffba00]/20" };
+                else if (posRatio <= 0.9) posTier = { label: "IDEAL BUILD ZONE", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" };
+                else posTier = { label: "LATE / ABRUPT", color: "text-[#ffba00]", bg: "bg-[#ffba00]/10", border: "border-[#ffba00]/20" };
+              }
+              let magTier: { label: string; color: string; bg: string; border: string } = { label: "NO DATA", color: "text-slate-500", bg: "bg-slate-500/10", border: "border-slate-500/20" };
+              if (buildDb != null) {
+                if (buildDb < 2) magTier = { label: "MINIMAL BUILD", color: "text-[#ffba00]", bg: "bg-[#ffba00]/10", border: "border-[#ffba00]/20" };
+                else if (buildDb < 5) magTier = { label: "MODERATE BUILD", color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" };
+                else magTier = { label: "STRONG BUILD", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" };
+              }
+              return (
               <motion.div
                 initial={{ height: 0, opacity: 0, marginTop: -8 }}
                 animate={{ height: "auto", opacity: 1, marginTop: 4 }}
@@ -7578,25 +7614,55 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
                     CLIMAX TRAJECTORY AUDIT
                   </div>
-                  <div className="p-4 bg-[#020203] border border-white/10 rounded-xl">
-                    <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500 block mb-1.5">Detected Peak Position</span>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
-                      {liveMetrics?.calculatedClimaxPositionRatio != null
-                        ? `The song's loudest sustained moment lands at roughly ${Math.round(liveMetrics.calculatedClimaxPositionRatio * 100)}% through its runtime.`
-                        : "Not enough audio data to detect a real climax position for this track yet."}
-                    </p>
+                  <span className="text-[10px] font-mono text-slate-500 -mt-3">
+                    Ideal zone: peak lands <span className="text-emerald-400">55–90%</span> through the track, with a real, substantial build behind it
+                  </span>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className={`p-4 rounded-xl border ${posTier.bg} ${posTier.border}`}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Peak Position</span>
+                        <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${posTier.bg} ${posTier.color}`}>
+                          {posTier.label}
+                        </span>
+                      </div>
+                      <div className="text-2xl font-black text-white font-mono">{posRatio != null ? Math.round(posRatio * 100) : "--"} <span className="text-xs text-slate-500 font-semibold">% through runtime</span></div>
+                      <p className="text-[10px] text-slate-400 leading-relaxed mt-1.5">
+                        Where the song's loudest sustained moment (on a smoothed energy envelope) actually falls.
+                      </p>
+                    </div>
+
+                    <div className={`p-4 rounded-xl border ${magTier.bg} ${magTier.border}`}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Build Magnitude</span>
+                        <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${magTier.bg} ${magTier.color}`}>
+                          {magTier.label}
+                        </span>
+                      </div>
+                      <div className="text-2xl font-black text-white font-mono">{buildDb ?? "--"} <span className="text-xs text-slate-500 font-semibold">dB</span></div>
+                      <p className="text-[10px] text-slate-400 leading-relaxed mt-1.5">
+                        How much louder the peak is than the song's opening third — a late peak with no real build behind it still scores low here.
+                      </p>
+                    </div>
                   </div>
+
                   <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
-                    This is a real, computed measurement from the actual audio waveform — not an AI estimate.
+                    Climax Trajectory Score is a 50/50 blend of Peak Position and Build Magnitude, both DSP-measured from the actual audio waveform. Weighted at 30% into your overall Structural Engagement score.
                   </p>
                 </div>
               </motion.div>
-            )}
+              );
+            })()}
           </AnimatePresence>
         </div>
 
 
-          <div id="section-compositionaldepth" className="relative overflow-hidden flex items-center gap-4 pl-5 pr-2 py-3 border-t border-b border-slate-500/20 mt-4" style={{ background: "linear-gradient(to right, #090b0e 0%, #090b0e 55%, #14141a 100%)" }}>
+          </div>
+        )} {/* End of section-compositional (Structural Engagement) */}
+
+        {expandedCategory === "compositionaldepth" && (
+          <div id="section-compositionaldepth" className="flex flex-col gap-4 mt-8">
+                      <div className="relative overflow-hidden flex items-center gap-4 pl-5 pr-2 py-3 border-t border-b border-slate-500/20 mt-4" style={{ background: "linear-gradient(to right, #090b0e 0%, #090b0e 55%, #14141a 100%)" }}>
             <div className="absolute inset-0 pointer-events-none" style={{
               background: "linear-gradient(to left, #4b4b57 0%, #26262e 15%, #0d0d10 50%, #000000 75%)",
               opacity: 0.5
@@ -8501,8 +8567,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             )}
           </AnimatePresence>
         </div>
-      </div> /* End of section-compositional */
-        )}
+          </div>
+        )} {/* End of section-compositionaldepth */}
 
           </div> {/* End of MAIN CONTENT AREA */}
         </div> {/* End of critique-page-layout */}
