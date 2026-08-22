@@ -5775,7 +5775,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
           {/* MAIN CONTENT AREA */}
           <div className="flex-1 min-w-0 flex flex-col gap-4">
-            {/* THREE CATEGORY LANDING CARDS — default collapsed view */}
+            {/* FOUR CATEGORY LANDING CARDS — default collapsed view */}
             {expandedCategory === null && (
               <div className="flex flex-col gap-4">
                 {/* Streaming Readiness card */}
@@ -5887,6 +5887,44 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <div className="flex gap-2 mt-2 flex-wrap">
                       {["Arrangement Flow", "Dynamic Modulation", "Climax Trajectory"].map(tag => (
                         <span key={tag} className="text-[9px] font-mono text-purple-400/70 border border-purple-500/25 px-2.5 py-1 rounded-full">{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Compositional Depth card */}
+                <div
+                  onClick={() => setExpandedCategory("compositionaldepth")}
+                  className="relative cursor-pointer rounded-2xl overflow-hidden border border-amber-500/30 hover:border-amber-400/60 transition-all duration-300 hover:shadow-[0_0_40px_rgba(245,158,11,0.2)]"
+                  style={{ minHeight: "170px", background: "linear-gradient(135deg, #090b0e 0%, #090b0e 60%, #1e1305 100%)" }}
+                >
+                  {/* Atmospheric gradient glow — bleeds left from circle */}
+                  <div className="absolute inset-0 pointer-events-none rounded-2xl overflow-hidden">
+                    <div className="absolute inset-0" style={{
+                      background: "linear-gradient(to left, #c77e3a 0%, #b7742f 4%, #7e5426 12%, #644120 20%, #4e341a 28%, #352414 38%, #201608 52%, #000000 65%)",
+                      opacity: 0.9
+                    }} />
+                  </div>
+                  {/* Thick white circle — center positioned below-right, matching sibling card treatment */}
+                  <div className="absolute pointer-events-none" style={{
+                    width: "600px",
+                    height: "600px",
+                    borderRadius: "50%",
+                    border: "20px solid rgba(255,255,255,0.95)",
+                    right: "-460px",
+                    bottom: "-240px",
+                    boxShadow: "0 0 30px rgba(245,158,11,1), 0 0 60px rgba(245,158,11,0.8), 0 0 100px rgba(245,158,11,0.5), inset 0 0 30px rgba(245,158,11,0.8), inset 0 0 60px rgba(245,158,11,0.4)"
+                  }} />
+                  {/* Left accent bar */}
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-amber-400 to-amber-600" />
+                  {/* Content */}
+                  <div className="relative z-10 p-7 flex flex-col gap-3">
+                    <span className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-[0.2em]">Value Added</span>
+                    <h2 className="text-[32px] font-black text-white uppercase leading-none tracking-tight italic" style={{ fontFamily: "Inter, sans-serif" }}>Compositional Depth</h2>
+                    <p className="text-[12px] text-slate-400 leading-relaxed max-w-lg mt-1">Harmonic craft, lyrical originality, and artistic sophistication — for your own growth as a songwriter, not part of your overall summary score.</p>
+                    <div className="flex gap-2 mt-2 flex-wrap">
+                      {["Music Theory", "Lyrical Impact", "Artistic Impact"].map(tag => (
+                        <span key={tag} className="text-[9px] font-mono text-amber-400/70 border border-amber-500/25 px-2.5 py-1 rounded-full">{tag}</span>
                       ))}
                     </div>
                   </div>
