@@ -146,14 +146,14 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
       tags: ["Mix Quality", "Loudness Compliance", "Vocal Performance"]
     },
     {
-      title: "COMPOSITIONAL DEPTH",
+      title: "STRUCTURAL ENGAGEMENT",
       score: scoreCompositionalDepth,
-      desc: "Harmonic craft and structural pacing — the music theory choices that give a song staying power.",
+      desc: "Pacing, dynamic build, and energy trajectory — the retention dynamics that keep listeners and algorithms engaged.",
       glowColor: "rgba(192, 132, 252, 0.6)",
       strokeColor: "#c084fc",
       trackColor: "rgba(192, 132, 252, 0.1)",
       textColor: "text-purple-400",
-      tags: ["Music Theory", "Arrangement Flow"]
+      tags: ["Arrangement Flow", "Dynamic Modulation", "Climax Trajectory"]
     }
   ];
 
