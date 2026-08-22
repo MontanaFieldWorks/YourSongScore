@@ -1630,7 +1630,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     const CATS: Record<string, { dark: string; agg: string; core: string }> = {
       "STREAMING READINESS": { dark: "FF1E3A8A", agg: "FFA5B0D0", core: "FFD2D8E8" },
       "SONIC SOUNDPRINT": { dark: "FF065F46", agg: "FF9BBFB5", core: "FFCDDFDA" },
-      "COMPOSITIONAL DEPTH": { dark: "FF5B21B6", agg: "FFBDA6E2", core: "FFDED3F0" },
+      "SONGWRITING & CRAFT": { dark: "FF5B21B6", agg: "FFBDA6E2", core: "FFDED3F0" },
     };
     const PLACEHOLDER = "FFFEF3C7";
     const PLACEHOLDER_TEXT = "FF92400E";
@@ -1767,12 +1767,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       vocals: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
       instrumental: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
       searchability: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
-      artistic: { category: "COMPOSITIONAL DEPTH", agg: null },
-      lyrics: { category: "COMPOSITIONAL DEPTH", agg: null },
-      theory: { category: "COMPOSITIONAL DEPTH", agg: null },
-      "dna-melodic": { category: "COMPOSITIONAL DEPTH", agg: "SONGWRITING QUALITY" },
-      "dna-tension": { category: "COMPOSITIONAL DEPTH", agg: "SONGWRITING QUALITY" },
-      "dna-density": { category: "COMPOSITIONAL DEPTH", agg: "SONGWRITING QUALITY" },
+      artistic: { category: "SONGWRITING & CRAFT", agg: null },
+      lyrics: { category: "SONGWRITING & CRAFT", agg: null },
+      theory: { category: "SONGWRITING & CRAFT", agg: null },
+      "dna-melodic": { category: "SONGWRITING & CRAFT", agg: "SONGWRITING QUALITY" },
+      "dna-tension": { category: "SONGWRITING & CRAFT", agg: "SONGWRITING QUALITY" },
+      "dna-density": { category: "SONGWRITING & CRAFT", agg: "SONGWRITING QUALITY" },
     };
 
     const aggScoreMap: Record<string, number | null> = {
@@ -5677,7 +5677,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               </div>
             )}
 
-            {/* COMPOSITIONAL DEPTH nav item */}
+            {/* STRUCTURAL ENGAGEMENT nav item */}
             <button
               onClick={() => {
                 setActiveSection("compositional");
@@ -5706,7 +5706,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 {!sidebarCollapsed && (
                   <>
                     <div className="flex flex-col min-w-0 truncate">
-                      <span className="text-[11px] font-mono font-bold uppercase tracking-widest leading-none">COMPOSITIONAL DEPTH</span>
+                      <span className="text-[11px] font-mono font-bold uppercase tracking-widest leading-none">STRUCTURAL ENGAGEMENT</span>
                     </div>
                   </>
                 )}
@@ -5819,7 +5819,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   </div>
                 </div>
 
-                {/* Compositional Depth card */}
+                {/* Structural Engagement card */}
                 <div
                   onClick={() => setExpandedCategory("compositional")}
                   className="relative cursor-pointer rounded-2xl overflow-hidden border border-purple-500/30 hover:border-purple-400/60 transition-all duration-300 hover:shadow-[0_0_40px_rgba(168,85,247,0.2)]"
@@ -5847,10 +5847,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   {/* Content */}
                   <div className="relative z-10 p-7 flex flex-col gap-3">
                     <span className="text-[10px] font-mono font-bold text-purple-400 uppercase tracking-[0.2em]">Category</span>
-                    <h2 className="text-[32px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Compositional Depth</h2>
-                    <p className="text-[12px] text-slate-400 leading-relaxed max-w-lg mt-1">Artistic impact, songwriting quality, and song architecture — the human elements that make a song worth remembering.</p>
+                    <h2 className="text-[32px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Structural Engagement</h2>
+                    <p className="text-[12px] text-slate-400 leading-relaxed max-w-lg mt-1">Pacing, dynamic build, and energy trajectory — the retention dynamics that influence whether listeners and streaming algorithms stay engaged.</p>
                     <div className="flex gap-2 mt-2 flex-wrap">
-                      {["Artistic Impact", "Songwriting Quality", "Song Architecture"].map(tag => (
+                      {["Arrangement Flow", "Dynamic Modulation", "Climax Trajectory"].map(tag => (
                         <span key={tag} className="text-[9px] font-mono text-purple-400/70 border border-purple-500/25 px-2.5 py-1 rounded-full">{tag}</span>
                       ))}
                     </div>
@@ -7227,7 +7227,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       </div> /* End of section-sonic */
       )}
 
-        {/* SECTION: COMPOSITIONAL DEPTH */}
+        {/* SECTION: STRUCTURAL ENGAGEMENT (Songwriting & Craft nested below) */}
         {expandedCategory === "compositional" && (
           <div id="section-compositional" className="flex flex-col gap-4 mt-8">
           <div className="relative overflow-hidden flex items-center gap-4 pl-5 pr-2 py-3 border-t border-b border-purple-500/20" style={{ background: "linear-gradient(to right, #090b0e 0%, #090b0e 55%, #12091e 100%)" }}>
