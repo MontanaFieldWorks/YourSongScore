@@ -1333,6 +1333,83 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     bandEnergies[b] = Math.max(0, Math.min(100, Math.round(score)));
   }
 
+  // Windowed RMS energy envelope across the whole song - shared basis for both Dynamic
+  // Modulation (how much loudness contrast exists between quiet and loud sections) and
+  // Climax Trajectory (whether the song builds toward a genuine late peak, rather than
+  // front-loading its energy). Real, computed values - first-pass reasoned scoring curves,
+  // not yet empirically calibrated against real songs, same as other new metrics this
+  // session; worth checking against real test songs before trusting the exact numbers.
+  const energyWindowSec = 1.0;
+  const energyWindowSamples = Math.round(energyWindowSec * sampleRate);
+  const numEnergyWindows = Math.max(1, Math.floor(len / energyWindowSamples));
+  const windowRmsDb: number[] = [];
+  for (let w = 0; w < numEnergyWindows; w++) {
+    const start = w * energyWindowSamples;
+    let sum = 0;
+    for (let j = 0; j < energyWindowSamples; j += 4) { // subsample for speed
+      const v = ch0[start + j] || 0;
+      sum += v * v;
+    }
+    const rms = Math.sqrt(sum / (energyWindowSamples / 4));
+    windowRmsDb.push(20 * Math.log10(rms || 0.0001));
+  }
+
+  let dynamicModulationScore: number | null = null;
+  let dynamicRangeDb: number | null = null;
+  let climaxTrajectoryScore: number | null = null;
+  let climaxPositionRatio: number | null = null;
+
+  if (windowRmsDb.length >= 8) {
+    const sortedDb = [...windowRmsDb].sort((a, b) => a - b);
+    const pIndex = (p: number) => sortedDb[Math.min(sortedDb.length - 1, Math.floor(p * sortedDb.length))];
+    const highP = pIndex(0.85);
+    const lowP = pIndex(0.15);
+    dynamicRangeDb = parseFloat((highP - lowP).toFixed(1));
+
+    // Reasoned mapping: <3dB range = essentially flat/compressed throughout (low score);
+    // 3-10dB = moderate, genuine verse/chorus-style contrast; 10dB+ = strong dynamic arc.
+    if (dynamicRangeDb <= 3) {
+      dynamicModulationScore = Math.round((dynamicRangeDb / 3) * 40);
+    } else if (dynamicRangeDb <= 10) {
+      dynamicModulationScore = Math.round(40 + ((dynamicRangeDb - 3) / 7) * 40);
+    } else {
+      dynamicModulationScore = Math.round(Math.min(100, 80 + ((dynamicRangeDb - 10) / 6) * 20));
+    }
+
+    // Climax Trajectory: find the peak of a lightly smoothed envelope (3-window moving
+    // average) to avoid a single loud transient spike being mistaken for "the climax."
+    const smoothed = windowRmsDb.map((_, i) => {
+      const a = windowRmsDb[Math.max(0, i - 1)];
+      const b = windowRmsDb[i];
+      const c = windowRmsDb[Math.min(windowRmsDb.length - 1, i + 1)];
+      return (a + b + c) / 3;
+    });
+    let peakIdx = 0;
+    for (let i = 1; i < smoothed.length; i++) {
+      if (smoothed[i] > smoothed[peakIdx]) peakIdx = i;
+    }
+    climaxPositionRatio = parseFloat((peakIdx / (smoothed.length - 1)).toFixed(2));
+
+    // Position score: rewards the peak landing in the back half without sitting at the
+    // very last instant (which reads more like an abrupt cutoff than a resolved climax).
+    let positionScore: number;
+    if (climaxPositionRatio >= 0.55 && climaxPositionRatio <= 0.9) {
+      positionScore = 100;
+    } else if (climaxPositionRatio < 0.55) {
+      positionScore = Math.max(0, Math.round((climaxPositionRatio / 0.55) * 100));
+    } else {
+      positionScore = Math.max(0, Math.round(100 - ((climaxPositionRatio - 0.9) / 0.1) * 40));
+    }
+
+    // Magnitude score: rewards a real, substantial build - not just a late but trivial bump.
+    const firstThirdCount = Math.max(1, Math.floor(smoothed.length / 3));
+    const openingAvgDb = smoothed.slice(0, firstThirdCount).reduce((a, b) => a + b, 0) / firstThirdCount;
+    const buildDb = smoothed[peakIdx] - openingAvgDb;
+    const magnitudeScore = Math.max(0, Math.min(100, Math.round((buildDb / 6) * 100)));
+
+    climaxTrajectoryScore = Math.round(positionScore * 0.5 + magnitudeScore * 0.5);
+  }
+
   return {
     calculatedLufs: parseFloat(lufsValue.toFixed(1)),
     calculatedTruePeak: parseFloat(truePeak.toFixed(2)),
@@ -1681,6 +1758,10 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
         }
       }
       return vocalDynamicsScore;
-    })()
+    })(),
+    calculatedDynamicModulationScore: dynamicModulationScore,
+    calculatedDynamicRangeDb: dynamicRangeDb,
+    calculatedClimaxTrajectoryScore: climaxTrajectoryScore,
+    calculatedClimaxPositionRatio: climaxPositionRatio
   };
 }
