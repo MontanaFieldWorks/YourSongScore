@@ -16,7 +16,7 @@ interface CritiqueSummaryProps {
 export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, onClear }: CritiqueSummaryProps) {
   // State for tracking open explanatory banners
   const [openExplanations, setOpenExplanations] = useState<Record<string, boolean>>({});
-  const [animatedScores, setAnimatedScores] = useState<number[]>([0, 0, 0]);
+  const [animatedScores, setAnimatedScores] = useState<number[]>([0, 0, 0, 0]);
   const [imageError, setImageError] = useState(false);
   const animationRefs = useRef<(number | null)[]>([null, null, null]);
 
@@ -154,6 +154,17 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
       trackColor: "rgba(192, 132, 252, 0.1)",
       textColor: "text-purple-400",
       tags: ["Arrangement Flow", "Dynamic Modulation", "Climax Trajectory"]
+    },
+    {
+      title: "COMPOSITIONAL DEPTH",
+      score: critique?.musicTheory?.score ?? 75,
+      desc: "Harmonic craft, lyrical originality, and artistic sophistication — for your own growth as a songwriter, not for algorithmic favor.",
+      glowColor: "rgba(245, 158, 11, 0.6)",
+      strokeColor: "#f59e0b",
+      trackColor: "rgba(245, 158, 11, 0.1)",
+      textColor: "text-amber-400",
+      tags: ["Music Theory", "Lyrical Impact", "Artistic Impact"],
+      notScored: true
     }
   ];
 
@@ -733,9 +744,15 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                       trackColor: "rgba(177, 74, 230, 0.2)",
                       glowColor: "rgba(177, 74, 230, 0.9)",
                       textColor: "#b14ae6"
+                    },
+                    {
+                      edgeColor: "#f59e0b",
+                      trackColor: "rgba(245, 158, 11, 0.2)",
+                      glowColor: "rgba(245, 158, 11, 0.9)",
+                      textColor: "#f59e0b"
                     }
                   ];
-                  const colorConfig = itemColorConfigs[i] || itemColorConfigs[2];
+                  const colorConfig = itemColorConfigs[i] || itemColorConfigs[3];
 
                   return (
                     <div 
@@ -786,11 +803,14 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                           className="text-[10px] font-mono font-bold tracking-widest uppercase"
                           style={{ color: colorConfig.textColor }}
                         >
-                          CATEGORY
+                          {(cat as any).notScored ? "VALUE ADDED" : "CATEGORY"}
                         </span>
                         <div className="font-['Inter'] text-[19px] pt-0 pb-[9px] font-black text-white tracking-wide mt-0.5 uppercase">
                           {cat.title}
                         </div>
+                        {(cat as any).notScored && (
+                          <p className="text-[8.5px] font-mono text-slate-500 uppercase tracking-wide -mt-2 mb-1.5">Not part of your overall summary score</p>
+                        )}
 
                         {/* Pill Tags */}
                         <div className="flex flex-nowrap gap-1 mt-[2px]">
