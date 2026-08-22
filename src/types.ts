@@ -110,6 +110,7 @@ export interface LiveAudioMetrics {
   calculatedDynamicRangeDb?: number | null;
   calculatedClimaxTrajectoryScore?: number | null;
   calculatedClimaxPositionRatio?: number | null;
+  calculatedClimaxBuildDb?: number | null;
 }
 
 export interface CritiqueData {
