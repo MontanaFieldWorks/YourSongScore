@@ -719,7 +719,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               </div>
 
               {/* Glowing Ring Score Cards List */}
-              <div className="w-full max-w-[435px] flex flex-col gap-3 relative z-10 mt-[10px] text-left">
+              <div className="w-[440px] flex flex-col gap-3 relative z-10 mt-[10px] text-left">
                 {categories.map((cat, i) => {
                   const radius = 52;
                   const strokeWidth = 5.25;
@@ -757,7 +757,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                   return (
                     <div 
                       key={i} 
-                      className="bg-black/50 border border-white/5 rounded-2xl flex items-center hover:bg-black/70 transition-colors relative overflow-hidden pl-[1px] pr-3 pb-0 pt-[2.5px] gap-1.5 w-full h-[115px]"
+                      className="bg-black/50 border border-white/5 rounded-2xl flex items-center hover:bg-black/70 transition-colors relative overflow-hidden pl-[1px] pr-3 pb-0 pt-[2.5px] gap-1.5 w-[440px] h-[115px]"
                     >
                       <div 
                         className="absolute top-0 left-0 w-[3px] h-full" 
@@ -798,18 +798,38 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                       </div>
 
                       {/* Metadata, Description and Tag badges */}
-                      <div className="flex-1 min-w-0">
+                      <div 
+                        className="flex-1 min-w-0"
+                        style={{
+                          width: "272.4px",
+                          ...(i === 2 ? { paddingBottom: "9px" } : {})
+                        }}
+                      >
                         <span 
-                          className="text-[10px] font-mono font-bold tracking-widest uppercase"
-                          style={{ color: colorConfig.textColor }}
+                          className="text-[10px] font-mono font-bold uppercase"
+                          style={{ color: colorConfig.textColor, letterSpacing: "0.05em" }}
                         >
                           {(cat as any).notScored ? "VALUE ADDED" : "CATEGORY"}
                         </span>
-                        <div className="font-['Inter'] text-[19px] pt-0 pb-[9px] font-black text-white tracking-wide mt-0.5 uppercase">
+                        <div 
+                          className="font-['Inter'] text-[19px] pt-0 pb-[9px] font-black text-white mt-0.5 uppercase"
+                          style={{ 
+                            letterSpacing: "0.0125em",
+                            ...(i === 3 ? { fontStyle: "italic" } : {})
+                          }}
+                        >
                           {cat.title}
                         </div>
                         {(cat as any).notScored && (
-                          <p className="text-[8.5px] font-mono text-slate-500 uppercase tracking-wide -mt-2 mb-1.5">Not part of your overall summary score</p>
+                          <p 
+                            className="text-[8.5px] font-mono uppercase -mt-2 mb-1.5"
+                            style={{ 
+                              letterSpacing: "0.0125em",
+                              color: "#ffffff"
+                            }}
+                          >
+                            Not part of your overall summary score
+                          </p>
                         )}
 
                         {/* Pill Tags */}
