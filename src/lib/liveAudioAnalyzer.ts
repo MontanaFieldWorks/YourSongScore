@@ -1432,14 +1432,22 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     dynamicHighPercentileDb = parseFloat(highP.toFixed(1));
     dynamicLowPercentileDb = parseFloat(lowP.toFixed(1));
 
-    // Reasoned mapping: <3dB range = essentially flat/compressed throughout (low score);
-    // 3-10dB = moderate, genuine verse/chorus-style contrast; 10dB+ = strong dynamic arc.
-    if (dynamicRangeDb <= 3) {
-      dynamicModulationScore = Math.round((dynamicRangeDb / 3) * 40);
+    // Reworked from a straight linear ramp across the whole 3-10dB sweet spot (which meant
+    // landing dead-center in the zone the UI itself calls "ideal" only ever scored 60, a
+    // real contradiction between the score and the "Commercial Sweet Spot" badge shown
+    // next to it). Now a proper plateau: 3dB and 10dB (the sweet spot's own edges) both
+    // score 80, ramping up to a genuine 100 plateau spanning 5-10dB - not just a single
+    // midpoint - so landing solidly in the zone the app calls ideal actually scores like it.
+    if (dynamicRangeDb <= 0) {
+      dynamicModulationScore = 0;
+    } else if (dynamicRangeDb <= 3) {
+      dynamicModulationScore = Math.round((dynamicRangeDb / 3) * 80);
+    } else if (dynamicRangeDb <= 5) {
+      dynamicModulationScore = Math.round(80 + ((dynamicRangeDb - 3) / 2) * 20);
     } else if (dynamicRangeDb <= 10) {
-      dynamicModulationScore = Math.round(40 + ((dynamicRangeDb - 3) / 7) * 40);
+      dynamicModulationScore = 100;
     } else {
-      dynamicModulationScore = Math.round(Math.min(100, 80 + ((dynamicRangeDb - 10) / 6) * 20));
+      dynamicModulationScore = Math.round(Math.max(50, 100 - ((dynamicRangeDb - 10) / 10) * 50));
     }
 
     // Climax Trajectory: find the peak of a lightly smoothed envelope (3-window moving
