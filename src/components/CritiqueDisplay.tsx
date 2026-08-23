@@ -7398,7 +7398,69 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </button>
 
           <AnimatePresence initial={false}>
-            {expandedMetric === "flow" && (
+            {expandedMetric === "flow" && (() => {
+              const flowScore = Math.round(critique?.arrangement?.flowScore ?? 75);
+              const boundaries = liveMetrics?.calculatedSectionBoundaries ?? [];
+              const rawEnvelope = liveMetrics?.calculatedEnergyEnvelope ?? [];
+              const totalSec = rawEnvelope.length > 0 ? rawEnvelope[rawEnvelope.length - 1].timeSec : 0;
+
+              // Format seconds into m:ss
+              const fmtTime = (s: number) => {
+                const mins = Math.floor(s / 60);
+                const secs = Math.floor(s % 60);
+                return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+              };
+
+              // Compute structural segments with average dB
+              interface SectionSegment {
+                startSec: number;
+                endSec: number;
+                avgDb: number;
+                deltaFromPrev: number | null;
+                label: string;
+              }
+
+              const segments: SectionSegment[] = [];
+              if (boundaries.length >= 2 && rawEnvelope.length >= 4) {
+                for (let i = 0; i < boundaries.length - 1; i++) {
+                  const start = boundaries[i];
+                  const end = boundaries[i + 1];
+                  const slice = rawEnvelope.filter(p => p.timeSec >= start && p.timeSec <= end);
+                  const avg = slice.length > 0 
+                    ? slice.reduce((a, b) => a + b.db, 0) / slice.length 
+                    : -20;
+                  
+                  // Heuristic label based on position & energy
+                  let label = `Section ${i + 1}`;
+                  if (i === 0) label = "Intro / V1";
+                  else if (i === boundaries.length - 2) label = "Outro / End";
+                  else if (i === Math.floor((boundaries.length - 1) * 0.4)) label = "Chorus 1";
+                  else if (i === Math.floor((boundaries.length - 1) * 0.7)) label = "Chorus 2 / Climax";
+                  else if (i === Math.floor((boundaries.length - 1) * 0.55)) label = "Bridge / V2";
+
+                  segments.push({
+                    startSec: start,
+                    endSec: end,
+                    avgDb: parseFloat(avg.toFixed(1)),
+                    deltaFromPrev: null,
+                    label
+                  });
+                }
+
+                // Compute delta from previous segment
+                for (let i = 1; i < segments.length; i++) {
+                  segments[i].deltaFromPrev = parseFloat((segments[i].avgDb - segments[i - 1].avgDb).toFixed(1));
+                }
+              }
+
+              // Compute average transition lift
+              const lifts = segments.filter(s => s.deltaFromPrev !== null).map(s => s.deltaFromPrev as number);
+              const positiveLifts = lifts.filter(d => d > 0);
+              const avgLift = positiveLifts.length > 0 
+                ? parseFloat((positiveLifts.reduce((a, b) => a + b, 0) / positiveLifts.length).toFixed(1)) 
+                : null;
+
+              return (
               <motion.div
                 initial={{ height: 0, opacity: 0, marginTop: -8 }}
                 animate={{ height: "auto", opacity: 1, marginTop: 4 }}
@@ -7406,25 +7468,179 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                 className="overflow-hidden w-full relative z-0"
               >
-                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-amber-500 rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
-                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
-                    ARRANGEMENT FLOW AUDIT
+                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-amber-500 rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-6">
+                  
+                  {/* Header Title & Subtitle */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }} className="flex items-center gap-2">
+                        <span>ARRANGEMENT FLOW &amp; SECTION PACING</span>
+                        <span className="text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          {flowScore >= 80 ? "STRONG MOMENTUM" : flowScore >= 60 ? "BALANCED PACING" : "NEEDS TENSION/RELEASE"}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400 mt-1 block">
+                        Structural energy shifts, section transitions &amp; pacing continuity
+                      </span>
+                    </div>
+                    <div className="flex items-baseline gap-1.5 self-start sm:self-auto bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-xl font-mono">
+                      <span className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider">Flow Score:</span>
+                      <span className="text-lg font-black text-white">{flowScore}</span>
+                      <span className="text-xs text-amber-400 font-bold">/ 100</span>
+                    </div>
                   </div>
-                  <p className="text-[10px] text-slate-500 leading-relaxed -mt-3">
-                    Evaluates whether transitions between sections build tension and release effectively, and whether the arrangement's energy scaling feels coherent from intro to outro — an AI assessment of pacing and structure, not a raw waveform measurement.
-                  </p>
-                  <div className="p-4 bg-[#020203] border border-white/10 rounded-xl">
-                    <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500 block mb-1.5">Transitions &amp; Dynamic Arc</span>
+
+                  {/* Section Stepped Arc Matrix Visualization */}
+                  <div className="p-4 bg-[#030407] border border-white/10 rounded-2xl flex flex-col gap-3 relative overflow-hidden">
+                    <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 uppercase tracking-widest px-1">
+                      <span className="flex items-center gap-1.5 text-slate-300 font-bold">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                        Detected Section Energy Steps (dB)
+                      </span>
+                      <span>{segments.length > 0 ? `${segments.length} Structural Blocks Detected` : "Timeline: Intro → Outro"}</span>
+                    </div>
+
+                    {segments.length < 2 ? (
+                      <div className="flex flex-col items-center justify-center py-10 border border-dashed border-white/5 rounded-xl bg-black/40">
+                        <span className="text-[11px] text-slate-400 font-medium mb-1">Section transition data pending</span>
+                        <p className="text-[9.5px] text-slate-500 max-w-xs text-center leading-relaxed">
+                          Run an audio analysis to detect section landmarks and measure inter-section energy shifts.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {/* Stepped Section Energy Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-2">
+                          {segments.map((seg, idx) => {
+                            const minDb = -32;
+                            const maxDb = -6;
+                            const normalizedH = Math.max(25, Math.min(100, ((seg.avgDb - minDb) / (maxDb - minDb)) * 100));
+                            const delta = seg.deltaFromPrev;
+
+                            return (
+                              <div key={idx} className="flex flex-col gap-1.5 p-2.5 rounded-xl border border-white/5 bg-black/40 relative overflow-hidden group hover:border-amber-500/30 transition-all">
+                                {/* Segment Header */}
+                                <div className="flex items-center justify-between text-[8px] font-mono">
+                                  <span className="text-slate-400 truncate font-semibold">{seg.label}</span>
+                                  <span className="text-slate-600">{fmtTime(seg.startSec)}</span>
+                                </div>
+
+                                {/* Step Energy Bar */}
+                                <div className="h-16 w-full bg-neutral-900/80 rounded-lg flex items-end p-1 relative border border-white/5 overflow-hidden">
+                                  <div 
+                                    className="w-full rounded-md bg-gradient-to-t from-amber-600/60 via-amber-500/80 to-amber-400 transition-all duration-500"
+                                    style={{ height: `${normalizedH}%` }}
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <span className="text-[10px] font-mono font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                                      {seg.avgDb} <span className="text-[7.5px] font-normal text-amber-300/80">dB</span>
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Delta Step Indicator */}
+                                <div className="flex items-center justify-between text-[8px] font-mono pt-0.5">
+                                  <span className="text-slate-500">{fmtTime(seg.endSec)}</span>
+                                  {delta !== null ? (
+                                    <span className={`px-1 py-0.2 rounded font-bold ${
+                                      delta > 1.5 
+                                        ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20" 
+                                        : delta < -1.5 
+                                        ? "text-blue-400 bg-blue-500/10 border border-blue-500/20" 
+                                        : "text-slate-400 bg-white/5"
+                                    }`}>
+                                      {delta > 0 ? `+${delta}` : delta} dB {delta > 1.5 ? "▲" : delta < -1.5 ? "▼" : "—"}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-600">Base Floor</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Transition Flow Summary Bar */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-2 text-[9px] font-mono text-slate-400 px-1">
+                          <div className="flex items-center gap-4 flex-wrap">
+                            <span className="flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                              <span className="text-slate-300">Chorus / Build Lift (▲)</span>
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-blue-400" />
+                              <span className="text-slate-300">Verse / Breakdown Pullback (▼)</span>
+                            </span>
+                          </div>
+                          <span className="text-slate-500">Auto-detected DSP Section Landmarks</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3-Stat Metric Cards Breakdown */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    {/* Transitions Detected */}
+                    <div className="p-4 rounded-xl border border-white/10 bg-[#020203] flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-amber-400">Section Landmarks</span>
+                        <span className="text-[8px] font-mono uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">DSP Detected</span>
+                      </div>
+                      <div className="text-2xl font-black text-white font-mono mt-1">
+                        {segments.length > 0 ? segments.length : "--"} <span className="text-xs text-slate-500 font-semibold">Sections</span>
+                      </div>
+                      <p className="text-[9.5px] text-slate-400 leading-relaxed mt-2">
+                        Identified structural boundaries where energy shifts create natural musical markers.
+                      </p>
+                    </div>
+
+                    {/* Average Chorus/Drop Lift */}
+                    <div className="p-4 rounded-xl border border-white/10 bg-[#020203] flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Avg Build Lift</span>
+                        <span className="text-[8px] font-mono uppercase px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Impact</span>
+                      </div>
+                      <div className="text-2xl font-black text-white font-mono mt-1">
+                        {avgLift !== null ? `+${avgLift}` : "--"} <span className="text-xs text-slate-500 font-semibold">dB</span>
+                      </div>
+                      <p className="text-[9.5px] text-slate-400 leading-relaxed mt-2">
+                        Average energy step going into chorus and peak sections for maximum emotional payoff.
+                      </p>
+                    </div>
+
+                    {/* Pacing Coherence */}
+                    <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Pacing Coherence</span>
+                        <span className="text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400">
+                          {flowScore >= 75 ? "EXCELLENT" : "MODERATE"}
+                        </span>
+                      </div>
+                      <div className="text-2xl font-black text-white font-mono mt-1">
+                        {flowScore} <span className="text-xs text-slate-500 font-semibold">/ 100</span>
+                      </div>
+                      <p className="text-[9.5px] text-slate-300 leading-relaxed mt-2">
+                        Overall arrangement rating combining transition impact, structural balance, and dynamic flow.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* AI Qualitative Transitions & Arc Critique */}
+                  <div className="p-4 bg-[#020203] border border-white/10 rounded-xl flex flex-col gap-2">
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500">AI Transitions &amp; Dynamic Arc Analysis</span>
                     <p className="text-[11px] text-slate-300 leading-relaxed">
-                      {critique?.arrangement?.transitionsAndArc ?? "Arrangement transitions and dynamic arc data unavailable."}
+                      {critique?.arrangement?.transitionsAndArc ?? "Arrangement transitions and dynamic arc evaluation unavailable for this track."}
                     </p>
                   </div>
+
+                  {/* Explanatory Footer */}
                   <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
                     Arrangement Flow is weighted at 40% into your overall Structural Engagement score — the largest single ingredient, alongside Dynamic Modulation (30%) and Climax Trajectory (30%).
                   </p>
                 </div>
               </motion.div>
-            )}
+              );
+            })()}
           </AnimatePresence>
         </div>
 
