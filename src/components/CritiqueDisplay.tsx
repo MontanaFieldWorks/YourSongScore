@@ -7505,26 +7505,19 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           <AnimatePresence initial={false}>
             {expandedMetric === "dynamicmod" && (() => {
               const dRangeDb = liveMetrics?.calculatedDynamicRangeDb ?? null;
-              const high85Db = liveMetrics?.calculatedDynamic85thPctDb ?? (dRangeDb != null ? -13.5 : null);
-              const low15Db = liveMetrics?.calculatedDynamic15thPctDb ?? (dRangeDb != null && high85Db != null ? parseFloat((high85Db - dRangeDb).toFixed(1)) : null);
-              const rawEnvelope = liveMetrics?.calculatedDynamicEnvelopeDb ?? null;
+              const high85Db = liveMetrics?.calculatedDynamicHighPercentileDb ?? null;
+              const low15Db = liveMetrics?.calculatedDynamicLowPercentileDb ?? null;
+              const rawEnvelope = liveMetrics?.calculatedEnergyEnvelope ?? null;
 
-              // Build a representative envelope for SVG if live array is not yet available
-              let envelopePoints: number[] = [];
-              if (rawEnvelope && rawEnvelope.length >= 4) {
-                envelopePoints = rawEnvelope;
-              } else if (dRangeDb != null) {
-                // Synthesize a realistic waveform curve spanning between low15 and high85
-                const base = low15Db ?? -20;
-                const peak = high85Db ?? (base + dRangeDb);
-                envelopePoints = [
-                  base - 4, base - 1, base, base + 2, base - 0.5,
-                  base + (peak - base) * 0.4, base + (peak - base) * 0.85, peak, peak - 1,
-                  base + (peak - base) * 0.3, base + 1, base + (peak - base) * 0.9, peak + 0.5,
-                  peak, peak - 2, base + (peak - base) * 0.6, peak, peak + 0.8,
-                  peak - 3, base - 2, base - 6
-                ];
-              }
+              // Real per-song envelope only - no synthesized/fabricated fallback curve.
+              // A prior version of this card silently generated a fake, formulaic waveform
+              // shape whenever the real envelope wasn't available under its old (incorrect)
+              // field name, which meant every song showed a nearly identical invented curve
+              // instead of its own real measured data. If real data isn't available, the
+              // chart honestly shows nothing rather than something fabricated.
+              const envelopePoints: number[] = (rawEnvelope && rawEnvelope.length >= 4)
+                ? rawEnvelope.map(p => p.db)
+                : [];
 
               let dmTier: { label: string; color: string; bg: string; border: string; desc: string } = { 
                 label: "NO DATA", 
@@ -7650,6 +7643,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                     {/* SVG Macro Envelope Chart */}
                     <div className="w-full relative">
+                      {envelopePoints.length < 2 ? (
+                        <div className="flex flex-col items-center justify-center py-10 border border-dashed border-white/5 rounded-xl bg-black/40">
+                          <span className="text-[11px] text-slate-400 font-medium mb-1">No real envelope data available</span>
+                          <p className="text-[9.5px] text-slate-500 max-w-xs text-center leading-relaxed">
+                            This chart needs a fresh analysis run to generate real waveform data for this track.
+                          </p>
+                        </div>
+                      ) : (
                       <svg 
                         viewBox={`0 0 ${svgW} ${svgH}`} 
                         className="w-full h-auto max-h-[220px] select-none overflow-visible"
@@ -7804,6 +7805,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         <text x={padLeft + plotW * 0.75} y={svgH - 8} fill="#64748b" fontSize="8" fontFamily="ui-monospace, monospace" textAnchor="middle">75%</text>
                         <text x={padLeft + plotW} y={svgH - 8} fill="#64748b" fontSize="8" fontFamily="ui-monospace, monospace" textAnchor="end">Outro</text>
                       </svg>
+                      )}
                     </div>
 
                     {/* Chart Legend / Helper */}
