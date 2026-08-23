@@ -108,12 +108,13 @@ export interface LiveAudioMetrics {
   calculatedVocalDynamicsScore?: number | null;
   calculatedDynamicModulationScore?: number | null;
   calculatedDynamicRangeDb?: number | null;
-  calculatedDynamic85thPctDb?: number | null;
-  calculatedDynamic15thPctDb?: number | null;
-  calculatedDynamicEnvelopeDb?: number[] | null;
+  calculatedDynamicHighPercentileDb?: number | null;
+  calculatedDynamicLowPercentileDb?: number | null;
   calculatedClimaxTrajectoryScore?: number | null;
   calculatedClimaxPositionRatio?: number | null;
   calculatedClimaxBuildDb?: number | null;
+  calculatedEnergyEnvelope?: { timeSec: number; db: number }[] | null;
+  calculatedSectionBoundaries?: number[] | null;
 }
 
 export interface CritiqueData {
