@@ -5594,23 +5594,33 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             {/* Sub-links for streaming — only show when active and not collapsed */}
             {activeSection === "streaming" && !sidebarCollapsed && (
               <div className="flex flex-col gap-0.5 pl-3 border-l border-blue-500/20 ml-3.5 py-1">
-                {["Commercial Impact", "Streaming Alignment", "Algo Sandbox"].map((label, i) => (
+                {[
+                  { label: "Commercial Impact", id: "sidebar-link-streaming-0", isActive: activeCategory === "mainstream" },
+                  { label: "Completion Rate", id: "sidebar-link-streaming-completion", isActive: isCompletionRateExpanded },
+                  { label: "Streaming Alignment", id: "sidebar-link-streaming-1", isActive: activeCategory === "spotify" },
+                  { label: "Recommender Prediction", id: "sidebar-link-streaming-recommender", isActive: activeCategory === "recommender" },
+                  { label: "Algorithmic Sandbox", id: "sidebar-link-streaming-2", isActive: activeCategory === "sandbox" },
+                ].map((item, i) => (
                   <button
                     key={i}
                     onClick={() => {
-                      const ids = ["sidebar-link-streaming-0", "sidebar-link-streaming-1", "sidebar-link-streaming-2"];
+                      setActiveSection('streaming');
                       setExpandedCategory('streaming');
                       setTimeout(() => {
-                        const el = document.getElementById(ids[i]);
+                        const el = document.getElementById(item.id);
                         if (el) {
                           const top = el.getBoundingClientRect().top + window.scrollY - 80;
                           window.scrollTo({ top, behavior: 'smooth' });
                         }
                       }, 150);
                     }}
-                    className="text-[12px] font-display font-normal text-slate-500 hover:text-blue-400 hover:bg-blue-500/5 px-2 py-1 rounded-md transition-all text-left cursor-pointer truncate w-full"
+                    className={`text-[12px] font-display font-normal px-2 py-1 rounded-md transition-all text-left cursor-pointer truncate w-full ${
+                      item.isActive
+                        ? "text-blue-400 bg-blue-500/10 font-semibold"
+                        : "text-slate-500 hover:text-blue-400 hover:bg-blue-500/5"
+                    }`}
                   >
-                    · {label}
+                    · {item.label}
                   </button>
                 ))}
               </div>
@@ -5655,23 +5665,33 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             {/* Sub-links for sonic */}
             {activeSection === "sonic" && !sidebarCollapsed && (
               <div className="flex flex-col gap-0.5 pl-3 border-l border-[#46F4CD]/20 ml-3.5 py-1">
-                {["Engineering Studio", "Tech Blueprints", "Production Quality"].map((label, i) => (
+                {[
+                  { label: "Mix Balance Quality", id: "sidebar-link-sonic-4", isActive: expandedMetric === "mix" },
+                  { label: "Loudness Compliance", id: "sidebar-link-sonic-3", isActive: isLoudnessComplianceExpanded },
+                  { label: "Vocal Tracking", id: "sidebar-link-sonic-5", isActive: expandedMetric === "vocals" },
+                  { label: "Production Quality", id: "sidebar-link-sonic-2", isActive: productionQualityExpanded },
+                  { label: "Tech Blueprints", id: "sidebar-link-sonic-1", isActive: activeCategory === "blueprints" },
+                ].map((item, i) => (
                   <button
                     key={i}
                     onClick={() => {
-                      const ids = ["sidebar-link-sonic-0", "sidebar-link-sonic-1", "sidebar-link-sonic-2"];
+                      setActiveSection('sonic');
                       setExpandedCategory('sonic');
                       setTimeout(() => {
-                        const el = document.getElementById(ids[i]);
+                        const el = document.getElementById(item.id);
                         if (el) {
                           const top = el.getBoundingClientRect().top + window.scrollY - 80;
                           window.scrollTo({ top, behavior: 'smooth' });
                         }
                       }, 150);
                     }}
-                    className="text-[12px] font-display font-normal text-slate-500 hover:text-[#46F4CD] hover:bg-[#46F4CD]/5 transition-colors text-left py-1 px-2 rounded cursor-pointer"
+                    className={`text-[12px] font-display font-normal transition-colors text-left py-1 px-2 rounded cursor-pointer truncate w-full ${
+                      item.isActive
+                        ? "text-[#46F4CD] bg-[#46F4CD]/10 font-semibold"
+                        : "text-slate-500 hover:text-[#46F4CD] hover:bg-[#46F4CD]/5"
+                    }`}
                   >
-                    · {label}
+                    · {item.label}
                   </button>
                 ))}
               </div>
@@ -5713,6 +5733,39 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               </div>
             </button>
 
+            {/* Sub-links for compositional (Structural Engagement) */}
+            {activeSection === "compositional" && !sidebarCollapsed && (
+              <div className="flex flex-col gap-0.5 pl-3 border-l border-purple-500/20 ml-3.5 py-1">
+                {[
+                  { label: "Arrangement Flow", id: "sidebar-link-compositional-5", isActive: expandedMetric === "flow" },
+                  { label: "Dynamic Modulation", id: "sidebar-link-compositional-6", isActive: expandedMetric === "dynamicmod" },
+                  { label: "Climax Trajectory", id: "sidebar-link-compositional-7", isActive: expandedMetric === "climax" },
+                ].map((item, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setActiveSection('compositional');
+                      setExpandedCategory('compositional');
+                      setTimeout(() => {
+                        const el = document.getElementById(item.id);
+                        if (el) {
+                          const top = el.getBoundingClientRect().top + window.scrollY - 80;
+                          window.scrollTo({ top, behavior: 'smooth' });
+                        }
+                      }, 150);
+                    }}
+                    className={`text-[12px] font-display font-normal px-2 py-1 rounded-md transition-all text-left cursor-pointer truncate w-full ${
+                      item.isActive
+                        ? "text-purple-400 bg-purple-500/10 font-semibold"
+                        : "text-slate-500 hover:text-purple-400 hover:bg-purple-500/5"
+                    }`}
+                  >
+                    · {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* COMPOSITIONAL DEPTH nav item (4th, non-scored slot - fully independent section) */}
             <button
               onClick={() => {
@@ -5751,22 +5804,33 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             {/* Sub-links for compositionaldepth */}
             {activeSection === "compositionaldepth" && !sidebarCollapsed && (
               <div className="flex flex-col gap-0.5 pl-3 border-l border-amber-500/20 ml-3.5 py-1">
-                {["Artistic Impact", "Songwriting Quality", "Song Architecture"].map((label, i) => (
+                {[
+                  { label: "Music Theory Analysis", id: "sidebar-link-compositional-3", isActive: expandedMetric === "theory" },
+                  { label: "Lyrical Impact", id: "sidebar-link-compositional-4", isActive: expandedMetric === "lyrics" },
+                  { label: "Artistic Impact", id: "sidebar-link-compositional-0", isActive: activeCategory === "artistic" },
+                  { label: "Songwriting Quality", id: "sidebar-link-compositional-1", isActive: activeCategory === "dna" },
+                  { label: "Song Architecture", id: "sidebar-link-compositional-2", isActive: activeCategory === "architecture" },
+                ].map((item, i) => (
                   <button
                     key={i}
                     onClick={() => {
+                      setActiveSection('compositionaldepth');
                       setExpandedCategory('compositionaldepth');
                       setTimeout(() => {
-                        const el = document.getElementById(`sidebar-link-compositional-${i}`);
+                        const el = document.getElementById(item.id);
                         if (el) {
                           const top = el.getBoundingClientRect().top + window.scrollY - 80;
                           window.scrollTo({ top, behavior: 'smooth' });
                         }
                       }, 150);
                     }}
-                    className="text-[12px] font-display font-normal text-slate-500 hover:text-amber-400 hover:bg-amber-500/5 px-2 py-1 rounded-md transition-all text-left cursor-pointer truncate w-full"
+                    className={`text-[12px] font-display font-normal px-2 py-1 rounded-md transition-all text-left cursor-pointer truncate w-full ${
+                      item.isActive
+                        ? "text-amber-400 bg-amber-500/10 font-semibold"
+                        : "text-slate-500 hover:text-amber-400 hover:bg-amber-500/5"
+                    }`}
                   >
-                    · {label}
+                    · {item.label}
                   </button>
                 ))}
               </div>
@@ -5780,7 +5844,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <div className="flex flex-col gap-4">
                 {/* Streaming Readiness card */}
                 <div
-                  onClick={() => setExpandedCategory("streaming")}
+                  onClick={() => { setActiveSection("streaming"); setExpandedCategory("streaming"); }}
                   className="relative cursor-pointer rounded-2xl overflow-hidden border border-blue-500/30 hover:border-blue-400/60 transition-all duration-300 hover:shadow-[0_0_40px_rgba(59,130,246,0.2)]"
                   style={{ minHeight: "170px", background: "linear-gradient(135deg, #090b0e 0%, #090b0e 60%, #0d1628 100%)" }}
                 >
@@ -5818,7 +5882,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                 {/* Sonic Soundprint card */}
                 <div
-                  onClick={() => setExpandedCategory("sonic")}
+                  onClick={() => { setActiveSection("sonic"); setExpandedCategory("sonic"); }}
                   className="relative cursor-pointer rounded-2xl overflow-hidden border border-[#46F4CD]/30 hover:border-[#46F4CD]/60 transition-all duration-300 hover:shadow-[0_0_40px_rgba(70,244,205,0.2)]"
                   style={{ minHeight: "170px", background: "linear-gradient(135deg, #090b0e 0%, #090b0e 60%, #091a14 100%)" }}
                 >
@@ -5856,7 +5920,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                 {/* Structural Engagement card */}
                 <div
-                  onClick={() => setExpandedCategory("compositional")}
+                  onClick={() => { setActiveSection("compositional"); setExpandedCategory("compositional"); }}
                   className="relative cursor-pointer rounded-2xl overflow-hidden border border-purple-500/30 hover:border-purple-400/60 transition-all duration-300 hover:shadow-[0_0_40px_rgba(168,85,247,0.2)]"
                   style={{ minHeight: "170px", background: "linear-gradient(135deg, #090b0e 0%, #090b0e 60%, #12091e 100%)" }}
                 >
@@ -5894,7 +5958,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                 {/* Compositional Depth card */}
                 <div
-                  onClick={() => setExpandedCategory("compositionaldepth")}
+                  onClick={() => { setActiveSection("compositionaldepth"); setExpandedCategory("compositionaldepth"); }}
                   className="relative cursor-pointer rounded-2xl overflow-hidden border border-amber-500/30 hover:border-amber-400/60 transition-all duration-300 hover:shadow-[0_0_40px_rgba(245,158,11,0.2)]"
                   style={{ minHeight: "170px", background: "linear-gradient(135deg, #090b0e 0%, #090b0e 60%, #1e1305 100%)" }}
                 >
@@ -6018,7 +6082,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     This is a generalized, "quick view" analysis of how streaming services algorithms might assess your song upon upload: streaming readiness (80% weight) & production quality (20% weight).
-                    <span className="block mt-1 text-blue-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for predicting first-listen algorithmic scoring and playlist eligibility.</span>
+                    <span className="block mt-1 text-blue-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Predicts first-listen algorithmic scoring and playlist eligibility.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -6142,7 +6206,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Predicts listener retention through your song's critical opening window. Skip behavior in the first 30 seconds serves as a primary feedback signal algorithms use to promote or throttle discovery.
-                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for surviving the first-30-second skip window that shapes algorithmic trust.</span>
+                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Determines whether your track survives the first-30-second skip window that shapes algorithmic trust.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -6349,7 +6413,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     This is the high level, deep dive audit of your track's potential alignment against Spotify's content-based acoustic analysis — mapping your song's core audio features against genre-specific target ranges.
-                    <span className="block mt-1 text-[#1ed760]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for matching the acoustic profile Spotify expects from your genre.</span>
+                    <span className="block mt-1 text-[#1ed760]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Measures how closely your acoustic profile matches what Spotify expects for your genre.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -6459,7 +6523,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Contains information specific to Spotify's algorithmic decisions as to where your song may fit compared to other artists in the genre, and probabilities for discovery feeder distribution.
-                    <span className="block mt-1 text-violet-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for anticipating playlist placement, though excluded from your overall score.</span>
+                    <span className="block mt-1 text-violet-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Anticipates playlist placement odds, though excluded from your overall score.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -6565,7 +6629,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 text-left leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Simulate mood positioning, sonic similarity to reference tracks, playlist transition compatibility, and skip-rate risk inside curators' placement filters.
-                    <span className="block mt-1 text-[#fe9a00]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for anticipating how curators and algorithms will place your song.</span>
+                    <span className="block mt-1 text-[#fe9a00]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Simulates how curators and algorithms are likely to place your song.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -6731,7 +6795,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       }`}>
                         <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                           {mixMetric.callout}
-                          <span className="block mt-1 text-[#ff66cc]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for algorithmic clarity and professional sonic competitiveness.</span>
+                          <span className="block mt-1 text-[#ff66cc]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Measures whether your mix translates cleanly across playback systems and streaming compression.</span>
                         </p>
                         <span 
                     style={{ paddingTop: "2px" }}
@@ -6810,7 +6874,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Measures whether your track's integrated loudness (LUFS) and dynamic range (LRA) fall within the target windows for your genre — the same real pass/fail data used elsewhere in your streaming audit.
-                    <span className="block mt-1 text-blue-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for playlist consistency and algorithmic trust.</span>
+                    <span className="block mt-1 text-blue-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Confirms your master meets the loudness standards streaming platforms expect.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -6946,7 +7010,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       }`}>
                         <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                           {vocalsMetric.callout}
-                          <span className="block mt-1 text-[#9999ff]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for listener connection and professional vocal presentation.</span>
+                          <span className="block mt-1 text-[#9999ff]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Assesses vocal clarity, pitch accuracy, and presence in the mix.</span>
                         </p>
                         <span 
                     style={{ paddingTop: "2px" }}
@@ -7033,7 +7097,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     A diagnostic of arrangement, sonic texture, low-end power, stereo depth, vocals, and energy.
-                    <span className="block mt-1 text-[#46F4CD]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for algorithmic reach and listener retention.</span>
+                    <span className="block mt-1 text-[#46F4CD]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Reflects overall production polish relative to genre-standard commercial releases.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -7228,7 +7292,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Integrated assessment linking Composition Flow, Stereo Mix Balance, Vocal Tracking, Instrumental Staging, and Title Searchability.
-                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for pinpointing exact engineering fixes across your mix.</span>
+                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Pinpoints exact engineering fixes across your mix, frequency by frequency.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -7370,7 +7434,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Assesses whether transitions between sections build tension and release effectively, keeping the arrangement's energy scaling coherent from intro to outro.
-                    <span className="block mt-1 text-amber-500/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for structural pacing and dynamic build, driving 40% of Structural Engagement.</span>
+                    <span className="block mt-1 text-amber-500/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Assesses structural pacing and dynamic build across the song, driving 40% of Structural Engagement.</span>
                   </p>
                   <span
                     style={{ paddingTop: "2px" }}
@@ -7525,8 +7589,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             // extreme values.
                             const brightnessFloorDb = -20;
                             const brightnessCeilingDb = -8;
-                            const brightnessMin = 0.55;
-                            const brightnessMax = 1.15;
+                            const brightnessMin = 0.4;
+                            const brightnessMax = 1.6;
                             const brightnessRatio = Math.max(0, Math.min(1, (seg.avgDb - brightnessFloorDb) / (brightnessCeilingDb - brightnessFloorDb)));
                             const barBrightness = brightnessMin + brightnessRatio * (brightnessMax - brightnessMin);
 
@@ -7698,7 +7762,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Measures real loudness contrast between the song's quietest and loudest sustained sections — the difference that keeps a listener locked in rather than tuning out.
-                    <span className="block mt-1 text-rose-500/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for listener retention and engagement dynamics, driving 30% of Structural Engagement.</span>
+                    <span className="block mt-1 text-rose-500/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Measures loud-quiet contrast across the song, driving 30% of Structural Engagement.</span>
                   </p>
                   <span
                     style={{ paddingTop: "2px" }}
@@ -8208,7 +8272,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Measures whether the song's energy genuinely builds toward a later peak, rather than front-loading its most intense moment early with nothing left to climb toward.
-                    <span className="block mt-1 text-teal-500/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for listener retention and engagement dynamics, driving 30% of Structural Engagement.</span>
+                    <span className="block mt-1 text-teal-500/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Tracks whether the song genuinely builds toward a late peak, driving 30% of Structural Engagement.</span>
                   </p>
                   <span
                     style={{ paddingTop: "2px" }}
@@ -8794,7 +8858,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       }`}>
                         <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                           {theoryMetric.description}
-                          <span className="block mt-1 text-[#818cf8]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for harmonic craft and musicological structure, though not factored into your overall score.</span>
+                          <span className="block mt-1 text-[#818cf8]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Assesses harmonic craft and musicological structure, though not factored into your overall score.</span>
                         </p>
                         <span
                           style={{ paddingTop: "2px" }}
@@ -8902,7 +8966,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       }`}>
                         <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                           {lyricsMetric.description}
-                          <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for lyrical clarity and originality, though not factored into your overall score.</span>
+                          <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Assesses lyrical clarity and originality, though not factored into your overall score.</span>
                         </p>
                         <span
                           style={{ paddingTop: "2px" }}
@@ -8981,7 +9045,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     An evaluation of creative authenticity, harmonic depth, and musical competence.
-                    <span className="block mt-1 text-purple-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for artistic legacy and creative depth, though not factored into streaming algorithms.</span>
+                    <span className="block mt-1 text-purple-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Reflects artistic ambition and creative depth, though not factored into streaming algorithms.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -9131,7 +9195,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     An analysis of the underlying strength of the songwriting compared to popular songwriting parameters.
-                    <span className="block mt-1 text-emerald-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for structural songwriting strength, though not factored into streaming algorithms.</span>
+                    <span className="block mt-1 text-emerald-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Assesses core songwriting strength, though not factored into streaming algorithms.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -9253,7 +9317,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     A visual breakdown of your song's structural sections with timestamps, loudness arc, and hook placement audit.
-                    <span className="block mt-1 text-violet-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for visualizing your track's pacing and hook placement, though not factored into streaming algorithms.</span>
+                    <span className="block mt-1 text-violet-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Visualizes your track's pacing and hook placement, though not factored into streaming algorithms.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -9698,7 +9762,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     This is the high level, deep dive audit of your track's potential alignment against Spotify's content-based acoustic analysis — mapping your song's core audio features against genre-specific target ranges.
-                    <span className="block mt-1 text-[#1ed760]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for matching the acoustic profile Spotify expects from your genre.</span>
+                    <span className="block mt-1 text-[#1ed760]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Measures how closely your acoustic profile matches what Spotify expects for your genre.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -9801,7 +9865,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Contains information specific to Spotify's algorithmic decisions as to where your song may fit compared to other artists in the genre, and probabilities for discovery feeder distribution.
-                    <span className="block mt-1 text-violet-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for anticipating playlist placement, though excluded from your overall score.</span>
+                    <span className="block mt-1 text-violet-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Anticipates playlist placement odds, though excluded from your overall score.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -9907,7 +9971,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[10px] text-slate-400 text-left leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Simulate mood positioning, sonic similarity to reference tracks, playlist transition compatibility, and skip-rate risk inside curators' placement filters.
-                    <span className="block mt-1 text-[#fe9a00]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>This metric is crucial for anticipating how curators and algorithms will place your song.</span>
+                    <span className="block mt-1 text-[#fe9a00]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Simulates how curators and algorithms are likely to place your song.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
