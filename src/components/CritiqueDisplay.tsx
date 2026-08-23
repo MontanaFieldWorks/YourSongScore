@@ -7430,13 +7430,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     ? slice.reduce((a, b) => a + b.db, 0) / slice.length 
                     : -20;
                   
-                  // Heuristic label based on position & energy
-                  let label = `Section ${i + 1}`;
-                  if (i === 0) label = "Intro / V1";
-                  else if (i === boundaries.length - 2) label = "Outro / End";
-                  else if (i === Math.floor((boundaries.length - 1) * 0.4)) label = "Chorus 1";
-                  else if (i === Math.floor((boundaries.length - 1) * 0.7)) label = "Chorus 2 / Climax";
-                  else if (i === Math.floor((boundaries.length - 1) * 0.55)) label = "Bridge / V2";
+                  // Purely positional label - real DSP boundary detection tells us WHERE
+                  // a transition happens, not WHAT the section musically is (verse, chorus,
+                  // bridge). Labeling by fixed position (e.g. "always call segment at 40%
+                  // Chorus 1") would be presenting a guess as a real detection, which this
+                  // app has deliberately avoided doing everywhere else.
+                  const label = `Section ${i + 1}`;
 
                   segments.push({
                     startSec: start,
@@ -8343,7 +8342,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 const maxIdx = envelopePoints.indexOf(maxVal);
                 const realPeakRatio = posRatio != null ? posRatio : (maxIdx / (envelopePoints.length - 1));
                 peakX = padLeft + plotW * Math.min(0.98, Math.max(0.02, realPeakRatio));
-                peakY = dbToY(maxVal);
+                // Sample the curve's actual value AT this same position, rather than the
+                // envelope's raw global max (which can sit at a different point in time
+                // than the real, smoothed climax position) - keeps the marker visually
+                // anchored on the curve line instead of floating above or below it.
+                const peakSampleIdx = Math.round(realPeakRatio * (envelopePoints.length - 1));
+                peakY = dbToY(envelopePoints[peakSampleIdx]);
 
                 const coords = envelopePoints.map((db, idx) => {
                   const x = padLeft + (idx / (envelopePoints.length - 1)) * plotW;
