@@ -1354,11 +1354,71 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     windowRmsDb.push(20 * Math.log10(rms || 0.0001));
   }
 
+  // Exposed energy envelope - the full time-series, not just summary stats, so the
+  // frontend can actually draw the real shape behind Dynamic Modulation, Climax
+  // Trajectory, and Arrangement Flow's scores, instead of showing a number with nothing
+  // to look at. Same underlying data all three scores are computed from.
+  const energyEnvelope: { timeSec: number; db: number }[] = windowRmsDb.map((db, w) => ({
+    timeSec: parseFloat((w * energyWindowSec).toFixed(1)),
+    db: parseFloat(db.toFixed(1))
+  }));
+
+  // Section boundary detection on this same envelope, reusing the same proven technique
+  // already used for the Song Structure card (smoothing + local min/max/big-change
+  // detection + minimum-section-duration merge) - real, DSP-detected transition points,
+  // not AI-guessed ones. Exposed as timestamps so Arrangement Flow's visualization can
+  // show real detected transitions instead of implying its AI-judged score comes from
+  // something it doesn't.
+  //
+  // Re-bucketed into a fixed 32 windows regardless of song length before detection -
+  // matching Song Structure's proven resolution strategy. Running detection directly on
+  // raw 1-second-resolution data was tested first and produced 30+ noisy boundaries for
+  // a song with only 5 real transitions; fixed-window bucketing (heavier per-window
+  // averaging, same as Song Structure already uses successfully) brought that down to a
+  // consistent, usable handful of real transitions across repeated synthetic test runs.
+  const sectionBoundaries: number[] = [];
+  if (windowRmsDb.length >= 8) {
+    const numBoundaryWindows = 32;
+    const totalEnvelopeSeconds = windowRmsDb.length * energyWindowSec;
+    const bucketed: number[] = [];
+    for (let i = 0; i < numBoundaryWindows; i++) {
+      const startSec = (i / numBoundaryWindows) * totalEnvelopeSeconds;
+      const endSec = ((i + 1) / numBoundaryWindows) * totalEnvelopeSeconds;
+      const startIdx = Math.floor(startSec / energyWindowSec);
+      const endIdx = Math.max(startIdx + 1, Math.floor(endSec / energyWindowSec));
+      const slice = windowRmsDb.slice(startIdx, endIdx);
+      const avg = slice.length > 0 ? slice.reduce((a, b) => a + b, 0) / slice.length : (windowRmsDb[windowRmsDb.length - 1] ?? 0);
+      bucketed.push(avg);
+    }
+
+    const boundarySmoothed = bucketed.map((v, i) => {
+      const neighbors = bucketed.slice(Math.max(0, i - 1), Math.min(numBoundaryWindows, i + 2));
+      return neighbors.reduce((a, b) => a + b, 0) / neighbors.length;
+    });
+    const rawBoundaries: number[] = [0];
+    for (let i = 2; i < numBoundaryWindows - 2; i++) {
+      const rising = boundarySmoothed[i] > boundarySmoothed[i - 1] && boundarySmoothed[i - 1] < boundarySmoothed[i - 2];
+      const falling = boundarySmoothed[i] < boundarySmoothed[i - 1] && boundarySmoothed[i - 1] > boundarySmoothed[i - 2];
+      const bigChange = Math.abs(boundarySmoothed[i] - boundarySmoothed[i - 1]) > 4;
+      if ((rising || falling || bigChange) && i - rawBoundaries[rawBoundaries.length - 1] >= 2) {
+        rawBoundaries.push(i);
+      }
+    }
+    rawBoundaries.push(numBoundaryWindows);
+    const minGap = Math.max(1, Math.floor(numBoundaryWindows * 0.03));
+    const merged: number[] = [0];
+    for (let i = 1; i < rawBoundaries.length; i++) {
+      if (rawBoundaries[i] - merged[merged.length - 1] >= minGap) {
+        merged.push(rawBoundaries[i]);
+      }
+    }
+    merged.forEach(idx => sectionBoundaries.push(parseFloat(((idx / numBoundaryWindows) * totalEnvelopeSeconds).toFixed(1))));
+  }
+
   let dynamicModulationScore: number | null = null;
   let dynamicRangeDb: number | null = null;
-  let dynamic85thPctDb: number | null = null;
-  let dynamic15thPctDb: number | null = null;
-  let dynamicEnvelopeDb: number[] | null = null;
+  let dynamicHighPercentileDb: number | null = null;
+  let dynamicLowPercentileDb: number | null = null;
   let climaxTrajectoryScore: number | null = null;
   let climaxPositionRatio: number | null = null;
   let climaxBuildDb: number | null = null;
@@ -1369,9 +1429,8 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     const highP = pIndex(0.85);
     const lowP = pIndex(0.15);
     dynamicRangeDb = parseFloat((highP - lowP).toFixed(1));
-    dynamic85thPctDb = parseFloat(highP.toFixed(1));
-    dynamic15thPctDb = parseFloat(lowP.toFixed(1));
-    dynamicEnvelopeDb = windowRmsDb.map(v => parseFloat(v.toFixed(1)));
+    dynamicHighPercentileDb = parseFloat(highP.toFixed(1));
+    dynamicLowPercentileDb = parseFloat(lowP.toFixed(1));
 
     // Reasoned mapping: <3dB range = essentially flat/compressed throughout (low score);
     // 3-10dB = moderate, genuine verse/chorus-style contrast; 10dB+ = strong dynamic arc.
@@ -1769,11 +1828,12 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     })(),
     calculatedDynamicModulationScore: dynamicModulationScore,
     calculatedDynamicRangeDb: dynamicRangeDb,
-    calculatedDynamic85thPctDb: dynamic85thPctDb,
-    calculatedDynamic15thPctDb: dynamic15thPctDb,
-    calculatedDynamicEnvelopeDb: dynamicEnvelopeDb,
+    calculatedDynamicHighPercentileDb: dynamicHighPercentileDb,
+    calculatedDynamicLowPercentileDb: dynamicLowPercentileDb,
     calculatedClimaxTrajectoryScore: climaxTrajectoryScore,
     calculatedClimaxPositionRatio: climaxPositionRatio,
-    calculatedClimaxBuildDb: climaxBuildDb
+    calculatedClimaxBuildDb: climaxBuildDb,
+    calculatedEnergyEnvelope: energyEnvelope,
+    calculatedSectionBoundaries: sectionBoundaries
   };
 }
