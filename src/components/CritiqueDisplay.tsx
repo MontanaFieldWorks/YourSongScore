@@ -7516,6 +7516,20 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             const normalizedH = Math.max(25, Math.min(100, ((seg.avgDb - minDb) / (maxDb - minDb)) * 100));
                             const delta = seg.deltaFromPrev;
 
+                            // Continuous brightness scaling by real loudness - same gradient/hue
+                            // for every bar, but louder sections render visibly brighter and
+                            // quieter sections visibly dimmer, on a smooth continuum (not
+                            // discrete buckets, so even a 0.1dB difference shows up). Bounded
+                            // by a floor and ceiling so the effect stays within a clear,
+                            // legible window rather than washing out to black or white at
+                            // extreme values.
+                            const brightnessFloorDb = -20;
+                            const brightnessCeilingDb = -8;
+                            const brightnessMin = 0.55;
+                            const brightnessMax = 1.15;
+                            const brightnessRatio = Math.max(0, Math.min(1, (seg.avgDb - brightnessFloorDb) / (brightnessCeilingDb - brightnessFloorDb)));
+                            const barBrightness = brightnessMin + brightnessRatio * (brightnessMax - brightnessMin);
+
                             return (
                               <div key={idx} className="flex flex-col gap-1.5 p-2.5 rounded-xl border border-white/5 bg-black/40 relative overflow-hidden group hover:border-amber-500/30 transition-all">
                                 {/* Segment Header */}
@@ -7528,7 +7542,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                                 <div className="h-16 w-full bg-neutral-900/80 rounded-lg flex items-end p-1 relative border border-white/5 overflow-hidden">
                                   <div 
                                     className="w-full rounded-md bg-gradient-to-t from-amber-600/60 via-amber-500/80 to-amber-400 transition-all duration-500"
-                                    style={{ height: `${normalizedH}%` }}
+                                    style={{ height: `${normalizedH}%`, filter: `brightness(${barBrightness.toFixed(2)})` }}
                                   />
                                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                     <span className="text-[10px] font-mono font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
