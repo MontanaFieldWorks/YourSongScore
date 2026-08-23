@@ -8232,18 +8232,129 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             {expandedMetric === "climax" && (() => {
               const posRatio = liveMetrics?.calculatedClimaxPositionRatio ?? null;
               const buildDb = liveMetrics?.calculatedClimaxBuildDb ?? null;
-              let posTier: { label: string; color: string; bg: string; border: string } = { label: "NO DATA", color: "text-slate-500", bg: "bg-slate-500/10", border: "border-slate-500/20" };
+              const climaxScore = liveMetrics?.calculatedClimaxTrajectoryScore ?? 75;
+              const rawEnvelope = liveMetrics?.calculatedEnergyEnvelope ?? null;
+
+              const envelopePoints: number[] = (rawEnvelope && rawEnvelope.length >= 4)
+                ? rawEnvelope.map(p => p.db)
+                : [];
+
+              let posTier: { label: string; color: string; bg: string; border: string; desc: string } = { 
+                label: "NO DATA", 
+                color: "text-slate-500", 
+                bg: "bg-slate-500/10", 
+                border: "border-slate-500/20",
+                desc: "Audio analysis data is currently processing or unavailable for this track."
+              };
               if (posRatio != null) {
-                if (posRatio < 0.55) posTier = { label: "EARLY / FRONT-LOADED", color: "text-[#ffba00]", bg: "bg-[#ffba00]/10", border: "border-[#ffba00]/20" };
-                else if (posRatio <= 0.9) posTier = { label: "IDEAL BUILD ZONE", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" };
-                else posTier = { label: "LATE / ABRUPT", color: "text-[#ffba00]", bg: "bg-[#ffba00]/10", border: "border-[#ffba00]/20" };
+                if (posRatio < 0.55) {
+                  posTier = { 
+                    label: "EARLY / FRONT-LOADED", 
+                    color: "text-amber-400", 
+                    bg: "bg-amber-500/10", 
+                    border: "border-amber-500/25",
+                    desc: "Peak arrives before 55% of the song elapsed. The track may exhaust its energy early, risking listener drop-off in later sections."
+                  };
+                } else if (posRatio <= 0.90) {
+                  posTier = { 
+                    label: "IDEAL BUILD ZONE ★", 
+                    color: "text-teal-400", 
+                    bg: "bg-teal-500/10", 
+                    border: "border-teal-500/25",
+                    desc: "Peak lands perfectly in the 55%–90% sweet spot, giving verses time to build tension before delivering the ultimate sonic payoff."
+                  };
+                } else {
+                  posTier = { 
+                    label: "LATE / OUTRO SPIKE", 
+                    color: "text-amber-400", 
+                    bg: "bg-amber-500/10", 
+                    border: "border-amber-500/25",
+                    desc: "Peak lands in the final 10% of runtime. May feel abrupt without sufficient resolution or cool-down."
+                  };
+                }
               }
-              let magTier: { label: string; color: string; bg: string; border: string } = { label: "NO DATA", color: "text-slate-500", bg: "bg-slate-500/10", border: "border-slate-500/20" };
+
+              let magTier: { label: string; color: string; bg: string; border: string; desc: string } = { 
+                label: "NO DATA", 
+                color: "text-slate-500", 
+                bg: "bg-slate-500/10", 
+                border: "border-slate-500/20",
+                desc: "Awaiting audio analysis."
+              };
               if (buildDb != null) {
-                if (buildDb < 2) magTier = { label: "MINIMAL BUILD", color: "text-[#ffba00]", bg: "bg-[#ffba00]/10", border: "border-[#ffba00]/20" };
-                else if (buildDb < 5) magTier = { label: "MODERATE BUILD", color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" };
-                else magTier = { label: "STRONG BUILD", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" };
+                if (buildDb < 2) {
+                  magTier = { 
+                    label: "MINIMAL BUILD", 
+                    color: "text-amber-400", 
+                    bg: "bg-amber-500/10", 
+                    border: "border-amber-500/25",
+                    desc: "Less than 2.0 dB increase over the intro third. The track stays dynamically flat rather than building excitement."
+                  };
+                } else if (buildDb < 5) {
+                  magTier = { 
+                    label: "MODERATE BUILD", 
+                    color: "text-blue-400", 
+                    bg: "bg-blue-500/10", 
+                    border: "border-blue-500/25",
+                    desc: "Healthy 2.0–5.0 dB energy accumulation, providing noticeable lift without overpowering earlier sections."
+                  };
+                } else {
+                  magTier = { 
+                    label: "STRONG CLIMATIC BUILD", 
+                    color: "text-teal-400", 
+                    bg: "bg-teal-500/10", 
+                    border: "border-teal-500/25",
+                    desc: "5.0+ dB dynamic surge into the peak, producing high emotional payoff and impactful contrast."
+                  };
+                }
               }
+
+              // SVG layout math for trajectory curve
+              const svgW = 540;
+              const svgH = 180;
+              const padLeft = 42;
+              const padRight = 36;
+              const padTop = 26;
+              const padBottom = 30;
+              const plotW = svgW - padLeft - padRight;
+              const plotH = svgH - padTop - padBottom;
+
+              const minDb = -36;
+              const maxDb = 0;
+              const dbToY = (db: number) => {
+                const clamped = Math.max(minDb, Math.min(maxDb, db));
+                const norm = (clamped - minDb) / (maxDb - minDb);
+                return padTop + (1 - norm) * plotH;
+              };
+
+              // Golden Zone coordinates (55% to 90%)
+              const goldenX1 = padLeft + plotW * 0.55;
+              const goldenX2 = padLeft + plotW * 0.90;
+              const goldenW = goldenX2 - goldenX1;
+
+              // Trajectory path calculation
+              let pathD = "";
+              let areaD = "";
+              let peakX = posRatio != null ? padLeft + plotW * Math.min(0.98, Math.max(0.02, posRatio)) : null;
+              let peakY = padTop + plotH * 0.2; // default high
+
+              if (envelopePoints.length >= 2) {
+                const maxVal = Math.max(...envelopePoints);
+                const maxIdx = envelopePoints.indexOf(maxVal);
+                const realPeakRatio = posRatio != null ? posRatio : (maxIdx / (envelopePoints.length - 1));
+                peakX = padLeft + plotW * Math.min(0.98, Math.max(0.02, realPeakRatio));
+                peakY = dbToY(maxVal);
+
+                const coords = envelopePoints.map((db, idx) => {
+                  const x = padLeft + (idx / (envelopePoints.length - 1)) * plotW;
+                  const y = dbToY(db);
+                  return { x, y };
+                });
+
+                pathD = coords.map((pt, idx) => `${idx === 0 ? "M" : "L"} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`).join(" ");
+                areaD = `${pathD} L ${coords[coords.length - 1].x.toFixed(1)} ${padTop + plotH} L ${coords[0].x.toFixed(1)} ${padTop + plotH} Z`;
+              }
+
               return (
               <motion.div
                 initial={{ height: 0, opacity: 0, marginTop: -8 }}
@@ -8253,41 +8364,338 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 className="overflow-hidden w-full relative z-0"
               >
                 <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-teal-500 rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
-                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
-                    CLIMAX TRAJECTORY AUDIT
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
+                        CLIMAX TRAJECTORY AUDIT
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-500">
+                        Measures whether the song builds toward a later climax (<span className="text-teal-400">55–90% ideal zone</span>) with measurable dynamic power
+                      </span>
+                    </div>
+                    <span className="text-[9px] font-mono uppercase px-2.5 py-1 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20 font-bold self-start sm:self-auto">
+                      30% Structural Engagement Weight
+                    </span>
                   </div>
-                  <span className="text-[10px] font-mono text-slate-500 -mt-3">
-                    Ideal zone: peak lands <span className="text-emerald-400">55–90%</span> through the track, with a real, substantial build behind it
-                  </span>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className={`p-4 rounded-xl border ${posTier.bg} ${posTier.border}`}>
+                  {/* Visualizer Chart Container */}
+                  <div className="p-4 bg-[#030407] border border-white/10 rounded-2xl flex flex-col gap-2 relative overflow-hidden">
+                    <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 uppercase tracking-widest px-1">
+                      <span className="flex items-center gap-1.5 text-slate-300 font-bold">
+                        <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
+                        Macro Energy Climax Trajectory
+                      </span>
+                      <span>Timeline: 0:00 → Track Outro</span>
+                    </div>
+
+                    {/* SVG Trajectory Chart */}
+                    <div className="w-full relative">
+                      {envelopePoints.length < 2 && posRatio == null ? (
+                        <div className="flex flex-col items-center justify-center py-10 border border-dashed border-white/5 rounded-xl bg-black/40">
+                          <span className="text-[11px] text-slate-400 font-medium mb-1">No real envelope data available</span>
+                          <p className="text-[9.5px] text-slate-500 max-w-xs text-center leading-relaxed">
+                            This chart needs a fresh analysis run to generate real waveform data for this track.
+                          </p>
+                        </div>
+                      ) : (
+                      <svg 
+                        viewBox={`0 0 ${svgW} ${svgH}`} 
+                        className="w-full h-auto max-h-[220px] select-none overflow-visible"
+                        preserveAspectRatio="none"
+                      >
+                        <defs>
+                          {/* Trajectory Area Gradient */}
+                          <linearGradient id="climaxAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#14b8a6" stopOpacity="0.4" />
+                            <stop offset="60%" stopColor="#14b8a6" stopOpacity="0.1" />
+                            <stop offset="100%" stopColor="#000000" stopOpacity="0.0" />
+                          </linearGradient>
+
+                          {/* Golden Climax Zone Gradient */}
+                          <linearGradient id="goldenZoneGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#14b8a6" stopOpacity="0.18" />
+                            <stop offset="100%" stopColor="#0f766e" stopOpacity="0.04" />
+                          </linearGradient>
+
+                          {/* Glow filter */}
+                          <filter id="tealGlow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur stdDeviation="3" result="blur" />
+                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                          </filter>
+                        </defs>
+
+                        {/* Background Grid Lines */}
+                        {[-36, -24, -12, 0].map((dbVal) => {
+                          const y = dbToY(dbVal);
+                          return (
+                            <g key={dbVal}>
+                              <line 
+                                x1={padLeft} 
+                                y1={y} 
+                                x2={svgW - padRight} 
+                                y2={y} 
+                                stroke="rgba(255,255,255,0.06)" 
+                                strokeDasharray="3 3"
+                                strokeWidth="1" 
+                              />
+                              <text 
+                                x={padLeft - 6} 
+                                y={y + 3} 
+                                fill="#64748b" 
+                                fontSize="8.5" 
+                                fontFamily="ui-monospace, monospace" 
+                                textAnchor="end"
+                              >
+                                {dbVal}
+                              </text>
+                            </g>
+                          );
+                        })}
+
+                        {/* Golden Climax Target Zone (55% to 90%) */}
+                        <rect 
+                          x={goldenX1} 
+                          y={padTop} 
+                          width={goldenW} 
+                          height={plotH} 
+                          fill="url(#goldenZoneGrad)" 
+                          stroke="rgba(20,184,166,0.3)"
+                          strokeWidth="1"
+                          strokeDasharray="4 2"
+                        />
+                        <text 
+                          x={goldenX1 + goldenW / 2} 
+                          y={padTop + 12} 
+                          fill="#2dd4bf" 
+                          fontSize="8" 
+                          fontFamily="ui-monospace, monospace" 
+                          fontWeight="bold" 
+                          textAnchor="middle"
+                        >
+                          IDEAL CLIMAX ZONE (55%–90%)
+                        </text>
+
+                        {/* Filled Area Chart */}
+                        {areaD && (
+                          <path d={areaD} fill="url(#climaxAreaGrad)" />
+                        )}
+
+                        {/* Main Trajectory Curve */}
+                        {pathD && (
+                          <path 
+                            d={pathD} 
+                            fill="none" 
+                            stroke="#14b8a6" 
+                            strokeWidth="2.25" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                          />
+                        )}
+
+                        {/* Peak Landmark Marker & Pin */}
+                        {peakX != null && (
+                          <g>
+                            {/* Vertical Pin Line to Timeline */}
+                            <line 
+                              x1={peakX} 
+                              y1={peakY} 
+                              x2={peakX} 
+                              y2={padTop + plotH} 
+                              stroke="#2dd4bf" 
+                              strokeWidth="1.5" 
+                              strokeDasharray="3 3"
+                              opacity="0.8"
+                            />
+                            {/* Outer Halo */}
+                            <circle 
+                              cx={peakX} 
+                              cy={peakY} 
+                              r="9" 
+                              fill="rgba(20,184,166,0.25)" 
+                              filter="url(#tealGlow)"
+                            />
+                            {/* Solid Core Dot */}
+                            <circle 
+                              cx={peakX} 
+                              cy={peakY} 
+                              r="4.5" 
+                              fill="#ffffff" 
+                              stroke="#14b8a6" 
+                              strokeWidth="2"
+                            />
+                            {/* Landmark Badge Callout */}
+                            <g transform={`translate(${Math.min(svgW - padRight - 65, Math.max(padLeft + 55, peakX))}, ${Math.max(padTop + 24, peakY - 14)})`}>
+                              <rect 
+                                x="-52" 
+                                y="-10" 
+                                width="104" 
+                                height="18" 
+                                rx="4" 
+                                fill="#0f172a" 
+                                stroke="#14b8a6" 
+                                strokeWidth="1"
+                              />
+                              <text 
+                                x="0" 
+                                y="2" 
+                                fill="#5eead4" 
+                                fontSize="7.5" 
+                                fontFamily="ui-monospace, monospace" 
+                                fontWeight="bold" 
+                                textAnchor="middle"
+                              >
+                                {posRatio != null ? `PEAK @ ${Math.round(posRatio * 100)}%` : "PEAK CLIMAX"} {buildDb != null ? `(+${buildDb}dB)` : ""}
+                              </text>
+                            </g>
+                          </g>
+                        )}
+
+                        {/* X-Axis Time Markers */}
+                        <text x={padLeft} y={svgH - 8} fill="#64748b" fontSize="8" fontFamily="ui-monospace, monospace">0:00</text>
+                        <text x={padLeft + plotW * 0.25} y={svgH - 8} fill="#64748b" fontSize="8" fontFamily="ui-monospace, monospace" textAnchor="middle">25%</text>
+                        <text x={padLeft + plotW * 0.5} y={svgH - 8} fill="#64748b" fontSize="8" fontFamily="ui-monospace, monospace" textAnchor="middle">50%</text>
+                        <text x={padLeft + plotW * 0.75} y={svgH - 8} fill="#64748b" fontSize="8" fontFamily="ui-monospace, monospace" textAnchor="middle">75%</text>
+                        <text x={padLeft + plotW} y={svgH - 8} fill="#64748b" fontSize="8" fontFamily="ui-monospace, monospace" textAnchor="end">Outro</text>
+                      </svg>
+                      )}
+                    </div>
+
+                    {/* Chart Legend / Helper */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-2 text-[9px] font-mono text-slate-400 px-1">
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-teal-400 shadow-[0_0_6px_rgba(20,184,166,0.8)]" />
+                          <span className="text-slate-300">Detected Peak Climax</span>
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-3 h-2 bg-teal-500/20 border border-teal-500/40 rounded-sm" />
+                          <span className="text-teal-300">Golden Climax Zone (55%–90%)</span>
+                        </span>
+                      </div>
+                      <span className="text-slate-500">Smoothed Energy Envelope</span>
+                    </div>
+                  </div>
+
+                  {/* 3-Stat Metric Cards Breakdown */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    {/* Peak Position */}
+                    <div className={`p-4 rounded-xl border ${posTier.bg} ${posTier.border} flex flex-col justify-between`}>
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Peak Position</span>
-                        <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${posTier.bg} ${posTier.color}`}>
+                        <span className={`text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded ${posTier.bg} ${posTier.color}`}>
                           {posTier.label}
                         </span>
                       </div>
-                      <div className="text-2xl font-black text-white font-mono">{posRatio != null ? Math.round(posRatio * 100) : "--"} <span className="text-xs text-slate-500 font-semibold">% through runtime</span></div>
-                      <p className="text-[10px] text-slate-400 leading-relaxed mt-1.5">
-                        Where the song's loudest sustained moment (on a smoothed energy envelope) actually falls.
+                      <div className="text-2xl font-black text-white font-mono mt-1">
+                        {posRatio != null ? Math.round(posRatio * 100) : "--"} <span className="text-xs text-slate-500 font-semibold">% through song</span>
+                      </div>
+                      <p className="text-[9.5px] text-slate-300 leading-relaxed mt-2">
+                        {posTier.desc}
                       </p>
                     </div>
 
-                    <div className={`p-4 rounded-xl border ${magTier.bg} ${magTier.border}`}>
+                    {/* Build Magnitude */}
+                    <div className={`p-4 rounded-xl border ${magTier.bg} ${magTier.border} flex flex-col justify-between`}>
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Build Magnitude</span>
-                        <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${magTier.bg} ${magTier.color}`}>
+                        <span className={`text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded ${magTier.bg} ${magTier.color}`}>
                           {magTier.label}
                         </span>
                       </div>
-                      <div className="text-2xl font-black text-white font-mono">{buildDb ?? "--"} <span className="text-xs text-slate-500 font-semibold">dB</span></div>
-                      <p className="text-[10px] text-slate-400 leading-relaxed mt-1.5">
-                        How much louder the peak is than the song's opening third — a late peak with no real build behind it still scores low here.
+                      <div className="text-2xl font-black text-white font-mono mt-1">
+                        {buildDb != null ? `+${buildDb}` : "--"} <span className="text-xs text-slate-500 font-semibold">dB</span>
+                      </div>
+                      <p className="text-[9.5px] text-slate-300 leading-relaxed mt-2">
+                        {magTier.desc}
+                      </p>
+                    </div>
+
+                    {/* Composite Climax Score */}
+                    <div className="p-4 rounded-xl border border-teal-500/20 bg-teal-500/5 flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Climax Trajectory</span>
+                        <span className="text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-400">
+                          {climaxScore >= 80 ? "EXCELLENT" : climaxScore >= 65 ? "BALANCED" : "NEEDS ARC"}
+                        </span>
+                      </div>
+                      <div className="text-2xl font-black text-white font-mono mt-1">
+                        {climaxScore} <span className="text-xs text-slate-500 font-semibold">/ 100</span>
+                      </div>
+                      <p className="text-[9.5px] text-slate-300 leading-relaxed mt-2">
+                        50% Peak Timing Alignment + 50% Dynamics Lift from Intro Baseline.
                       </p>
                     </div>
                   </div>
 
+                  {/* Climax Timing & Placement Arc Guide */}
+                  <div className="p-4 bg-[#020203] border border-white/10 rounded-xl flex flex-col gap-3">
+                    <div className="flex items-center justify-between text-[10px] font-mono">
+                      <span className="text-slate-400 font-bold uppercase tracking-wider">Climax Timing &amp; Placement Arc Guide</span>
+                      <span className="text-slate-500">Optimal Delivery Timeline</span>
+                    </div>
+
+                    {/* Segmented Timeline Arc Bar */}
+                    <div className="relative pt-6 pb-2">
+                      {/* Range Segments */}
+                      <div className="h-3 w-full rounded-full overflow-hidden flex bg-neutral-900 border border-white/10">
+                        {/* 0-55% Front-Loaded / Premature */}
+                        <div 
+                          className="h-full bg-gradient-to-r from-amber-600/80 to-amber-500/80 border-r border-black/40"
+                          style={{ width: "55%" }} 
+                          title="0%–55%: Early / Front-Loaded"
+                        />
+                        {/* 55-90% Golden Climax Zone */}
+                        <div 
+                          className="h-full bg-gradient-to-r from-teal-600/90 via-teal-500/90 to-emerald-400/90 border-r border-black/40"
+                          style={{ width: "35%" }} 
+                          title="55%–90%: Golden Climax Zone ★"
+                        />
+                        {/* 90-100% Late / Abrupt Outro */}
+                        <div 
+                          className="h-full bg-gradient-to-r from-cyan-600/80 to-indigo-600/80" 
+                          style={{ width: "10%" }} 
+                          title="90%–100%: Late / Abrupt Outro"
+                        />
+                      </div>
+
+                      {/* Track Position Marker Indicator */}
+                      {posRatio != null && (
+                        <div 
+                          className="absolute top-0 flex flex-col items-center pointer-events-none transition-all duration-500"
+                          style={{ 
+                            left: `${Math.min(97, Math.max(3, posRatio * 100))}%`,
+                            transform: "translateX(-50%)"
+                          }}
+                        >
+                          <span className="text-[8.5px] font-mono font-bold text-white px-1.5 py-0.5 rounded bg-teal-500 shadow-[0_0_8px_rgba(20,184,166,0.8)] whitespace-nowrap mb-0.5">
+                            YOUR PEAK: {Math.round(posRatio * 100)}%
+                          </span>
+                          <div className="w-2.5 h-2.5 rotate-45 bg-teal-500 -mt-1 shadow-[0_0_6px_rgba(20,184,166,0.8)]" />
+                        </div>
+                      )}
+
+                      {/* Zone Labels */}
+                      <div className="flex justify-between text-[8px] font-mono text-slate-500 mt-2 px-0.5">
+                        <span className="text-amber-400 font-semibold">0%–55% (Front-Loaded)</span>
+                        <span className="text-teal-400 font-semibold text-center">55%–90% (Golden Climax Zone ★)</span>
+                        <span className="text-cyan-400 font-semibold text-right">90%–100% (Late)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contextual AI Dynamic Arc Critique */}
+                  <div className="p-4 bg-[#020203] border border-white/10 rounded-xl flex flex-col gap-2">
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500">Structural Arc &amp; Momentum Assessment</span>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      {posRatio != null && posRatio >= 0.55 && posRatio <= 0.90
+                        ? `The track's energy arc builds convincingly into its peak at ${Math.round(posRatio * 100)}% of runtime, delivering ${buildDb != null ? `+${buildDb} dB of dynamic lift` : "substantial dynamic lift"} that gives the listener a clear, rewarding destination.`
+                        : posRatio != null && posRatio < 0.55
+                        ? `The track hits its maximum loudness early at ${Math.round(posRatio * 100)}% of runtime. Consider preserving additional instrumentation or vocal power for a secondary climax in the final third to sustain engagement.`
+                        : "Climax trajectory evaluation complete. Ensure structural contrast supports a clear narrative build toward the song's primary hook."}
+                    </p>
+                  </div>
+
+                  {/* Explanatory Footer */}
                   <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
                     Climax Trajectory Score is a 50/50 blend of Peak Position and Build Magnitude, both DSP-measured from the actual audio waveform. Weighted at 30% into your overall Structural Engagement score.
                   </p>
