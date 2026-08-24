@@ -707,6 +707,7 @@ export default function App() {
     setLoadingStatus("Summoning studio-grade mixing engineer...");
     setErrorHeader(null);
     setErrorDetails(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 
     const formData = new FormData();
     formData.append("audio", selectedFile);
