@@ -5,6 +5,7 @@ import multer from "multer";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import { GENRE_MAP } from "./src/data/musicData";
 
 dotenv.config();
 
@@ -74,6 +75,19 @@ STEP 2 - LOGIC: Draw a conclusion strictly from those measured facts about the t
 STEP 3 - VALUE JUDGMENT: Assign your score based directly on that logical conclusion, not on reputation, familiarity, or caution.
 If an unverified or anonymous track exhibits the same measurable complexity as a canonical masterpiece, it must receive the same high score. Do not hedge. Do not flinch. Score boldly and defend the number strictly with the facts identified in Step 1.`;
 
+// Genre/subgenre enum values derived directly from GENRE_MAP - the same taxonomy the rest
+// of the app already uses for corridor/target matching (getVectorTargets). Previously genre
+// and subgenre were unconstrained free text, meaning even a stable underlying judgment
+// could get worded differently run to run ("Dream Pop" vs "Dreampop" vs "Ethereal Dream
+// Pop"), which read as inconsistent classification even when it wasn't. Constraining to
+// this shared taxonomy also prevents genre labels that don't match anything in GENRE_MAP
+// from silently falling back to generic "Pop" corridor targets elsewhere in the app.
+const GENRE_ENUM_VALUES = Object.keys(GENRE_MAP);
+const SUBGENRE_ENUM_VALUES = Array.from(new Set(Object.values(GENRE_MAP).flat()));
+const GENRE_TAXONOMY_TEXT = Object.entries(GENRE_MAP)
+  .map(([genre, subgenres]) => `${genre}: ${subgenres.join(", ")}`)
+  .join("\n");
+
 // Response Schema for Structured AI Output
 const CRITIQUE_SCHEMA = {
   type: Type.OBJECT,
@@ -81,8 +95,8 @@ const CRITIQUE_SCHEMA = {
     vibe: {
       type: Type.OBJECT,
       properties: {
-        genre: { type: Type.STRING, description: "Identified core genre of the song." },
-        subgenre: { type: Type.STRING, description: "Identified subgenres or styles." },
+        genre: { type: Type.STRING, enum: GENRE_ENUM_VALUES, description: "Identified core genre of the song. Must be one of the provided enum values - do not invent a new genre label." },
+        subgenre: { type: Type.STRING, enum: SUBGENRE_ENUM_VALUES, description: "Identified subgenre or style, matching the specific genre chosen above. Must be one of the provided enum values - do not invent a new subgenre label." },
         aesthetic: { type: Type.STRING, description: "The general mood, references, or sonic vibe." },
         commercialViability: { type: Type.STRING, description: "Playlist suitability, streaming readiness and competitive position." },
       },
@@ -1081,7 +1095,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
     }
 
     if (!metaGenre) {
-      userInstruction += `\n\n- Genre Identification Directive: No explicit, valid genre metadata tag was found in the audio container. You MUST perform a deep acoustic and stylistic analysis of the track's drum/beat structures, lead instrumentation, tempo/timing, harmonic mood, production era, and vocal delivery to identify the exact, laser-focused core genre and subgenre. Consider examples spanning ALL eras and regions, not just modern styles - e.g. Classic Rock, Arena Rock, Album Rock, Blues Rock, Southern Rock, Yacht Rock (for guitar-driven, 1960s-80s production with real drums/analog instrumentation), alongside modern styles like Dream Pop, Synth-pop, Melodic Techno, Boom-Bap Hip Hop, Emo Rap, Cinematic Ambient, Progressive Metal, Americana, Indie Folk, UK Garage, UK Drill. Do not default to a modern-sounding genre label just because it was given as an example here - if the production era, instrumentation, and stylistic hallmarks clearly indicate an older or different genre entirely, identify that instead. For hip-hop and rap specifically, you MUST also consider and identify regional origin as part of the subgenre (e.g. West Coast/G-Funk, East Coast/Boom-Bap, Dirty South, Midwest) based on production style, vocal delivery, and beat construction - do not default to East Coast/Boom-Bap simply because it is a common archetype; many iconic hip-hop records are West Coast, Southern, or other regional styles with distinctly different sonic signatures. Avoid generic tags like 'Unclassified', 'Demo', 'Acoustic', 'Vocal', or 'Electronic' without specific stylistic qualification. Check the frequency range structures and arrangement styles to see what type of playlist it fits best.`;
+      userInstruction += `\n\n- Genre Identification Directive: No explicit, valid genre metadata tag was found in the audio container. You MUST perform a deep acoustic and stylistic analysis of the track's drum/beat structures, lead instrumentation, tempo/timing, harmonic mood, production era, and vocal delivery to identify the core genre and subgenre. You MUST select genre and subgenre ONLY from this exact taxonomy - do not invent a label outside this list, and ensure the subgenre you choose genuinely belongs to the genre you selected:\n${GENRE_TAXONOMY_TEXT}\n\nFor Rap / Hip-Hop specifically, base your subgenre choice on regional production style, vocal delivery, and beat construction - do not default to a common archetype out of habit if the track's actual sonic signature points to a different regional style within the list above. Check the frequency range structures and arrangement styles to see what type of playlist it fits best.`;
     }
 
     const parsedCritique = await performCritiqueAnalysis(
@@ -1242,7 +1256,7 @@ app.post("/api/critique-url", async (req, res) => {
     }
 
     if (!metaGenre) {
-      userInstruction += `\n\n- Genre Identification Directive: No explicit, valid genre metadata tag was found in the audio container. You MUST perform a deep acoustic and stylistic analysis of the track's drum/beat structures, lead instrumentation, tempo/timing, harmonic mood, production era, and vocal delivery to identify the exact, laser-focused core genre and subgenre. Consider examples spanning ALL eras and regions, not just modern styles - e.g. Classic Rock, Arena Rock, Album Rock, Blues Rock, Southern Rock, Yacht Rock (for guitar-driven, 1960s-80s production with real drums/analog instrumentation), alongside modern styles like Dream Pop, Synth-pop, Melodic Techno, Boom-Bap Hip Hop, Emo Rap, Cinematic Ambient, Progressive Metal, Americana, Indie Folk, UK Garage, UK Drill. Do not default to a modern-sounding genre label just because it was given as an example here - if the production era, instrumentation, and stylistic hallmarks clearly indicate an older or different genre entirely, identify that instead. For hip-hop and rap specifically, you MUST also consider and identify regional origin as part of the subgenre (e.g. West Coast/G-Funk, East Coast/Boom-Bap, Dirty South, Midwest) based on production style, vocal delivery, and beat construction - do not default to East Coast/Boom-Bap simply because it is a common archetype; many iconic hip-hop records are West Coast, Southern, or other regional styles with distinctly different sonic signatures. Avoid generic tags like 'Unclassified', 'Demo', 'Acoustic', 'Vocal', or 'Electronic' without specific stylistic qualification. Check the frequency range structures and arrangement styles to see what type of playlist it fits best.`;
+      userInstruction += `\n\n- Genre Identification Directive: No explicit, valid genre metadata tag was found in the audio container. You MUST perform a deep acoustic and stylistic analysis of the track's drum/beat structures, lead instrumentation, tempo/timing, harmonic mood, production era, and vocal delivery to identify the core genre and subgenre. You MUST select genre and subgenre ONLY from this exact taxonomy - do not invent a label outside this list, and ensure the subgenre you choose genuinely belongs to the genre you selected:\n${GENRE_TAXONOMY_TEXT}\n\nFor Rap / Hip-Hop specifically, base your subgenre choice on regional production style, vocal delivery, and beat construction - do not default to a common archetype out of habit if the track's actual sonic signature points to a different regional style within the list above. Check the frequency range structures and arrangement styles to see what type of playlist it fits best.`;
     }
 
     const parsedCritique = await performCritiqueAnalysis(
