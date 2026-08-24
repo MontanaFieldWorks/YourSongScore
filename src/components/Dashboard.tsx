@@ -632,6 +632,7 @@ export default function Dashboard({
   const startAnalysis = async (track: StoredTrack, overrideThreeX?: boolean) => {
     setLoading(true);
     setErrorMsg(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 
     try {
       let finalCritique: CritiqueData;
