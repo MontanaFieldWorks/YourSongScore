@@ -1476,11 +1476,28 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     }
 
     // Magnitude score: rewards a real, substantial build - not just a late but trivial bump.
+    // Reworked from a straight linear ramp to 6dB (which meant a build the card's own copy
+    // calls "healthy" only scored a middling 42, dragging the blended score down to 71 for
+    // a song correctly described as landing "perfectly" in the ideal zone with a "healthy"
+    // build). Now a proper plateau: 3-5dB (the range the card's own text already calls
+    // healthy) scores a genuine 100, ramping up from 0 at 2dB, and gently tapering above
+    // 5dB rather than being treated as equally weak as having no build at all.
     const firstThirdCount = Math.max(1, Math.floor(smoothed.length / 3));
     const openingAvgDb = smoothed.slice(0, firstThirdCount).reduce((a, b) => a + b, 0) / firstThirdCount;
     const buildDb = smoothed[peakIdx] - openingAvgDb;
     climaxBuildDb = parseFloat(buildDb.toFixed(1));
-    const magnitudeScore = Math.max(0, Math.min(100, Math.round((buildDb / 6) * 100)));
+    let magnitudeScore: number;
+    if (buildDb <= 0) {
+      magnitudeScore = 0;
+    } else if (buildDb <= 2) {
+      magnitudeScore = Math.round((buildDb / 2) * 80);
+    } else if (buildDb <= 3) {
+      magnitudeScore = Math.round(80 + (buildDb - 2) * 20);
+    } else if (buildDb <= 5) {
+      magnitudeScore = 100;
+    } else {
+      magnitudeScore = Math.round(Math.max(70, 100 - ((buildDb - 5) / 10) * 30));
+    }
 
     climaxTrajectoryScore = Math.round(positionScore * 0.5 + magnitudeScore * 0.5);
   }
