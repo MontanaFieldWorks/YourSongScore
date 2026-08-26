@@ -311,7 +311,16 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   for (const candidate of topCandidates) {
     const support2x = getAcfAtLag(candidate.lag * 2);
     const support3x = getAcfAtLag(candidate.lag * 3);
-    const supportScore = candidate.val + support2x * 0.5 + support3x * 0.3;
+    // Support weight reduced from 0.5/0.3 to 0.08/0.05, verified against real debug-logged
+    // results from 4 test songs. At the old weight, a candidate with a strong "octave
+    // sibling" (a 2x or 3x relative) could override a competitor with clearly higher raw
+    // correlation - confirmed on Boston (109 BPM had the highest raw score of all 5
+    // candidates but lost to 176 purely via this boost) and Bangarang (same failure shape,
+    // 109 BPM losing to 146). At this lower weight both now correctly resolve to the true
+    // tempo. Verified this doesn't regress Drake's God's Plan, which has two legitimately
+    // valid readings (77/154 BPM, both independently confirmed) - it now lands on 77
+    // instead of 154, still a defensible answer, not a new error.
+    const supportScore = candidate.val + support2x * 0.08 + support3x * 0.05;
     debugCandidates.push({
       bpm: lagToBpm(candidate.lag),
       correlation: parseFloat(candidate.val.toFixed(2)),
