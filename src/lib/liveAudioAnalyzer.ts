@@ -301,13 +301,24 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     return acf[idx];
   };
 
+  // BPM_DEBUG: convert a lag (in envelope frames) to a raw BPM value for logging.
+  const lagToBpm = (lag: number): number => parseFloat((60 / (lag / (sampleRate / hopSize))).toFixed(1));
+
   let bestAcf = 0;
   let bestLag = minLag;
   let bestSupportScore = -Infinity;
+  const debugCandidates: { bpm: number; correlation: number; support2x: number; support3x: number; supportScore: number }[] = [];
   for (const candidate of topCandidates) {
     const support2x = getAcfAtLag(candidate.lag * 2);
     const support3x = getAcfAtLag(candidate.lag * 3);
     const supportScore = candidate.val + support2x * 0.5 + support3x * 0.3;
+    debugCandidates.push({
+      bpm: lagToBpm(candidate.lag),
+      correlation: parseFloat(candidate.val.toFixed(2)),
+      support2x: parseFloat(support2x.toFixed(2)),
+      support3x: parseFloat(support3x.toFixed(2)),
+      supportScore: parseFloat(supportScore.toFixed(2))
+    });
     if (supportScore > bestSupportScore) {
       bestSupportScore = supportScore;
       bestAcf = candidate.val;
@@ -327,11 +338,20 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   const lagSeconds = bestLag / (sampleRate / hopSize);
   const rawBpm = 60 / lagSeconds;
 
-  // Fold into 60–180 BPM range
+  // Fold into 60-200 BPM range - was previously capped at 180, but the autocorrelation
+  // search itself covers lags down to 200 BPM (see minLag above), so any genuinely fast
+  // song (EDM, punk, drum and bass) between 180-200 BPM was being silently halved into
+  // range even when the higher tempo was correct. Fold range now matches search range.
   let foldedBpm = rawBpm;
-  while (foldedBpm > 180) foldedBpm /= 2;
+  while (foldedBpm > 200) foldedBpm /= 2;
   while (foldedBpm < 60) foldedBpm *= 2;
   const candidateBpm = Math.round(foldedBpm);
+
+  if (typeof window !== "undefined" && (window as any).BPM_DEBUG) {
+    console.log("[BPM_DEBUG] Top candidate lags considered (sorted by raw correlation):");
+    console.table(debugCandidates);
+    console.log(`[BPM_DEBUG] Winner: ${lagToBpm(bestLag)} BPM raw -> ${candidateBpm} BPM after fold (support score: ${bestSupportScore.toFixed(2)})`);
+  }
 
   // Accept autocorrelation result if signal had meaningful onset energy
   const meanOnset = onsetStrength.reduce((a, b) => a + b, 0) / onsetStrength.length;
