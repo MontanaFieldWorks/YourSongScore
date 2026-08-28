@@ -442,8 +442,8 @@ Parent category context already determined:
 - Vocal Tracking score: ${parsedCritique?.performance?.vocalScore}, notes: ${parsedCritique?.performance?.vocalsCritique}
 - Genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
 
-IF a real detected chord progression is provided below, treat it as genuine, computed ground truth for the song's actual harmonic content - use it as the primary basis for judging harmonicIntrigue, not just your own listening impression:
-Detected Chord Progression: ${chordProgressionSummary || 'not available'}
+IF a real detected key and chord vocabulary is provided below, treat it as genuine, computed ground truth for the song's actual harmonic content - use it as the primary basis for judging harmonicIntrigue, not just your own listening impression. This is the song's overall key and the set of chords it uses, not a timed section-by-section progression, so do not describe specific chord timing or ordering beyond what you can genuinely hear yourself. The Roman numerals show functional harmony relative to the key - chords outside the standard diatonic set (I, ii, iii, IV, V, vi, vii°), such as borrowed chords, secondary dominants, or unexpected extensions (maj7, sus4, etc. used non-conventionally), are a real signal of harmonic richness and should meaningfully raise the harmonicIntrigue score; a chord vocabulary using only the plain diatonic triads is a real signal of harmonic simplicity and should not be scored as intriguing regardless of how the song otherwise sounds:
+Detected Key & Chord Vocabulary: ${chordProgressionSummary || 'not available'}
 
 Listen to the actual audio again and generate specific, deduction-based scores, feedback, and sub-metric commentary for all 4 categories and their 9 sub-fields, consistent with the above context but grounded in what you actually hear this time.`;
 
@@ -1118,26 +1118,31 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       parsedCritique.subMetricsCall1Failed = true;
     }
 
-    try {
-      console.log("[Call 2] Starting Sub-Metrics Call 2...");
-      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique, chordProgressionSummary, melodySummary);
-      parsedCritique.subMetricsCall2 = subMetricsCall2;
-      parsedCritique.subMetricsCall2Failed = false;
-      console.log("[Call 2] Sub-Metrics Call 2 completed successfully.");
-    } catch (subErr: any) {
-      console.error("[Call 2] Sub-Metrics Call 2 failed, continuing without it:", subErr.message || subErr);
-      parsedCritique.subMetricsCall2Failed = true;
-    }
-
+    let verifiedChordSummary: string | undefined = undefined;
     try {
       console.log("[Chord/Key] Starting direct Gemini chord/key analysis...");
       const chordKeyAnalysis = await performChordKeyAnalysis(audioPart);
       parsedCritique.chordKeyAnalysis = chordKeyAnalysis;
       parsedCritique.chordKeyAnalysisFailed = false;
       console.log("[Chord/Key] Direct Gemini chord/key analysis completed successfully.");
+      if (chordKeyAnalysis?.keySignature && chordKeyAnalysis?.chordsUsed?.length > 0) {
+        const chordList = chordKeyAnalysis.chordsUsed.map((c: any) => `${c.chord} (${c.romanNumeral})`).join(", ");
+        verifiedChordSummary = `Key: ${chordKeyAnalysis.keySignature}. Chord vocabulary used: ${chordList}. (Note: this is the song's overall key and chord vocabulary, not a timed section-by-section progression.)`;
+      }
     } catch (subErr: any) {
       console.error("[Chord/Key] Direct Gemini chord/key analysis failed, continuing without it:", subErr.message || subErr);
       parsedCritique.chordKeyAnalysisFailed = true;
+    }
+
+    try {
+      console.log("[Call 2] Starting Sub-Metrics Call 2...");
+      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique, verifiedChordSummary ?? chordProgressionSummary, melodySummary);
+      parsedCritique.subMetricsCall2 = subMetricsCall2;
+      parsedCritique.subMetricsCall2Failed = false;
+      console.log("[Call 2] Sub-Metrics Call 2 completed successfully.");
+    } catch (subErr: any) {
+      console.error("[Call 2] Sub-Metrics Call 2 failed, continuing without it:", subErr.message || subErr);
+      parsedCritique.subMetricsCall2Failed = true;
     }
 
     try {
@@ -1278,24 +1283,29 @@ app.post("/api/critique-url", async (req, res) => {
       parsedCritique.subMetricsCall1Failed = true;
     }
 
-    try {
-      console.log("[Call 2] Starting Sub-Metrics Call 2 (URL route)...");
-      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique, chordProgressionSummary, melodySummary);
-      parsedCritique.subMetricsCall2 = subMetricsCall2;
-      parsedCritique.subMetricsCall2Failed = false;
-    } catch (subErr: any) {
-      console.error("[Call 2] Failed (URL route), continuing without it:", subErr.message || subErr);
-      parsedCritique.subMetricsCall2Failed = true;
-    }
-
+    let verifiedChordSummary: string | undefined = undefined;
     try {
       console.log("[Chord/Key] Starting direct Gemini chord/key analysis (URL route)...");
       const chordKeyAnalysis = await performChordKeyAnalysis(audioPart);
       parsedCritique.chordKeyAnalysis = chordKeyAnalysis;
       parsedCritique.chordKeyAnalysisFailed = false;
+      if (chordKeyAnalysis?.keySignature && chordKeyAnalysis?.chordsUsed?.length > 0) {
+        const chordList = chordKeyAnalysis.chordsUsed.map((c: any) => `${c.chord} (${c.romanNumeral})`).join(", ");
+        verifiedChordSummary = `Key: ${chordKeyAnalysis.keySignature}. Chord vocabulary used: ${chordList}. (Note: this is the song's overall key and chord vocabulary, not a timed section-by-section progression.)`;
+      }
     } catch (subErr: any) {
       console.error("[Chord/Key] Failed (URL route), continuing without it:", subErr.message || subErr);
       parsedCritique.chordKeyAnalysisFailed = true;
+    }
+
+    try {
+      console.log("[Call 2] Starting Sub-Metrics Call 2 (URL route)...");
+      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique, verifiedChordSummary ?? chordProgressionSummary, melodySummary);
+      parsedCritique.subMetricsCall2 = subMetricsCall2;
+      parsedCritique.subMetricsCall2Failed = false;
+    } catch (subErr: any) {
+      console.error("[Call 2] Failed (URL route), continuing without it:", subErr.message || subErr);
+      parsedCritique.subMetricsCall2Failed = true;
     }
 
     try {
@@ -1450,24 +1460,29 @@ app.post("/api/critique-spotify", async (req, res) => {
       critique.subMetricsCall1Failed = true;
     }
 
-    try {
-      console.log("[Call 2] Starting Sub-Metrics Call 2 (Spotify route)...");
-      const subMetricsCall2 = await performSubMetricsCall2(audioPart, critique);
-      critique.subMetricsCall2 = subMetricsCall2;
-      critique.subMetricsCall2Failed = false;
-    } catch (subErr: any) {
-      console.error("[Call 2] Failed (Spotify route), continuing without it:", subErr.message || subErr);
-      critique.subMetricsCall2Failed = true;
-    }
-
+    let verifiedChordSummary: string | undefined = undefined;
     try {
       console.log("[Chord/Key] Starting direct Gemini chord/key analysis (Spotify route)...");
       const chordKeyAnalysis = await performChordKeyAnalysis(audioPart);
       critique.chordKeyAnalysis = chordKeyAnalysis;
       critique.chordKeyAnalysisFailed = false;
+      if (chordKeyAnalysis?.keySignature && chordKeyAnalysis?.chordsUsed?.length > 0) {
+        const chordList = chordKeyAnalysis.chordsUsed.map((c: any) => `${c.chord} (${c.romanNumeral})`).join(", ");
+        verifiedChordSummary = `Key: ${chordKeyAnalysis.keySignature}. Chord vocabulary used: ${chordList}. (Note: this is the song's overall key and chord vocabulary, not a timed section-by-section progression.)`;
+      }
     } catch (subErr: any) {
       console.error("[Chord/Key] Failed (Spotify route), continuing without it:", subErr.message || subErr);
       critique.chordKeyAnalysisFailed = true;
+    }
+
+    try {
+      console.log("[Call 2] Starting Sub-Metrics Call 2 (Spotify route)...");
+      const subMetricsCall2 = await performSubMetricsCall2(audioPart, critique, verifiedChordSummary);
+      critique.subMetricsCall2 = subMetricsCall2;
+      critique.subMetricsCall2Failed = false;
+    } catch (subErr: any) {
+      console.error("[Call 2] Failed (Spotify route), continuing without it:", subErr.message || subErr);
+      critique.subMetricsCall2Failed = true;
     }
 
     try {
