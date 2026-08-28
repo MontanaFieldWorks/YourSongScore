@@ -1949,7 +1949,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     wsEngineering.getCell("B2").font = { name: "Calibri", size: 13, bold: true, color: { argb: "FF2563EB" } };
 
     const engBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
-    wsEngineering.getCell("B3").value = `Genre Target Profile: ${engBucket.label}`;
+    wsEngineering.getCell("B3").value = `Mastering Target Category: ${engBucket.label} (matched from song genre: ${critique?.vibe?.genre || "Unclassified"})`;
     wsEngineering.getCell("B3").font = { name: "Calibri", size: 10, italic: true, color: { argb: "FF888888" } };
 
     const lm = critique?.liveMetrics;
