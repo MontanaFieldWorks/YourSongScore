@@ -520,12 +520,27 @@ export default function Dashboard({
   const finalizeConversion = async (wavFile: File, mp3Blob: Blob) => {
     if (!currentUser) return;
 
+    // WAV_QUEUE_DEBUG: track how many times this function actually runs for a given
+    // source file, and what ID gets generated each time. If this function ever fires
+    // more than once for what's logically the same conversion, it would create two
+    // separate database records with different IDs - one left permanently stuck at
+    // "pending_analysis" since nothing ever updates that specific ID again. This log
+    // makes that directly visible instead of relying on hypothesis.
+    if (typeof window !== "undefined" && (window as any).WAV_QUEUE_DEBUG) {
+      (window as any)._wavFinalizeCallCount = ((window as any)._wavFinalizeCallCount || 0) + 1;
+      console.log(`[WAV_QUEUE_DEBUG] finalizeConversion called (call #${(window as any)._wavFinalizeCallCount} this session) for source file: "${wavFile.name}"`);
+    }
+
     const convertedSize = parseFloat((mp3Blob.size / 1024 / 1024).toFixed(2));
 
     const titleFromMeta = wavTitle ? wavTitle.trim() : "";
     const convertedName = titleFromMeta ? `${titleFromMeta}_Mastered320.mp3` : wavFile.name.replace(/\.wav$/i, "") + "_Mastered320.mp3";
 
     const uniqueTrackId = "trk_" + Date.now().toString() + "_" + Math.random().toString(36).substr(2, 5);
+
+    if (typeof window !== "undefined" && (window as any).WAV_QUEUE_DEBUG) {
+      console.log(`[WAV_QUEUE_DEBUG] Generated track ID: ${uniqueTrackId} for converted name: "${convertedName}"`);
+    }
 
     const mp3File = new File([mp3Blob], convertedName, { type: "audio/mp3" });
 
@@ -567,6 +582,9 @@ export default function Dashboard({
 
     try {
       await saveUserTrack(newTrack);
+      if (typeof window !== "undefined" && (window as any).WAV_QUEUE_DEBUG) {
+        console.log(`[WAV_QUEUE_DEBUG] Pending record saved with ID: ${newTrack.id}, status: "${newTrack.status}"`);
+      }
       if (onRegisterLocalTrackFile) {
         onRegisterLocalTrackFile(newTrack.id, mp3File);
       }
@@ -633,6 +651,10 @@ export default function Dashboard({
     setLoading(true);
     setErrorMsg(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    if (typeof window !== "undefined" && (window as any).WAV_QUEUE_DEBUG) {
+      console.log(`[WAV_QUEUE_DEBUG] startAnalysis called with track ID: ${track.id}, name: "${track.name}", current status: "${track.status}"`);
+    }
 
     try {
       let finalCritique: CritiqueData;
@@ -703,7 +725,22 @@ export default function Dashboard({
       }
 
       await saveUserTrack(updatedTrack);
+      if (typeof window !== "undefined" && (window as any).WAV_QUEUE_DEBUG) {
+        console.log(`[WAV_QUEUE_DEBUG] Saved updated track with ID: ${updatedTrack.id}, new status: "${updatedTrack.status}"`);
+      }
       await loadUserTracks(currentUser!.uid);
+      if (typeof window !== "undefined" && (window as any).WAV_QUEUE_DEBUG) {
+        // Query fresh data directly rather than reading the React `tracks` state variable,
+        // which is still a stale closure value at this point even after the await above -
+        // setTracks() doesn't update an already-captured variable within the same function.
+        try {
+          const freshTracks = await fetchUserTracks(currentUser!.uid);
+          const stillPending = freshTracks.filter((t: StoredTrack) => t.status === "pending_analysis");
+          console.log(`[WAV_QUEUE_DEBUG] After refresh, ${stillPending.length} track(s) genuinely still pending_analysis:`, stillPending.map((t: StoredTrack) => ({ id: t.id, name: t.name })));
+        } catch (dbgErr) {
+          console.warn("[WAV_QUEUE_DEBUG] Could not verify fresh track state:", dbgErr);
+        }
+      }
 
       // Instantly load the detailed review display on screen
       onLoadCritique(finalCritique, { 
