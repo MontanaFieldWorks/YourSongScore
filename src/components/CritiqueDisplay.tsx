@@ -1631,6 +1631,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       "STREAMING READINESS": { dark: "FF1E3A8A", agg: "FFA5B0D0", core: "FFD2D8E8" },
       "SONIC SOUNDPRINT": { dark: "FF065F46", agg: "FF9BBFB5", core: "FFCDDFDA" },
       "COMPOSITIONAL DEPTH": { dark: "FF5B21B6", agg: "FFBDA6E2", core: "FFDED3F0" },
+      "STRUCTURAL ENGAGEMENT": { dark: "FF6D28D9", agg: "FFC4B5FD", core: "FFEDE9FE" },
     };
     const PLACEHOLDER = "FFFEF3C7";
     const PLACEHOLDER_TEXT = "FF92400E";
@@ -1773,6 +1774,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       "dna-melodic": { category: "COMPOSITIONAL DEPTH", agg: "SONGWRITING QUALITY" },
       "dna-tension": { category: "COMPOSITIONAL DEPTH", agg: "SONGWRITING QUALITY" },
       "dna-density": { category: "COMPOSITIONAL DEPTH", agg: "SONGWRITING QUALITY" },
+      flow: { category: "STRUCTURAL ENGAGEMENT", agg: null },
+      dynamicmod: { category: "STRUCTURAL ENGAGEMENT", agg: null },
+      climax: { category: "STRUCTURAL ENGAGEMENT", agg: null },
     };
 
     const aggScoreMap: Record<string, number | null> = {
@@ -1781,6 +1785,39 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       "SONGWRITING QUALITY": dnaScore,
     };
 
+    // Structural Engagement's three cards live outside METRICS_LIST/AUX_METRICS_LIST (built
+    // as standalone hero cards elsewhere in this file, not part of that array-driven system),
+    // so they're built here directly from their real data sources rather than added to those
+    // arrays - keeps this export addition isolated instead of risking other UI that reads
+    // from METRICS_LIST elsewhere.
+    const structuralEngagementMetrics = [
+      {
+        id: "flow",
+        name: "Arrangement Flow",
+        score: critique?.arrangement?.flowScore ?? 75,
+        feedback: critique?.arrangement?.transitionsAndArc ?? "Arrangement transitions and dynamic arc data unavailable.",
+        subParams: []
+      },
+      {
+        id: "dynamicmod",
+        name: "Dynamic Modulation",
+        score: liveMetrics?.calculatedDynamicModulationScore ?? 75,
+        feedback: liveMetrics?.calculatedDynamicRangeDb != null
+          ? `${liveMetrics.calculatedDynamicRangeDb} dB of measured dynamic range between the track's quietest and loudest sustained sections (85th pct: ${liveMetrics?.calculatedDynamicHighPercentileDb ?? "--"} dB, 15th pct: ${liveMetrics?.calculatedDynamicLowPercentileDb ?? "--"} dB).`
+          : "Real dynamic range data unavailable for this track.",
+        subParams: []
+      },
+      {
+        id: "climax",
+        name: "Climax Trajectory",
+        score: liveMetrics?.calculatedClimaxTrajectoryScore ?? 75,
+        feedback: liveMetrics?.calculatedClimaxPositionRatio != null
+          ? `Peak energy lands at ${Math.round(liveMetrics.calculatedClimaxPositionRatio * 100)}% through the track, with a ${liveMetrics?.calculatedClimaxBuildDb ?? "--"} dB build from the opening baseline.`
+          : "Real climax trajectory data unavailable for this track.",
+        subParams: []
+      }
+    ];
+
     const orderedMetrics = [
       METRICS_LIST.find(m => m.id === "readiness"),
       METRICS_LIST.find(m => m.id === "production"),
@@ -1788,6 +1825,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       METRICS_LIST.find(m => m.id === "vocals"),
       METRICS_LIST.find(m => m.id === "instrumental"),
       AUX_METRICS_LIST.find(m => m.id === "searchability"),
+      structuralEngagementMetrics[0],
+      structuralEngagementMetrics[1],
+      structuralEngagementMetrics[2],
       METRICS_LIST.find(m => m.id === "artistic"),
       AUX_METRICS_LIST.find(m => m.id === "lyrics"),
       AUX_METRICS_LIST.find(m => m.id === "theory"),
