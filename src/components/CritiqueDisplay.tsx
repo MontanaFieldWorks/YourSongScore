@@ -9476,37 +9476,15 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                           return { start, end, startTime, endTime, avgAmp, fmt };
                         });
 
-                        // Rank sections by amplitude to assign labels accurately
-                        const sorted = [...rawSections].sort((a, b) => b.avgAmp - a.avgAmp);
-                        const maxAmp = sorted[0]?.avgAmp ?? 1;
-                        const minAmp = sorted[sorted.length - 1]?.avgAmp ?? 0;
-                        const ampRange = maxAmp - minAmp || 1;
-
-                        // Assign label based on amplitude rank and position
+                        // Purely positional labels - real amplitude-boundary detection tells
+                        // us WHERE a section starts and stops, not WHAT it musically is
+                        // (verse, chorus, bridge). The previous version guessed semantic
+                        // labels from amplitude rank and position, with a fallback that
+                        // literally alternated Verse/Pre-Chorus by array index parity for
+                        // anything left over - presenting a guess as a real detection. Same
+                        // honesty fix already applied to Arrangement Flow's section labels.
                         const labeled = rawSections.map((s, idx) => {
-                          const rank = sorted.findIndex(r => r.startTime === s.startTime);
-                          const total = rawSections.length;
-                          const isFirst = idx === 0;
-                          const isLast = idx === total - 1;
-                          const ampPct = (s.avgAmp - minAmp) / ampRange;
-
-                          let label: string;
-                          if (isFirst && s.endTime < duration * 0.2) {
-                            label = 'Intro';
-                          } else if (isLast && s.startTime > duration * 0.75) {
-                            label = 'Outro';
-                          } else if (rank < Math.ceil(total * 0.3)) {
-                            label = 'Chorus';
-                          } else if (rank >= Math.floor(total * 0.7)) {
-                            label = 'Verse';
-                          } else if (ampPct > 0.55 && ampPct < 0.75) {
-                            label = 'Pre-Chorus';
-                          } else if (ampPct < 0.35 && !isFirst && !isLast) {
-                            label = 'Bridge';
-                          } else {
-                            label = idx % 2 === 0 ? 'Verse' : 'Pre-Chorus';
-                          }
-                          return { ...s, label };
+                          return { ...s, label: `Section ${idx + 1}` };
                         });
 
                         // Calculate LUFS estimates per section
@@ -9521,14 +9499,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         const lufsRange = maxLufs - minLufs || 1;
                         const chartHeight = 100; // px
 
-                        const sectionColors: Record<string, string> = {
-                          'Intro': '#3b82f6',
-                          'Verse': '#06b6d4',
-                          'Pre-Chorus': '#8b5cf6',
-                          'Chorus': '#f43f5e',
-                          'Bridge': '#f59e0b',
-                          'Outro': '#64748b',
-                        };
+                        // Single consistent hue - section identity is no longer claimed,
+                        // so a per-label color map (Chorus=red, Verse=cyan, etc.) no longer
+                        // makes sense. The loudest real section is still highlighted below,
+                        // based on real amplitude rank rather than an assumed label.
+                        const sectionBaseColor = '#6366f1';
+                        const loudestAmp = Math.max(...rawSections.map(s => s.avgAmp));
 
                         return (
                           <div className="flex flex-col gap-4">
@@ -9552,9 +9528,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                                 {sections.map((s, i) => {
                                   const barHeightPct = Math.max(8, Math.round(((s.sectionLufs - minLufs) / lufsRange) * 90 + 8));
                                   const widthPct = ((s.endTime - s.startTime) / duration) * 100;
-                                  const color = sectionColors[s.label] ?? '#6366f1';
-                                  const isChorus = s.label === 'Chorus';
-                                  const hookEarly = isChorus && s.startTime < 60;
+                                  const color = sectionBaseColor;
+                                  const isLoudestSection = s.avgAmp === loudestAmp;
+                                  const hookEarly = isLoudestSection && s.startTime < 60;
                                   return (
                                     <div
                                       key={i}
@@ -9567,8 +9543,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                                         style={{
                                           height: `${barHeightPct}%`,
                                           backgroundColor: color,
-                                          opacity: 0.75,
-                                          boxShadow: isChorus ? `0 0 12px ${color}60` : 'none'
+                                          opacity: isLoudestSection ? 0.95 : 0.6,
+                                          boxShadow: isLoudestSection ? `0 0 12px ${color}60` : 'none'
                                         }}
                                       >
                                         {/* Hover tooltip */}
@@ -9586,7 +9562,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                                         <span className={`text-[9px] font-mono font-bold mt-0.5`} style={{ color }}>{s.label}</span>
                                         {hookEarly && (
                                           <span className="text-[8px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1 py-0.5 rounded mt-0.5 whitespace-nowrap">
-                                            Hook at {s.fmt(s.startTime)}
+                                            Peak Energy at {s.fmt(s.startTime)}
                                           </span>
                                         )}
                                       </div>
