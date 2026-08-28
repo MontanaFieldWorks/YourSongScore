@@ -1546,8 +1546,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       isGold: false,
       hoverText: "Measures the rate of energy accumulation across song sections (verse to chorus) and somatic tension release.",
       subParams: [
-        { name: "Dynamic Modulation (50%)", desc: "Contrast between quiet verses and explosive chorus walls designed to keep listeners transfixed." },
-        { name: "Climax Trajectory (50%)", desc: "How effectively the arrangement builds anticipation before landing the ultimate sonic payload." }
+        { name: "Tension Buildup (50%)", desc: "Contrast between quiet verses and explosive chorus walls designed to keep listeners transfixed." },
+        { name: "Payoff Delivery (50%)", desc: "How effectively the arrangement builds anticipation before landing the ultimate sonic payload." }
       ],
       callout: "The track demonstrates strong somatic control, pulling viewers along an elegant storytelling trajectory.",
       description: "Evaluates structural dynamics. Ensures high levels of tension building, filtering out listening fatigue by using well-placed volume and spectral variations.",
@@ -3308,18 +3308,18 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         return `Some syllables feel slightly rushed or crowded. Try trimming unnecessary words to allow key syllables to sit exactly in the pocket.`;
       }
     }
-    if (cleanName === "Dynamic Modulation") {
+    if (cleanName === "Tension Buildup") {
       if (score >= 90) {
-        return `Brilliant dynamic modulation! The stark contrast between whisper-quiet verses and the explosive choruses creates massive dramatic scale that keeps the listener transfixed.`;
+        return `Brilliant tension buildup! The stark contrast between whisper-quiet verses and the explosive choruses creates massive dramatic scale that keeps the listener transfixed.`;
       } else if (score >= 80) {
         return `Excellent volume and energy variance of ${score}/100. The transitions feel natural and give the arrangement a highly professional shape.`;
       } else {
         return `The energy levels are a bit flat. Try pulling back instruments in the verses to make the chorus arrival feel far more massive.`;
       }
     }
-    if (cleanName === "Climax Trajectory") {
+    if (cleanName === "Payoff Delivery") {
       if (score >= 90) {
-        return `Flawless climax trajectory! The arrangement builds tension step-by-step, perfectly timing the ultimate emotional peak right when the main hook lands.`;
+        return `Flawless payoff delivery! The arrangement builds tension step-by-step, perfectly timing the ultimate emotional peak right when the main hook lands.`;
       } else if (score >= 80) {
         return `Highly effective anticipation curve (${score}/100). The build-up is satisfying and resolves into a punchy pay off.`;
       } else {
