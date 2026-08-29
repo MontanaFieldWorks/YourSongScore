@@ -3,6 +3,7 @@ import jsmediatags from "jsmediatags";
 import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer } from "./lib/liveAudioAnalyzer";
+import { getLocalFile } from "./lib/localFileCache";
 import { safeLocalStorage } from "./lib/safeStorage";
 import UploadSection from "./components/UploadSection";
 import SpotifySection from "./components/SpotifySection";
@@ -981,7 +982,24 @@ export default function App() {
     let chromagramImageForGemini: string | null = null;
     let rhythmImageForGemini: string | null = null;
     let spectrogramImageForGemini: string | null = null;
-    const cachedFileForAnalysis = localTrackFiles[track.id];
+
+    // Three-tier fallback for locating the actual audio to analyze: in-memory cache first
+    // (fastest, but only populated for the current session right after conversion),
+    // IndexedDB second (durable across reloads on this device - this is what makes a track
+    // still analyzable after a Storage upload failure, e.g. a CORS misconfiguration, and
+    // after the page has been reloaded), and the remote convertedMp3Url last.
+    let cachedFileForAnalysis: File | null = localTrackFiles[track.id] || null;
+    if (!cachedFileForAnalysis) {
+      try {
+        cachedFileForAnalysis = await getLocalFile(track.id);
+        if (cachedFileForAnalysis && (window as any).WAV_QUEUE_DEBUG) {
+          console.log(`[WAV_QUEUE_DEBUG] Recovered track ${track.id} from IndexedDB (in-memory cache was empty).`);
+        }
+      } catch (idbErr) {
+        console.warn("IndexedDB lookup failed, will fall back to remote URL if available:", idbErr);
+      }
+    }
+
     try {
       if (cachedFileForAnalysis) {
         const audioBuffer = await decodeAudioFile(cachedFileForAnalysis);
@@ -1030,7 +1048,17 @@ export default function App() {
 
       // Try actual calculation from server using local file or audio URL
       try {
-        const cachedFile = localTrackFiles[track.id];
+        let cachedFile: File | null = localTrackFiles[track.id] || null;
+        if (!cachedFile) {
+          try {
+            cachedFile = await getLocalFile(track.id);
+            if (cachedFile && (window as any).WAV_QUEUE_DEBUG) {
+              console.log(`[WAV_QUEUE_DEBUG] Recovered track ${track.id} from IndexedDB for server submission (in-memory cache was empty).`);
+            }
+          } catch (idbErr) {
+            console.warn("IndexedDB lookup failed at submission point, will fall back to remote URL if available:", idbErr);
+          }
+        }
         if (cachedFile) {
           setLoadingStatus(threeXMode ? "Multi-pass analysis starting up..." : "Gemini is listening to your transients and harmonics...");
           setLocalFileBlobUrl(URL.createObjectURL(cachedFile));
