@@ -14,6 +14,7 @@ import {
 } from "../firebase";
 import { StoredTrack, UserProfile, CritiqueData } from "../types";
 import { decodeAudioUrl, analyzeAudioBuffer } from "../lib/liveAudioAnalyzer";
+import { saveLocalFile } from "../lib/localFileCache";
 import { computeCategoryScores } from "./CritiqueDisplay";
 
 // Existing helper representing analyzeAudioFile
@@ -543,6 +544,17 @@ export default function Dashboard({
     }
 
     const mp3File = new File([mp3Blob], convertedName, { type: "audio/mp3" });
+
+    // Always persist to IndexedDB first, regardless of whether the Firebase Storage
+    // upload below succeeds or fails. This is the durable, cross-reload local fallback -
+    // previously, a Storage failure (e.g. a CORS misconfiguration on the bucket) fell back
+    // to a session-only blob URL with nothing durable behind it, making the track
+    // permanently unanalyzable the moment the page reloaded.
+    try {
+      await saveLocalFile(uniqueTrackId, mp3File);
+    } catch (idbErr) {
+      console.warn("IndexedDB local cache save failed (non-fatal, Storage upload below is still attempted):", idbErr);
+    }
 
     // Upload the converted MP3 to persistent Firebase Storage instead of saving a
     // browser-session-only blob URL. Blob URLs only exist in the tab that created them -
