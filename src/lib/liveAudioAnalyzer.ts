@@ -699,6 +699,18 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     }
   }
 
+  const keyNamesForDebug = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  if (typeof window !== "undefined" && (window as any).KEY_DEBUG) {
+    const initialWinnerName = `${keyNamesForDebug[estimatedKeyIndex % 12]} ${estimatedKeyIndex < 12 ? "Major" : "Minor"}`;
+    const sorted = allCorrelations
+      .map((r, idx) => ({ idx, r, name: `${keyNamesForDebug[idx % 12]} ${idx < 12 ? "Major" : "Minor"}` }))
+      .sort((a, b) => b.r - a.r)
+      .slice(0, 6);
+    console.log("[KEY_DEBUG] Initial (pre-disambiguation) winner:", initialWinnerName, "correlation:", bestCorrelation.toFixed(3));
+    console.log("[KEY_DEBUG] Top 6 candidates by raw correlation:");
+    console.table(sorted.map(s => ({ key: s.name, correlation: parseFloat(s.r.toFixed(3)) })));
+  }
+
   // Disambiguation pass: basic Krumhansl-Schmuckler correlation is well-documented to
   // frequently confuse the true tonic with its dominant (a perfect fifth away), its
   // relative major/minor (a minor third away), or other closely-related keys, since
@@ -748,11 +760,22 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
         isMirrorCrossModeDominant || isSupertonicRelation || isAdjacentSemitone) {
       const bestTriadEnergy = getTriadEnergy(bestTonicPitch, bestIsMajor);
       const candidateTriadEnergy = getTriadEnergy(candidateTonicPitch, candidateIsMajor);
+      if (typeof window !== "undefined" && (window as any).KEY_DEBUG) {
+        const ruleName = isDominantRelation ? "dominant" : isRelativeMajorMinorRelation ? "relative major/minor"
+          : isCrossModeDominant ? "cross-mode dominant" : isMirrorCrossModeDominant ? "mirror cross-mode dominant"
+          : isSupertonicRelation ? "supertonic" : "adjacent semitone";
+        const candName = `${keyNamesForDebug[candidateTonicPitch]} ${candidateIsMajor ? "Major" : "Minor"}`;
+        console.log(`[KEY_DEBUG] Close candidate ${candName} triggers "${ruleName}" rule - triad energy: candidate=${candidateTriadEnergy.toFixed(3)} vs current-best=${bestTriadEnergy.toFixed(3)} ->`, candidateTriadEnergy > bestTriadEnergy ? "SWITCHING to candidate" : "keeping current best");
+      }
       if (candidateTriadEnergy > bestTriadEnergy) {
         estimatedKeyIndex = keyIdx;
         bestCorrelation = allCorrelations[keyIdx];
       }
     }
+  }
+
+  if (typeof window !== "undefined" && (window as any).KEY_DEBUG) {
+    console.log(`[KEY_DEBUG] Final answer: ${keyNamesForDebug[estimatedKeyIndex % 12]} ${estimatedKeyIndex < 12 ? "Major" : "Minor"}`);
   }
 
   // Key and mode confidence: bestCorrelation is the Pearson r of the winning key match (0-1)
