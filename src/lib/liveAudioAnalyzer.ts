@@ -718,8 +718,8 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   // of these relationships, use the candidate's full tonic TRIAD energy (root + third +
   // fifth) as a tie-breaker, rather than a single noisy bin - a genuine tonic should
   // show coherent strength across its whole triad, not just an isolated pitch spike.
-  const bestTonicPitch = estimatedKeyIndex % 12;
-  const bestIsMajor = estimatedKeyIndex < 12;
+  let bestTonicPitch = estimatedKeyIndex % 12;
+  let bestIsMajor = estimatedKeyIndex < 12;
   const CONFUSION_MARGIN = 0.15;
 
   const getTriadEnergy = (tonicPitch: number, isMajor: boolean): number => {
@@ -770,6 +770,8 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
       if (candidateTriadEnergy > bestTriadEnergy) {
         estimatedKeyIndex = keyIdx;
         bestCorrelation = allCorrelations[keyIdx];
+        bestTonicPitch = candidateTonicPitch;
+        bestIsMajor = candidateIsMajor;
       }
     }
   }
