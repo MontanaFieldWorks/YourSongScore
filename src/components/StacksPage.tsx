@@ -76,16 +76,16 @@ export default function StacksPage({ onBack }: StacksPageProps) {
                 <strong className="text-white block mb-1 text-sm uppercase tracking-wider font-mono text-[#bd93f9]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Why Mastering to -14 LUFS Is a Track Killer</strong>
                 <div className="flex flex-col gap-2.5">
                   <p className="pl-4 border-l border-white/10" style={{ fontSize: "12px" }}>
-                    ● Even when turned down to -14 LUFS, a track mastered to -8 LUFS carries a dense, compact, unified dynamic profile. It sounds saturated, punchy, and modern. A track delivered at -10.5 LUFS retains massive wide transient peaks but lacks that cohesive, aggressive glue when matched to the same volume. The Saturation and Density Illusion:
+                    ● <strong className="text-slate-200">The Saturation and Density Illusion:</strong> Even when turned down to -14 LUFS, a track mastered to -8 LUFS carries a dense, compact, unified dynamic profile. It sounds saturated, punchy, and modern. A track delivered at -10.5 LUFS retains massive wide transient peaks but lacks that cohesive, aggressive glue when matched to the same volume.
                   </p>
                   <p className="pl-4 border-l border-white/10" style={{ fontSize: "12px" }}>
-                    ● Loudness normalization can be turned off by listeners, and is almost always bypassed in live venues, club sound systems, physical DJ mixers, and third-party radio. On those systems, your -11.6 LUFS track will sound dramatically weaker than competitor tracks. No-Normalization Playback:
+                    ● <strong className="text-slate-200">No-Normalization Playback:</strong> Loudness normalization can be turned off by listeners, and is almost always bypassed in live venues, club sound systems, physical DJ mixers, and third-party radio. On those systems, your -11.6 LUFS track will sound dramatically weaker than competitor tracks.
                   </p>
                   <p className="pl-4 border-l border-white/10" style={{ fontSize: "12px" }}>
-                    ● This is the optimal range where you achieve modern commercial density, compression, and loudness without squashing your kick and snare transients into flat, uninspiring lines.
+                    ● <strong className="text-slate-200">The Sweet Spot:</strong> This is the optimal range where you achieve modern commercial density, compression, and loudness without squashing your kick and snare transients into flat, uninspiring lines.
                   </p>
                   <p className="pl-4 border-l border-white/10" style={{ fontWeight: "bold", fontSize: "12px" }}>
-                    ● The Reality: Target Delivery Window: -9.0 to -7.0 LUFS:
+                    ● The Reality — Target Delivery Window: -9.0 to -7.0 LUFS
                   </p>
                 </div>
               </div>
