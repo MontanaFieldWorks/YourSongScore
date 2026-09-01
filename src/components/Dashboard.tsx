@@ -1003,7 +1003,7 @@ export default function Dashboard({
                   setLoading(false);
                 }
               }}
-              className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-450 hover:from-amber-400 hover:to-amber-350 text-neutral-950 font-extrabold text-[11.5px] tracking-wider uppercase rounded-xl transition-all cursor-pointer flex justify-center items-center gap-2 shadow-[0_4px_20px_rgba(245,158,11,0.25)] hover:scale-[1.01] active:scale-[0.99] outline-none border border-amber-300/20"
+              className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-neutral-950 font-extrabold text-[11.5px] tracking-wider uppercase rounded-xl transition-all cursor-pointer flex justify-center items-center gap-2 shadow-[0_4px_20px_rgba(245,158,11,0.25)] hover:scale-[1.01] active:scale-[0.99] outline-none border border-amber-300/20"
             >
               {loading ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
