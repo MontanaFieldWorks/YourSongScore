@@ -1349,7 +1349,7 @@ export default function App() {
                     alert("Error loading quick-test track 'Dreaming in Daylight'. See console details.");
                   }
                 }}
-                className="flex items-center justify-center w-8 h-8 rounded-full border border-yellow-500/20 hover:border-yellow-500/45 bg-[#13161C] hover:bg-[#1E232E] text-yellow-400 hover:text-yellow-350 transition-all cursor-pointer flex-shrink-0 shadow-[0_0_10px_rgba(234,179,8,0.05)]"
+                className="flex items-center justify-center w-8 h-8 rounded-full border border-yellow-500/20 hover:border-yellow-500/45 bg-[#13161C] hover:bg-[#1E232E] text-yellow-400 hover:text-yellow-300 transition-all cursor-pointer flex-shrink-0 shadow-[0_0_10px_rgba(234,179,8,0.05)]"
                 title="Quick Test Critique Summary ('Dreaming in Daylight')"
               >
                 <Lightbulb className="w-4 h-4 text-yellow-400 animate-pulse" />
@@ -1563,7 +1563,7 @@ export default function App() {
                 className={`${showMoreNav ? "flex" : "hidden xl:flex"} items-center gap-1.5 text-[11px] font-mono py-1.5 px-3.5 rounded-full border transition-all cursor-pointer flex-shrink-0 ${
                   viewingDashboard 
                     ? "bg-amber-500 text-neutral-955 border-amber-400 font-extrabold shadow-[0_0_15px_rgba(245,158,11,0.2)]"
-                    : "bg-[#13161C] hover:bg-[#1E232E] text-amber-450 hover:text-amber-300 border-amber-500/15 hover:border-amber-500/30 font-semibold"
+                    : "bg-[#13161C] hover:bg-[#1E232E] text-amber-400 hover:text-amber-300 border-amber-500/15 hover:border-amber-500/30 font-semibold"
                 }`}
               >
                 <DoorClosed className="w-3.5 h-3.5" />
@@ -1916,7 +1916,7 @@ export default function App() {
                       setCritiqueResult(null);
                     }}
                     disabled={loading}
-                    className="flex-1 py-4 text-xs font-extrabold tracking-wider uppercase text-center flex items-center justify-center gap-1.5 border-b-2 border-transparent text-amber-450 hover:text-amber-300 hover:bg-white/5 cursor-pointer transition-all"
+                    className="flex-1 py-4 text-xs font-extrabold tracking-wider uppercase text-center flex items-center justify-center gap-1.5 border-b-2 border-transparent text-amber-400 hover:text-amber-300 hover:bg-white/5 cursor-pointer transition-all"
                   >
                     <DoorClosed className="w-3.5 h-3.5 text-amber-500" />
                     <span>ADD A TRACK FROM YOUR ACCOUNT</span>
