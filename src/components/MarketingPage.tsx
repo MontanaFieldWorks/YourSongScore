@@ -31,7 +31,10 @@ export default function MarketingPage({ onBack, critique, trackInfo }: Marketing
     };
     const detected = Object.entries(tagMap).filter(([key]) => combined.toLowerCase().includes(key)).map(([, label]) => label);
     const unique = [...new Set(detected)].slice(0, 7);
-    return unique.length > 0 ? unique : ["Driving", "Defiant", "High Energy", "Raw", "Anthemic"];
+    // No invented fallback list - if neither the real AI-generated tags nor keyword
+    // matching against real analysis text found anything, that's genuinely insufficient
+    // signal, not a case for presenting fabricated tags as if they described this track.
+    return unique;
   })();
 
   const sonicPeers = (() => {
@@ -62,7 +65,10 @@ export default function MarketingPage({ onBack, critique, trackInfo }: Marketing
       "ambient": ["Brian Eno", "Hammock", "Explosions in the Sky", "Stars of the Lid"],
     };
     const combined = `${genre} ${subgenre} ${universe}`.toLowerCase();
-    let peers: string[] = ["The Black Keys", "Royal Blood", "Jack White", "Foo Fighters"];
+    // No fixed default peer list - if this track's genre doesn't match any curated
+    // entry, showing an unrelated genre's peer artists as if they were a real match
+    // would be misleading, not a reasonable approximation.
+    let peers: string[] = [];
     for (const [key, artists] of Object.entries(artistMap)) {
       if (combined.includes(key)) { peers = artists; break; }
     }
@@ -93,27 +99,37 @@ export default function MarketingPage({ onBack, critique, trackInfo }: Marketing
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3">
             <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Mood Tags</div>
-            <div className="flex flex-wrap gap-2">
-              {moodTags.map((tag: string) => (
-                <span key={tag} className="px-3 py-1 bg-[#44CDF4]/5 border border-[#44CDF4]/20 rounded-full text-[11px] font-semibold text-[#44CDF4] tracking-wide">
-                  {tag}
-                </span>
-              ))}
-            </div>
+            {moodTags.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {moodTags.map((tag: string) => (
+                  <span key={tag} className="px-3 py-1 bg-[#44CDF4]/5 border border-[#44CDF4]/20 rounded-full text-[11px] font-semibold text-[#44CDF4] tracking-wide">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-slate-500 italic">Not enough signal to generate mood tags for this track yet.</p>
+            )}
           </div>
 
           <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3">
             <div className="text-[11px] font-mono text-slate-400 uppercase font-bold tracking-wider">Sonic Peer Group</div>
-            <div className="flex flex-wrap gap-2">
-              {sonicPeers.map((artist: string) => (
-                <span key={artist} className="px-3 py-1 bg-neutral-900 border border-white/10 rounded-full text-[11px] font-semibold text-slate-300">
-                  {artist}
+            {sonicPeers.length > 0 ? (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {sonicPeers.map((artist: string) => (
+                    <span key={artist} className="px-3 py-1 bg-neutral-900 border border-white/10 rounded-full text-[11px] font-semibold text-slate-300">
+                      {artist}
+                    </span>
+                  ))}
+                </div>
+                <span className="text-[10px] text-slate-500 font-medium">
+                  Listeners of these artists are your most likely first audience.
                 </span>
-              ))}
-            </div>
-            <span className="text-[10px] text-slate-500 font-medium">
-              Listeners of these artists are your most likely first audience.
-            </span>
+              </>
+            ) : (
+              <p className="text-[11px] text-slate-500 italic">This track's genre didn't match a curated peer-artist group yet - not enough signal for a confident recommendation.</p>
+            )}
           </div>
 
           <div className="bg-[#050608] border border-white/5 rounded-2xl p-5 flex flex-col gap-3 md:col-span-2">
@@ -121,7 +137,7 @@ export default function MarketingPage({ onBack, critique, trackInfo }: Marketing
             <p className="text-xs text-slate-300 leading-relaxed font-medium">
               {critique?.vibe?.commercialViability
                 ? `${critique.vibe.commercialViability} Listener behavioral profile: tracks with this energy signature typically show high listen-through rates and moderate-to-high save rates among active music discovery users.`
-                : "Male, 28–45. Most likely listening context: late night drive, workout, or background focus session. Behavioral profile: high listen-through rate, moderate save rate, low skip probability after the 30-second mark."}
+                : "Not enough signal to profile an audience for this track yet."}
             </p>
           </div>
         </div>
