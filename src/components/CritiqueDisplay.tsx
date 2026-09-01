@@ -567,7 +567,13 @@ export function computeCategoryScores(critique: any) {
         liveSkipModifier += 14;
       }
     }
-    if (calculatedBpm !== undefined && (calculatedBpm < 75 || calculatedBpm > 155)) {
+    // Widened from 75-155 after checking real research: an official, peer-reviewed
+    // Spotify Research study (Montecchio/Roy/Pachet, PLOS ONE 2020) found skip timing
+    // correlates with musical STRUCTURE (section transitions), not raw tempo - no
+    // evidence found that BPM itself predicts skip risk independent of genre/structure.
+    // 75-155 was excluding a large amount of legitimate commercial music (fast dance-pop,
+    // punk, drum & bass). Widened to only flag genuinely unusual outliers.
+    if (calculatedBpm !== undefined && (calculatedBpm < 60 || calculatedBpm > 190)) {
       liveSkipModifier += 5;
     }
   }
@@ -688,7 +694,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           liveSkipModifier += 14;
         }
       }
-      if (calculatedBpm !== undefined && (calculatedBpm < 75 || calculatedBpm > 155)) {
+      // Widened from 75-155 - see the primary occurrence of this check above for the
+      // full research citation. No evidence found that raw BPM predicts skip risk.
+      if (calculatedBpm !== undefined && (calculatedBpm < 60 || calculatedBpm > 190)) {
         liveSkipModifier += 5;
       }
     }
