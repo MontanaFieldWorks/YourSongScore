@@ -11,7 +11,7 @@ import {
   Mountain, Drum, MicVocal, Music4, AudioLines, Orbit, Waves, Feather,
   Copy, Check, Tag,
   Compass, TrendingUp, Gauge, Zap, RotateCcw, Info, HelpCircle, Activity,
-  Send, User, Users, Cog
+  Send, User, Users, Cog, Guitar
 } from "lucide-react";
 
 // Robust icon matcher matching standard genres to precise Lucide symbols
@@ -599,9 +599,9 @@ export function computeCategoryScores(critique: any) {
   const loudnessComplianceScore = ((lufsPass ? 100 : 50) + (lraPass ? 100 : 50)) / 2;
 
   const scoreSonicSoundprint = Math.round(
-    ((critique?.mixQuality?.score ?? 75) * 0.45) +
-    (loudnessComplianceScore * 0.25) +
-    ((critique?.performance?.vocalScore ?? 75) * 0.30)
+    ((critique?.mixQuality?.score ?? 75) * 0.50) +
+    ((critique?.performance?.vocalScore ?? 75) * 0.30) +
+    ((critique?.performance?.instrumentalScore ?? 75) * 0.20)
   );
 
   const scoreCompositionalDepth = Math.round(
@@ -5715,9 +5715,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <div className="flex flex-col gap-0.5 pl-3 border-l border-[#46F4CD]/20 ml-3.5 py-1">
                 {[
                   { label: "Mix Balance Quality", id: "sidebar-link-sonic-4", isActive: expandedMetric === "mix" },
-                  { label: "Loudness Compliance", id: "sidebar-link-sonic-3", isActive: isLoudnessComplianceExpanded },
                   { label: "Vocal Tracking", id: "sidebar-link-sonic-5", isActive: expandedMetric === "vocals" },
+                  { label: "Instrumental Staging", id: "sidebar-link-sonic-3", isActive: expandedMetric === "instrumental" },
                   { label: "Production Quality", id: "sidebar-link-sonic-2", isActive: productionQualityExpanded },
+                  { label: "Loudness Compliance", id: "sidebar-link-sonic-loudness", isActive: isLoudnessComplianceExpanded },
                   { label: "Tech Blueprints", id: "sidebar-link-sonic-1", isActive: activeCategory === "blueprints" },
                 ].map((item, i) => (
                   <button
@@ -6875,140 +6876,77 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           })()}
         </div>
 
-        {/* Card: Loudness Compliance (blue theme) */}
+        {/* Card: Instrumental Staging (emerald theme) - added as the new third Sonic Soundprint pillar, replacing Loudness Compliance's old position. Same hero-card template as Mix Balance Quality and Vocal Tracking for visual consistency. */}
         <div className="flex flex-col w-full gap-4" id="sidebar-link-sonic-3">
-          <button
-            onClick={() => setIsLoudnessComplianceExpanded(!isLoudnessComplianceExpanded)}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
-              isLoudnessComplianceExpanded
-                ? "bg-[#090b0e] border-blue-500 shadow-[0_0_35px_rgba(59,130,246,0.35)] ring-1 ring-blue-500/40 font-black"
-                : "bg-[#0A0B0E]/60 border-blue-500/40 hover:border-blue-500 hover:bg-neutral-900/40 text-slate-400"
-            }`}
-          >
-            {/* Background ambient shade */}
-            {isLoudnessComplianceExpanded ? (
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-950/10 via-neutral-950 to-[#03050a] pointer-events-none" />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#03050a] pointer-events-none" />
-            )}
+          {(() => {
+            const instrumentalMetric = METRICS_LIST.find(m => m.id === "instrumental");
+            if (!instrumentalMetric) return null;
+            const isExpanded = expandedMetric === "instrumental";
+            return (
+              <>
+                <button
+                  onClick={() => setExpandedMetric(isExpanded ? null : "instrumental")}
+                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+                    isExpanded
+                      ? "bg-[#090b0e] border-emerald-500 shadow-[0_0_35px_rgba(16,185,129,0.35)] ring-1 ring-emerald-500/40 font-black"
+                      : "bg-[#0A0B0E]/60 border-emerald-500/40 hover:border-emerald-500 hover:bg-neutral-900/40 text-slate-400"
+                  }`}
+                >
+                  <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+                    <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                      <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
+                        <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                          isExpanded
+                            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                            : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-emerald-400"
+                        }`}>
+                          <Guitar className="w-5 h-5 text-emerald-400" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                            isExpanded ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                          }`}>
+                            {instrumentalMetric.name}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-medium">{instrumentalMetric.subtitle}</span>
+                        </div>
+                      </div>
 
-            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
-              {/* Left Content Column */}
-              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
-                {/* Header block */}
-                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
-                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
-                    isLoudnessComplianceExpanded
-                      ? "bg-blue-500/10 border-blue-500/30 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
-                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-blue-400"
-                  }`}>
-                    <Volume2 className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span
-                      className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
-                        isLoudnessComplianceExpanded ? "text-white" : "text-slate-400 group-hover:text-slate-200"
-                      }`}
-                    >
-                      LOUDNESS COMPLIANCE
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Genre-Aware LUFS &amp; Dynamic Range Matching</span>
-                  </div>
-                </div>
-
-                {/* Bottom info block */}
-                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
-                  isLoudnessComplianceExpanded ? "border-blue-500/15" : "border-white/5"
-                }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
-                    Measures whether your track's integrated loudness (LUFS) and dynamic range (LRA) fall within the target windows for your genre — the same real pass/fail data used elsewhere in your streaming audit.
-                    <span className="block mt-1 text-blue-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Confirms your master meets the loudness standards streaming platforms expect.</span>
-                  </p>
-                  <span 
+                      <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                        isExpanded ? "border-emerald-500/15" : "border-white/5"
+                      }`}>
+                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                          {instrumentalMetric.callout}
+                          <span className="block mt-1 text-emerald-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>{instrumentalMetric.hoverText}</span>
+                        </p>
+                        <span 
                     style={{ paddingTop: "2px" }}
                     className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
-                    isLoudnessComplianceExpanded
-                      ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
-                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-blue-400"
-                  }`}>
-                    {isLoudnessComplianceExpanded ? "ACTIVE ⬇" : "VIEW COMPLIANCE ⚡"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Right Score display */}
-              <div className="flex-shrink-0 flex items-center justify-center">
-                <ScoreCircle
-                  score={realCategoryScores.loudnessComplianceScore}
-                  size={110}
-                  strokeWidth={7}
-                  color={isLoudnessComplianceExpanded ? "#3b82f6" : "rgba(59, 130, 246, 0.45)"}
-                  glowColor={isLoudnessComplianceExpanded ? "rgba(59, 130, 246, 0.65)" : "rgba(59, 130, 246, 0.15)"}
-                  extraGlow={isLoudnessComplianceExpanded}
-                />
-              </div>
-            </div>
-          </button>
-
-          <AnimatePresence initial={false}>
-            {isLoudnessComplianceExpanded && (() => {
-              const lcBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
-              const lcLufsRaw = critique?.liveMetrics?.calculatedLufs;
-              const lcLraRaw = critique?.liveMetrics?.calculatedLra;
-              const lcLufsPass = lcLufsRaw !== undefined && lcLufsRaw >= lcBucket.lufsMin && lcLufsRaw <= lcBucket.lufsMax;
-              const lcLraPass = lcLraRaw !== undefined && lcLraRaw >= lcBucket.lraMin && (lcBucket.lraMax === null || lcLraRaw <= lcBucket.lraMax);
-              return (
-                <motion.div
-                  initial={{ height: 0, opacity: 0, marginTop: -8 }}
-                  animate={{ height: "auto", opacity: 1, marginTop: 4 }}
-                  exit={{ height: 0, opacity: 0, marginTop: -8 }}
-                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                  className="overflow-hidden w-full relative z-0"
-                >
-                  <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-blue-500 rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
-                    <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
-                      LOUDNESS COMPLIANCE AUDIT
-                    </div>
-                    <span className="text-[10px] font-mono text-slate-500 -mt-3">
-                      Target profile: <span className="text-blue-400 font-bold">{lcBucket.label}</span>
-                    </span>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className={`p-4 rounded-xl border ${lcLufsPass ? "bg-[#0A2010]/35 border-emerald-500/25" : "bg-[#201c10]/30 border-[#ffba00]/15"}`}>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Integrated Loudness</span>
-                          <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${lcLufsPass ? "text-emerald-400 bg-emerald-500/10" : "text-[#ffba00] bg-[#ffba00]/10"}`}>
-                            {lcLufsPass ? "PASS" : "OUT OF RANGE"}
-                          </span>
-                        </div>
-                        <div className="text-2xl font-black text-white font-mono">{lcLufsRaw ?? "--"} <span className="text-xs text-slate-500 font-semibold">LUFS</span></div>
-                        <p className="text-[10px] text-slate-400 leading-relaxed mt-1.5">
-                          Target window for {lcBucket.label}: {lcBucket.lufsMin} to {lcBucket.lufsMax} LUFS.
-                        </p>
-                      </div>
-
-                      <div className={`p-4 rounded-xl border ${lcLraPass ? "bg-[#0A2010]/35 border-emerald-500/25" : "bg-[#201c10]/30 border-[#ffba00]/15"}`}>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Dynamic Range (LRA)</span>
-                          <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${lcLraPass ? "text-emerald-400 bg-emerald-500/10" : "text-[#ffba00] bg-[#ffba00]/10"}`}>
-                            {lcLraPass ? "PASS" : "OUT OF RANGE"}
-                          </span>
-                        </div>
-                        <div className="text-2xl font-black text-white font-mono">{lcLraRaw ?? "--"} <span className="text-xs text-slate-500 font-semibold">LU</span></div>
-                        <p className="text-[10px] text-slate-400 leading-relaxed mt-1.5">
-                          Target window for {lcBucket.label}: {lcBucket.lraMin}{lcBucket.lraMax !== null ? `-${lcBucket.lraMax}` : "+"} LU.
-                        </p>
+                          isExpanded
+                            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                            : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-emerald-400"
+                        }`}>
+                          {isExpanded ? "ACTIVE ⬇" : "VIEW METRICS ⚡"}
+                        </span>
                       </div>
                     </div>
 
-                    <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
-                      Loudness Compliance Score is the average of these two pass/fail checks (100 for a pass, 50 for a miss), then weighted at 25% into your overall Sonic Soundprint score.
-                    </p>
+                    <div className="flex-shrink-0 flex items-center justify-center">
+                      <ScoreCircle
+                        score={instrumentalMetric.score}
+                        size={110}
+                        strokeWidth={7}
+                        color={isExpanded ? "#10b981" : "rgba(16, 185, 129, 0.45)"}
+                        glowColor={isExpanded ? "rgba(16, 185, 129, 0.65)" : "rgba(16, 185, 129, 0.15)"}
+                        extraGlow={isExpanded}
+                      />
+                    </div>
                   </div>
-                </motion.div>
-              );
-            })()}
-          </AnimatePresence>
+                </button>
+                {isExpanded && renderExpandedBreakdown("instrumental")}
+              </>
+            );
+          })()}
         </div>
 
         {/* Card: Vocal Tracking — hero-style header matching Production Quality/Loudness Compliance, dropdown reuses renderExpandedBreakdown untouched */}
@@ -7290,6 +7228,142 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
+
+        {/* Card: Loudness Compliance (blue theme) - moved below "not used in summary score" divider per design intent:
+            this is a pass/fail compliance fact, not a graded creative score, and no longer feeds the Sonic Soundprint average. */}
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-sonic-loudness">
+          {(() => {
+            const lcBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+            const lcLufsRaw = critique?.liveMetrics?.calculatedLufs;
+            const lcLraRaw = critique?.liveMetrics?.calculatedLra;
+            const lcLufsPass = lcLufsRaw !== undefined && lcLufsRaw >= lcBucket.lufsMin && lcLufsRaw <= lcBucket.lufsMax;
+            const lcLraPass = lcLraRaw !== undefined && lcLraRaw >= lcBucket.lraMin && (lcBucket.lraMax === null || lcLraRaw <= lcBucket.lraMax);
+            const lcBothPass = lcLufsPass && lcLraPass;
+            return (
+              <>
+                <button
+                  onClick={() => setIsLoudnessComplianceExpanded(!isLoudnessComplianceExpanded)}
+                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+                    isLoudnessComplianceExpanded
+                      ? "bg-[#090b0e] border-blue-500 shadow-[0_0_35px_rgba(59,130,246,0.35)] ring-1 ring-blue-500/40 font-black"
+                      : "bg-[#0A0B0E]/60 border-blue-500/40 hover:border-blue-500 hover:bg-neutral-900/40 text-slate-400"
+                  }`}
+                >
+                  <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+                    <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                      <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
+                        <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                          isLoudnessComplianceExpanded
+                            ? "bg-blue-500/10 border-blue-500/30 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+                            : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-blue-400"
+                        }`}>
+                          <Volume2 className="w-5 h-5 text-blue-400" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                            isLoudnessComplianceExpanded ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                          }`}>
+                            LOUDNESS COMPLIANCE
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-medium">Genre-Aware LUFS &amp; Dynamic Range Matching</span>
+                        </div>
+                      </div>
+
+                      <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                        isLoudnessComplianceExpanded ? "border-blue-500/15" : "border-white/5"
+                      }`}>
+                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                          Measures whether your track's integrated loudness (LUFS) and dynamic range (LRA) fall within the target windows for your genre.
+                          <span className="block mt-1 text-blue-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>A compliance fact, not a creative score - does not factor into your Sonic Soundprint total.</span>
+                        </p>
+                        <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                          isLoudnessComplianceExpanded
+                            ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
+                            : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-blue-400"
+                        }`}>
+                          {isLoudnessComplianceExpanded ? "ACTIVE ⬇" : "VIEW COMPLIANCE ⚡"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Right badge display - PASS/OUT OF RANGE, not a numeric score */}
+                    <div className="flex-shrink-0 flex items-center justify-center">
+                      <div className={`flex flex-col items-center justify-center gap-1.5 w-[110px] h-[110px] rounded-full border-2 ${
+                        lcBothPass
+                          ? "border-emerald-500/60 bg-emerald-500/5 shadow-[0_0_25px_rgba(16,185,129,0.25)]"
+                          : "border-[#ffba00]/60 bg-[#ffba00]/5 shadow-[0_0_25px_rgba(255,186,0,0.2)]"
+                      }`}>
+                        {lcBothPass ? (
+                          <CheckCircle className="w-8 h-8 text-emerald-400" />
+                        ) : (
+                          <AlertCircle className="w-8 h-8 text-[#ffba00]" />
+                        )}
+                        <span className={`text-[11px] font-mono font-black uppercase tracking-wider ${lcBothPass ? "text-emerald-400" : "text-[#ffba00]"}`}>
+                          {lcBothPass ? "PASS" : "OUT OF RANGE"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {isLoudnessComplianceExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0, marginTop: -8 }}
+                      animate={{ height: "auto", opacity: 1, marginTop: 4 }}
+                      exit={{ height: 0, opacity: 0, marginTop: -8 }}
+                      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                      className="overflow-hidden w-full relative z-0"
+                    >
+                      <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-blue-500 rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
+                        <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
+                          LOUDNESS COMPLIANCE AUDIT
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-500 -mt-3">
+                          Target profile: <span className="text-blue-400 font-bold">{lcBucket.label}</span>
+                        </span>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className={`p-4 rounded-xl border ${lcLufsPass ? "bg-[#0A2010]/35 border-emerald-500/25" : "bg-[#201c10]/30 border-[#ffba00]/15"}`}>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Integrated Loudness</span>
+                              <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${lcLufsPass ? "text-emerald-400 bg-emerald-500/10" : "text-[#ffba00] bg-[#ffba00]/10"}`}>
+                                {lcLufsPass ? "PASS" : "OUT OF RANGE"}
+                              </span>
+                            </div>
+                            <div className="text-2xl font-black text-white font-mono">{lcLufsRaw ?? "--"} <span className="text-xs text-slate-500 font-semibold">LUFS</span></div>
+                            <p className="text-[10px] text-slate-400 leading-relaxed mt-1.5">
+                              Target window for {lcBucket.label}: {lcBucket.lufsMin} to {lcBucket.lufsMax} LUFS.
+                            </p>
+                          </div>
+
+                          <div className={`p-4 rounded-xl border ${lcLraPass ? "bg-[#0A2010]/35 border-emerald-500/25" : "bg-[#201c10]/30 border-[#ffba00]/15"}`}>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Dynamic Range (LRA)</span>
+                              <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${lcLraPass ? "text-emerald-400 bg-emerald-500/10" : "text-[#ffba00] bg-[#ffba00]/10"}`}>
+                                {lcLraPass ? "PASS" : "OUT OF RANGE"}
+                              </span>
+                            </div>
+                            <div className="text-2xl font-black text-white font-mono">{lcLraRaw ?? "--"} <span className="text-xs text-slate-500 font-semibold">LU</span></div>
+                            <p className="text-[10px] text-slate-400 leading-relaxed mt-1.5">
+                              Target window for {lcBucket.label}: {lcBucket.lraMin}{lcBucket.lraMax !== null ? `-${lcBucket.lraMax}` : "+"} LU.
+                            </p>
+                          </div>
+                        </div>
+
+                        <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
+                          These are pass/fail compliance facts against your genre's target window - they do not factor into your Sonic Soundprint score, which reflects creative and technical judgment only.
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
+            );
+          })()}
         </div>
 
         {/* Card: Technical and Diagnostic Blueprints (cyan) */}
