@@ -582,8 +582,11 @@ export function computeCategoryScores(critique: any) {
       liveSkipModifier += 5;
     }
   }
-  const baseSkipProb = Math.min(85, Math.max(10, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
-  const completionRate = Math.min(96, Math.max(15, 100 - baseSkipProb - 5));
+  // Floor lowered from 10 to 0, flat -5 discount removed, and ceiling raised from 96 to
+  // 100 - previously these three constraints stacked to create a hard, invisible ceiling
+  // of 85 that no song could ever exceed regardless of how strong its real inputs were.
+  const baseSkipProb = Math.min(85, Math.max(0, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
+  const completionRate = Math.min(100, Math.max(15, 100 - baseSkipProb));
 
   const echoNestData = computeEchoNestScorecard(critique);
   const echoNestAvgMatch = echoNestData.length > 0
@@ -668,8 +671,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   // Algotorial Sandbox: Spotify Simulation States
   const [selectedTargetPlaylist, setSelectedTargetPlaylist] = useState<"today-hits" | "chill-vibes" | "discover-weekly" | "indie">("today-hits");
   const [vibeTransitionTheme, setVibeTransitionTheme] = useState<"uniform" | "upbeat" | "sudden">("uniform");
-  const [sandboxPlaying, setSandboxPlaying] = useState(false);
-  const [sandboxProgress, setSandboxProgress] = useState(0);
 
   const [liveValence, setLiveValence] = useState<number>(critique?.userValence ?? 0.5);
   const [liveEnergy, setLiveEnergy] = useState<number>(critique?.userEnergy ?? 0.5);
@@ -704,63 +705,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         liveSkipModifier += 5;
       }
     }
-    return Math.min(85, Math.max(10, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
+    // Floor lowered from 10 to 0 - see the primary occurrence above for full explanation.
+    return Math.min(85, Math.max(0, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
   })();
 
-  const completionRateScore = Math.min(96, Math.max(15, 100 - baseSkipProb - 5));
+  const completionRateScore = Math.min(100, Math.max(15, 100 - baseSkipProb));
 
   const realCategoryScores = computeCategoryScores(critique);
 
   const predictedSkipRate = baseSkipProb;
-  const predictedCompletionRate = Math.min(96, Math.max(15, 100 - baseSkipProb - 5));
+  const predictedCompletionRate = Math.min(100, Math.max(15, 100 - baseSkipProb));
 
-  const getSkipRateLabel = (rate: number): { label: string; color: string } => {
-    if (rate <= 20) return { label: "▲ EXCELLENT", color: "text-emerald-400" };
-    if (rate <= 32) return { label: "▲ GOOD", color: "text-green-400" };
-    if (rate <= 45) return { label: "◆ AVERAGE", color: "text-yellow-400" };
-    if (rate <= 60) return { label: "▼ ELEVATED RISK", color: "text-orange-400" };
-    return { label: "▼ HIGH RISK", color: "text-rose-400" };
-  };
-
-  const getCompletionRateLabel = (rate: number): { label: string; color: string } => {
-    if (rate >= 75) return { label: "▲ OPTIMIZED", color: "text-teal-400" };
-    if (rate >= 60) return { label: "▲ GOOD", color: "text-green-400" };
-    if (rate >= 45) return { label: "◆ AVERAGE", color: "text-yellow-400" };
-    if (rate >= 30) return { label: "▼ BELOW TARGET", color: "text-orange-400" };
-    return { label: "▼ POOR", color: "text-rose-400" };
-  };
-
-  const getLiveSimFeedback = (seconds: number) => {
-    if (seconds === 0) return { risk: "0%", status: "Simulation Ready", desc: "Awaiting ignition. Press TEST RUN to model audience response." };
-    if (seconds < 5) {
-      return {
-        risk: `${predictedSkipRate + 12}%`,
-        status: "Aesthetic Immediacy Check (0s - 5s)",
-        desc: "Critical! Immediate sound match check. Clean transients and early hook prevent fast skip."
-      };
-    }
-    if (seconds < 15) {
-      return {
-        risk: `${predictedSkipRate}%`,
-        status: "Vocal & Lead Intro Phase (5s - 15s)",
-        desc: "Vocal/theme introduction anchors attention. Chord cadence resolved."
-      };
-    }
-    if (seconds < 29) {
-      return {
-        risk: `${Math.round(predictedSkipRate * 0.6)}%`,
-        status: "Vibe Consolidation Phase (15s - 29s)",
-        desc: "Steady groove flow. Harmonic content matching expectation parameters."
-      };
-    }
-    return {
-      risk: "0%",
-      status: "🎉 GATEKEEPER CLEARED!",
-      desc: "30-second boundary breached! Stream is monetarily counted in Spotify analytics."
-    };
-  };
-
-  const liveStats = getLiveSimFeedback(sandboxProgress);
   const flowScoreVal = critique?.arrangement?.flowScore ?? 75;
   const vocalScoreVal = critique?.performance?.vocalScore ?? 75;
   const instrumentalScoreVal = critique?.performance?.instrumentalScore ?? 75;
@@ -1116,27 +1071,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     setCopiedField(fieldName);
     setTimeout(() => setCopiedField(null), 2000);
   };
-
-  // Animate the Algotorial Sandbox 30s Simulated Audition
-  React.useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (sandboxPlaying) {
-      interval = setInterval(() => {
-        setSandboxProgress((prev) => {
-          if (prev >= 30) {
-            setSandboxPlaying(false);
-            return 30;
-          }
-          return Math.round((prev + 0.5) * 10) / 10; // Increments by 0.5 seconds
-        });
-      }, 500);
-    } else {
-      if (interval) clearInterval(interval);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [sandboxPlaying]);
 
   const getEstimatedBpm = () => {
     if (critique?.liveMetrics?.calculatedBpm) {
@@ -6305,104 +6239,48 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <span>Active Diagnostics List</span>
                     </span>
                     <span className="text-[10px] font-mono text-slate-500 text-right">
-                      30-Second Listener Retention & Skip Rate Simulator
+                      How These Numbers Are Calculated
                     </span>
                   </div>
 
-                  {/* Panel D: Relocated Skip & Completion Simulator */}
-                  <div id="panel-d-skip-completion" className="bg-[#0A0B0E] border border-white/5 hover:border-white/10 rounded-2xl p-5 flex flex-col justify-between transition-all duration-500 group shadow-inner min-h-[360px]">
+                  {/* Panel D: Skip Rate / Completion Rate explanation - simulator removed, replaced with plain-language calculation breakdown */}
+                  <div id="panel-d-skip-completion" className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-5 flex flex-col gap-4 text-left">
                     <div>
-                      <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2.5">
-                        <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none">
-                          30S Skip &amp; Completion Rate Simulator
-                        </span>
-                        <span className="text-[10px] font-mono text-slate-500">The 30-Second Rule Gatekeeper</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-relaxed mb-4 text-left">
-                        Simulates virtual listener skip behavior during the initial 30 seconds (qualifying monetization milestone).
+                      <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none mb-2">
+                        What This Predicts
+                      </span>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        <span className="text-blue-400 font-bold">Skip Rate</span> is a predicted probability that a listener abandons the song within the critical first-30-second window - the point streaming algorithms weigh most heavily when deciding whether to keep promoting a track.
+                        {" "}<span className="text-cyan-400 font-bold">Completion Rate</span> is simply the inverse of that: 100% minus the predicted skip risk.
                       </p>
                     </div>
 
-                    {/* Simulator Controls & Playbar */}
-                    <div className="bg-black/50 border border-white/5 rounded-xl p-4 flex flex-col gap-3.5 my-1 text-left relative overflow-hidden">
-                      <div className="flex items-center justify-between gap-3">
-                        <button
-                          onClick={() => {
-                            if (sandboxPlaying) {
-                              setSandboxPlaying(false);
-                            } else {
-                              if (sandboxProgress >= 30) setSandboxProgress(0);
-                              setSandboxPlaying(true);
-                            }
-                          }}
-                          className={`w-9 h-9 cursor-pointer rounded-full border flex items-center justify-center flex-shrink-0 transition-all select-none ${
-                            sandboxPlaying
-                              ? "bg-rose-500/10 border-rose-500/30 text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.15)] animate-pulse"
-                              : "bg-blue-600/10 border-blue-500 text-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.15)]"
-                          }`}
-                        >
-                          {sandboxPlaying ? <Pause className="w-4.5 h-4.5 fill-current" /> : <Play className="w-4.5 h-4.5 fill-current ml-0.5" />}
-                        </button>
-                        
-                        <div className="flex-1 flex flex-col gap-1">
-                          <div className="flex items-center justify-between text-[10px] font-mono leading-none">
-                            <span className="text-slate-400 font-bold">{liveStats.status}</span>
-                            <span className="text-blue-400 font-bold bg-neutral-900 border border-white/5 px-2 py-0.5 rounded-full">{sandboxProgress.toFixed(1)}s / 30.0s</span>
-                          </div>
-                          
-                          {/* Outer Bar Progress */}
-                          <div className="w-full h-1.5 bg-neutral-900 rounded-full overflow-hidden relative border border-white/5 mt-1">
-                            <div 
-                              className="absolute top-0 left-0 bottom-0 bg-blue-500/80 transition-all" 
-                              style={{ width: `${(sandboxProgress / 30) * 100}%` }} 
-                            />
-                          </div>
+                    <div className="border-t border-white/5 pt-4">
+                      <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none mb-2">
+                        How Your Numbers Were Reached
+                      </span>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between text-[11px] font-mono">
+                          <span className="text-slate-400">Commercial Impact (70% weight)</span>
+                          <span className="text-white font-bold">{commercialReadinessVal}/100</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] font-mono">
+                          <span className="text-slate-400">Production Index (20% weight)</span>
+                          <span className="text-white font-bold">{overallProductionVal}/100</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] font-mono pt-1 border-t border-white/5">
+                          <span className="text-slate-400">Resulting predicted Skip Rate</span>
+                          <span className="text-blue-400 font-bold">{predictedSkipRate}%</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] font-mono">
+                          <span className="text-slate-400">Completion Rate (100% minus Skip Rate)</span>
+                          <span className="text-cyan-400 font-bold">{predictedCompletionRate}%</span>
                         </div>
                       </div>
-
-                      {/* Output Readout */}
-                      <div className="flex flex-col gap-0.5 text-left border-t border-white/5 pt-3">
-                        <span className="text-[10px] font-mono tracking-wider uppercase text-slate-400">Predicted Instantaneous Skip Risk:</span>
-                        <div className="flex items-center gap-1.5 mt-0.5 text-xs">
-                          <span className={`font-black font-mono transition-all text-sm ${sandboxProgress === 30 ? "text-emerald-400 font-bold animate-ping" : sandboxProgress > 0 ? "text-amber-400 animate-pulse" : "text-slate-500"}`}>
-                            {liveStats.risk}
-                          </span>
-                          <p className="text-[9.5px] text-slate-300 leading-normal">
-                            {liveStats.desc}
-                          </p>
-                        </div>
-                      </div>
+                      <p className="text-[10px] text-slate-500 leading-relaxed mt-3">
+                        On top of these two inputs, real measured penalty points can also apply when the audio itself shows a specific, checkable issue - for example, unusually quiet mastering or a stereo mix at genuine risk of phase cancellation in mono playback. No such penalties are currently applying to this track beyond what's reflected above.
+                      </p>
                     </div>
-
-                    {/* Predicted Cumulative Rates */}
-                    <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-3.5 pr-1">
-                      <div className="flex flex-col text-left">
-                        <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest leading-none">PREDICTED SKIP RATE (SR)</span>
-                        <span className="text-lg font-black text-white font-mono mt-1 flex items-baseline gap-1">
-                          {predictedSkipRate}%
-                          <span className={`text-[10px] font-sans font-bold uppercase tracking-wider ${getSkipRateLabel(predictedSkipRate).color}`}>
-                            {getSkipRateLabel(predictedSkipRate).label}
-                          </span>
-                        </span>
-                        <p className="text-[8.5px] text-slate-500 leading-snug mt-0.5 leading-normal">
-                          Typical threshold target: &lt; 32% within 30s. Perfect for early playlist preservation.
-                        </p>
-                      </div>
-
-                      <div className="flex flex-col text-left border-l border-white/5 pl-4">
-                        <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest leading-none">PREDICTED COMPLETION (CR)</span>
-                        <span className="text-lg font-black text-cyan-400 font-mono mt-1 flex items-baseline gap-1">
-                          {predictedCompletionRate}%
-                          <span className={`text-[10px] font-sans font-bold uppercase tracking-wider ${getCompletionRateLabel(predictedCompletionRate).color}`}>
-                            {getCompletionRateLabel(predictedCompletionRate).label}
-                          </span>
-                        </span>
-                        <p className="text-[8.5px] text-slate-500 leading-snug mt-0.5 leading-normal">
-                          Probability of full track completion. Indicates structural engagement alignment.
-                        </p>
-                      </div>
-                    </div>
-
                   </div>
                 </div>
               </motion.div>
@@ -6637,7 +6515,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 handleCategoryChange(null);
               } else {
                 handleCategoryChange("sandbox");
-                setSandboxPlaying(true);
               }
             }}
             className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
@@ -10028,7 +9905,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 handleCategoryChange(null);
               } else {
                 handleCategoryChange("sandbox");
-                setSandboxPlaying(true);
               }
             }}
             className={`relative z-10 flex flex-col justify-between p-6 rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none min-h-[175px] text-white w-full ${
