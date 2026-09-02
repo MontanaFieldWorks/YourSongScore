@@ -2104,7 +2104,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ].filter(Boolean);
     } else if (cat === "blueprints") {
       return [
-        METRICS_LIST.find(m => m.id === "instrumental"),
         AUX_METRICS_LIST.find(m => m.id === "searchability"),
       ].filter(Boolean);
     } else if (cat === "dna") {
