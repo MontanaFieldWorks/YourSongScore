@@ -561,9 +561,14 @@ export function computeCategoryScores(critique: any) {
       liveSkipModifier += Math.round(Math.abs(calculatedLufs + 12.5) * 1.8);
     }
     if (calculatedStereoCorrelation !== undefined) {
-      if (calculatedStereoCorrelation > 0.82) {
-        liveSkipModifier += 6;
-      } else if (calculatedStereoCorrelation < -0.15) {
+      // High-correlation penalty removed after checking real research: no source found
+      // ties stereo correlation to streaming skip behavior specifically - only to mono
+      // playback compatibility, a real but different concern already correctly measured
+      // by Stereo Width in Mix Balance Quality. The old 0.82 threshold was also penalizing
+      // values within the documented normal commercial range (0.3-0.9 per mixing
+      // references). The negative-correlation check below is left as-is - genuine phase
+      // cancellation is a firmer, more clearly real technical defect.
+      if (calculatedStereoCorrelation < -0.15) {
         liveSkipModifier += 14;
       }
     }
@@ -688,9 +693,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         liveSkipModifier += Math.round(Math.abs(calculatedLufs + 12.5) * 1.8);
       }
       if (calculatedStereoCorrelation !== undefined) {
-        if (calculatedStereoCorrelation > 0.82) {
-          liveSkipModifier += 6;
-        } else if (calculatedStereoCorrelation < -0.15) {
+        // Same fix as the primary occurrence above - see full explanation there.
+        if (calculatedStereoCorrelation < -0.15) {
           liveSkipModifier += 14;
         }
       }
