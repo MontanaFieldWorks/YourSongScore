@@ -1404,7 +1404,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         { name: "Spectral Match (10%)", desc: "Compares the track's frequency distribution to mainstream hits to ensure a balanced, commercially viable audio spectrum." },
         { name: "Section Transitions (10%)", desc: "Evaluates whether shifts between verse, chorus, and bridge feel earned and well-built, rather than abrupt or disconnected." }
       ],
-      callout: "This Metric predicts listener retention and skip-resistance, the single most heavily weighted signal in modern streaming algorithms.",
+      callout: "This Metric predicts listener retention and skip-resistance, the single most heavily weighted signal in modern streaming algorithms. This score itself makes up 80% of the Commercial Impact score shown above (the remaining 20% comes from Production Index) - that's why the two numbers differ.",
       description: "Evaluates whether your track holds a listener's attention long enough to survive the algorithm's early-skip window, and whether its dynamic arc gives listeners a reason to keep listening.",
       feedback: critique?.vibe?.commercialViability ?? "Ready for immediate curation and sync scheduling."
     },
@@ -6067,7 +6067,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   activeCategory === "mainstream" ? "border-blue-500/15" : "border-white/5"
                 }`}>
                   <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
-                    This is a generalized, "quick view" analysis of how streaming services algorithms might assess your song upon upload: streaming readiness (80% weight) & production quality (20% weight).
+                    This is a generalized, "quick view" analysis of how streaming services algorithms might assess your song upon upload: Engagement Power (80% weight) &amp; Production Index (20% weight).
                     <span className="block mt-1 text-blue-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Predicts first-listen algorithmic scoring and playlist eligibility.</span>
                   </p>
                   <span 
@@ -6259,17 +6259,20 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none mb-2">
                         How Your Numbers Were Reached
                       </span>
+                      <p className="text-[10px] text-slate-500 leading-relaxed mb-3">
+                        This isn't a simple weighted average - it starts from an optimistic baseline, then subtracts points based on your song's real inputs. Here's the exact math for this track:
+                      </p>
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between text-[11px] font-mono">
-                          <span className="text-slate-400">Commercial Impact (70% weight)</span>
-                          <span className="text-white font-bold">{commercialReadinessVal}/100</span>
+                          <span className="text-slate-400">Starting baseline (most optimistic case)</span>
+                          <span className="text-slate-300 font-bold">95%</span>
                         </div>
-                        <div className="flex items-center justify-between text-[11px] font-mono">
-                          <span className="text-slate-400">Production Index (20% weight)</span>
-                          <span className="text-white font-bold">{overallProductionVal}/100</span>
+                        <div className="flex items-center justify-between text-[11px] font-mono pl-3">
+                          <span className="text-slate-500">− Weighted score (Engagement Power {commercialReadinessVal}/100 × 70% + Production Index {overallProductionVal}/100 × 20%)</span>
+                          <span className="text-slate-400">{Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20))}</span>
                         </div>
                         <div className="flex items-center justify-between text-[11px] font-mono pt-1 border-t border-white/5">
-                          <span className="text-slate-400">Resulting predicted Skip Rate</span>
+                          <span className="text-slate-400">= Resulting predicted Skip Rate</span>
                           <span className="text-blue-400 font-bold">{predictedSkipRate}%</span>
                         </div>
                         <div className="flex items-center justify-between text-[11px] font-mono">
