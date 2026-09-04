@@ -578,9 +578,14 @@ export function computeCategoryScores(critique: any) {
     // evidence found that BPM itself predicts skip risk independent of genre/structure.
     // 75-155 was excluding a large amount of legitimate commercial music (fast dance-pop,
     // punk, drum & bass). Widened to only flag genuinely unusual outliers.
-    if (calculatedBpm !== undefined && (calculatedBpm < 60 || calculatedBpm > 190)) {
-      liveSkipModifier += 5;
-    }
+    // TEMPORARILY DISABLED - BPM detection reliability issues confirmed via real-audio
+    // testing (octave/doubling errors on multiple real songs - see project notes). Rather
+    // than let a potentially wrong BPM silently influence Completion Rate while the BPM
+    // display itself is hidden, this check is disabled until detection is more reliable.
+    // Re-enable by uncommenting below once resolved:
+    // if (calculatedBpm !== undefined && (calculatedBpm < 60 || calculatedBpm > 190)) {
+    //   liveSkipModifier += 5;
+    // }
   }
   // Floor lowered from 10 to 0, flat -5 discount removed, and ceiling raised from 96 to
   // 100 - previously these three constraints stacked to create a hard, invisible ceiling
@@ -699,11 +704,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           liveSkipModifier += 14;
         }
       }
-      // Widened from 75-155 - see the primary occurrence of this check above for the
-      // full research citation. No evidence found that raw BPM predicts skip risk.
-      if (calculatedBpm !== undefined && (calculatedBpm < 60 || calculatedBpm > 190)) {
-        liveSkipModifier += 5;
-      }
+      // TEMPORARILY DISABLED - see the primary occurrence above for full explanation.
+      // if (calculatedBpm !== undefined && (calculatedBpm < 60 || calculatedBpm > 190)) {
+      //   liveSkipModifier += 5;
+      // }
     }
     // Floor lowered from 10 to 0 - see the primary occurrence above for full explanation.
     return Math.min(85, Math.max(0, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
@@ -1597,12 +1601,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     ws.getCell("B2").font = { name: "Calibri", size: 14, bold: true };
     ws.getCell("B3").value = "ARTIST:";
     ws.getCell("C3").value = trackInfo?.artist || "Independent Artist";
-    ws.getCell("E3").value = "KEY:";
-    ws.getCell("F3").value = critique?.liveMetrics?.calculatedKey || "N/A";
     ws.getCell("B4").value = "SONG TITLE:";
     ws.getCell("C4").value = trackInfo?.name || "Untitled";
-    ws.getCell("E4").value = "TEMPO:";
-    ws.getCell("F4").value = critique?.liveMetrics?.calculatedBpm || "N/A";
+    // KEY and TEMPO fields removed from export - detection reliability issues confirmed
+    // via real-audio testing, matching the same UI removal. Underlying detection code is
+    // untouched; reinstate here once resolved.
     ws.getCell("B5").value = "GENRE:";
     ws.getCell("C5").value = critique?.vibe?.genre || "Unclassified";
     ws.getCell("B6").value = "SUBGENRE:";
@@ -5023,32 +5026,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             {/* Scorecard bottom info bar */}
             <div className="border-t border-white/5 pt-3.5 mt-2 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] font-mono text-slate-400">
               <div className="flex flex-wrap items-center gap-4 animate-fadeIn">
-                <div className="flex items-center gap-1.5">
-                  <span>Estimated Song tempo:</span>
-                  <strong className="text-white bg-neutral-950 px-2.5 py-1 border border-white/10 rounded-md font-sans flex items-center">
-                    <span>{critique?.liveMetrics?.calculatedBpm ?? "—"} BPM</span>
-                    {critique?.liveMetrics?.calculatedBpmConfidence !== undefined && (
-                      <span className={`text-[9px] font-mono ml-1 ${
-                        (critique.liveMetrics.calculatedBpmConfidence) >= 0.5 
-                          ? "text-emerald-500" 
-                          : "text-amber-500"
-                      }`}>
-                        ({Math.round((critique.liveMetrics.calculatedBpmConfidence) * 100)}% conf.)
-                      </span>
-                    )}
-                  </strong>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span>Estimated Song Key:</span>
-                  <strong className="text-white bg-neutral-950 px-2.5 py-1 border border-white/10 rounded-md font-sans flex items-center">
-                    <span>{critique?.liveMetrics?.calculatedKey ?? "—"}</span>
-                    {critique?.liveMetrics?.calculatedKeyConfidence !== undefined && (
-                      <span className="text-[9px] font-mono text-slate-500 ml-1">
-                        ({Math.round((critique.liveMetrics.calculatedKeyConfidence) * 100)}% conf.)
-                      </span>
-                    )}
-                  </strong>
-                </div>
+                {/* BPM and Key display temporarily removed - detection reliability issues confirmed
+                    via real-audio testing (see project notes). Underlying detection code in
+                    liveAudioAnalyzer.ts is untouched; re-enable here once resolved. */}
                 {critique?.liveMetrics?.calculatedTimeSignature !== undefined && (
                   <div className="flex items-center gap-1.5">
                     <span>Time Signature:</span>
