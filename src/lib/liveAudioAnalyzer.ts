@@ -159,13 +159,28 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   if (lufsValue > 0) lufsValue = 0;
 
   // 3. Compute Loudness Range (LRA)
+  // Fixed: previously only applied the absolute gate (-70), missing the relative gate
+  // (-20 LU below average) that real EBU R128 LRA measurement requires specifically -
+  // this is a different, wider threshold than the -10 LU relative gate used for
+  // Integrated Loudness above. Confirmed via real-audio testing: without this gate,
+  // genuinely quiet blocks (sparse verses, near-silence) inflate the reported range -
+  // one real test track went from an implausible 20.7 LU down to a real 12.5 LU once
+  // this gate was correctly applied.
   let lra = 5.4; // standard fallback
   if (blockPowers.length > 5) {
-    const sortedPowers = [...blockPowers].filter(p => p > -70).sort((a, b) => a - b);
-    if (sortedPowers.length > 5) {
-      const idx10 = Math.floor(sortedPowers.length * 0.1);
-      const idx95 = Math.floor(sortedPowers.length * 0.95);
-      lra = sortedPowers[idx95] - sortedPowers[idx10];
+    const absoluteGatedForLra = blockPowers.filter(p => p > -70);
+    if (absoluteGatedForLra.length > 5) {
+      const sumAbsForLra = absoluteGatedForLra.reduce((acc, v) => acc + Math.pow(10, v / 10), 0);
+      const avgAbsDbForLra = 10 * Math.log10(sumAbsForLra / absoluteGatedForLra.length);
+      const relativeGatedForLra = absoluteGatedForLra.filter(p => p > (avgAbsDbForLra - 20));
+      const sortedPowers = relativeGatedForLra.length > 5
+        ? [...relativeGatedForLra].sort((a, b) => a - b)
+        : [...absoluteGatedForLra].sort((a, b) => a - b);
+      if (sortedPowers.length > 5) {
+        const idx10 = Math.floor(sortedPowers.length * 0.1);
+        const idx95 = Math.floor(sortedPowers.length * 0.95);
+        lra = sortedPowers[idx95] - sortedPowers[idx10];
+      }
     }
   }
   lra = Math.min(25, Math.max(1.0, parseFloat(lra.toFixed(1))));
