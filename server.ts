@@ -233,7 +233,7 @@ For each sub-metric, start at a baseline of 100. Subtract points only for specif
 
 FIELD DEFINITIONS:
 - dynamicVariety: measures whether the song's energy and intensity shift meaningfully across its runtime (verse-to-chorus lift, breakdowns, builds), rather than remaining flat and static throughout. RUBRIC ANCHOR: a score of 90-100 requires genuinely distinct, well-defined energy shifts between sections - a listener could identify section boundaries by energy alone. A score of 70-89 applies when there is real, audible variation but it's more subtle or limited to one clear shift rather than a sustained arc. Below 70 is reserved for a track that genuinely stays at one consistent energy level throughout - a real, legitimate outcome for some driving, relentless-by-design genres and not automatically a flaw, but should be scored honestly when it's genuinely the case.
-- spectralMatch: compares the track's frequency balance to competitive commercial references in its genre.
+- spectralMatch: compares the track's frequency balance to competitive commercial references in its genre. IMPORTANT - a real, precomputed 6-band frequency energy measurement for this track will be provided in the context above as 'Measured Spectral Band Profile' (0-100 relative energy per band: Sub-Bass, Bass, Low-Mids, Core Mids, Presence, Air - a genuine FFT measurement, not a guess). Use this real profile as your factual anchor for what the track's actual frequency balance is - your genre-aware judgment (below) determines whether that real profile fits genre expectations or represents a genuine imbalance, but the underlying facts about energy distribution should come from this measurement, not invented from listening alone. If the measured profile shows heavy low-mid or bass energy alongside a genre where that is a known intentional signature (see below), that is real evidence supporting a high score, not grounds for inventing a masking complaint.
 CRITICAL DIRECTIVE - GENRE INTENT VS. TECHNICAL DEFECT:
 Never confuse intentional stylistic tone curves with technical defects.
 - Intentional Sonic Identity: Heavy low-frequency density and controlled weight in the 150-400Hz range is a signature characteristic of modern dark pop (e.g. Billie Eilish, Finneas, Lorde), modern R&B, synth-pop, and bedroom pop. When paired with hyper-intimate or articulate lead vocals, this low-mid weight creates an intentional, atmospheric, and intimate listening experience. Similarly, massive sub-bass underpins modern hip-hop/trap, warm analog mid-bass defines 80s retro synth-pop, and warm lower-mids provide body in acoustic indie/folk.
@@ -247,9 +247,9 @@ RUBRIC ANCHORS FOR SPECTRAL MATCH:
 - Below 70: Structural spectral failure (severe boxiness, deafening harshness, completely missing bottom end or unlistenable boominess).
 
 MANDATORY JUSTIFICATION GATE FOR SPECTRAL MATCH:
-Before assigning a score below 90 for spectralMatch, ask: 'Can I identify an actual acoustic conflict where instruments mask each other or sound uncomfortably harsh/dull relative to genre norms?'
+Before assigning a score below 90 for spectralMatch, ask: 'Can I identify an actual acoustic conflict where instruments mask each other or sound uncomfortably harsh/dull relative to genre norms - one that the Measured Spectral Band Profile is consistent with, not one that contradicts it?' 
 If NO: The track is commercially viable and must score in the 90-100 range. Commentary should validate the frequency distribution and explain why it translates well for the genre.
-If YES: Name the exact conflicting elements and audible masking issue.
+If YES: Name the exact conflicting elements and audible masking issue, and confirm it is consistent with the measured band profile rather than inventing a claim the real data doesn't support.
 - paletteCohesion, aestheticDesign, spaceAndDensity: production/arrangement quality judgments as previously defined.
 
 FIELD DEFINITION - hookPlacement (part of compositionFlowSubs): judges whether the song's main hook/chorus arrives at an effective point in the structure - not too late to lose the listener, not so abrupt it undercuts the build. This is a genuinely significant metric - it is the single largest ingredient (60%) in the Commercial Impact score. RUBRIC ANCHOR: a score of 90-100 requires the hook to land at a genuinely well-judged moment with the preceding build (however long or short) making its arrival feel earned - name the approximate timing and why it works. A score of 70-89 applies when the hook placement is functional and reasonable but not particularly well set up or particularly fast/effective - a normal, common outcome. Below 70 is reserved for hook placement with a real, specific problem - arriving so late the song risks losing the listener first, or so abruptly that it undercuts its own impact.
@@ -302,8 +302,15 @@ async function performSubMetricsCall1(
   spectrogramImagePart?: any,
   measuredStereoCorrelation?: number,
   measuredSibilanceSeverity?: number,
-  measuredTimbralConsistency?: number
+  measuredTimbralConsistency?: number,
+  measuredSubBassBandEnergy?: number,
+  measuredBassBandEnergy?: number,
+  measuredLowMidsBandEnergy?: number,
+  measuredCoreMidsBandEnergy?: number,
+  measuredPresenceBandEnergy?: number,
+  measuredAirBandEnergy?: number
 ): Promise<any> {
+  const bandsAvailable = [measuredSubBassBandEnergy, measuredBassBandEnergy, measuredLowMidsBandEnergy, measuredCoreMidsBandEnergy, measuredPresenceBandEnergy, measuredAirBandEnergy].every(v => v !== undefined && v !== null);
   const contextSummary = `
 Parent category context already determined:
 - Engagement Power score: ${parsedCritique?.scores?.commercialReadiness}, notes: ${parsedCritique?.mixQuality?.dominanceIssues}
@@ -313,6 +320,7 @@ Parent category context already determined:
 - Measured Stereo Phase Correlation: ${measuredStereoCorrelation !== undefined && measuredStereoCorrelation !== null ? measuredStereoCorrelation : "not available"}
 - Measured Sibilance Severity Score: ${measuredSibilanceSeverity !== undefined && measuredSibilanceSeverity !== null ? measuredSibilanceSeverity : "not available"}
 - Measured Timbral Consistency Score: ${measuredTimbralConsistency !== undefined && measuredTimbralConsistency !== null ? measuredTimbralConsistency : "not available"}
+- Measured Spectral Band Profile (0-100 relative energy per band, real FFT measurement, not a guess): ${bandsAvailable ? `Sub-Bass (20-64Hz): ${measuredSubBassBandEnergy}, Bass (64-250Hz): ${measuredBassBandEnergy}, Low-Mids (250Hz-1kHz): ${measuredLowMidsBandEnergy}, Core Mids (1-4kHz): ${measuredCoreMidsBandEnergy}, Presence (4-8kHz): ${measuredPresenceBandEnergy}, Air (8-20kHz): ${measuredAirBandEnergy}` : "not available"}
 
 Listen to the actual audio again and generate specific, deduction-based sub-metric scores and commentary for each of the 12 required fields, consistent with the above context but grounded in what you actually hear this time.
 
@@ -1125,6 +1133,36 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       ? parseFloat(vocalDynamicsRaw)
       : undefined;
 
+    const subBassBandEnergyRaw = req.body.subBassBandEnergy;
+    const subBassBandEnergy = (subBassBandEnergyRaw !== undefined && subBassBandEnergyRaw !== null && subBassBandEnergyRaw !== "")
+      ? parseFloat(subBassBandEnergyRaw)
+      : undefined;
+
+    const bassBandEnergyRaw = req.body.bassBandEnergy;
+    const bassBandEnergy = (bassBandEnergyRaw !== undefined && bassBandEnergyRaw !== null && bassBandEnergyRaw !== "")
+      ? parseFloat(bassBandEnergyRaw)
+      : undefined;
+
+    const lowMidsBandEnergyRaw = req.body.lowMidsBandEnergy;
+    const lowMidsBandEnergy = (lowMidsBandEnergyRaw !== undefined && lowMidsBandEnergyRaw !== null && lowMidsBandEnergyRaw !== "")
+      ? parseFloat(lowMidsBandEnergyRaw)
+      : undefined;
+
+    const coreMidsBandEnergyRaw = req.body.coreMidsBandEnergy;
+    const coreMidsBandEnergy = (coreMidsBandEnergyRaw !== undefined && coreMidsBandEnergyRaw !== null && coreMidsBandEnergyRaw !== "")
+      ? parseFloat(coreMidsBandEnergyRaw)
+      : undefined;
+
+    const presenceBandEnergyRaw = req.body.presenceBandEnergy;
+    const presenceBandEnergy = (presenceBandEnergyRaw !== undefined && presenceBandEnergyRaw !== null && presenceBandEnergyRaw !== "")
+      ? parseFloat(presenceBandEnergyRaw)
+      : undefined;
+
+    const airBandEnergyRaw = req.body.airBandEnergy;
+    const airBandEnergy = (airBandEnergyRaw !== undefined && airBandEnergyRaw !== null && airBandEnergyRaw !== "")
+      ? parseFloat(airBandEnergyRaw)
+      : undefined;
+
     const chordProgressionSummary = req.body.chordProgressionSummary || undefined;
     const melodySummary = req.body.melodySummary || undefined;
 
@@ -1155,7 +1193,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 
     try {
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
-      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency);
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, subBassBandEnergy, bassBandEnergy, lowMidsBandEnergy, coreMidsBandEnergy, presenceBandEnergy, airBandEnergy);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
@@ -1226,7 +1264,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 // 3. Direct URL Audio Critique API
 app.post("/api/critique-url", async (req, res) => {
   try {
-    const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre, chromagramImage, rhythmImage, spectrogramImage, stereoCorrelation: rawStereoCorrelation, sibilanceSeverity: rawSibilanceSeverity, timbralConsistency: rawTimbralConsistency, gridCohesion: rawGridCohesion, transientPunch: rawTransientPunch, melodicStaging: rawMelodicStaging, instrumentalWarmth: rawInstrumentalWarmth, vocalDynamics: rawVocalDynamics } = req.body;
+    const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre, chromagramImage, rhythmImage, spectrogramImage, stereoCorrelation: rawStereoCorrelation, sibilanceSeverity: rawSibilanceSeverity, timbralConsistency: rawTimbralConsistency, gridCohesion: rawGridCohesion, transientPunch: rawTransientPunch, melodicStaging: rawMelodicStaging, instrumentalWarmth: rawInstrumentalWarmth, vocalDynamics: rawVocalDynamics, subBassBandEnergy: rawSubBassBandEnergy, bassBandEnergy: rawBassBandEnergy, lowMidsBandEnergy: rawLowMidsBandEnergy, coreMidsBandEnergy: rawCoreMidsBandEnergy, presenceBandEnergy: rawPresenceBandEnergy, airBandEnergy: rawAirBandEnergy } = req.body;
     const chordProgressionSummary = req.body.chordProgressionSummary || undefined;
     const melodySummary = req.body.melodySummary || undefined;
     const metaGenre = isPlaceholderGenre(rawMetaGenre) ? "" : rawMetaGenre;
@@ -1253,6 +1291,24 @@ app.post("/api/critique-url", async (req, res) => {
       : undefined;
     const vocalDynamics = (rawVocalDynamics !== undefined && rawVocalDynamics !== null && rawVocalDynamics !== "")
       ? parseFloat(rawVocalDynamics)
+      : undefined;
+    const subBassBandEnergy = (rawSubBassBandEnergy !== undefined && rawSubBassBandEnergy !== null && rawSubBassBandEnergy !== "")
+      ? parseFloat(rawSubBassBandEnergy)
+      : undefined;
+    const bassBandEnergy = (rawBassBandEnergy !== undefined && rawBassBandEnergy !== null && rawBassBandEnergy !== "")
+      ? parseFloat(rawBassBandEnergy)
+      : undefined;
+    const lowMidsBandEnergy = (rawLowMidsBandEnergy !== undefined && rawLowMidsBandEnergy !== null && rawLowMidsBandEnergy !== "")
+      ? parseFloat(rawLowMidsBandEnergy)
+      : undefined;
+    const coreMidsBandEnergy = (rawCoreMidsBandEnergy !== undefined && rawCoreMidsBandEnergy !== null && rawCoreMidsBandEnergy !== "")
+      ? parseFloat(rawCoreMidsBandEnergy)
+      : undefined;
+    const presenceBandEnergy = (rawPresenceBandEnergy !== undefined && rawPresenceBandEnergy !== null && rawPresenceBandEnergy !== "")
+      ? parseFloat(rawPresenceBandEnergy)
+      : undefined;
+    const airBandEnergy = (rawAirBandEnergy !== undefined && rawAirBandEnergy !== null && rawAirBandEnergy !== "")
+      ? parseFloat(rawAirBandEnergy)
       : undefined;
     if (!ai) {
       return res.status(500).json({ error: "Gemini API Client is not configured." });
@@ -1321,7 +1377,7 @@ app.post("/api/critique-url", async (req, res) => {
 
     try {
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
-      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency);
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, subBassBandEnergy, bassBandEnergy, lowMidsBandEnergy, coreMidsBandEnergy, presenceBandEnergy, airBandEnergy);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
       parsedCritique.subMetricsCall1Failed = false;
     } catch (subErr: any) {
