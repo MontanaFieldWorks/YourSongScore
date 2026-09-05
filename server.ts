@@ -233,7 +233,7 @@ For each sub-metric, start at a baseline of 100. Subtract points only for specif
 
 FIELD DEFINITIONS:
 - dynamicVariety: measures whether the song's energy and intensity shift meaningfully across its runtime (verse-to-chorus lift, breakdowns, builds), rather than remaining flat and static throughout. RUBRIC ANCHOR: a score of 90-100 requires genuinely distinct, well-defined energy shifts between sections - a listener could identify section boundaries by energy alone. A score of 70-89 applies when there is real, audible variation but it's more subtle or limited to one clear shift rather than a sustained arc. Below 70 is reserved for a track that genuinely stays at one consistent energy level throughout - a real, legitimate outcome for some driving, relentless-by-design genres and not automatically a flaw, but should be scored honestly when it's genuinely the case.
-- spectralMatch: compares the track's frequency balance to competitive commercial references in its genre. IMPORTANT - a real, precomputed 6-band frequency energy measurement for this track will be provided in the context above as 'Measured Spectral Band Profile' (0-100 relative energy per band: Sub-Bass, Bass, Low-Mids, Core Mids, Presence, Air - a genuine FFT measurement, not a guess). Use this real profile as your factual anchor for what the track's actual frequency balance is - your genre-aware judgment (below) determines whether that real profile fits genre expectations or represents a genuine imbalance, but the underlying facts about energy distribution should come from this measurement, not invented from listening alone. If the measured profile shows heavy low-mid or bass energy alongside a genre where that is a known intentional signature (see below), that is real evidence supporting a high score, not grounds for inventing a masking complaint.
+- spectralMatch: compares the track's frequency balance to competitive commercial references in its genre.
 CRITICAL DIRECTIVE - GENRE INTENT VS. TECHNICAL DEFECT:
 Never confuse intentional stylistic tone curves with technical defects.
 - Intentional Sonic Identity: Heavy low-frequency density and controlled weight in the 150-400Hz range is a signature characteristic of modern dark pop (e.g. Billie Eilish, Finneas, Lorde), modern R&B, synth-pop, and bedroom pop. When paired with hyper-intimate or articulate lead vocals, this low-mid weight creates an intentional, atmospheric, and intimate listening experience. Similarly, massive sub-bass underpins modern hip-hop/trap, warm analog mid-bass defines 80s retro synth-pop, and warm lower-mids provide body in acoustic indie/folk.
@@ -247,10 +247,67 @@ RUBRIC ANCHORS FOR SPECTRAL MATCH:
 - Below 70: Structural spectral failure (severe boxiness, deafening harshness, completely missing bottom end or unlistenable boominess).
 
 MANDATORY JUSTIFICATION GATE FOR SPECTRAL MATCH:
-Before assigning a score below 90 for spectralMatch, ask: 'Can I identify an actual acoustic conflict where instruments mask each other or sound uncomfortably harsh/dull relative to genre norms - one that the Measured Spectral Band Profile is consistent with, not one that contradicts it?' 
+Before assigning a score below 90 for spectralMatch, ask: 'Can I identify an actual acoustic conflict where instruments mask each other or sound uncomfortably harsh/dull relative to genre norms?'
 If NO: The track is commercially viable and must score in the 90-100 range. Commentary should validate the frequency distribution and explain why it translates well for the genre.
-If YES: Name the exact conflicting elements and audible masking issue, and confirm it is consistent with the measured band profile rather than inventing a claim the real data doesn't support.
-- paletteCohesion, aestheticDesign, spaceAndDensity: production/arrangement quality judgments as previously defined.
+If YES: Name the exact conflicting elements and audible masking issue.
+
+RUBRIC ANCHOR FOR AESTHETIC DESIGN: this metric sits inside Production Index, part of Streaming Readiness - it measures algorithmic and commercial fitness (will this sound right to a playlist curator or streaming algorithm), NOT artistic novelty or creative ambition. A track that is clean, professional, and genre-correct is exactly what this metric should reward highly, because that IS what makes a track algorithmically safe and playlist-ready - competent, correct execution is the goal here, not a lesser consolation prize next to something more experimental.
+- Score 95-100: Exceptional modern commercial execution. Production choices exhibit intentional signature sound design, pristine sample selection, and cutting-edge genre-accurate engineering that would stand out on top editorial playlists.
+- Score 90-94: Solid, release-ready commercial standard. Clean, professional, textbook-correct production for the genre. Well-chosen presets, balanced processing, and appropriate instrumentation with no audible amateurish flaws.
+- Score 70-89: Functional production, but with an identifiable production choice that falls short of commercial genre standards (e.g., dated default synthesizer sound, unshaped plastic drum samples, or slightly awkward arrangement staging). Must name the specific instrument or production element.
+- Below 70: Structural production shortcomings (amateurish sound design, severely conflicting era choices, poor gain staging, or audible uncontrolled processing distortion/pumping).
+
+AESTHETIC DESIGN CALIBRATION EXAMPLES:
+- Example landing at 97: 'The production combines a heavily saturated, tape-warped drum bus with an unusually dry, close-mic'd vocal that sits almost uncomfortably forward in the mix - a specific, identifiable sonic signature that would be recognizable even with the vocals removed.'
+- Example landing at 92: 'The production is clean, professional, and textbook-correct for the genre - well-balanced reverb, standard stereo-widened guitars, conventional vocal compression. Nothing here would sound out of place on dozens of similar releases, and nothing about the execution falls short of professional genre standards.'
+- Example landing at 78: 'Generally well-tracked, but the secondary arpeggiated synth utilizes a harsh, unshaped stock preset whose plastic digital character feels out of place against the warm analog rhythm section.'
+- Example landing at 65: 'The production relies on default-sounding presets and a poorly-controlled loudness-war master that introduces audible pumping - a genuine technical shortcoming, not simply a lack of distinctiveness.'
+
+AESTHETIC DESIGN - MANDATORY JUSTIFICATION STRUCTURE: before assigning a numeric score for aestheticDesign, you must first explicitly answer this question in your own reasoning: 'Can I name one specific, real problem with this production - amateurish execution, poor genre fit, a muddled or confused choice, or a genuine technical shortcoming?'
+If NO - meaning the production is clean, professional, and genre-appropriate with no real flaw you can name - your score MUST land in the 90-100 range, regardless of whether anything about it is especially distinctive. Being unremarkable is not a flaw for this metric.
+If YES - your commentary MUST name that specific real problem explicitly, and your score should land below 90, proportional to how significant the problem is.
+If, additionally, you can name a specific distinctive sonic signature (per the calibration examples above), that pushes an already-90+ score further toward the top of the range (95-100) - but its absence never justifies scoring below 90 on its own.
+This is a binary gate: your own commentary must be internally consistent with your score. If your commentary names no real problem, a score below 90 is a contradiction and not permitted.
+
+RUBRIC ANCHOR FOR SPACE & DENSITY: evaluates the arrangement's use of negative space, element separation, dynamic density shifts between sections, and avoidance of acoustic crowding across the soundstage.
+- Score 95-100: Masterful arrangement economy and spatial staging. Dynamic use of negative space gives focal elements pristine breathing room in intimate sections, while dense climactic passages layer multi-tracked textures with surgical pocketing and zero masking.
+- Score 90-94: Release-ready commercial arrangement. Every element has an identifiable pocket and audible separation. Even when the mix is full, instruments stay distinct without acoustic clutter.
+- Score 70-89: Functional arrangement, but with at least one identifiable moment or section where elements collide—for instance, rhythm guitars and synths overlapping in the 800Hz-2kHz range during the chorus, slightly burying the vocal. Must name the conflicting elements and specific section.
+- Below 70: Chronic arrangement congestion throughout. Continuous, wall-to-wall instrumentation with no negative space, persistent frequency collisions, and fatigued listening dynamics.
+
+CRITICAL GENRE DIRECTIVE FOR SPACE & DENSITY: Intentional arrangement density (e.g., shoegaze wall-of-sound, maximalist pop, dense cinematic synth-pop, dark pop, trap/hip-hop with layered 808s and ad-libs, heavy rock/metal) is a deliberate artistic choice. When a dense arrangement maintains clarity of parts, clear vocal focus, and controlled masking, it represents elite arrangement craft (90-100), NOT crowding. Deductions below 90 are reserved exclusively for unintended clutter, masking, or fatigue.
+CROSS-REFERENCE WITH MEASURED SPECTRAL DISTRIBUTION: When 'Measured Spectral Band Distribution' is provided in the context, check whether energy is distributed across sub-bass, bass, low-mids, core-mids, presence, and air in a balanced manner, confirming that density is structurally supported across the frequency spectrum rather than bottlenecked into an overcrowded band.
+
+SPACE & DENSITY CALIBRATION EXAMPLES:
+- Example landing at 97: 'Masterful arrangement economy. Verses maintain generous negative space with a dry, intimate vocal and sparse percussion, allowing the chorus to introduce stacked stereo synths and guitars that explode with immense scale while retaining surgical separation.'
+- Example landing at 92: 'Clean commercial arrangement. Elements are distributed across dedicated stereo and frequency pockets; backing pads and rhythm tracks leave clear center-stage breathing room for the vocal to command full attention.'
+- Example landing at 78: 'Good foundational balance, but the final chorus accumulates competing rhythm elements and synth pads in the 800Hz-2kHz zone that fight for the exact same acoustic space, slightly masking the vocal.'
+- Example landing at 62: 'Persistent, structural crowding throughout. Too many sustained polyphonic elements play continuously without dynamic breathing room or sectional thinning, fatiguing the listener.'
+
+SPACE & DENSITY - MANDATORY JUSTIFICATION STRUCTURE: before assigning a numeric score for spaceAndDensity, you must first explicitly answer this question in your own reasoning: 'Can I identify an actual section or moment where competing instruments mask each other or crowd the soundstage without intentional artistic purpose?'
+If NO: The track manages space effectively and MUST score in the 90-100 range. Commentary should validate the arrangement's spatial discipline and effective use of negative space or density.
+If YES: Commentary MUST explicitly name the colliding instruments and the specific section.
+
+RUBRIC ANCHOR FOR PALETTE COHESION: evaluates whether instrument textures, synthesizers, acoustic recordings, drum samples, and spatial reverbs sound like they belong to the same cohesive acoustic universe.
+IMPORTANT - a real, precomputed timbral consistency measurement for this track is provided in the context below as 'Measured Timbral Consistency Score' (0-100, where higher = the track's overall tonal/textural character stays more consistent throughout). You MUST treat this measured value as the primary, authoritative anchor for the paletteCohesion score (measured 90-100 -> score 90-100; measured 70-89 -> score 70-89; measured 50-69 -> score 50-69; below 50 -> score below 50). Qualitative listening provides specific descriptive details (e.g. which instrument families unite or diverge).
+- Score 95-100: Flawless timbral synergy. Every drum transient, acoustic element, synthesizer patch, and reverberant tail shares a unified sonic DNA, complementary frequency weighting, and matching room acoustics, creating an immersive, high-budget soundstage.
+- Score 90-94: Solid commercial cohesion. Instrumentation speaks a unified genre-appropriate language. Drums, bass, keys, and vocal reverbs integrate smoothly without distracting sonic outliers.
+- Score 70-89: Generally cohesive, but contains one identifiable acoustic outlier—such as a snare sample whose boxy, dry acoustic character stands apart awkwardly from the lush, expansive reverb applied to the lead vocals and synth pads. Must name the specific outlier.
+- Below 70: Mismatched, jarring sound collage. Instruments and samples from conflicting eras and discordant acoustic environments clash noticeably, sounding disjointed.
+
+CRITICAL DIRECTIVE FOR PALETTE COHESION: SECTIONAL CONTRAST VS. TEXTURAL INCOHERENCE:
+Sectional contrast (e.g., an intimate acoustic guitar intro leading into full electronic drums, or a breakdown featuring a solo grand piano) is musical arrangement and dynamic storytelling, NOT palette incoherence.
+True incoherence happens when elements within the same section clash in room acoustics (e.g., a completely dry, direct-injected rhythm element jarringly juxtaposed against drenched cavernous reverbs without stylistic intent) or sound like incompatible, mismatched sample pack scraps from conflicting eras.
+
+PALETTE COHESION CALIBRATION EXAMPLES:
+- Example landing at 98: 'Flawless timbral synergy. Every drum transient, analog synth pad, and vocal reverb shares the same warm, cohesive spatial signature, creating an immersive and unified sonic world.'
+- Example landing at 92: 'Cohesive commercial sound selection. The drums, bass, and key layers speak the same modern production language with consistent room imaging and complementary frequency profiles.'
+- Example landing at 76: 'Mostly cohesive, but the snare sample carries an unusually dry, boxy acoustic character that stands apart awkwardly from the lush, expansive reverb applied to the lead vocals and synths.'
+- Example landing at 55: 'Disjointed sound palette. Elements sound like disparate sample packs pasted together with contradictory room dimensions and clashing production eras.'
+
+PALETTE COHESION - MANDATORY JUSTIFICATION STRUCTURE: before assigning a numeric score for paletteCohesion, you must first explicitly answer this question in your own reasoning: 'Can I identify an actual instrument, sample, or acoustic space that noticeably clashes with or detracts from the track's sonic world?'
+If NO: Score MUST land in the 90-100 range (aligned with measured timbral consistency). Commentary should highlight how the palette components complement each other.
+If YES: Commentary MUST explicitly name the clashing instrument/sample and the specific textural mismatch.
 
 FIELD DEFINITION - hookPlacement (part of compositionFlowSubs): judges whether the song's main hook/chorus arrives at an effective point in the structure - not too late to lose the listener, not so abrupt it undercuts the build. This is a genuinely significant metric - it is the single largest ingredient (60%) in the Commercial Impact score. RUBRIC ANCHOR: a score of 90-100 requires the hook to land at a genuinely well-judged moment with the preceding build (however long or short) making its arrival feel earned - name the approximate timing and why it works. A score of 70-89 applies when the hook placement is functional and reasonable but not particularly well set up or particularly fast/effective - a normal, common outcome. Below 70 is reserved for hook placement with a real, specific problem - arriving so late the song risks losing the listener first, or so abruptly that it undercuts its own impact.
 
@@ -260,33 +317,13 @@ FIELD DEFINITION - vocalTracking (parent score): this score should genuinely ref
 
 FIELD DEFINITION - instrumentalStaging (parent score): this score should genuinely reflect the constellation of its own sub-metrics (timelineGridCohesion, transientPunch, melodicStaging, instrumentalWarmth) rather than an independent holistic guess - if your sub-scores for this track are mixed, your parent score and commentary should reflect that mix specifically, not default to a generic summary that doesn't match the sub-metric picture.
 
-RUBRIC ANCHOR FOR AESTHETIC DESIGN: this metric sits inside Production Index, part of Streaming Readiness - it measures algorithmic and commercial fitness (will this sound right to a playlist curator or streaming algorithm), NOT artistic novelty or creative ambition. A track that is clean, professional, and genre-correct is exactly what this metric should reward highly, because that IS what makes a track algorithmically safe and playlist-ready - competent, correct execution is the goal here, not a lesser consolation prize next to something more experimental. A score of 90-100 is the correct default for production that is clean, professional, and genuinely fits its genre's sonic expectations - genuine stylistic distinctiveness (a standout sonic identity or production choice) can be noted as a bonus within this band, but is not required to reach it. Reserve scores below 90 only for real, specific problems: amateurish execution, poor genre fit, muddled or confused production choices, or genuine technical shortcomings - never simply for being "conventional" or "textbook," since sounding correct for the genre is the actual goal, not a shortfall. If your own commentary describes the production as clean, professional, and fitting the genre with no named flaw, that alone supports a 90+ score - do not hold the score down just because nothing unusual was noted.
-
-AESTHETIC DESIGN CALIBRATION EXAMPLES - these are real examples showing how this field should be scored. Use these as anchors for where your own scores should land, not as scores to copy for unrelated tracks:
-- Example landing at 97: 'The production combines a heavily saturated, tape-warped drum bus with an unusually dry, close-mic'd vocal that sits almost uncomfortably forward in the mix - a specific, identifiable sonic signature that would be recognizable even with the vocals removed.'
-- Example landing at 92: 'The production is clean, professional, and textbook-correct for the genre - well-balanced reverb, standard stereo-widened guitars, conventional vocal compression. Nothing here would sound out of place on dozens of similar releases, and nothing about the execution falls short of professional genre standards.'
-- Example landing at 65: 'The production relies on default-sounding presets and a poorly-controlled loudness-war master that introduces audible pumping - a genuine technical shortcoming, not simply a lack of distinctiveness.'
-Both the 97 and 92 examples describe well-executed, professional production - the difference between them is the presence of a specific, describable signature, not the presence or absence of any flaw. Only the 65 example, which names a real technical problem, belongs meaningfully lower.
-
-AESTHETIC DESIGN - MANDATORY JUSTIFICATION STRUCTURE: before assigning a numeric score for aestheticDesign, you must first explicitly answer this question in your own reasoning: 'Can I name one specific, real problem with this production - amateurish execution, poor genre fit, a muddled or confused choice, or a genuine technical shortcoming?'
-
-If NO - meaning the production is clean, professional, and genre-appropriate with no real flaw you can name - your score MUST land in the 90-100 range, regardless of whether anything about it is especially distinctive. Being unremarkable is not a flaw for this metric.
-
-If YES - your commentary MUST name that specific real problem explicitly, and your score should land below 90, proportional to how significant the problem is.
-
-If, additionally, you can name a specific distinctive sonic signature (per the calibration examples above), that pushes an already-90+ score further toward the top of the range - but its absence never justifies scoring below 90 on its own.
-
-This is a binary gate, not a suggestion: your own commentary must be internally consistent with your score. If your commentary names no real problem, a score below 90 is a contradiction and not permitted.
-
-RUBRIC ANCHOR FOR SPACE & DENSITY: a score of 90-100 requires a mix that gives every element clear breathing room with intentional, audible space between parts even in dense sections - genuinely uncrowded at every moment. A score of 70-85 is appropriate for a mix that is reasonably uncluttered but has at least one section or moment where multiple elements compete for the same sonic space without clear separation. Below 70 is reserved for mixes with persistent, structural crowding throughout, not just an isolated moment. Differentiate within these bands based on how many distinct crowding moments you can specifically point to, and how severe they are - do not default to the same score for every track that has "some" crowding.
-
 RUBRIC ANCHOR FOR MUD PREVENTION: measures the absence of uncontrolled frequency masking in the 150-400Hz range.
 CRITICAL DISTINCTION: Low-mid warmth, body, and heavy harmonic density are deliberate, desirable signatures in many genres (dark pop, indie rock, R&B, synth-pop). Thick, warm, or heavy low-mids are ONLY considered 'mud' if there is genuine, audible masking that buries the lead vocal, blurs pitch definition of the bass, or muffles drum attack. If the vocal is intimately clear and drums/synths retain their articulation (even in a heavy, dark, or warm mix), mud prevention is successful and must score 90-100. Reserve deductions below 90 ONLY for tracks where instruments genuinely clash into an indistinct, boomy blur.
 
 RUBRIC ANCHOR FOR MIDRANGE SPACING: a score of 90-100 requires the midrange (roughly 500Hz to 4kHz) content to stay clearly separated between instruments at all times - lead vocals, primary hooks, and backing synths or guitars each occupy distinguishable space with no persistent clash. A score of 70-85 applies when the mix is generally functional but has at least one identifiable moment where two or more elements genuinely overlap and blur together - name the specific elements. Below 70 is reserved for mixes with structural, persistent crowding throughout.
 
 RUBRIC ANCHOR FOR LOW-END DIVISION: a score of 90-100 requires the kick drum and bass (synth bass, 808, or bass guitar) to occupy clearly separated frequency pockets with both audible and distinct throughout - neither one masking or swallowing the other. In modern dark pop, hip-hop, or synthwave, powerful low-end with sustained bass notes that underpin punchy transients represents elite low-end engineering (90-100), not an overlap problem. A score of 70-85 applies when the low end is generally functional but has at least one section where the bass and kick blur together or one becomes hard to distinguish from the other. Below 70 is reserved for a persistent, structural failure of separation - one element (most commonly the bass) is genuinely difficult to hear as a distinct part for most of the track, buried under or merged with the other low-frequency content.
-- paletteCohesion: IMPORTANT - a real, precomputed timbral consistency measurement for this track will be provided in the context below as 'Measured Timbral Consistency Score'. This is a genuine, objective measurement (0-100, where higher = the track's overall tonal/textural character stays more consistent throughout, lower = more drastic shifts in sonic texture across the track), not a guess. You MUST treat this measured value as the primary, authoritative basis for the paletteCohesion score - use your own listening impression only as a secondary, qualitative supplement in the commentary (e.g. naming which specific elements feel mismatched), not as a basis for overriding what the measurement shows. This metric sits inside Production Index, part of Streaming Readiness - it measures whether the instrumentation genuinely works together, not whether that palette is creatively unusual. RUBRIC ANCHOR: map the measured value to your score directly - measured 90-100 -> score 90-100; measured 70-89 -> score 70-89; measured 50-69 -> score 50-69; below 50 -> score below 50. A genuinely high measured consistency score should map directly to a high score without requiring anything beyond that consistency itself - do not hold a score down from its measured value just because the commentary has nothing further remarkable to add. If the measured value lands at or near 100, the commentary must still name a specific, real, honest reason for wherever the final score falls short of 100 (per the general commentary rules above) - but that reason should reflect a genuine textural observation, not an invented flaw.
+
 - sibilanceShaving: IMPORTANT - a real, precomputed sibilance severity measurement for this track will be provided in the context below as 'Measured Sibilance Severity Score'. This is a genuine, objective measurement (0-100, where 100 = no detected harsh spikes in the 5-10kHz range, lower values = more/worse detected spikes), not a guess. You MUST treat this measured value as the primary, authoritative basis for the sibilanceShaving score - use your own listening impression only as a secondary, qualitative supplement in the commentary (e.g. identifying which specific words or moments sound harsh), not as a basis for overriding what the measurement shows. RUBRIC ANCHOR: map the measured value to your score directly and consistently - measured 90-100 -> score 90-100; measured 70-89 -> score 70-89; measured 50-69 -> score 50-69; below 50 -> score below 50. Do not compress the measured value toward a "safe middle" score - a genuinely low measured value must produce a genuinely low score, even for a well-known or otherwise well-produced track. A professionally released, well-mixed track can still have real, measured sibilance issues (e.g. a mixing engineer choosing to actively de-ess a vocal is direct evidence that real sibilance existed before correction) - this is common and does not imply the whole mix is bad.
 - stereoWidth: judges the width and spatial use of the stereo field - is the mix appropriately wide (backing elements, reverbs, doubled parts spread across the stereo image) without being so wide that mono compatibility or center-focus suffers? A narrow, cramped stereo image should score lower; an artificially over-widened or phase-incoherent image should also score lower. Judge this from what you actually hear in the stereo image, not from any external measurement. IMPORTANT - a real, precomputed phase correlation measurement for this track will be provided in the context below as 'Measured Stereo Phase Correlation'. This is a genuine, objective measurement (not a guess) ranging from -1 (fully out of phase, will collapse or cancel in mono playback) to +1 (fully mono/identical channels), where values roughly between 0.15 and 0.85 represent a healthy, wide-but-mono-safe stereo field. You MUST treat this measured value as the primary, authoritative basis for the stereoWidth score - use your own listening impression only as a secondary, qualitative supplement in the commentary, not as a basis for overriding what the measurement shows. If the measured value indicates phase issues (below 0 or above 0.9), the score must reflect that clearly regardless of how the mix subjectively sounds. RUBRIC ANCHOR: correlation in the 0.35-0.75 range (a wide, deliberate, mono-safe stereo field) -> score 85-100. Correlation 0.15-0.34 or 0.76-0.85 (usable but narrower or tighter than ideal) -> score 65-84. Correlation below 0.15 (too narrow/cramped) or above 0.85 (too mono-collapsed to register as "wide") -> score 40-64. Correlation below 0 or above 0.9 (genuine phase risk) -> score below 40 regardless of how the mix subjectively sounds.
 
@@ -303,14 +340,19 @@ async function performSubMetricsCall1(
   measuredStereoCorrelation?: number,
   measuredSibilanceSeverity?: number,
   measuredTimbralConsistency?: number,
-  measuredSubBassBandEnergy?: number,
-  measuredBassBandEnergy?: number,
-  measuredLowMidsBandEnergy?: number,
-  measuredCoreMidsBandEnergy?: number,
-  measuredPresenceBandEnergy?: number,
-  measuredAirBandEnergy?: number
+  measuredBandEnergies?: {
+    subBass?: number;
+    bass?: number;
+    lowMids?: number;
+    coreMids?: number;
+    presence?: number;
+    air?: number;
+  }
 ): Promise<any> {
-  const bandsAvailable = [measuredSubBassBandEnergy, measuredBassBandEnergy, measuredLowMidsBandEnergy, measuredCoreMidsBandEnergy, measuredPresenceBandEnergy, measuredAirBandEnergy].every(v => v !== undefined && v !== null);
+  const bandEnergySummary = measuredBandEnergies
+    ? `Sub-Bass (20-60Hz): ${measuredBandEnergies.subBass ?? 'N/A'}%, Bass (60-250Hz): ${measuredBandEnergies.bass ?? 'N/A'}%, Low-Mids (250-500Hz): ${measuredBandEnergies.lowMids ?? 'N/A'}%, Core Mids (500-2kHz): ${measuredBandEnergies.coreMids ?? 'N/A'}%, Presence (2-6kHz): ${measuredBandEnergies.presence ?? 'N/A'}%, Air (6-20kHz): ${measuredBandEnergies.air ?? 'N/A'}%`
+    : "not available";
+
   const contextSummary = `
 Parent category context already determined:
 - Engagement Power score: ${parsedCritique?.scores?.commercialReadiness}, notes: ${parsedCritique?.mixQuality?.dominanceIssues}
@@ -319,8 +361,8 @@ Parent category context already determined:
 - Song Title Searchability score: ${parsedCritique?.titleSearchability?.score}, uniqueness: ${parsedCritique?.titleSearchability?.uniquenessLevel}
 - Measured Stereo Phase Correlation: ${measuredStereoCorrelation !== undefined && measuredStereoCorrelation !== null ? measuredStereoCorrelation : "not available"}
 - Measured Sibilance Severity Score: ${measuredSibilanceSeverity !== undefined && measuredSibilanceSeverity !== null ? measuredSibilanceSeverity : "not available"}
-- Measured Timbral Consistency Score: ${measuredTimbralConsistency !== undefined && measuredTimbralConsistency !== null ? measuredTimbralConsistency : "not available"}
-- Measured Spectral Band Profile (0-100 relative energy per band, real FFT measurement, not a guess): ${bandsAvailable ? `Sub-Bass (20-64Hz): ${measuredSubBassBandEnergy}, Bass (64-250Hz): ${measuredBassBandEnergy}, Low-Mids (250Hz-1kHz): ${measuredLowMidsBandEnergy}, Core Mids (1-4kHz): ${measuredCoreMidsBandEnergy}, Presence (4-8kHz): ${measuredPresenceBandEnergy}, Air (8-20kHz): ${measuredAirBandEnergy}` : "not available"}
+- Measured Timbral Consistency Score: ${measuredTimbralConsistency !== undefined && measuredTimbralConsistency !== null ? measuredTimbralConsistency : "not available"} (Primary authoritative basis for Palette Cohesion)
+- Measured Spectral Band Distribution: ${bandEnergySummary} (Objective frequency energy profile informing Space & Density, Mud Prevention, and Spectral Match)
 
 Listen to the actual audio again and generate specific, deduction-based sub-metric scores and commentary for each of the 12 required fields, consistent with the above context but grounded in what you actually hear this time.
 
@@ -1133,35 +1175,33 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       ? parseFloat(vocalDynamicsRaw)
       : undefined;
 
-    const subBassBandEnergyRaw = req.body.subBassBandEnergy;
-    const subBassBandEnergy = (subBassBandEnergyRaw !== undefined && subBassBandEnergyRaw !== null && subBassBandEnergyRaw !== "")
-      ? parseFloat(subBassBandEnergyRaw)
+    const subBassBandEnergy = (req.body.subBassBandEnergy !== undefined && req.body.subBassBandEnergy !== null && req.body.subBassBandEnergy !== "")
+      ? parseFloat(req.body.subBassBandEnergy)
+      : undefined;
+    const bassBandEnergy = (req.body.bassBandEnergy !== undefined && req.body.bassBandEnergy !== null && req.body.bassBandEnergy !== "")
+      ? parseFloat(req.body.bassBandEnergy)
+      : undefined;
+    const lowMidsBandEnergy = (req.body.lowMidsBandEnergy !== undefined && req.body.lowMidsBandEnergy !== null && req.body.lowMidsBandEnergy !== "")
+      ? parseFloat(req.body.lowMidsBandEnergy)
+      : undefined;
+    const coreMidsBandEnergy = (req.body.coreMidsBandEnergy !== undefined && req.body.coreMidsBandEnergy !== null && req.body.coreMidsBandEnergy !== "")
+      ? parseFloat(req.body.coreMidsBandEnergy)
+      : undefined;
+    const presenceBandEnergy = (req.body.presenceBandEnergy !== undefined && req.body.presenceBandEnergy !== null && req.body.presenceBandEnergy !== "")
+      ? parseFloat(req.body.presenceBandEnergy)
+      : undefined;
+    const airBandEnergy = (req.body.airBandEnergy !== undefined && req.body.airBandEnergy !== null && req.body.airBandEnergy !== "")
+      ? parseFloat(req.body.airBandEnergy)
       : undefined;
 
-    const bassBandEnergyRaw = req.body.bassBandEnergy;
-    const bassBandEnergy = (bassBandEnergyRaw !== undefined && bassBandEnergyRaw !== null && bassBandEnergyRaw !== "")
-      ? parseFloat(bassBandEnergyRaw)
-      : undefined;
-
-    const lowMidsBandEnergyRaw = req.body.lowMidsBandEnergy;
-    const lowMidsBandEnergy = (lowMidsBandEnergyRaw !== undefined && lowMidsBandEnergyRaw !== null && lowMidsBandEnergyRaw !== "")
-      ? parseFloat(lowMidsBandEnergyRaw)
-      : undefined;
-
-    const coreMidsBandEnergyRaw = req.body.coreMidsBandEnergy;
-    const coreMidsBandEnergy = (coreMidsBandEnergyRaw !== undefined && coreMidsBandEnergyRaw !== null && coreMidsBandEnergyRaw !== "")
-      ? parseFloat(coreMidsBandEnergyRaw)
-      : undefined;
-
-    const presenceBandEnergyRaw = req.body.presenceBandEnergy;
-    const presenceBandEnergy = (presenceBandEnergyRaw !== undefined && presenceBandEnergyRaw !== null && presenceBandEnergyRaw !== "")
-      ? parseFloat(presenceBandEnergyRaw)
-      : undefined;
-
-    const airBandEnergyRaw = req.body.airBandEnergy;
-    const airBandEnergy = (airBandEnergyRaw !== undefined && airBandEnergyRaw !== null && airBandEnergyRaw !== "")
-      ? parseFloat(airBandEnergyRaw)
-      : undefined;
+    const bandEnergies = (subBassBandEnergy !== undefined || bassBandEnergy !== undefined || lowMidsBandEnergy !== undefined) ? {
+      subBass: subBassBandEnergy,
+      bass: bassBandEnergy,
+      lowMids: lowMidsBandEnergy,
+      coreMids: coreMidsBandEnergy,
+      presence: presenceBandEnergy,
+      air: airBandEnergy
+    } : undefined;
 
     const chordProgressionSummary = req.body.chordProgressionSummary || undefined;
     const melodySummary = req.body.melodySummary || undefined;
@@ -1193,7 +1233,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 
     try {
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
-      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, subBassBandEnergy, bassBandEnergy, lowMidsBandEnergy, coreMidsBandEnergy, presenceBandEnergy, airBandEnergy);
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
@@ -1264,7 +1304,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 // 3. Direct URL Audio Critique API
 app.post("/api/critique-url", async (req, res) => {
   try {
-    const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre, chromagramImage, rhythmImage, spectrogramImage, stereoCorrelation: rawStereoCorrelation, sibilanceSeverity: rawSibilanceSeverity, timbralConsistency: rawTimbralConsistency, gridCohesion: rawGridCohesion, transientPunch: rawTransientPunch, melodicStaging: rawMelodicStaging, instrumentalWarmth: rawInstrumentalWarmth, vocalDynamics: rawVocalDynamics, subBassBandEnergy: rawSubBassBandEnergy, bassBandEnergy: rawBassBandEnergy, lowMidsBandEnergy: rawLowMidsBandEnergy, coreMidsBandEnergy: rawCoreMidsBandEnergy, presenceBandEnergy: rawPresenceBandEnergy, airBandEnergy: rawAirBandEnergy } = req.body;
+    const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre, chromagramImage, rhythmImage, spectrogramImage, stereoCorrelation: rawStereoCorrelation, sibilanceSeverity: rawSibilanceSeverity, timbralConsistency: rawTimbralConsistency, gridCohesion: rawGridCohesion, transientPunch: rawTransientPunch, melodicStaging: rawMelodicStaging, instrumentalWarmth: rawInstrumentalWarmth, vocalDynamics: rawVocalDynamics } = req.body;
     const chordProgressionSummary = req.body.chordProgressionSummary || undefined;
     const melodySummary = req.body.melodySummary || undefined;
     const metaGenre = isPlaceholderGenre(rawMetaGenre) ? "" : rawMetaGenre;
@@ -1292,24 +1332,35 @@ app.post("/api/critique-url", async (req, res) => {
     const vocalDynamics = (rawVocalDynamics !== undefined && rawVocalDynamics !== null && rawVocalDynamics !== "")
       ? parseFloat(rawVocalDynamics)
       : undefined;
-    const subBassBandEnergy = (rawSubBassBandEnergy !== undefined && rawSubBassBandEnergy !== null && rawSubBassBandEnergy !== "")
-      ? parseFloat(rawSubBassBandEnergy)
+
+    const subBassBandEnergy = (req.body.subBassBandEnergy !== undefined && req.body.subBassBandEnergy !== null && req.body.subBassBandEnergy !== "")
+      ? parseFloat(req.body.subBassBandEnergy)
       : undefined;
-    const bassBandEnergy = (rawBassBandEnergy !== undefined && rawBassBandEnergy !== null && rawBassBandEnergy !== "")
-      ? parseFloat(rawBassBandEnergy)
+    const bassBandEnergy = (req.body.bassBandEnergy !== undefined && req.body.bassBandEnergy !== null && req.body.bassBandEnergy !== "")
+      ? parseFloat(req.body.bassBandEnergy)
       : undefined;
-    const lowMidsBandEnergy = (rawLowMidsBandEnergy !== undefined && rawLowMidsBandEnergy !== null && rawLowMidsBandEnergy !== "")
-      ? parseFloat(rawLowMidsBandEnergy)
+    const lowMidsBandEnergy = (req.body.lowMidsBandEnergy !== undefined && req.body.lowMidsBandEnergy !== null && req.body.lowMidsBandEnergy !== "")
+      ? parseFloat(req.body.lowMidsBandEnergy)
       : undefined;
-    const coreMidsBandEnergy = (rawCoreMidsBandEnergy !== undefined && rawCoreMidsBandEnergy !== null && rawCoreMidsBandEnergy !== "")
-      ? parseFloat(rawCoreMidsBandEnergy)
+    const coreMidsBandEnergy = (req.body.coreMidsBandEnergy !== undefined && req.body.coreMidsBandEnergy !== null && req.body.coreMidsBandEnergy !== "")
+      ? parseFloat(req.body.coreMidsBandEnergy)
       : undefined;
-    const presenceBandEnergy = (rawPresenceBandEnergy !== undefined && rawPresenceBandEnergy !== null && rawPresenceBandEnergy !== "")
-      ? parseFloat(rawPresenceBandEnergy)
+    const presenceBandEnergy = (req.body.presenceBandEnergy !== undefined && req.body.presenceBandEnergy !== null && req.body.presenceBandEnergy !== "")
+      ? parseFloat(req.body.presenceBandEnergy)
       : undefined;
-    const airBandEnergy = (rawAirBandEnergy !== undefined && rawAirBandEnergy !== null && rawAirBandEnergy !== "")
-      ? parseFloat(rawAirBandEnergy)
+    const airBandEnergy = (req.body.airBandEnergy !== undefined && req.body.airBandEnergy !== null && req.body.airBandEnergy !== "")
+      ? parseFloat(req.body.airBandEnergy)
       : undefined;
+
+    const bandEnergies = (subBassBandEnergy !== undefined || bassBandEnergy !== undefined || lowMidsBandEnergy !== undefined) ? {
+      subBass: subBassBandEnergy,
+      bass: bassBandEnergy,
+      lowMids: lowMidsBandEnergy,
+      coreMids: coreMidsBandEnergy,
+      presence: presenceBandEnergy,
+      air: airBandEnergy
+    } : undefined;
+
     if (!ai) {
       return res.status(500).json({ error: "Gemini API Client is not configured." });
     }
@@ -1377,7 +1428,7 @@ app.post("/api/critique-url", async (req, res) => {
 
     try {
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
-      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, subBassBandEnergy, bassBandEnergy, lowMidsBandEnergy, coreMidsBandEnergy, presenceBandEnergy, airBandEnergy);
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
       parsedCritique.subMetricsCall1Failed = false;
     } catch (subErr: any) {
