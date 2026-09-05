@@ -1080,6 +1080,12 @@ export default function App() {
           formData.append("melodicStaging", String(earlyLiveMetrics?.calculatedMelodicStagingScore ?? ""));
           formData.append("instrumentalWarmth", String(earlyLiveMetrics?.calculatedInstrumentalWarmthScore ?? ""));
           formData.append("vocalDynamics", String(earlyLiveMetrics?.calculatedVocalDynamicsScore ?? ""));
+          formData.append("subBassBandEnergy", String(earlyLiveMetrics?.calculatedSubBassBandEnergy ?? ""));
+          formData.append("bassBandEnergy", String(earlyLiveMetrics?.calculatedBassBandEnergy ?? ""));
+          formData.append("lowMidsBandEnergy", String(earlyLiveMetrics?.calculatedLowMidsBandEnergy ?? ""));
+          formData.append("coreMidsBandEnergy", String(earlyLiveMetrics?.calculatedCoreMidsBandEnergy ?? ""));
+          formData.append("presenceBandEnergy", String(earlyLiveMetrics?.calculatedPresenceBandEnergy ?? ""));
+          formData.append("airBandEnergy", String(earlyLiveMetrics?.calculatedAirBandEnergy ?? ""));
           formData.append("chordProgressionSummary", chordProgressionSummary || "");
           formData.append("melodySummary", melodySummary || "");
           
