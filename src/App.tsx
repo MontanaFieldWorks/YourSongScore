@@ -1133,6 +1133,12 @@ export default function App() {
               melodicStaging: earlyLiveMetrics?.calculatedMelodicStagingScore ?? null,
               instrumentalWarmth: earlyLiveMetrics?.calculatedInstrumentalWarmthScore ?? null,
               vocalDynamics: earlyLiveMetrics?.calculatedVocalDynamicsScore ?? null,
+              subBassBandEnergy: earlyLiveMetrics?.calculatedSubBassBandEnergy ?? null,
+              bassBandEnergy: earlyLiveMetrics?.calculatedBassBandEnergy ?? null,
+              lowMidsBandEnergy: earlyLiveMetrics?.calculatedLowMidsBandEnergy ?? null,
+              coreMidsBandEnergy: earlyLiveMetrics?.calculatedCoreMidsBandEnergy ?? null,
+              presenceBandEnergy: earlyLiveMetrics?.calculatedPresenceBandEnergy ?? null,
+              airBandEnergy: earlyLiveMetrics?.calculatedAirBandEnergy ?? null,
               chordProgressionSummary: chordProgressionSummary,
               melodySummary: melodySummary
             }),
