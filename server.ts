@@ -233,7 +233,7 @@ For each sub-metric, start at a baseline of 100. Subtract points only for specif
 
 FIELD DEFINITIONS:
 - dynamicVariety: measures whether the song's energy and intensity shift meaningfully across its runtime (verse-to-chorus lift, breakdowns, builds), rather than remaining flat and static throughout. RUBRIC ANCHOR: a score of 90-100 requires genuinely distinct, well-defined energy shifts between sections - a listener could identify section boundaries by energy alone. A score of 70-89 applies when there is real, audible variation but it's more subtle or limited to one clear shift rather than a sustained arc. Below 70 is reserved for a track that genuinely stays at one consistent energy level throughout - a real, legitimate outcome for some driving, relentless-by-design genres and not automatically a flaw, but should be scored honestly when it's genuinely the case.
-- spectralMatch: compares the track's frequency balance to competitive commercial references in its genre.
+- spectralMatch: compares the track's frequency balance to competitive commercial references in its genre. IMPORTANT - a real, precomputed 6-band frequency energy measurement for this track is provided in the context above as 'Measured Spectral Band Distribution' (relative energy per band - Sub-Bass, Bass, Low-Mids, Core Mids, Presence, Air - a genuine FFT measurement, not a guess). You MUST treat this measured profile as your factual anchor for what the track's actual frequency balance is - your genre-aware judgment (below) determines whether that real profile fits genre expectations or represents a genuine imbalance, but the underlying facts about energy distribution must come from this measurement, not be invented from listening alone. If the measured profile shows heavy low-mid or bass energy alongside a genre where that is a known intentional signature (see below), that is real evidence supporting a high score, not grounds for inventing a masking complaint that contradicts the measurement.
 CRITICAL DIRECTIVE - GENRE INTENT VS. TECHNICAL DEFECT:
 Never confuse intentional stylistic tone curves with technical defects.
 - Intentional Sonic Identity: Heavy low-frequency density and controlled weight in the 150-400Hz range is a signature characteristic of modern dark pop (e.g. Billie Eilish, Finneas, Lorde), modern R&B, synth-pop, and bedroom pop. When paired with hyper-intimate or articulate lead vocals, this low-mid weight creates an intentional, atmospheric, and intimate listening experience. Similarly, massive sub-bass underpins modern hip-hop/trap, warm analog mid-bass defines 80s retro synth-pop, and warm lower-mids provide body in acoustic indie/folk.
@@ -247,9 +247,9 @@ RUBRIC ANCHORS FOR SPECTRAL MATCH:
 - Below 70: Structural spectral failure (severe boxiness, deafening harshness, completely missing bottom end or unlistenable boominess).
 
 MANDATORY JUSTIFICATION GATE FOR SPECTRAL MATCH:
-Before assigning a score below 90 for spectralMatch, ask: 'Can I identify an actual acoustic conflict where instruments mask each other or sound uncomfortably harsh/dull relative to genre norms?'
+Before assigning a score below 90 for spectralMatch, ask: 'Can I identify an actual acoustic conflict where instruments mask each other or sound uncomfortably harsh/dull relative to genre norms - one that the Measured Spectral Band Distribution is consistent with, not one that contradicts it?'
 If NO: The track is commercially viable and must score in the 90-100 range. Commentary should validate the frequency distribution and explain why it translates well for the genre.
-If YES: Name the exact conflicting elements and audible masking issue.
+If YES: Name the exact conflicting elements and audible masking issue, and confirm it is consistent with the measured band distribution rather than inventing a claim the real data doesn't support.
 
 RUBRIC ANCHOR FOR AESTHETIC DESIGN: this metric sits inside Production Index, part of Streaming Readiness - it measures algorithmic and commercial fitness (will this sound right to a playlist curator or streaming algorithm), NOT artistic novelty or creative ambition. A track that is clean, professional, and genre-correct is exactly what this metric should reward highly, because that IS what makes a track algorithmically safe and playlist-ready - competent, correct execution is the goal here, not a lesser consolation prize next to something more experimental.
 - Score 95-100: Exceptional modern commercial execution. Production choices exhibit intentional signature sound design, pristine sample selection, and cutting-edge genre-accurate engineering that would stand out on top editorial playlists.
@@ -350,7 +350,7 @@ async function performSubMetricsCall1(
   }
 ): Promise<any> {
   const bandEnergySummary = measuredBandEnergies
-    ? `Sub-Bass (20-60Hz): ${measuredBandEnergies.subBass ?? 'N/A'}%, Bass (60-250Hz): ${measuredBandEnergies.bass ?? 'N/A'}%, Low-Mids (250-500Hz): ${measuredBandEnergies.lowMids ?? 'N/A'}%, Core Mids (500-2kHz): ${measuredBandEnergies.coreMids ?? 'N/A'}%, Presence (2-6kHz): ${measuredBandEnergies.presence ?? 'N/A'}%, Air (6-20kHz): ${measuredBandEnergies.air ?? 'N/A'}%`
+    ? `Sub-Bass (20-64Hz): ${measuredBandEnergies.subBass ?? 'N/A'}%, Bass (64-250Hz): ${measuredBandEnergies.bass ?? 'N/A'}%, Low-Mids (250Hz-1kHz): ${measuredBandEnergies.lowMids ?? 'N/A'}%, Core Mids (1-4kHz): ${measuredBandEnergies.coreMids ?? 'N/A'}%, Presence (4-8kHz): ${measuredBandEnergies.presence ?? 'N/A'}%, Air (8-20kHz): ${measuredBandEnergies.air ?? 'N/A'}%`
     : "not available";
 
   const contextSummary = `
