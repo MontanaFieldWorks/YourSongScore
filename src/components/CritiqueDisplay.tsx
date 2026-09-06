@@ -5352,41 +5352,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
           {/* Key and BPM Row - Version 4 Harmonic Audit */}
           <div className="flex flex-col sm:flex-row gap-4 flex-wrap mt-1">
-            <div 
-              style={{ 
-                width: isMobile ? "100%" : "auto"
-              }}
-              className="bg-[#11131A] px-4 py-3 rounded-xl border border-blue-500/25 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-blue-500/50 transition-all flex items-center gap-2.5 whitespace-nowrap min-w-fit"
-            >
-              <div className="p-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
-                <Music4 className="w-4 h-4" />
-              </div>
-              <div className="flex flex-col text-left">
-                <span className="text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">Detected Key</span>
-                <div className="font-bold text-pink-400 text-sm mt-0.5 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-pink-500 shadow-[0_0_8px_#ec4899]" />
-                  <span>{getEstimatedKey().replace(" (TKEY)", "")}</span>
-                </div>
-              </div>
-            </div>
-
-            <div 
-              style={{ 
-                width: isMobile ? "100%" : "auto"
-              }}
-              className="bg-[#11131A] px-4 py-3 rounded-xl border border-blue-500/25 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-blue-500/50 transition-all flex items-center gap-2.5 whitespace-nowrap min-w-fit"
-            >
-              <div className="p-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
-                <Activity className="w-4 h-4" />
-              </div>
-              <div className="flex flex-col text-left">
-                <span className="text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">Tempo (BPM)</span>
-                <div className="font-bold text-blue-400 text-sm mt-0.5 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_#3b82f6]" />
-                  <span>{getEstimatedBpm()} BPM</span>
-                </div>
-              </div>
-            </div>
+            {/* Detected Key / Tempo (BPM) cards removed - detection reliability issues
+                confirmed via real-audio testing (see project notes). Underlying detection
+                code and getEstimatedKey/getEstimatedBpm helpers remain untouched. */}
 
             <div 
               style={{ 
