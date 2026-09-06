@@ -102,7 +102,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
 
         <button
           onClick={onBack}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs uppercase font-bold tracking-widest rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(59,130,246,0.30)] hover:scale-102 self-start md:self-auto"
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-mono text-[13px] uppercase font-bold tracking-widest rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(59,130,246,0.30)] hover:scale-102 self-start md:self-auto"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Song Audit</span>
@@ -118,7 +118,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
           <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight mt-2.5">
             A Monster Diagnostic Engine: The Three Assessment Categories
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-[13px] text-slate-400 mt-1">
             Understanding the math and methodology behind the three major assessment categories that empower better music performance - on streaming services, and through your speakers.
           </p>
         </div>
@@ -132,8 +132,8 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
             <div className="bg-[#0A0B0E] border border-blue-500/10 rounded-2xl p-6 flex flex-col justify-between hover:border-blue-500/20 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
               <div>
                 <h3 className="text-xl font-extrabold text-white">Streaming Readiness</h3>
-                <p className="text-xs font-mono text-blue-400/90 tracking-wider uppercase mt-1">Algorithmic Readiness Index</p>
-                <p className="text-xs text-slate-400 mt-3 leading-relaxed">
+                <p className="text-[13px] font-mono text-blue-400/90 tracking-wider uppercase mt-1">Algorithmic Readiness Index</p>
+                <p className="text-[13px] text-slate-400 mt-3 leading-relaxed">
                   Measures the potential of your track successfully surviving the split-second decisions made by the modern digital gatekeepers of music streaming services (like Spotify and Apple Music) that determine whether your song gets promoted to their editorial playlists.
                   <span className="block mt-2 pl-4">• Core Objective: To ensure the track isn’t skipped, filtered out, or buried by automated playlist recommendation systems.</span>
                   <span className="block mt-2 italic text-slate-500">Great songs don’t always fit the “algo,” while bad songs that do can still get past this gatekeeper.</span>
@@ -169,7 +169,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
                         <Rabbit className="w-4 h-4 text-blue-400 shrink-0" />
-                        <h4 className="text-xs font-bold text-slate-200 tracking-wider">COMMERCIAL IMPACT</h4>
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">COMMERCIAL IMPACT</h4>
                       </div>
                       <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isCommercialImpactOpen ? "rotate-180 text-blue-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
@@ -187,7 +187,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="border border-blue-500/15 bg-blue-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-xs shadow-xl relative my-1">
+                        <div className="border border-blue-500/15 bg-blue-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-[13px] shadow-xl relative my-1">
                           <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-blue-500/5 rounded-full blur-[20px] pointer-events-none" />
                           
                           {/* Section 1: MIX/MASTER INTEGRITY */}
@@ -328,7 +328,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
                         <Activity className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <h4 className="text-xs font-bold text-slate-200 tracking-wider">STREAMING ALGORITHMIC ALIGNMENT</h4>
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">STREAMING ALGORITHMIC ALIGNMENT</h4>
                       </div>
                       <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isAlgorithmicAlignmentOpen ? "rotate-180 text-emerald-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
@@ -346,7 +346,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="border border-emerald-500/15 bg-emerald-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-xs shadow-xl relative my-1">
+                        <div className="border border-emerald-500/15 bg-emerald-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-[13px] shadow-xl relative my-1">
                           <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-emerald-500/5 rounded-full blur-[20px] pointer-events-none" />
                           
                           {/* Section 1: The ECHO NEST SIMULATOR */}
@@ -461,7 +461,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
                         <Compass className="w-4 h-4 text-amber-400 shrink-0" />
-                        <h4 className="text-xs font-bold text-slate-200 tracking-wider">ALGORITHMIC SANDBOX</h4>
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">ALGORITHMIC SANDBOX</h4>
                       </div>
                       <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isAlgorithmicSandboxOpen ? "rotate-180 text-amber-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
@@ -479,7 +479,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="border border-amber-500/15 bg-amber-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-xs shadow-xl relative my-1">
+                        <div className="border border-amber-500/15 bg-amber-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-[13px] shadow-xl relative my-1">
                           <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-amber-500/5 rounded-full blur-[20px] pointer-events-none" />
                           
                           {/* Section 1: ALGOTORIAL PLAYLIST SANDBOX */}
@@ -574,8 +574,8 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
             <div className="bg-[#0A0B0E] border border-purple-500/10 rounded-2xl p-6 flex flex-col justify-between hover:border-purple-500/20 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
               <div>
                 <h3 className="text-xl font-extrabold text-white">The Sonic Soundprint</h3>
-                <p className="text-xs font-mono text-purple-400/90 tracking-wider uppercase mt-1">TECHNICAL ARCHITECTURE</p>
-                <p className="text-xs text-slate-400 mt-3 leading-relaxed">
+                <p className="text-[13px] font-mono text-purple-400/90 tracking-wider uppercase mt-1">TECHNICAL ARCHITECTURE</p>
+                <p className="text-[13px] text-slate-400 mt-3 leading-relaxed">
                   Analyzes the song purely from an audio perspective and assesses how cleanly the individual stems and mixing decisions form a professional sonic field, reporting whether the song’s mix meets the established sonic standards of your genre. Includes recommendations for corrections.
                   <span className="block mt-2 pl-4">• Core Objective: To diagnose flaws inside the DAW project that prevent a home mix from sounding competitive on club systems or high-end monitors.</span>
                   <span className="block mt-2 italic text-slate-500">Even if your mix is good, not great, streaming services' algorithms might "pass" on it.</span>
@@ -611,11 +611,11 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
                         <Volume2 className="w-4 h-4 text-purple-400 shrink-0" />
-                        <h4 className="text-xs font-bold text-slate-200 tracking-wider">THE ENGINEERING STUDIO</h4>
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">THE ENGINEERING STUDIO</h4>
                       </div>
                       <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isEngineeringStudioOpen ? "rotate-180 text-purple-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
-                    <h3 className="text-xs font-bold text-purple-400 mb-1 leading-snug">Mixing & Mastering Technical Recommendation</h3>
+                    <h3 className="text-[13px] font-bold text-purple-400 mb-1 leading-snug">Mixing & Mastering Technical Recommendation</h3>
                     <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
                       A powerhouse engineering and production mix/master diagnostic suite guides with nine diagnostic modules.  Analyzes a broad array of measurements that guide step-by-step mix correction blueprints. <span className="text-[12px] text-purple-400 font-semibold block mt-1 hover:underline">Click to {isEngineeringStudioOpen ? "collapse details" : "expand details"}</span>
                     </p>
@@ -630,7 +630,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="border border-purple-500/15 bg-purple-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-xs shadow-xl relative my-1">
+                        <div className="border border-purple-500/15 bg-purple-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-[13px] shadow-xl relative my-1">
                           <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-purple-500/5 rounded-full blur-[20px] pointer-events-none" />
                           
                           <div className="flex flex-col gap-1 relative z-10">
@@ -797,11 +797,11 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
                         <Cog className="w-4 h-4 text-[#46F4CD] shrink-0 animate-spin" style={{ animationDuration: '6s' }} />
-                        <h4 className="text-xs font-bold text-slate-200 tracking-wider">PRODUCTION QUALITY</h4>
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">PRODUCTION QUALITY</h4>
                       </div>
                       <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isProductionQualityOpen ? "rotate-180 text-[#46F4CD]" : "group-hover/btn:text-slate-200"}`} />
                     </div>
-                    <h3 className="text-xs font-bold text-[#46F4CD] mb-1 leading-snug">Production & Arrangement Diagnostic</h3>
+                    <h3 className="text-[13px] font-bold text-[#46F4CD] mb-1 leading-snug">Production & Arrangement Diagnostic</h3>
                     <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
                       A diagnostic of whether your track sounds finished - evaluating the production decisions that separate a competitive release from a home recording. <span className="text-[12px] text-[#46F4CD] font-semibold block mt-1 hover:underline">Click to {isProductionQualityOpen ? "collapse details" : "expand details"}</span>
                     </p>
@@ -816,7 +816,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="border border-[#46F4CD]/15 bg-neutral-900/40 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-xs shadow-xl relative my-1">
+                        <div className="border border-[#46F4CD]/15 bg-neutral-900/40 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-[13px] shadow-xl relative my-1">
                           <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-[#46F4CD]/5 rounded-full blur-[20px] pointer-events-none" />
                           
                           <div className="flex flex-col gap-1 relative z-10">
@@ -930,7 +930,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                   <div className="border border-cyan-500/30 bg-cyan-500/[0.07] p-3.5 rounded-xl">
                     <div className="flex items-center gap-2 mb-1.5">
                       <AudioLines className="w-4 h-4 text-cyan-400 shrink-0" />
-                      <h4 className="text-xs font-bold text-slate-200">THE STEREO AZIMUTH PROFILER</h4>
+                      <h4 className="text-[13px] font-bold text-slate-200">THE STEREO AZIMUTH PROFILER</h4>
                     </div>
                     <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
                       Visualizes time-domain stereo panning spreads, phase relationships, and left/right power distribution of the song's audio spectrum.
@@ -947,8 +947,8 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
             <div className="bg-[#0A0B0E] border border-emerald-500/10 rounded-2xl p-6 flex flex-col justify-between hover:border-emerald-500/20 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
               <div>
                 <h3 className="text-xl font-extrabold text-white">Compositional Depth</h3>
-                <p className="text-xs font-mono text-emerald-400/90 tracking-wider uppercase mt-1">THE SONGWRITING CORE</p>
-                <p className="text-xs text-slate-400 mt-3 leading-relaxed">
+                <p className="text-[13px] font-mono text-emerald-400/90 tracking-wider uppercase mt-1">THE SONGWRITING CORE</p>
+                <p className="text-[13px] text-slate-400 mt-3 leading-relaxed">
                   Bypasses the production value and mixing polish to critique the actual songwriting, lyrical themes, and musical theory that create human connection. Your song is being measured against the benchmark parameters common among successful songs in your genre.
                   <span className="block mt-2 pl-4">• Core Objective: To analyze if the song has the fundamental structural components necessary to transcend being "well-produced noise."</span>
                   <span className="block mt-2 italic text-slate-500">A three-chord song won’t score high on these measurements. But that doesn’t mean it’s not good.</span>
@@ -966,7 +966,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                   <div className="border border-pink-500/30 bg-pink-500/[0.07] p-3.5 rounded-xl">
                     <div className="flex items-center gap-2 mb-1.5">
                       <Headphones className="w-4 h-4 text-pink-400 shrink-0" />
-                      <h4 className="text-xs font-bold text-slate-200">ARTISTIC DEPTH AND IMPACT</h4>
+                      <h4 className="text-[13px] font-bold text-slate-200">ARTISTIC DEPTH AND IMPACT</h4>
                     </div>
                     <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
                       Analyzes how powerfully the creative perspective of the song resonates with discerning, active listeners.
@@ -976,7 +976,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                   <div className="border border-emerald-500/30 bg-emerald-500/[0.07] p-3.5 rounded-xl">
                     <div className="flex items-center gap-2 mb-1.5">
                       <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <h4 className="text-xs font-bold text-slate-200">ARTISTIC &amp; LYRICAL FOUNDATION</h4>
+                      <h4 className="text-[13px] font-bold text-slate-200">ARTISTIC &amp; LYRICAL FOUNDATION</h4>
                     </div>
                     <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
                       Provides baseline metrics evaluating the physical, literary, and musical foundation of the song's writing, scoring expressive theme clarity and chord dynamics.
@@ -986,7 +986,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                   <div className="border border-cyan-500/30 bg-cyan-500/[0.07] p-3.5 rounded-xl">
                     <div className="flex items-center gap-2 mb-1.5">
                       <Code className="w-4 h-4 text-cyan-400 shrink-0" />
-                      <h4 className="text-xs font-bold text-slate-200">SONG WRITING STRENGTH &amp; QUALITY</h4>
+                      <h4 className="text-[13px] font-bold text-slate-200">SONG WRITING STRENGTH &amp; QUALITY</h4>
                     </div>
                     <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
                       Analyzes hook effectiveness, structural layouts, and composition flow (songwriting blueprint &amp; dynamic arc) to ensure core memorable quality.
@@ -1009,7 +1009,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
           <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight mt-2.5">
             Every Other Feature of the App Explained
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-[13px] text-slate-400 mt-1">
             An overview of the diagnostic panels, audio analyzers, metadata writers, and real-time simulations executing under the hood.
           </p>
         </div>
@@ -1024,7 +1024,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
             </div>
             <div className="flex flex-col gap-1.5 text-left">
               <h4 className="text-sm font-bold text-white">Metadata &amp; Writer Panel</h4>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-[13px] text-slate-400 leading-relaxed">
                 Estimates the core genre, lists recommended secondary subgenres, calculates target searchability ratings of your title, and identifies copyright risk vectors to ensure your metadata resists commercial search index collisions.
               </p>
             </div>
@@ -1037,7 +1037,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
             </div>
             <div className="flex flex-col gap-1.5 text-left">
               <h4 className="text-sm font-bold text-white">Algorical / Playout Simulators</h4>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-[13px] text-slate-400 leading-relaxed">
                 Simulates real streaming conditions with interactive testing layouts. Includes sequential Playlist Coherence (Handoff Test), Russell's Affective Valence Coordinates (Similarity Constellation Mapping), and critical 30-Second Skip Risk Behavior curves.
               </p>
             </div>
@@ -1050,7 +1050,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
             </div>
             <div className="flex flex-col gap-1.5 text-left">
               <h4 className="text-sm font-bold text-white">Mixing Desk &amp; Spectral Balance</h4>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-[13px] text-slate-400 leading-relaxed">
                 Scans your audio's transient spectrum across four critical frequency brackets (Low Mud, Low-Mid Boxiness, High-Mid Harshness, High Air). Generates DAW adjustment checklists outlining step-by-step EQ gains, Q-widths, and compression targets for your vocal/harmonic tracks.
               </p>
             </div>
@@ -1063,7 +1063,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
             </div>
             <div className="flex flex-col gap-1.5 text-left">
               <h4 className="text-sm font-bold text-white">Performance Meter (Vocal &amp; Instrument)</h4>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-[13px] text-slate-400 leading-relaxed">
                 Rates the execution of the song's key performers. Deeply inspects backline articulation, bassline tracking, instrument separation, vocal pitch delivery, vocal chain treatment, breath management, and ensemble handoff tightness.
               </p>
             </div>
@@ -1076,7 +1076,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
             </div>
             <div className="flex flex-col gap-1.5 text-left">
               <h4 className="text-sm font-bold text-white">Composition Flow</h4>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-[13px] text-slate-400 leading-relaxed">
                 Examines structural timing: the pacing of sectional transitions, tension-release arcs, hook placements, repetitive choruses, and melodic contours. It makes sure that independent of recording quality, the underlying song blueprint captures the listener's focus.
               </p>
             </div>
@@ -1089,7 +1089,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
             </div>
             <div className="flex flex-col gap-1.5 text-left">
               <h4 className="text-sm font-bold text-white">3x Analysis Mode (High Stability Engine)</h4>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-[13px] text-slate-400 leading-relaxed">
                 Toggles a multi-pass audit script that processes your audio critique three times simultaneously. It evaluates convergent mathematical averages of all scores to bypass artificial intelligence generation variance and deliver reliable metrics.
               </p>
             </div>
@@ -1112,13 +1112,13 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
             <span className="text-sm font-extrabold text-slate-200">
               Why MP3/WAV Upload is Required for True Full-Length Audits
             </span>
-            <p className="text-slate-400 text-xs mt-1.5 leading-relaxed">
+            <p className="text-slate-400 text-[13px] mt-1.5 leading-relaxed">
               Spotify restricts developer-registered applications to fetching a <span className="text-amber-400 font-semibold font-mono">30-second high-quality preview stream</span>. While this is sufficient for our listener AI to analyze tone balance signatures, sub-bass weights, and vocal clarity within that segment, it is unable to sweep the complete composition.
             </p>
-            <p className="text-slate-400 text-xs mt-2 leading-relaxed">
+            <p className="text-slate-400 text-[13px] mt-2 leading-relaxed">
               Because of this limitation, the AI cannot audit your entire structural pacing, energetic build-ups, dynamic drop off progression, or mathematically locate exactly when your <span className="text-white font-medium">main chorus/hook occurs</span> if it resides outside of that initial 30-second window.
             </p>
-            <p className="text-slate-400 text-xs mt-2 leading-relaxed">
+            <p className="text-slate-400 text-[13px] mt-2 leading-relaxed">
               For a granular, unbounded, and fully technical A&amp;R master audit across your track's full timeline, <span className="text-blue-400 font-semibold">uploading your complete master MP3 or WAV file</span> remains the gold standard.
             </p>
           </div>
@@ -1133,12 +1133,12 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
             <Sparkles className="w-5 h-5 text-blue-400 animate-pulse" />
           </span>
           <h2 className="text-lg font-bold text-white tracking-tight">Run Your Real-Time Session</h2>
-          <p className="text-xs text-slate-400 max-w-lg leading-relaxed mt-1 mx-auto">
+          <p className="text-[13px] text-slate-400 max-w-lg leading-relaxed mt-1 mx-auto">
             Ready to test your track against standard commercial and artistic thresholds?
           </p>
           <button
             onClick={onBack}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs uppercase font-bold tracking-widest rounded-xl transition-all flex items-center gap-2 mt-4 cursor-pointer hover:shadow-[0_0_20px_rgba(59,130,246,0.25)] hover:scale-102"
+            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-mono text-[13px] uppercase font-bold tracking-widest rounded-xl transition-all flex items-center gap-2 mt-4 cursor-pointer hover:shadow-[0_0_20px_rgba(59,130,246,0.25)] hover:scale-102"
           >
             <span>LAUNCH DESIGN ENGINE</span>
           </button>
