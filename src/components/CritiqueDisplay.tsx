@@ -6567,80 +6567,73 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-3 pl-1">The Below Data Is Not Used In the Overall Summary Score</p>
         </div>
 
-        {/* Card: Song Title Searchability (pink) - moved out of the unrelated "Technical and
-            Diagnostic Blueprints" card in Sonic Soundprint, since it's a real Streaming
-            Readiness concept (title/metadata discoverability) that was never scored into
-            any summary total - now honestly labeled as such in its own home. */}
+        {/* Card: Song Title Searchability (pink) - rewritten to pull directly from the same
+            searchScore/searchLevel variables already used reliably elsewhere in this file,
+            rather than looking it up via METRICS_LIST.find(), to remove a possible runtime
+            failure point. Moved out of the removed "Technical and Diagnostic Blueprints"
+            card, since it's a real Streaming Readiness concept that was never scored into
+            any summary total. */}
         <div className="flex flex-col w-full gap-4" id="sidebar-link-streaming-searchability">
-          {(() => {
-            const searchMetric = METRICS_LIST.find(m => m.id === "searchability");
-            if (!searchMetric) return null;
-            const isExpanded = expandedMetric === "searchability";
-            return (
-              <>
-                <button
-                  onClick={() => setExpandedMetric(isExpanded ? null : "searchability")}
-                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
-                    isExpanded
-                      ? "bg-[#0e090c] border-pink-500 shadow-[0_0_35px_rgba(236,72,153,0.35)] ring-1 ring-pink-500/40 font-black"
-                      : "bg-[#0A0B0E]/60 border-pink-500/40 hover:border-pink-500 hover:bg-neutral-900/40 text-slate-400"
-                  }`}
-                >
-                  <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
-                    <div className="flex flex-col flex-1 justify-between gap-3 h-full">
-                      <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
-                        <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
-                          isExpanded
-                            ? "bg-pink-500/10 border-pink-500/30 text-pink-400 shadow-[0_0_15px_rgba(236,72,153,0.3)]"
-                            : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-pink-400"
-                        }`}>
-                          <Compass className="w-5 h-5 text-pink-400" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
-                            isExpanded ? "text-white" : "text-slate-400 group-hover:text-slate-200"
-                          }`}>
-                            {searchMetric.name}
-                          </span>
-                          <span className="text-[10px] text-slate-500 font-medium">{searchMetric.subtitle}</span>
-                        </div>
-                      </div>
+          <button
+            onClick={() => setExpandedMetric(expandedMetric === "searchability" ? null : "searchability")}
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+              expandedMetric === "searchability"
+                ? "bg-[#0e090c] border-pink-500 shadow-[0_0_35px_rgba(236,72,153,0.35)] ring-1 ring-pink-500/40 font-black"
+                : "bg-[#0A0B0E]/60 border-pink-500/40 hover:border-pink-500 hover:bg-neutral-900/40 text-slate-400"
+            }`}
+          >
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
+                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                    expandedMetric === "searchability"
+                      ? "bg-pink-500/10 border-pink-500/30 text-pink-400 shadow-[0_0_15px_rgba(236,72,153,0.3)]"
+                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-pink-400"
+                  }`}>
+                    <Compass className="w-5 h-5 text-pink-400" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                      expandedMetric === "searchability" ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                    }`}>
+                      Song Title Searchability
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">Digital Search Indexing</span>
+                  </div>
+                </div>
 
-                      <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
-                        isExpanded ? "border-pink-500/15" : "border-white/5"
-                      }`}>
-                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
-                          {searchMetric.callout}
-                          <span className="block mt-1 text-pink-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>A real score, scored separately - does not factor into your Streaming Readiness total.</span>
-                        </p>
-                        <span 
+                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                  expandedMetric === "searchability" ? "border-pink-500/15" : "border-white/5"
+                }`}>
+                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                    Audits search duplication risk. Unique titles rank faster; common phrases get buried in search index traffic.
+                    <span className="block mt-1 text-pink-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>A real score, scored separately - does not factor into your Streaming Readiness total.</span>
+                  </p>
+                  <span 
                     style={{ paddingTop: "2px" }}
                     className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
-                          isExpanded
-                            ? "bg-pink-500/10 border-pink-500/20 text-pink-400"
-                            : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-pink-400"
-                        }`}>
-                          {isExpanded ? "ACTIVE ⬇" : "VIEW METRICS ⚡"}
-                        </span>
-                      </div>
-                    </div>
+                      expandedMetric === "searchability"
+                        ? "bg-pink-500/10 border-pink-500/20 text-pink-400"
+                        : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-pink-400"
+                    }`}>
+                    {expandedMetric === "searchability" ? "ACTIVE ⬇" : "VIEW METRICS ⚡"}
+                  </span>
+                </div>
+              </div>
 
-                    <div className="flex-shrink-0 flex items-center justify-center">
-                      <ScoreCircle
-                        score={searchMetric.score}
-                        size={110}
-                        strokeWidth={7}
-                        color={isExpanded ? "#ec4899" : "rgba(236, 72, 153, 0.45)"}
-                        glowColor={isExpanded ? "rgba(236, 72, 153, 0.65)" : "rgba(236, 72, 153, 0.15)"}
-                        extraGlow={isExpanded}
-                      />
-                    </div>
-                  </div>
-                </button>
-                {isExpanded && renderExpandedBreakdown("searchability")}
-              </>
-            );
-          })()}
+              <div className="flex-shrink-0 flex items-center justify-center">
+                <ScoreCircle
+                  score={searchScore}
+                  size={110}
+                  strokeWidth={7}
+                  color={expandedMetric === "searchability" ? "#ec4899" : "rgba(236, 72, 153, 0.45)"}
+                  glowColor={expandedMetric === "searchability" ? "rgba(236, 72, 153, 0.65)" : "rgba(236, 72, 153, 0.15)"}
+                  extraGlow={expandedMetric === "searchability"}
+                />
+              </div>
+            </div>
+          </button>
+          {expandedMetric === "searchability" && renderExpandedBreakdown("searchability")}
         </div>
 
       </div> /* End of section-streaming */
