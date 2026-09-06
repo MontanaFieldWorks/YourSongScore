@@ -190,25 +190,25 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                         <div className="border border-blue-500/15 bg-blue-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-[13px] shadow-xl relative my-1">
                           <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-blue-500/5 rounded-full blur-[20px] pointer-events-none" />
                           
-                          {/* Section 1: MIX/MASTER INTEGRITY */}
+                          {/* Section 1: ENGAGEMENT POWER */}
                           <div className="flex flex-col gap-1 relative z-10">
                             <div className="flex items-center gap-2 pb-0 border-b border-white/5">
                               <GlowingLoader color="#3b82f6" glowColor="rgba(59, 130, 246, 0.4)" className="text-blue-500 shrink-0" />
                               <h5 className="text-[13px] font-mono tracking-wider font-extrabold text-blue-400 uppercase">
-                                MIX/MASTER INTEGRITY
+                                ENGAGEMENT POWER
                               </h5>
                             </div>
                             <p className="text-[14px] text-slate-300 leading-[1.375] font-sans">
-                              Determines how successfully a song's master format matches modern, highly competitive digital distribution standards.
+                              Predicts how reliably a song holds listener attention long enough to survive the critical first-30-second skip window - the single largest input into Commercial Impact.
                             </p>
                             
                             <div className="flex flex-col gap-2.5 pl-[6px] w-[220px] self-center mt-1">
                               <div className="flex gap-2">
                                 <span className="text-blue-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                                 <div className="flex flex-col">
-                                  <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">LUFS Loudness</span>
+                                  <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Opening Hook Strength</span>
                                   <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
-                                    Measures integrated loudness over time to ensure the track avoids aggressive volume attenuation by automatic platform limiters.
+                                    Judges whether the hook arrives at a well-timed moment - the single heaviest-weighted factor in this category.
                                   </span>
                                 </div>
                               </div>
@@ -218,7 +218,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                                 <div className="flex flex-col">
                                   <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Spectral Match</span>
                                   <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
-                                    Compares the track's frequency distribution to mainstream hits to ensure a balanced, commercially viable audio spectrum.
+                                    Compares a real, measured 6-band frequency profile against genre-competitive references, distinguishing genuine imbalance from intentional genre tone curves.
                                   </span>
                                 </div>
                               </div>
@@ -226,9 +226,9 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                               <div className="flex gap-2">
                                 <span className="text-blue-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                                 <div className="flex flex-col">
-                                  <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Engagement Power</span>
+                                  <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Dynamic Variety &amp; Section Transitions</span>
                                   <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
-                                    Predicts how reliably a song will maintain listener focus over its duration based on dynamic variety and section transitions.
+                                    Checks for genuine energy shifts and section contrast - honestly scored for driving, consistent-energy genres where that's the intended feel, not a flaw.
                                   </span>
                                 </div>
                               </div>
@@ -244,7 +244,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                               </h5>
                             </div>
                             <p className="text-[14px] text-slate-300 leading-[1.375] font-sans">
-                              Evaluates the physical alignment, tracking quality, and engineering polish applied to the final mix and master.
+                              Evaluates whether the production sounds algorithmically and commercially ready - the other real input into Commercial Impact.
                             </p>
                             
                             <div className="flex flex-col gap-2.5 pl-[6px] w-[220px] self-center mt-1">
@@ -253,7 +253,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                                 <div className="flex flex-col">
                                   <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Palette Cohesion</span>
                                   <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
-                                    Rates how effectively the selected sound elements, instruments, and samples complement each other within the overall frequency space.
+                                    Rates timbral consistency using a real measured score, judging whether instrument choices work together.
                                   </span>
                                 </div>
                               </div>
@@ -263,7 +263,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                                 <div className="flex flex-col">
                                   <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Aesthetic Design</span>
                                   <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
-                                    Assesses the distinctiveness, genre authenticity, and stylistic clarity of the track's sonic footprint.
+                                    Rewards clean, professional, genre-correct production as the goal in itself - distinctiveness is a bonus, not a requirement to score well.
                                   </span>
                                 </div>
                               </div>
@@ -271,9 +271,9 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                               <div className="flex gap-2">
                                 <span className="text-blue-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                                 <div className="flex flex-col">
-                                  <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Space & Density</span>
+                                  <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Space &amp; Density</span>
                                   <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
-                                    Analyzes the arrangement's breathing room to prevent instrument overcrowding and avoid listener ear fatigue.
+                                    Checks for real crowding, while recognizing dense Wall-of-Sound genres as a legitimate artistic choice, not a flaw.
                                   </span>
                                 </div>
                               </div>
@@ -588,7 +588,40 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
             <div className="bg-[#0A0B0E] border border-purple-500/10 rounded-2xl p-6 flex flex-col justify-between hover:border-purple-500/20 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
               <div>
                 <h3 className="text-[16px] font-bold text-purple-400 mb-4">Sonic Soundprint Metrics</h3>
-                
+
+                <div className="flex flex-col gap-2.5 pl-[6px] mb-4">
+                  <div className="flex gap-2">
+                    <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                    <div className="flex flex-col">
+                      <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Mix Balance Quality (50%)</span>
+                      <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
+                        Real, measured checks on mud, midrange spacing, low-end division, sibilance, and stereo width - each with a genre-aware gate so intentional artistic choices aren't scored as flaws.
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                    <div className="flex flex-col">
+                      <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Vocal Tracking (30%)</span>
+                      <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
+                        Pitch accuracy, dynamic delivery, and layer fit - judged on real register and phrasing expression, not just raw loudness variance.
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                    <div className="flex flex-col">
+                      <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Instrumental Staging (20%)</span>
+                      <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
+                        Timing cohesion, transient punch, stereo staging, and warmth - each measured for real, with genre-appropriate exceptions.
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-[12px] text-slate-500 italic mt-1">
+                    Loudness (LUFS &amp; LRA) is checked separately as a pass/fail compliance badge - it doesn't factor into this score.
+                  </p>
+                </div>
+
                 <div className="flex flex-col gap-4 text-left">
                   <div 
                     id="engineering-studio-toggle-btn"
@@ -1051,7 +1084,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
             <div className="flex flex-col gap-1.5 text-left">
               <h4 className="text-sm font-bold text-white">Mixing Desk &amp; Spectral Balance</h4>
               <p className="text-[13px] text-slate-400 leading-relaxed">
-                Scans your audio's transient spectrum across four critical frequency brackets (Low Mud, Low-Mid Boxiness, High-Mid Harshness, High Air). Generates DAW adjustment checklists outlining step-by-step EQ gains, Q-widths, and compression targets for your vocal/harmonic tracks.
+                Scans your audio's real, measured energy across six frequency bands (Sub-Bass, Bass, Low-Mids, Core Mids, Presence, Air) and checks the result against genre-aware expectations - distinguishing a genuine mix problem from an intentional genre tone curve before flagging anything.
               </p>
             </div>
           </div>
@@ -1064,7 +1097,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
             <div className="flex flex-col gap-1.5 text-left">
               <h4 className="text-sm font-bold text-white">Performance Meter (Vocal &amp; Instrument)</h4>
               <p className="text-[13px] text-slate-400 leading-relaxed">
-                Rates the execution of the song's key performers. Deeply inspects backline articulation, bassline tracking, instrument separation, vocal pitch delivery, vocal chain treatment, breath management, and ensemble handoff tightness.
+                Rates the execution of the song's key performers - pitch, timing, transient punch, and stereo placement - each checked against real measurements first, with a genre-aware gate to recognize deliberate artistic choices before scoring one down.
               </p>
             </div>
           </div>
