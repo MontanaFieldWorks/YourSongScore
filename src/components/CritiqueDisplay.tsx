@@ -590,7 +590,7 @@ export function computeCategoryScores(critique: any) {
   // Floor lowered from 10 to 0, flat -5 discount removed, and ceiling raised from 96 to
   // 100 - previously these three constraints stacked to create a hard, invisible ceiling
   // of 85 that no song could ever exceed regardless of how strong its real inputs were.
-  const baseSkipProb = Math.min(85, Math.max(0, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
+  const baseSkipProb = Math.min(85, Math.max(0, 91 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
   const completionRate = Math.min(100, Math.max(15, 100 - baseSkipProb));
 
   const echoNestData = computeEchoNestScorecard(critique);
@@ -710,7 +710,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       // }
     }
     // Floor lowered from 10 to 0 - see the primary occurrence above for full explanation.
-    return Math.min(85, Math.max(0, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
+    return Math.min(85, Math.max(0, 91 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
   })();
 
   const completionRateScore = Math.min(100, Math.max(15, 100 - baseSkipProb));
@@ -6213,7 +6213,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between text-[11px] font-mono">
                           <span className="text-slate-400">Starting baseline (most optimistic case)</span>
-                          <span className="text-slate-300 font-bold">95%</span>
+                          <span className="text-slate-300 font-bold">91%</span>
                         </div>
                         <div className="flex items-center justify-between text-[11px] font-mono pl-3">
                           <span className="text-slate-500">− Weighted score (Engagement Power {commercialReadinessVal}/100 × 70% + Production Index {overallProductionVal}/100 × 20%)</span>
