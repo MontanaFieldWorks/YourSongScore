@@ -65,10 +65,22 @@ interface WhatItDoesPageProps {
 
 export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavigateToEngineeringDetails }: WhatItDoesPageProps) {
   const [isCommercialImpactOpen, setIsCommercialImpactOpen] = React.useState(false);
+  const [isCompletionRateOpen, setIsCompletionRateOpen] = React.useState(false);
   const [isAlgorithmicAlignmentOpen, setIsAlgorithmicAlignmentOpen] = React.useState(false);
+  const [isRecommenderPredictionOpen, setIsRecommenderPredictionOpen] = React.useState(false);
   const [isAlgorithmicSandboxOpen, setIsAlgorithmicSandboxOpen] = React.useState(false);
   const [isEngineeringStudioOpen, setIsEngineeringStudioOpen] = React.useState(false);
   const [isProductionQualityOpen, setIsProductionQualityOpen] = React.useState(false);
+  const [isLoudnessComplianceOpen, setIsLoudnessComplianceOpen] = React.useState(false);
+  const [isMixBalanceOpen, setIsMixBalanceOpen] = React.useState(false);
+  const [isInstrumentalStagingOpen, setIsInstrumentalStagingOpen] = React.useState(false);
+  const [isVocalTrackingOpen, setIsVocalTrackingOpen] = React.useState(false);
+  const [isArtisticAnalysisOpen, setIsArtisticAnalysisOpen] = React.useState(false);
+  const [isLyricalImpactOpen, setIsLyricalImpactOpen] = React.useState(false);
+  const [isMusicTheoryOpen, setIsMusicTheoryOpen] = React.useState(false);
+  const [isSongwritingQualityOpen, setIsSongwritingQualityOpen] = React.useState(false);
+  const [isAcousticTensionOpen, setIsAcousticTensionOpen] = React.useState(false);
+  const [isLyricsAnalysisOpen, setIsLyricsAnalysisOpen] = React.useState(false);
 
   React.useEffect(() => {
     window.scrollTo(0, 0);
@@ -306,6 +318,79 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                       </motion.div>
                     )}
                   </AnimatePresence>
+
+                  <div 
+                    id="completion-rate-toggle-btn"
+                    onClick={() => setIsCompletionRateOpen(!isCompletionRateOpen)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIsCompletionRateOpen(!isCompletionRateOpen);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isCompletionRateOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 ${
+                      isCompletionRateOpen 
+                        ? "border-cyan-500/60 bg-cyan-500/[0.12] shadow-[0_0_15px_rgba(6,182,212,0.15)]" 
+                        : "border-cyan-500/30 bg-cyan-500/[0.07] hover:border-cyan-500/50 hover:bg-cyan-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-cyan-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">COMPLETION RATE</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isCompletionRateOpen ? "rotate-180 text-cyan-400" : "group-hover/btn:text-slate-200"}`} />
+                    </div>
+                    <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
+                      Predicts the probability a listener finishes the critical first-30-second window, built from a real, transparent formula rather than a black box. <span className="text-[12px] text-cyan-400 font-semibold block mt-1 hover:underline">Click to {isCompletionRateOpen ? "collapse details" : "expand details"}</span>
+                    </p>
+                  </div>
+
+                  <AnimatePresence>
+                    {isCompletionRateOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="border border-cyan-500/15 bg-cyan-950/20 rounded-xl p-4 flex flex-col gap-3 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-cyan-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          <p className="text-[14px] text-slate-300 leading-[1.375] font-sans relative z-10">
+                            Starts from an honest 91% baseline (a small amount of real-world skip risk exists for any song), then subtracts a weighted score built from Engagement Power (70%) and Production Index (20%) - the same two real inputs behind Commercial Impact. The result is your predicted Skip Rate; Completion Rate is simply 100% minus that number.
+                          </p>
+                          <p className="text-[13px] text-slate-400 leading-[1.375] font-sans relative z-10">
+                            Because the formula starts at 91 rather than 100, even a flawless song caps out at 99% - never a full 100, since some real-world skip risk always exists.
+                          </p>
+
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsCompletionRateOpen(false);
+                                setTimeout(() => {
+                                  const toggleBtn = document.getElementById("completion-rate-toggle-btn");
+                                  if (toggleBtn) {
+                                    toggleBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                                    toggleBtn.focus();
+                                  }
+                                }, 100);
+                              }}
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 hover:border-cyan-500/40 text-cyan-400 hover:text-cyan-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-cyan-500/50 w-full"
+                              title="Collapse details"
+                            >
+                              <ChevronsUp className="w-3.5 h-3.5" />
+                              <span>Collapse Details</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                   
                   <div 
                     id="streaming-algorithmic-alignment-toggle-btn"
@@ -371,48 +456,6 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                             </p>
                           </div>
 
-                          {/* Section 2: RECOMMENDER PERFORMANCE PREDICTION */}
-                          <div className="flex flex-col gap-1 relative z-10">
-                            <div className="flex items-center gap-2 pb-0 border-b border-white/5">
-                              <GlowingLoader color="#10b981" glowColor="rgba(16, 185, 129, 0.4)" className="text-emerald-400 shrink-0" />
-                              <h5 className="text-[13px] font-mono tracking-wider font-extrabold text-emerald-400 uppercase">
-                                RECOMMENDER PERFORMANCE PREDICTION
-                              </h5>
-                            </div>
-                            
-                            <div className="flex flex-col gap-2.5 pl-[6px] w-[220px] self-center mt-1">
-                              <div className="flex gap-2">
-                                <span className="text-emerald-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
-                                <div className="flex flex-col">
-                                  <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">NLP semantic Clustered Neighborhood "Artist Universe"</span>
-                                  <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
-                                    Vectorizes thematic, musical, and semantic details to map the track's exact position among similar current recording artists.
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="flex gap-2">
-                                <span className="text-emerald-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
-                                <div className="flex flex-col">
-                                  <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Discovery Feeder Distribution Probabilities Algorithms</span>
-                                  <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
-                                    Simulates prediction scores to estimate how frequently the track will be automatically recommended in automated queues and radio sessions.
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="flex gap-2">
-                                <span className="text-emerald-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
-                                <div className="flex flex-col">
-                                  <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Collaborative Filtering Prevention Checklist</span>
-                                  <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
-                                    Audits the checklist of vital elements required in the first 30 seconds of a track to minimize early skip rates and avoid recommendation penalties.
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
                           {/* Collapse button inside the dropdown container at the bottom */}
                           <div className="flex justify-center pt-2 border-t border-white/5 mt-2 relative z-10">
                             <button
@@ -421,6 +464,108 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                                 setIsAlgorithmicAlignmentOpen(false);
                                 setTimeout(() => {
                                   const toggleBtn = document.getElementById("streaming-algorithmic-alignment-toggle-btn");
+                                  if (toggleBtn) {
+                                    toggleBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                                    toggleBtn.focus();
+                                  }
+                                }, 100);
+                              }}
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 hover:text-emerald-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 w-full"
+                              title="Collapse details"
+                            >
+                              <ChevronsUp className="w-3.5 h-3.5" />
+                              <span>Collapse Details</span>
+                            </button>
+                          </div>
+
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest pt-1 pb-0.5 pl-1">The Below Data Is Not Used In the Overall Summary Score</p>
+
+                  <div 
+                    id="recommender-prediction-toggle-btn"
+                    onClick={() => setIsRecommenderPredictionOpen(!isRecommenderPredictionOpen)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIsRecommenderPredictionOpen(!isRecommenderPredictionOpen);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isRecommenderPredictionOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 ${
+                      isRecommenderPredictionOpen 
+                        ? "border-emerald-500/60 bg-emerald-500/[0.12] shadow-[0_0_15px_rgba(16,185,129,0.15)]" 
+                        : "border-emerald-500/30 bg-emerald-500/[0.07] hover:border-emerald-500/50 hover:bg-emerald-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Radio className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">RECOMMENDER PERFORMANCE PREDICTION</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isRecommenderPredictionOpen ? "rotate-180 text-emerald-400" : "group-hover/btn:text-slate-200"}`} />
+                    </div>
+                    <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
+                      Simulates how recommendation and discovery systems might position your track relative to similar artists and playlists. <span className="text-[12px] text-emerald-400 font-semibold block mt-1 hover:underline">Click to {isRecommenderPredictionOpen ? "collapse details" : "expand details"}</span>
+                    </p>
+                  </div>
+
+                  <AnimatePresence>
+                    {isRecommenderPredictionOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="border border-emerald-500/15 bg-emerald-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-emerald-500/5 rounded-full blur-[20px] pointer-events-none" />
+
+                          <div className="flex flex-col gap-2.5 pl-[6px] w-[220px] self-center mt-1 relative z-10">
+                            <div className="flex gap-2">
+                              <span className="text-emerald-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <div className="flex flex-col">
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">NLP semantic Clustered Neighborhood "Artist Universe"</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
+                                  Vectorizes thematic, musical, and semantic details to map the track's exact position among similar current recording artists.
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <span className="text-emerald-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <div className="flex flex-col">
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Discovery Feeder Distribution Probabilities Algorithms</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
+                                  Simulates prediction scores to estimate how frequently the track will be automatically recommended in automated queues and radio sessions.
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <span className="text-emerald-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <div className="flex flex-col">
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Collaborative Filtering Prevention Checklist</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
+                                  Audits the checklist of vital elements required in the first 30 seconds of a track to minimize early skip rates and avoid recommendation penalties.
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-2 relative z-10">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsRecommenderPredictionOpen(false);
+                                setTimeout(() => {
+                                  const toggleBtn = document.getElementById("recommender-prediction-toggle-btn");
                                   if (toggleBtn) {
                                     toggleBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
                                     toggleBtn.focus();
@@ -589,37 +734,296 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
               <div>
                 <h3 className="text-[16px] font-bold text-purple-400 mb-4">Sonic Soundprint Metrics</h3>
 
-                <div className="flex flex-col gap-2.5 pl-[6px] mb-4">
-                  <div className="flex gap-2">
-                    <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
-                    <div className="flex flex-col">
-                      <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Mix Balance Quality (50%)</span>
-                      <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
-                        Real, measured checks on mud, midrange spacing, low-end division, sibilance, and stereo width - each with a genre-aware gate so intentional artistic choices aren't scored as flaws.
-                      </span>
+                <div className="flex flex-col gap-1.5 text-left mb-4">
+                  <div 
+                    id="mix-balance-toggle-btn"
+                    onClick={() => setIsMixBalanceOpen(!isMixBalanceOpen)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIsMixBalanceOpen(!isMixBalanceOpen);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isMixBalanceOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50 ${
+                      isMixBalanceOpen 
+                        ? "border-purple-500/60 bg-purple-500/[0.12] shadow-[0_0_15px_rgba(168,85,247,0.15)]" 
+                        : "border-purple-500/30 bg-purple-500/[0.07] hover:border-purple-500/50 hover:bg-purple-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Volume2 className="w-4 h-4 text-purple-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">MIX BALANCE QUALITY (50%)</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isMixBalanceOpen ? "rotate-180 text-purple-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
+                    <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
+                      Real, measured checks across five frequency and stereo dimensions - each with a genre-aware gate so intentional artistic choices aren't scored as flaws. <span className="text-[12px] text-purple-400 font-semibold block mt-1 hover:underline">Click to {isMixBalanceOpen ? "collapse details" : "expand details"}</span>
+                    </p>
                   </div>
-                  <div className="flex gap-2">
-                    <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
-                    <div className="flex flex-col">
-                      <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Vocal Tracking (30%)</span>
-                      <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
-                        Pitch accuracy, dynamic delivery, and layer fit - judged on real register and phrasing expression, not just raw loudness variance.
-                      </span>
+
+                  <AnimatePresence>
+                    {isMixBalanceOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="border border-purple-500/15 bg-purple-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-purple-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
+                            <div className="flex gap-2">
+                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <div className="flex flex-col">
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Mud Prevention</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Checks for uncontrolled low-mid buildup, distinguishing genuine masking from intentional genre weight (e.g. dark pop, hip-hop).</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <div className="flex flex-col">
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Midrange Spacing</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Audits whether the vocal and lead elements have real room to sit forward without competing instruments crowding them out.</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <div className="flex flex-col">
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Low-End Division</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Checks the real relationship between sub-bass and kick drum to confirm they occupy clean, separate zones.</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <div className="flex flex-col">
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Sibilance Shaving</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Uses a real measured sibilance score to catch harsh "S" and "T" sounds without penalizing intentionally bright vocal chains.</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <div className="flex flex-col">
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Stereo Width</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Uses real measured phase correlation - genuine phase risk is flagged regardless of genre, while a narrow, centered image is judged on artistic intent.</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsMixBalanceOpen(false);
+                                setTimeout(() => {
+                                  const toggleBtn = document.getElementById("mix-balance-toggle-btn");
+                                  if (toggleBtn) {
+                                    toggleBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                                    toggleBtn.focus();
+                                  }
+                                }, 100);
+                              }}
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 w-full"
+                              title="Collapse details"
+                            >
+                              <ChevronsUp className="w-3.5 h-3.5" />
+                              <span>Collapse Details</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div 
+                    id="instrumental-staging-toggle-btn"
+                    onClick={() => setIsInstrumentalStagingOpen(!isInstrumentalStagingOpen)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIsInstrumentalStagingOpen(!isInstrumentalStagingOpen);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isInstrumentalStagingOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50 ${
+                      isInstrumentalStagingOpen 
+                        ? "border-purple-500/60 bg-purple-500/[0.12] shadow-[0_0_15px_rgba(168,85,247,0.15)]" 
+                        : "border-purple-500/30 bg-purple-500/[0.07] hover:border-purple-500/50 hover:bg-purple-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Music className="w-4 h-4 text-purple-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">INSTRUMENTAL STAGING (20%)</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isInstrumentalStagingOpen ? "rotate-180 text-purple-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
+                    <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
+                      Timing cohesion, transient punch, stereo staging, and warmth - each measured for real, with genre-appropriate exceptions. <span className="text-[12px] text-purple-400 font-semibold block mt-1 hover:underline">Click to {isInstrumentalStagingOpen ? "collapse details" : "expand details"}</span>
+                    </p>
                   </div>
-                  <div className="flex gap-2">
-                    <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
-                    <div className="flex flex-col">
-                      <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Instrumental Staging (20%)</span>
-                      <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
-                        Timing cohesion, transient punch, stereo staging, and warmth - each measured for real, with genre-appropriate exceptions.
-                      </span>
+
+                  <AnimatePresence>
+                    {isInstrumentalStagingOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="border border-purple-500/15 bg-purple-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-purple-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
+                            <div className="flex gap-2">
+                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <div className="flex flex-col">
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Timeline Grid Cohesion</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Measures real timing alignment, distinguishing a deliberate stylistic pocket from genuinely erratic timing.</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <div className="flex flex-col">
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Transient Punch</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Measures real drum attack sharpness, recognizing intentionally soft transients in genres like lo-fi and ambient.</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <div className="flex flex-col">
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Melodic Staging</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Despite the name, judges real stereo placement of instruments - a centered arrangement is judged on artistic intent, not penalized by default.</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <div className="flex flex-col">
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Instrumental Warmth</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Measures real low-mid to high-frequency balance, recognizing deliberately bright production as a genre choice, not a flaw.</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsInstrumentalStagingOpen(false);
+                                setTimeout(() => {
+                                  const toggleBtn = document.getElementById("instrumental-staging-toggle-btn");
+                                  if (toggleBtn) {
+                                    toggleBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                                    toggleBtn.focus();
+                                  }
+                                }, 100);
+                              }}
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 w-full"
+                              title="Collapse details"
+                            >
+                              <ChevronsUp className="w-3.5 h-3.5" />
+                              <span>Collapse Details</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div 
+                    id="vocal-tracking-toggle-btn"
+                    onClick={() => setIsVocalTrackingOpen(!isVocalTrackingOpen)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIsVocalTrackingOpen(!isVocalTrackingOpen);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isVocalTrackingOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50 ${
+                      isVocalTrackingOpen 
+                        ? "border-purple-500/60 bg-purple-500/[0.12] shadow-[0_0_15px_rgba(168,85,247,0.15)]" 
+                        : "border-purple-500/30 bg-purple-500/[0.07] hover:border-purple-500/50 hover:bg-purple-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Headphones className="w-4 h-4 text-purple-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">VOCAL TRACKING (30%)</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isVocalTrackingOpen ? "rotate-180 text-purple-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
+                    <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
+                      Pitch accuracy, dynamic delivery, and layer fit - judged on real register and phrasing expression, not just raw loudness variance. <span className="text-[12px] text-purple-400 font-semibold block mt-1 hover:underline">Click to {isVocalTrackingOpen ? "collapse details" : "expand details"}</span>
+                    </p>
                   </div>
-                  <p className="text-[12px] text-slate-500 italic mt-1">
-                    Loudness (LUFS &amp; LRA) is checked separately as a pass/fail compliance badge - it doesn't factor into this score.
-                  </p>
+
+                  <AnimatePresence>
+                    {isVocalTrackingOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="border border-purple-500/15 bg-purple-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-purple-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
+                            <div className="flex gap-2">
+                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <div className="flex flex-col">
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Pitch Accuracy</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Uses detected pitch data as supporting evidence, with real listening judgment as the primary basis for the score.</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <div className="flex flex-col">
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Dynamic Delivery</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Checks for genuine register shifts and phrasing variety - a compressed pop vocal isn't penalized just for staying at a consistent volume.</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <div className="flex flex-col">
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Vocal Layer Fit</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Audits how well doubles and harmonies balance against the lead vocal in stereo, phase, and volume.</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsVocalTrackingOpen(false);
+                                setTimeout(() => {
+                                  const toggleBtn = document.getElementById("vocal-tracking-toggle-btn");
+                                  if (toggleBtn) {
+                                    toggleBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                                    toggleBtn.focus();
+                                  }
+                                }, 100);
+                              }}
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 w-full"
+                              title="Collapse details"
+                            >
+                              <ChevronsUp className="w-3.5 h-3.5" />
+                              <span>Collapse Details</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest pt-1 pb-0.5 pl-1">The Below Data Is Not Used In the Overall Summary Score</p>
                 </div>
 
                 <div className="flex flex-col gap-4 text-left">
@@ -960,15 +1364,87 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                     )}
                   </AnimatePresence>
 
-                  <div className="border border-cyan-500/30 bg-cyan-500/[0.07] p-3.5 rounded-xl">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <AudioLines className="w-4 h-4 text-cyan-400 shrink-0" />
-                      <h4 className="text-[13px] font-bold text-slate-200">THE STEREO AZIMUTH PROFILER</h4>
+                  <div 
+                    id="loudness-compliance-toggle-btn"
+                    onClick={() => setIsLoudnessComplianceOpen(!isLoudnessComplianceOpen)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setIsLoudnessComplianceOpen(!isLoudnessComplianceOpen);
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isLoudnessComplianceOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 ${
+                      isLoudnessComplianceOpen 
+                        ? "border-blue-500/60 bg-blue-500/[0.12] shadow-[0_0_15px_rgba(59,130,246,0.15)]" 
+                        : "border-blue-500/30 bg-blue-500/[0.07] hover:border-blue-500/50 hover:bg-blue-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Volume2 className="w-4 h-4 text-blue-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">LOUDNESS COMPLIANCE</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isLoudnessComplianceOpen ? "rotate-180 text-blue-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
                     <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
-                      Visualizes time-domain stereo panning spreads, phase relationships, and left/right power distribution of the song's audio spectrum.
+                      Checks real, measured LUFS and LRA against your genre's target window as a pass/fail compliance fact - not a graded score. <span className="text-[12px] text-blue-400 font-semibold block mt-1 hover:underline">Click to {isLoudnessComplianceOpen ? "collapse details" : "expand details"}</span>
                     </p>
                   </div>
+
+                  <AnimatePresence>
+                    {isLoudnessComplianceOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.25, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="border border-blue-500/15 bg-blue-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-blue-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
+                            <div className="flex gap-2">
+                              <span className="text-blue-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <div className="flex flex-col">
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Integrated Loudness (LUFS)</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Checks your master's real measured loudness against the target window for your genre.</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <span className="text-blue-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <div className="flex flex-col">
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Loudness Range (LRA)</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Checks your master's real measured dynamic range against the target window for your genre.</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsLoudnessComplianceOpen(false);
+                                setTimeout(() => {
+                                  const toggleBtn = document.getElementById("loudness-compliance-toggle-btn");
+                                  if (toggleBtn) {
+                                    toggleBtn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                                    toggleBtn.focus();
+                                  }
+                                }, 100);
+                              }}
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-blue-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 w-full"
+                              title="Collapse details"
+                            >
+                              <ChevronsUp className="w-3.5 h-3.5" />
+                              <span>Collapse Details</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
             </div>
@@ -995,36 +1471,255 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
               <div>
                 <h3 className="text-[16px] font-bold text-emerald-400 mb-4">Composition Metrics</h3>
                 
-                <div className="flex flex-col gap-4 text-left">
-                  <div className="border border-pink-500/30 bg-pink-500/[0.07] p-3.5 rounded-xl">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <Headphones className="w-4 h-4 text-pink-400 shrink-0" />
-                      <h4 className="text-[13px] font-bold text-slate-200">ARTISTIC DEPTH AND IMPACT</h4>
+                <div className="flex flex-col gap-1.5 text-left">
+                  <div 
+                    id="artistic-analysis-toggle-btn"
+                    onClick={() => setIsArtisticAnalysisOpen(!isArtisticAnalysisOpen)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIsArtisticAnalysisOpen(!isArtisticAnalysisOpen); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isArtisticAnalysisOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-pink-500/50 ${
+                      isArtisticAnalysisOpen ? "border-pink-500/60 bg-pink-500/[0.12] shadow-[0_0_15px_rgba(236,72,153,0.15)]" : "border-pink-500/30 bg-pink-500/[0.07] hover:border-pink-500/50 hover:bg-pink-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Headphones className="w-4 h-4 text-pink-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">ARTISTIC ANALYSIS</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isArtisticAnalysisOpen ? "rotate-180 text-pink-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
                     <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
-                      Analyzes how powerfully the creative perspective of the song resonates with discerning, active listeners.
+                      Deconstructs structural arrangement nuances, atmospheric elements, and chord patterns to evaluate artistic merit. <span className="text-[12px] text-pink-400 font-semibold block mt-1 hover:underline">Click to {isArtisticAnalysisOpen ? "collapse details" : "expand details"}</span>
                     </p>
                   </div>
-                  
-                  <div className="border border-emerald-500/30 bg-emerald-500/[0.07] p-3.5 rounded-xl">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <h4 className="text-[13px] font-bold text-slate-200">ARTISTIC &amp; LYRICAL FOUNDATION</h4>
-                    </div>
-                    <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
-                      Provides baseline metrics evaluating the physical, literary, and musical foundation of the song's writing, scoring expressive theme clarity and chord dynamics.
-                    </p>
-                  </div>
+                  <AnimatePresence>
+                    {isArtisticAnalysisOpen && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="overflow-hidden">
+                        <div className="border border-pink-500/15 bg-pink-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-pink-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
+                            <div className="flex gap-2"><span className="text-pink-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Artistic Alignment</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Judges how well the production, delivery, and arrangement reinforce a single, cohesive creative vision.</span></div></div>
+                            <div className="flex gap-2"><span className="text-pink-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Harmonic Intrigue</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Scores the creative use of chord progressions and modulations, grounded in real detected chord/key data.</span></div></div>
+                            <div className="flex gap-2"><span className="text-pink-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Atmospheric Depth</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Rates the sense of dimension, reverb imaging, and spatial placement within the production.</span></div></div>
+                            <div className="flex gap-2"><span className="text-pink-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Palette Synergy</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Checks whether the active instruments align tonally to serve a unified artistic direction.</span></div></div>
+                          </div>
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
+                            <button onClick={(e) => { e.stopPropagation(); setIsArtisticAnalysisOpen(false); setTimeout(() => { const b = document.getElementById("artistic-analysis-toggle-btn"); if (b) { b.scrollIntoView({ behavior: "smooth", block: "nearest" }); b.focus(); } }, 100); }} className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/20 hover:border-pink-500/40 text-pink-400 hover:text-pink-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-pink-500/50 w-full" title="Collapse details">
+                              <ChevronsUp className="w-3.5 h-3.5" /><span>Collapse Details</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                  <div className="border border-cyan-500/30 bg-cyan-500/[0.07] p-3.5 rounded-xl">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <Code className="w-4 h-4 text-cyan-400 shrink-0" />
-                      <h4 className="text-[13px] font-bold text-slate-200">SONG WRITING STRENGTH &amp; QUALITY</h4>
+                  <div 
+                    id="lyrical-impact-toggle-btn"
+                    onClick={() => setIsLyricalImpactOpen(!isLyricalImpactOpen)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIsLyricalImpactOpen(!isLyricalImpactOpen); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isLyricalImpactOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 ${
+                      isLyricalImpactOpen ? "border-emerald-500/60 bg-emerald-500/[0.12] shadow-[0_0_15px_rgba(16,185,129,0.15)]" : "border-emerald-500/30 bg-emerald-500/[0.07] hover:border-emerald-500/50 hover:bg-emerald-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">LYRICAL IMPACT</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isLyricalImpactOpen ? "rotate-180 text-emerald-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
                     <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
-                      Analyzes hook effectiveness, structural layouts, and composition flow (songwriting blueprint &amp; dynamic arc) to ensure core memorable quality.
+                      Scores the expressive and thematic value of the written lyrics on a technical and narrative level. <span className="text-[12px] text-emerald-400 font-semibold block mt-1 hover:underline">Click to {isLyricalImpactOpen ? "collapse details" : "expand details"}</span>
                     </p>
                   </div>
+                  <AnimatePresence>
+                    {isLyricalImpactOpen && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="overflow-hidden">
+                        <div className="border border-emerald-500/15 bg-emerald-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-emerald-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
+                            <div className="flex gap-2"><span className="text-emerald-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Meaning Clarity</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Measures whether the lyrics' theme and message come across clearly, even through abstract or metaphorical imagery.</span></div></div>
+                            <div className="flex gap-2"><span className="text-emerald-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Cliché Avoidance</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Evaluates whether the phrasing uses original, poetic concepts over tired, predictable rhyming schemes.</span></div></div>
+                          </div>
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
+                            <button onClick={(e) => { e.stopPropagation(); setIsLyricalImpactOpen(false); setTimeout(() => { const b = document.getElementById("lyrical-impact-toggle-btn"); if (b) { b.scrollIntoView({ behavior: "smooth", block: "nearest" }); b.focus(); } }, 100); }} className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 hover:text-emerald-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 w-full" title="Collapse details">
+                              <ChevronsUp className="w-3.5 h-3.5" /><span>Collapse Details</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div 
+                    id="music-theory-toggle-btn"
+                    onClick={() => setIsMusicTheoryOpen(!isMusicTheoryOpen)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIsMusicTheoryOpen(!isMusicTheoryOpen); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isMusicTheoryOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 ${
+                      isMusicTheoryOpen ? "border-cyan-500/60 bg-cyan-500/[0.12] shadow-[0_0_15px_rgba(6,182,212,0.15)]" : "border-cyan-500/30 bg-cyan-500/[0.07] hover:border-cyan-500/50 hover:bg-cyan-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Code className="w-4 h-4 text-cyan-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">MUSIC THEORY ANALYSIS</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isMusicTheoryOpen ? "rotate-180 text-cyan-400" : "group-hover/btn:text-slate-200"}`} />
+                    </div>
+                    <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
+                      Decodes the foundational theory, key changes, structural forms, and meters driving the composition. <span className="text-[12px] text-cyan-400 font-semibold block mt-1 hover:underline">Click to {isMusicTheoryOpen ? "collapse details" : "expand details"}</span>
+                    </p>
+                  </div>
+                  <AnimatePresence>
+                    {isMusicTheoryOpen && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="overflow-hidden">
+                        <div className="border border-cyan-500/15 bg-cyan-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-cyan-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
+                            <div className="flex gap-2"><span className="text-cyan-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Chord Dynamics</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Inspects how successfully tension and release are crafted through chord progressions and substitutions.</span></div></div>
+                            <div className="flex gap-2"><span className="text-cyan-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Melody</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Measures harmonic variety and richness across the timeline, without penalizing intentionally simple, constrained melodies.</span></div></div>
+                            <div className="flex gap-2"><span className="text-cyan-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Form &amp; Structure</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Examines the arrangement of verses, choruses, bridges, and pre-choruses for a satisfying structural progression.</span></div></div>
+                          </div>
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
+                            <button onClick={(e) => { e.stopPropagation(); setIsMusicTheoryOpen(false); setTimeout(() => { const b = document.getElementById("music-theory-toggle-btn"); if (b) { b.scrollIntoView({ behavior: "smooth", block: "nearest" }); b.focus(); } }, 100); }} className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 hover:border-cyan-500/40 text-cyan-400 hover:text-cyan-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-cyan-500/50 w-full" title="Collapse details">
+                              <ChevronsUp className="w-3.5 h-3.5" /><span>Collapse Details</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div 
+                    id="songwriting-quality-toggle-btn"
+                    onClick={() => setIsSongwritingQualityOpen(!isSongwritingQualityOpen)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIsSongwritingQualityOpen(!isSongwritingQualityOpen); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isSongwritingQualityOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 ${
+                      isSongwritingQualityOpen ? "border-amber-500/60 bg-amber-500/[0.12] shadow-[0_0_15px_rgba(245,158,11,0.15)]" : "border-amber-500/30 bg-amber-500/[0.07] hover:border-amber-500/50 hover:bg-amber-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Music className="w-4 h-4 text-amber-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">SONGWRITING QUALITY</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isSongwritingQualityOpen ? "rotate-180 text-amber-400" : "group-hover/btn:text-slate-200"}`} />
+                    </div>
+                    <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
+                      Analyzes hook effectiveness and structural memorability through melodic contour and syllabic phrasing. <span className="text-[12px] text-amber-400 font-semibold block mt-1 hover:underline">Click to {isSongwritingQualityOpen ? "collapse details" : "expand details"}</span>
+                    </p>
+                  </div>
+                  <AnimatePresence>
+                    {isSongwritingQualityOpen && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="overflow-hidden">
+                        <div className="border border-amber-500/15 bg-amber-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-amber-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
+                            <div className="flex gap-2"><span className="text-amber-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Melodic Hooks - Interval Memory</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Notes whether the melody relies on narrow, stepwise movement or distinct, memorable leaps.</span></div></div>
+                            <div className="flex gap-2"><span className="text-amber-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Melodic Hooks - Syllabic Placement</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Tracks how precisely the lyrics' syllables land on the underlying rhythmic pulse.</span></div></div>
+                          </div>
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
+                            <button onClick={(e) => { e.stopPropagation(); setIsSongwritingQualityOpen(false); setTimeout(() => { const b = document.getElementById("songwriting-quality-toggle-btn"); if (b) { b.scrollIntoView({ behavior: "smooth", block: "nearest" }); b.focus(); } }, 100); }} className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 hover:border-amber-500/40 text-amber-400 hover:text-amber-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-amber-500/50 w-full" title="Collapse details">
+                              <ChevronsUp className="w-3.5 h-3.5" /><span>Collapse Details</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div 
+                    id="acoustic-tension-toggle-btn"
+                    onClick={() => setIsAcousticTensionOpen(!isAcousticTensionOpen)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIsAcousticTensionOpen(!isAcousticTensionOpen); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isAcousticTensionOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${
+                      isAcousticTensionOpen ? "border-red-500/60 bg-red-500/[0.12] shadow-[0_0_15px_rgba(239,68,68,0.15)]" : "border-red-500/30 bg-red-500/[0.07] hover:border-red-500/50 hover:bg-red-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4 text-red-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">ACOUSTIC TENSION</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isAcousticTensionOpen ? "rotate-180 text-red-400" : "group-hover/btn:text-slate-200"}`} />
+                    </div>
+                    <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
+                      Captures how the song builds and releases dynamic pressure across its runtime. <span className="text-[12px] text-red-400 font-semibold block mt-1 hover:underline">Click to {isAcousticTensionOpen ? "collapse details" : "expand details"}</span>
+                    </p>
+                  </div>
+                  <AnimatePresence>
+                    {isAcousticTensionOpen && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="overflow-hidden">
+                        <div className="border border-red-500/15 bg-red-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-red-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
+                            <div className="flex gap-2"><span className="text-red-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Tension Buildup</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Checks whether intensity is stacked through layering and texture, not just raw volume changes.</span></div></div>
+                            <div className="flex gap-2"><span className="text-red-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Payoff Delivery</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Judges whether the climax genuinely resolves the built-up tension, including a sustained plateau as a legitimate payoff style.</span></div></div>
+                          </div>
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
+                            <button onClick={(e) => { e.stopPropagation(); setIsAcousticTensionOpen(false); setTimeout(() => { const b = document.getElementById("acoustic-tension-toggle-btn"); if (b) { b.scrollIntoView({ behavior: "smooth", block: "nearest" }); b.focus(); } }, 100); }} className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 hover:text-red-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-red-500/50 w-full" title="Collapse details">
+                              <ChevronsUp className="w-3.5 h-3.5" /><span>Collapse Details</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div 
+                    id="lyrics-analysis-toggle-btn"
+                    onClick={() => setIsLyricsAnalysisOpen(!isLyricsAnalysisOpen)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIsLyricsAnalysisOpen(!isLyricsAnalysisOpen); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isLyricsAnalysisOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50 ${
+                      isLyricsAnalysisOpen ? "border-purple-500/60 bg-purple-500/[0.12] shadow-[0_0_15px_rgba(168,85,247,0.15)]" : "border-purple-500/30 bg-purple-500/[0.07] hover:border-purple-500/50 hover:bg-purple-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <FileMusic className="w-4 h-4 text-purple-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">LYRICS ANALYSIS</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isLyricsAnalysisOpen ? "rotate-180 text-purple-400" : "group-hover/btn:text-slate-200"}`} />
+                    </div>
+                    <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
+                      Validates songwriting craft around rhythmic vocal delivery and narrative brevity. <span className="text-[12px] text-purple-400 font-semibold block mt-1 hover:underline">Click to {isLyricsAnalysisOpen ? "collapse details" : "expand details"}</span>
+                    </p>
+                  </div>
+                  <AnimatePresence>
+                    {isLyricsAnalysisOpen && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="overflow-hidden">
+                        <div className="border border-purple-500/15 bg-purple-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-purple-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
+                            <div className="flex gap-2"><span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Vocal Pocketing</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Judges how well the vocal delivery locks into the underlying rhythmic groove.</span></div></div>
+                            <div className="flex gap-2"><span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Poetic Brevity</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Checks whether the lines are concise, direct, and purposeful rather than padded or overwritten.</span></div></div>
+                          </div>
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
+                            <button onClick={(e) => { e.stopPropagation(); setIsLyricsAnalysisOpen(false); setTimeout(() => { const b = document.getElementById("lyrics-analysis-toggle-btn"); if (b) { b.scrollIntoView({ behavior: "smooth", block: "nearest" }); b.focus(); } }, 100); }} className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 w-full" title="Collapse details">
+                              <ChevronsUp className="w-3.5 h-3.5" /><span>Collapse Details</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
             </div>
