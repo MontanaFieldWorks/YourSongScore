@@ -33,10 +33,6 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
   const title = trackInfo?.name || "14 CAR";
   const artist = trackInfo?.artist || "Independent Artist";
 
-  const keyVal = critique.liveMetrics?.calculatedKey || "C# Minor";
-  const bpmVal = critique.liveMetrics?.calculatedBpm 
-    ? `${Math.round(critique.liveMetrics.calculatedBpm)} BPM` 
-    : "171 BPM";
   const genreVal = critique.vibe?.genre || "Rock";
   const subgenreVal = critique.vibe?.subgenre || "Power Pop";
 
@@ -46,27 +42,24 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
 
   let liveSkipModifier = 0;
   if (critique?.liveMetrics) {
-    const { calculatedLufs, calculatedBpm, calculatedStereoCorrelation } = critique.liveMetrics;
+    const { calculatedLufs, calculatedStereoCorrelation } = critique.liveMetrics;
     if (calculatedLufs !== undefined && calculatedLufs < -12.5) {
       liveSkipModifier += Math.round(Math.abs(calculatedLufs + 12.5) * 1.8);
     }
     if (calculatedStereoCorrelation !== undefined) {
-      if (calculatedStereoCorrelation > 0.82) {
-        liveSkipModifier += 6;
-      } else if (calculatedStereoCorrelation < -0.15) {
+      // High-correlation penalty removed and BPM check disabled - see CritiqueDisplay.tsx
+      // for full explanation (no evidence found tying either to real skip risk).
+      if (calculatedStereoCorrelation < -0.15) {
         liveSkipModifier += 14;
       }
     }
-    if (calculatedBpm !== undefined && (calculatedBpm < 75 || calculatedBpm > 155)) {
-      liveSkipModifier += 5;
-    }
   }
 
-  const baseSkipProb = Math.min(85, Math.max(10, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
+  const baseSkipProb = Math.min(85, Math.max(0, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
   const skipRate = baseSkipProb;
   const skipRateText = skipRate <= 20 ? "EXCELLENT" : skipRate <= 32 ? "OPTIMAL" : "CRITICAL";
 
-  const completionRate = Math.min(96, Math.max(15, 100 - baseSkipProb - 5));
+  const completionRate = Math.min(100, Math.max(15, 100 - baseSkipProb));
   const completionRateText = completionRate >= 75 ? "OPTIMIZED" : completionRate >= 60 ? "STANDARD" : "LOW";
 
   // Dynamic values for Section 2 (Loudness Assessment)
@@ -332,23 +325,9 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
 
             {/* Dynamic Parameter Cards */}
             <div className="flex flex-row flex-nowrap gap-2 flex-grow mt-2 md:mt-0 md:justify-end w-[400px] max-w-full">
-              {/* Key */}
-              <div className="bg-[#090b11] border border-white/5 rounded-xl px-2.5 py-1.5 flex flex-col justify-center flex-1 min-w-0">
-                <span className="text-[9px] font-mono font-bold tracking-widest text-slate-500 uppercase truncate">DETECTED KEY</span>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span className="w-2 h-2 rounded-full bg-pink-500 shadow-[0_0_6px_rgba(236,72,153,0.7)] flex-shrink-0" />
-                  <span className="text-xs font-mono font-black text-white uppercase truncate">{keyVal}</span>
-                </div>
-              </div>
-
-              {/* Tempo */}
-              <div className="bg-[#090b11] border border-white/5 rounded-xl px-2.5 py-1.5 flex flex-col justify-center flex-1 min-w-0">
-                <span className="text-[9px] font-mono font-bold tracking-widest text-slate-500 uppercase truncate">TEMPO (BPM)</span>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <Activity className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
-                  <span className="text-xs font-mono font-black text-white uppercase truncate">{bpmVal}</span>
-                </div>
-              </div>
+              {/* Key and Tempo cards removed - detection reliability issues confirmed via
+                  real-audio testing (see project notes). Underlying detection code in
+                  liveAudioAnalyzer.ts is untouched; re-enable here once resolved. */}
 
               {/* Core Genre */}
               <div className="bg-[#090b11] border border-white/5 rounded-xl px-2.5 py-1.5 flex flex-col justify-center flex-1 min-w-0">
