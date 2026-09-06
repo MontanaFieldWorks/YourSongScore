@@ -1215,21 +1215,9 @@ const generateHarmonicNodes = () => {
 
                     {/* Numeric Statistics */}
                     <div className="grid grid-cols-2 gap-3.5">
-                      <div className="bg-[#0A0B0E] p-4.5 rounded-xl border border-white/5">
-                        <span className="text-[9px] font-mono text-slate-500 uppercase font-bold tracking-wider">Song Key</span>
-                        <div className="text-xl font-extrabold text-white mt-1.5 font-mono text-glow text-violet-400">
-                          {critique?.liveMetrics?.calculatedKey ?? "—"}
-                        </div>
-                        <p className="text-[9.5px] text-slate-400 mt-1 leading-relaxed">Detected root key. Critical for sync licensing metadata and harmonic mixing compatibility.</p>
-                      </div>
-
-                      <div className="bg-[#0A0B0E] p-4.5 rounded-xl border border-white/5">
-                        <span className="text-[9px] font-mono text-slate-500 uppercase font-bold tracking-wider">Tempo (BPM)</span>
-                        <div className="text-xl font-extrabold text-white mt-1.5 font-mono text-glow text-violet-400">
-                          {critique?.liveMetrics?.calculatedBpm !== undefined ? `${critique.liveMetrics.calculatedBpm} BPM` : "—"}
-                        </div>
-                        <p className="text-[9.5px] text-slate-400 mt-1 leading-relaxed">Detected tempo. Used for playlist transition compatibility and sync licensing brief matching.</p>
-                      </div>
+                      {/* Song Key and Tempo cells removed - detection reliability issues
+                          confirmed via real-audio testing (see project notes). Underlying
+                          detection code in liveAudioAnalyzer.ts is untouched. */}
                       <div className="bg-[#0A0B0E] p-4.5 rounded-xl border border-white/5">
                         <span className="text-[9px] font-mono text-slate-500 uppercase font-bold tracking-wider">Integrated Loudness</span>
                         <div className="text-xl font-extrabold text-white mt-1.5 font-mono text-glow">
@@ -1845,7 +1833,6 @@ const generateHarmonicNodes = () => {
                         {[
                           { id: "outline", label: "Outline Waveform" },
                           { id: "waveform", label: "Waveform envelope" },
-                          { id: "key", label: "Key Grid" },
                           { id: "azimuth", label: "Stereo Azimuth ★" }
                         ].map((t) => (
                           <button
