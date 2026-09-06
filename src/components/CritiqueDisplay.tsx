@@ -5533,6 +5533,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   { label: "Streaming Alignment", id: "sidebar-link-streaming-1", isActive: activeCategory === "spotify" },
                   { label: "Recommender Prediction", id: "sidebar-link-streaming-recommender", isActive: activeCategory === "recommender" },
                   { label: "Algorithmic Sandbox", id: "sidebar-link-streaming-2", isActive: activeCategory === "sandbox" },
+                  { label: "Song Title Searchability", id: "sidebar-link-streaming-searchability", isActive: expandedMetric === "searchability" },
                 ].map((item, i) => (
                   <button
                     key={i}
@@ -5604,7 +5605,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   { label: "Instrumental Staging", id: "sidebar-link-sonic-3", isActive: expandedMetric === "instrumental" },
                   { label: "Production Quality", id: "sidebar-link-sonic-2", isActive: productionQualityExpanded },
                   { label: "Loudness Compliance", id: "sidebar-link-sonic-loudness", isActive: isLoudnessComplianceExpanded },
-                  { label: "Tech Blueprints", id: "sidebar-link-sonic-1", isActive: activeCategory === "blueprints" },
                 ].map((item, i) => (
                   <button
                     key={i}
@@ -5843,9 +5843,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <div className="relative z-10 p-7 flex flex-col gap-3">
                     <span className="text-[10px] font-mono font-bold text-[#46F4CD] uppercase tracking-[0.2em]">Category</span>
                     <h2 className="text-[32px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Sonic Soundprint</h2>
-                    <p className="text-[12px] text-slate-400 leading-relaxed max-w-lg mt-1">Engineering studio, production quality, and technical diagnostic blueprints — whether your mix sounds finished and competitive.</p>
+                    <p className="text-[12px] text-slate-400 leading-relaxed max-w-lg mt-1">Engineering studio and production quality — whether your mix sounds finished and competitive.</p>
                     <div className="flex gap-2 mt-2 flex-wrap">
-                      {["Engineering Studio", "Tech Blueprints", "Production Quality"].map(tag => (
+                      {["Engineering Studio", "Production Quality"].map(tag => (
                         <span key={tag} className="text-[9px] font-mono text-[#46F4CD]/70 border border-[#46F4CD]/25 px-2.5 py-1 rounded-full">{tag}</span>
                       ))}
                     </div>
@@ -6563,6 +6563,85 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </AnimatePresence>
         </div>
 
+        <div className="pt-2">
+          <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-3 pl-1">The Below Data Is Not Used In the Overall Summary Score</p>
+        </div>
+
+        {/* Card: Song Title Searchability (pink) - moved out of the unrelated "Technical and
+            Diagnostic Blueprints" card in Sonic Soundprint, since it's a real Streaming
+            Readiness concept (title/metadata discoverability) that was never scored into
+            any summary total - now honestly labeled as such in its own home. */}
+        <div className="flex flex-col w-full gap-4" id="sidebar-link-streaming-searchability">
+          {(() => {
+            const searchMetric = METRICS_LIST.find(m => m.id === "searchability");
+            if (!searchMetric) return null;
+            const isExpanded = expandedMetric === "searchability";
+            return (
+              <>
+                <button
+                  onClick={() => setExpandedMetric(isExpanded ? null : "searchability")}
+                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+                    isExpanded
+                      ? "bg-[#0e090c] border-pink-500 shadow-[0_0_35px_rgba(236,72,153,0.35)] ring-1 ring-pink-500/40 font-black"
+                      : "bg-[#0A0B0E]/60 border-pink-500/40 hover:border-pink-500 hover:bg-neutral-900/40 text-slate-400"
+                  }`}
+                >
+                  <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
+                    <div className="flex flex-col flex-1 justify-between gap-3 h-full">
+                      <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
+                        <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
+                          isExpanded
+                            ? "bg-pink-500/10 border-pink-500/30 text-pink-400 shadow-[0_0_15px_rgba(236,72,153,0.3)]"
+                            : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-pink-400"
+                        }`}>
+                          <Compass className="w-5 h-5 text-pink-400" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
+                            isExpanded ? "text-white" : "text-slate-400 group-hover:text-slate-200"
+                          }`}>
+                            {searchMetric.name}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-medium">{searchMetric.subtitle}</span>
+                        </div>
+                      </div>
+
+                      <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
+                        isExpanded ? "border-pink-500/15" : "border-white/5"
+                      }`}>
+                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                          {searchMetric.callout}
+                          <span className="block mt-1 text-pink-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>A real score, scored separately - does not factor into your Streaming Readiness total.</span>
+                        </p>
+                        <span 
+                    style={{ paddingTop: "2px" }}
+                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                          isExpanded
+                            ? "bg-pink-500/10 border-pink-500/20 text-pink-400"
+                            : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-pink-400"
+                        }`}>
+                          {isExpanded ? "ACTIVE ⬇" : "VIEW METRICS ⚡"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex-shrink-0 flex items-center justify-center">
+                      <ScoreCircle
+                        score={searchMetric.score}
+                        size={110}
+                        strokeWidth={7}
+                        color={isExpanded ? "#ec4899" : "rgba(236, 72, 153, 0.45)"}
+                        glowColor={isExpanded ? "rgba(236, 72, 153, 0.65)" : "rgba(236, 72, 153, 0.15)"}
+                        extraGlow={isExpanded}
+                      />
+                    </div>
+                  </div>
+                </button>
+                {isExpanded && renderExpandedBreakdown("searchability")}
+              </>
+            );
+          })()}
+        </div>
 
       </div> /* End of section-streaming */
             )}
@@ -7197,123 +7276,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           })()}
         </div>
 
-        {/* Card: Technical and Diagnostic Blueprints (cyan) */}
-        <div className="flex flex-col w-full gap-4" id="sidebar-link-sonic-1">
-          <button
-            onClick={() => handleCategoryChange("blueprints")}
-            id="blueprint-category-selector"
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
-              activeCategory === "blueprints"
-                ? "bg-[#090b0e] border-cyan-500 shadow-[0_0_35px_rgba(6,182,212,0.35)] ring-1 ring-cyan-500/40 font-black"
-                : "bg-[#0A0B0E]/60 border-[#06b6d4]/40 hover:border-[#06b6d4] hover:bg-neutral-900/40 text-slate-400"
-            }`}
-          >
-            {/* Background ambient shade */}
-            {activeCategory === "blueprints" ? (
-              <div className="absolute inset-0 bg-gradient-to-br from-cyan-950/5 via-neutral-950 to-[#030509] pointer-events-none" />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 to-[#030509] pointer-events-none" />
-            )}
-
-            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-6 w-full h-full">
-              {/* Left Content Column */}
-              <div className="flex flex-col flex-1 justify-between gap-3 h-full">
-                {/* Header block */}
-                <div className="flex items-center gap-3" style={{ marginBottom: "-9px" }}>
-                  <div className={`p-2 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all ${
-                    activeCategory === "blueprints"
-                      ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.25)]"
-                      : "bg-neutral-900 border-white/5 text-slate-500 group-hover:text-slate-300"
-                  }`}>
-                    <Layers className="w-5 h-5 text-cyan-400" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span 
-                      className={`font-black text-[19px] tracking-wider uppercase transition-colors ${
-                        activeCategory === "blueprints" ? "text-white" : "text-slate-400 group-hover:text-slate-200"
-                      }`}
-                    >
-                      TECHNICAL AND DIAGNOSTIC BLUEPRINTS
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Core Metric Integration</span>
-                  </div>
-                </div>
-
-                {/* Bottom info block */}
-                <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
-                  activeCategory === "blueprints" ? "border-cyan-500/15" : "border-white/5"
-                }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
-                    Integrated assessment linking Composition Flow, Stereo Mix Balance, Vocal Tracking, Instrumental Staging, and Title Searchability.
-                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Pinpoints exact engineering fixes across your mix, frequency by frequency.</span>
-                  </p>
-                  <span 
-                    style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
-                    activeCategory === "blueprints"
-                      ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-400"
-                      : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
-                  }`}>
-                    {activeCategory === "blueprints" ? "ACTIVE ⬇" : "VIEW METRICS"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Right side: informational, not a scored circle */}
-              <div className="flex-shrink-0 flex items-center justify-center px-4">
-                <span className="text-[11px] font-sans font-bold text-white text-center leading-snug max-w-[150px]">
-                  This Data is Not Scored
-                </span>
-              </div>
-            </div>
-          </button>
-
-          <AnimatePresence initial={false}>
-            {activeCategory === "blueprints" && (
-              <motion.div
-                initial={{ height: 0, opacity: 0, marginTop: -8 }}
-                animate={{ height: "auto", opacity: 1, marginTop: 4 }}
-                exit={{ height: 0, opacity: 0, marginTop: -8 }}
-                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                className="overflow-hidden w-full relative z-0"
-              >
-                <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-black/80 border border-[#06b6d4] rounded-3xl p-6 shadow-[0_0_35px_rgba(0,0,0,0.95)] flex flex-col gap-5">
-                  <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
-                    TECHNICAL & DIAGNOSTIC SYSTEM BLUEPRINTS
-                  </div>
-                  <div style={{ marginTop: "-20px", paddingTop: "11px", paddingBottom: "18px" }} className="flex items-center justify-between border-b border-white/5">
-                    <span className="text-xs font-mono font-bold tracking-widest text-[#90a1b9] uppercase flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                      <span>DIAGNOSTIC SYSTEM BLUEPRINTS</span>
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-500 text-right">
-                      Exposing critical audio performance vectors & Search Indexing blueprints
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col gap-5 relative">
-                    {getFilteredMetrics("blueprints").map((metric) => {
-                      if (!metric) return null;
-                      const isExpanded = expandedMetric === metric.id;
-                      return (
-                        <div key={metric.id} className="flex flex-col gap-1.5 relative" id={`metric-wrapper-${metric.id}`}>
-                          <RowMetricCard
-                            metric={metric}
-                            isExpanded={isExpanded}
-                            onClick={() => {
-                              setExpandedMetric(isExpanded ? null : metric.id);
-                            }}
-                          />
-                          {isExpanded && renderExpandedBreakdown(metric.id)}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
       </div> /* End of section-sonic */
       )}
 
