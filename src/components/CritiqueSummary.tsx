@@ -55,7 +55,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
     }
   }
 
-  const baseSkipProb = Math.min(85, Math.max(0, 95 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
+  const baseSkipProb = Math.min(85, Math.max(0, 91 - Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20)) + liveSkipModifier));
   const skipRate = baseSkipProb;
   const skipRateText = skipRate <= 20 ? "EXCELLENT" : skipRate <= 32 ? "OPTIMAL" : "CRITICAL";
 
