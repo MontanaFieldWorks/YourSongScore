@@ -1547,7 +1547,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       hoverText: "Evaluates harmonic progressions, melodic construction, and rhythmic architecture.",
       subParams: [
         { name: "Chord Dynamics (40%)", desc: "Analyzes chord sequences, leading tones, and voice leading interest." },
-        { name: "Melody (30%)", desc: "Judges melodic phrase construction, contour, and motif development - independent of commercial catchiness." },
+        { name: "Harmonic Variety (30%)", desc: "Measures the richness and variety of unique chords used across the song's full timeline - independent of chord dynamics or structural form." },
         { name: "Form & Structure (30%)", desc: "Checks layout blueprints, sectional loop lengths, and motif repetition." }
       ],
       callout: "This Metric analyzes harmonic craft, melodic construction, rhythmic interest, and structural gravity to track musical narrative.",
@@ -3161,11 +3161,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     }
     if (cleanName === "Harmonic Variety" || cleanName === "Melody") {
       if (score >= 90) {
-        return `Exceptional melodic range and pitch alignment! The vocal melodies weave effortlessly across complex scale intervals, utilizing unexpected passing tones and elegant modulation options. This score characterizes complex polyphonic structures.`;
+        return `Exceptional harmonic richness! The chord palette moves well beyond the basic triads of the home key, weaving in extended voicings, borrowed chords, or unexpected substitutions across the timeline. This score characterizes a genuinely wide, varied harmonic vocabulary.`;
       } else if (score >= 80) {
-        return `Beautiful melodic craftsmanship and key cohesion (${score}/100). The melodies sit naturally inside the chord movements, maintaining clear scale integrity and cohesive musical statements. The remaining points are not a penalty—they simply denote that the melody maintains standard diatonic scale boundaries rather than wandering into complex accidentals, modulations, or non-scale dissonances that might alter the song's fundamental nature.`;
+        return `Solid harmonic variety (${score}/100). The chord choices go beyond the bare minimum, introducing some real movement and color across the song's structure. The remaining points aren't a penalty - they simply mean the palette stays within familiar, functional territory rather than reaching for genuinely unusual or complex harmonic ideas.`;
       } else {
-        return `The melodies stay close to basic root notes or simple 1-3-5 triad shapes on the grid. While this provides a highly memorable, easily hummable top-line for standard pop, a higher score is reserved for melodies that stretch across wider intervals, utilize non-scale passing tones, or weave through distinct musical key modulations.`;
+        return `The chord palette stays close to a small, repeated set of basic triads throughout. While this provides a highly memorable, easily accessible foundation for standard pop and rock songwriting, a higher score is reserved for a wider variety of unique chords, more harmonic movement, or richer voicings used across the track's full timeline.`;
       }
     }
 
