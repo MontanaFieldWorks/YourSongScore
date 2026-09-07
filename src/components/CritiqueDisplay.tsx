@@ -149,7 +149,7 @@ function RoseChart({ data }: { data: { name: string; score: number; color: strin
 
   return (
     <div className="mt-6 p-4 bg-black/60 rounded-2xl border border-white/5 flex flex-col items-center">
-      <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest block mb-4 text-center font-bold">
+      <span className="text-[11px] font-mono text-slate-500 uppercase tracking-widest block mb-4 text-center font-bold">
         SUB-PARAMETER IMPACT ROSE CHART
       </span>
       
@@ -241,7 +241,7 @@ function RoseChart({ data }: { data: { name: string; score: number; color: strin
       
       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-4 w-full select-none">
         {data.map((item, idx) => (
-          <div key={idx} className="flex items-center gap-1.5 text-[9px] font-mono text-slate-400 font-semibold">
+          <div key={idx} className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400 font-semibold">
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
             <span className="truncate">{item.name} : <span className="text-white font-bold">{item.score}%</span></span>
           </div>
@@ -346,7 +346,7 @@ function PQMetricCard({ label, score, desc, improve, idx }: PQMetricCardProps) {
       onClick={() => setExpanded(!expanded)}
     >
       <div className="flex justify-between items-center">
-        <span className="text-[11px] font-mono font-bold text-slate-300 uppercase tracking-wide">{label}</span>
+        <span className="text-[13px] font-mono font-bold text-slate-300 uppercase tracking-wide">{label}</span>
         <span className="text-[12px] font-mono font-black" style={{ color: gradientColor }}>{pct} / 100</span>
       </div>
       <div className="w-full overflow-visible" style={{ height: "64px" }}>
@@ -373,14 +373,14 @@ function PQMetricCard({ label, score, desc, improve, idx }: PQMetricCardProps) {
           />
         </svg>
       </div>
-      <p className="text-[10px] text-slate-400 leading-relaxed">{desc}</p>
+      <p className="text-[12px] text-slate-400 leading-relaxed">{desc}</p>
       {expanded && (
         <div className="border-t border-white/5 pt-2.5 flex flex-col gap-1 animate-fadeIn">
-          <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider">How to improve</span>
-          <p className="text-[10px] text-slate-400 leading-relaxed">{improve}</p>
+          <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider">How to improve</span>
+          <p className="text-[12px] text-slate-400 leading-relaxed">{improve}</p>
         </div>
       )}
-      <span className="text-[8px] font-mono text-slate-600 self-end">{expanded ? "CLOSE ↑" : "TAP FOR TIPS ↓"}</span>
+      <span className="text-[10px] font-mono text-slate-600 self-end">{expanded ? "CLOSE ↑" : "TAP FOR TIPS ↓"}</span>
     </div>
   );
 }
@@ -2348,7 +2348,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             </span>
           </div>
 
-          <span className={`text-[9px] mt-2 block font-mono font-bold uppercase tracking-widest transition-colors ${
+          <span className={`text-[11px] mt-2 block font-mono font-bold uppercase tracking-widest transition-colors ${
             isExpanded ? neon.textClass : "text-slate-500"
           }`}>
             {isExpanded ? "Hide Breakdown ↑" : "Breakdown ↓"}
@@ -2370,8 +2370,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           {/* Horizontal list of sub-parameters wrapped in a single capsule-pill container exactly like image 2 */}
           <div className="bg-[#13161C]/50 border border-white/5 py-1.5 px-3.5 rounded-full flex flex-wrap items-center gap-x-5 gap-y-1.5 mt-3 w-fit">
             {(metric.subParams || []).map((param: any, idx: number) => (
-              <div key={idx} className="flex items-center text-[11px] font-medium text-slate-300 select-none">
-                <span className="text-blue-400 text-[11px] mr-1.5 font-sans">◇</span>
+              <div key={idx} className="flex items-center text-[13px] font-medium text-slate-300 select-none">
+                <span className="text-blue-400 text-[13px] mr-1.5 font-sans">◇</span>
                 <span>{param.name}</span>
               </div>
             ))}
@@ -2383,7 +2383,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           <div className="w-full md:w-72 flex-shrink-0 z-10" onClick={(e) => e.stopPropagation()}>
             {metric.isGold && (
               <div className="flex justify-end mb-1.5 select-none animate-pulse">
-                <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/40 rounded text-[8px] font-mono font-bold text-amber-400 uppercase tracking-widest leading-none">
+                <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/40 rounded text-[10px] font-mono font-bold text-amber-400 uppercase tracking-widest leading-none">
                   Key Metric
                 </span>
               </div>
@@ -2402,7 +2402,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   background: `radial-gradient(circle, ${neon.color} 0%, transparent 80%)`,
                 }}
               />
-              <p className="text-[11px] text-slate-200 leading-relaxed font-semibold relative z-10">
+              <p className="text-[13px] text-slate-200 leading-relaxed font-semibold relative z-10">
                 {metric.callout}
               </p>
             </div>
@@ -2476,7 +2476,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           aria-label={`Score Metric for ${label}. Click to expand score breakdown.`}
         >
           {isGold && (
-            <div className="absolute top-1.5 right-2 px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded text-[8px] font-mono font-bold text-amber-400 uppercase tracking-widest leading-none z-15">
+            <div className="absolute top-1.5 right-2 px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded text-[10px] font-mono font-bold text-amber-400 uppercase tracking-widest leading-none z-15">
               Key Metric
             </div>
           )}
@@ -2564,14 +2564,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </div>
           <span className={`mt-2 block leading-snug tracking-wide relative z-10 ${
             isSmall 
-              ? "text-[10px] text-slate-400" 
+              ? "text-[12px] text-slate-400" 
               : isGold 
                 ? "text-xs font-black text-white uppercase tracking-wider" 
                 : "text-xs text-slate-300 font-semibold"
           }`}>
             {label}
           </span>
-          <span className="text-[9px] text-slate-500 mt-1 block font-mono hover:text-blue-400 transition-colors relative z-10">
+          <span className="text-[11px] text-slate-500 mt-1 block font-mono hover:text-blue-400 transition-colors relative z-10">
             {isCurrentlyExpanded ? "Hide Breakdown ↑" : "Breakdown ↓"}
           </span>
         </button>
@@ -2592,7 +2592,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {critique?.liveMetrics ? `${critique.liveMetrics.calculatedLufs} LUFS` : "--"}
             </strong>. While this sits nicely in the commercial sweet spot of -9.0 to -7.0 LUFS, the heavy-packed arrangement (guitars, wall-of-sound synths, punching drums) and high-frequency sibilance are triggering limiting artifacts.
           </p>
-          <span className="text-[10px] font-mono font-bold text-teal-400 uppercase tracking-widest block mt-1">Four-Step Blueprint to Fix Dynamic Balance &amp; LUFS Power:</span>
+          <span className="text-[12px] font-mono font-bold text-teal-400 uppercase tracking-widest block mt-1">Four-Step Blueprint to Fix Dynamic Balance &amp; LUFS Power:</span>
           <ol className="list-decimal list-inside flex flex-col gap-2.5 text-xs text-slate-400 pl-1">
             <li>
               <strong className="text-slate-200">De-Harsh Upper Midrange:</strong> Use dynamic EQ on the group synth bus and cymbals between <strong className="text-[#cb9fff]">4kHz to 7kHz</strong>. Taming high-end ear fatigue prevents the master limiter from over-compressing these sharp peaks, immediately reclaiming dynamic headroom.
@@ -2642,41 +2642,41 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-[#13161C] p-4 rounded-xl border border-white/5 flex flex-col justify-between">
                 <div>
-                  <span className="text-[10px] font-mono text-slate-400 uppercase">Integrated Loudness</span>
+                  <span className="text-[12px] font-mono text-slate-400 uppercase">Integrated Loudness</span>
                   <p className="text-xl font-mono font-black text-white mt-1">
                     {critique?.liveMetrics ? `${critique.liveMetrics.calculatedLufs} LUFS` : "--"}
                   </p>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
+                <p className="text-[13px] text-slate-500 mt-2 leading-relaxed">
                   Optimal commercial sweet spot is -9.0 to -7.0 LUFS. Competitive density while preserving key transient response.
                 </p>
               </div>
               <div className="bg-[#13161C] p-4 rounded-xl border border-white/5 flex flex-col justify-between">
                 <div>
-                  <span className="text-[10px] font-mono text-slate-400 uppercase">True Peak Level</span>
+                  <span className="text-[12px] font-mono text-slate-400 uppercase">True Peak Level</span>
                   <p className="text-xl font-mono font-black text-white mt-1">
                     {critique?.liveMetrics ? `${critique.liveMetrics.calculatedTruePeak} dBTP` : "--"}
                   </p>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
+                <p className="text-[13px] text-slate-500 mt-2 leading-relaxed">
                   Safely below the -1.0 dBTP limit required by Spotify and Apple Music encoders to prevent digital codec clipping.
                 </p>
               </div>
               <div className="bg-[#13161C] p-4 rounded-xl border border-white/5 flex flex-col justify-between">
                 <div>
-                  <span className="text-[10px] font-mono text-slate-400 uppercase">Loudness Range (LRA)</span>
+                  <span className="text-[12px] font-mono text-slate-400 uppercase">Loudness Range (LRA)</span>
                   <p className="text-xl font-mono font-black text-white mt-1">
                     {critique?.liveMetrics ? `${critique.liveMetrics.calculatedLra} LU` : "--"}
                   </p>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
+                <p className="text-[13px] text-slate-500 mt-2 leading-relaxed">
                   Healthy dynamic headroom preserving the high-impact contrast transition between verse tension and chorus explosions.
                 </p>
               </div>
             </div>
 
             <div className="bg-[#13161C] p-5 rounded-xl border border-white/5">
-              <span className="text-[10px] font-mono text-teal-400 uppercase tracking-widest block mb-3 font-semibold">
+              <span className="text-[12px] font-mono text-teal-400 uppercase tracking-widest block mb-3 font-semibold">
                 First 60s Engagement Power Timeline Index
               </span>
               <div className="h-32 w-full bg-[#0A0B0E] rounded-lg p-3 relative flex flex-col justify-end overflow-hidden">
@@ -2711,7 +2711,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <circle cx="500" cy="5" r="4" fill="#ffffff" />
                     </svg>
                     
-                    <div className="flex justify-between text-[9px] font-mono text-slate-500 mt-2">
+                    <div className="flex justify-between text-[11px] font-mono text-slate-500 mt-2">
                       <span>0s (Intro Hook: 88%)</span>
                       <span>15s (Verse Drop: 75%)</span>
                       <span>35s (Pre-Chorus Rise: 84%)</span>
@@ -2721,11 +2721,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 ) : (
                   <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center rounded-lg border border-dashed border-white/5">
                     <div className="w-5 h-5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mb-1.5" />
-                    <span className="text-[10px] font-mono text-slate-400">Awaiting audio analysis...</span>
+                    <span className="text-[12px] font-mono text-slate-400">Awaiting audio analysis...</span>
                   </div>
                 )}
                 
-                <div className="absolute top-2 right-2 text-[9px] font-mono text-pink-400 flex items-center gap-1">
+                <div className="absolute top-2 right-2 text-[11px] font-mono text-pink-400 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse" />
                   <span>Avg Skip-Rate Threat Threshold (Target &gt; 65%)</span>
                 </div>
@@ -2754,7 +2754,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse shrink-0" />
                   <span>LUFS Explained Simply (The "Loudness vs. Quality" Paradox)</span>
-                  <span className="text-[9px] font-mono no-underline bg-teal-400/10 border border-teal-500/20 px-1.5 py-0.5 rounded text-teal-400 uppercase tracking-widest leading-none shrink-0">Glossary &rarr;</span>
+                  <span className="text-[11px] font-mono no-underline bg-teal-400/10 border border-teal-500/20 px-1.5 py-0.5 rounded text-teal-400 uppercase tracking-widest leading-none shrink-0">Glossary &rarr;</span>
                 </button>
               </div>
 
@@ -2798,10 +2798,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             </h4>
             
             <div className="bg-[#0A0B0E] p-5 rounded-xl border border-white/10 relative overflow-hidden">
-              <span className="text-[10px] font-mono text-blue-400 uppercase tracking-wider block mb-1">
+              <span className="text-[12px] font-mono text-blue-400 uppercase tracking-wider block mb-1">
                 20Hz - 20kHz Soundstage Profile Density
               </span>
-              <span className="text-[9px] font-semibold text-slate-500 block mb-4">
+              <span className="text-[11px] font-semibold text-slate-500 block mb-4">
                 Solid Blue: Your Track | Dashed Teal: Target "Successful" Modern Indie Hit Blueprint
               </span>
               
@@ -2838,14 +2838,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 </svg>
                 
                 {/* Spectral Delta Labels */}
-                <div className="absolute top-1 left-[55px] text-[9px] font-mono text-rose-400 bg-rose-955/50 px-2 py-0.5 border border-rose-500/20 rounded">
+                <div className="absolute top-1 left-[55px] text-[11px] font-mono text-rose-400 bg-rose-955/50 px-2 py-0.5 border border-rose-500/20 rounded">
                   Delta +1.8dB at 180Hz (Bass Overlap / Mud Zone)
                 </div>
-                <div className="absolute top-16 right-[100px] text-[9px] font-mono text-emerald-400 bg-emerald-955/50 px-2 py-0.5 border border-emerald-500/20 rounded">
+                <div className="absolute top-16 right-[100px] text-[11px] font-mono text-emerald-400 bg-emerald-955/50 px-2 py-0.5 border border-emerald-500/20 rounded">
                   Delta -0.5dB at 4.5kHz (Optimal Present Vocal Pocket!)
                 </div>
 
-                <div className="mt-auto flex justify-between text-[9px] font-mono text-slate-500 pt-2 border-t border-white/5">
+                <div className="mt-auto flex justify-between text-[11px] font-mono text-slate-500 pt-2 border-t border-white/5">
                   <span>Sub-Bass (20-60Hz)</span>
                   <span>Low-Mids (250Hz)</span>
                   <span>Midrange (1kHz)</span>
@@ -2882,28 +2882,28 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             </h4>
             
             <div className="bg-[#0A0B0E] p-4 rounded-xl border border-white/5">
-              <span className={`text-[10px] font-mono ${flowColorClass} uppercase block mb-3 font-semibold`}>
+              <span className={`text-[12px] font-mono ${flowColorClass} uppercase block mb-3 font-semibold`}>
                 Song Architecture Phase-Build Model
               </span>
               
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-20 text-[10px] uppercase font-mono text-slate-400">Verse 1 (0-22s)</div>
-                  <div className="flex-1 h-6 bg-blue-500/10 border border-blue-500/20 rounded flex items-center px-2.5 text-[10px] text-blue-400 font-mono justify-between">
+                  <div className="w-20 text-[12px] uppercase font-mono text-slate-400">Verse 1 (0-22s)</div>
+                  <div className="flex-1 h-6 bg-blue-500/10 border border-blue-500/20 rounded flex items-center px-2.5 text-[12px] text-blue-400 font-mono justify-between">
                     <span>Harmonic Grounding (82%)</span>
                     <span>Tension: Balanced</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-20 text-[10px] uppercase font-mono text-slate-400">Pre-Chorus (22-38s)</div>
-                  <div className="flex-1 h-6 bg-purple-500/15 border border-purple-500/30 rounded flex items-center px-2.5 text-[10px] text-purple-400 font-mono justify-between animate-pulse">
+                  <div className="w-20 text-[12px] uppercase font-mono text-slate-400">Pre-Chorus (22-38s)</div>
+                  <div className="flex-1 h-6 bg-purple-500/15 border border-purple-500/30 rounded flex items-center px-2.5 text-[12px] text-purple-400 font-mono justify-between animate-pulse">
                     <span>Ramping Volume Sweep + Uplift Build (88%)</span>
                     <span>Tension: Ramping Up</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-20 text-[10px] uppercase font-mono text-slate-400">Chorus Peak (38-1m08s)</div>
-                  <div className={`flex-1 h-6 ${flowPillBgClass} rounded flex items-center px-2.5 text-[10px] font-mono justify-between font-bold`}>
+                  <div className="w-20 text-[12px] uppercase font-mono text-slate-400">Chorus Peak (38-1m08s)</div>
+                  <div className={`flex-1 h-6 ${flowPillBgClass} rounded flex items-center px-2.5 text-[12px] font-mono justify-between font-bold`}>
                     <span>Explosive Chorus Hook Delivery (96% Impact)</span>
                     <span>Energy Peak</span>
                   </div>
@@ -3411,7 +3411,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           <div className="flex-1 w-full pl-3.5">
             {/* A&R Diagnostic Focus Block */}
             <div className="p-4 bg-[#020203] border border-white/10 rounded-xl">
-              <span className={`text-[10px] font-mono uppercase tracking-wider block mb-1 font-bold ${
+              <span className={`text-[12px] font-mono uppercase tracking-wider block mb-1 font-bold ${
                 (activeCategory === "blueprints" || selectedObj.id === "mix" || selectedObj.id === "vocals") ? "text-cyan-400" : activeCategory === "mainstream" ? "text-blue-400" : activeCategory === "dna" ? "text-emerald-400" : "text-purple-400"
               }`}>
                 A&amp;R Diagnostic Focus Assessment Description
@@ -3429,7 +3429,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               const lraPass = lra !== undefined && lra >= bucket.lraMin && (bucket.lraMax === null || lra <= bucket.lraMax);
               return (
                 <div className="mt-3 p-4 bg-[#020203] border border-white/10 rounded-xl">
-                  <span className="text-[10px] font-mono uppercase tracking-wider block mb-2 font-bold text-blue-400">
+                  <span className="text-[12px] font-mono uppercase tracking-wider block mb-2 font-bold text-blue-400">
                     Loudness & Dynamic Range Compliance ({bucket.label})
                   </span>
                   <div className="flex flex-col sm:flex-row gap-3">
@@ -3440,7 +3440,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <span className="font-bold uppercase">{lraPass ? "PASS" : "FAIL"}</span> — Dynamic Range: {lra ?? "--"} LU (target: {bucket.lraMin}{bucket.lraMax !== null ? `-${bucket.lraMax}` : "+"})
                     </div>
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-2">Compliance badges only - not scored, not weighted, does not factor into the Engagement Power score.</p>
+                  <p className="text-[12px] text-slate-500 mt-2">Compliance badges only - not scored, not weighted, does not factor into the Engagement Power score.</p>
                 </div>
               );
             })()}
@@ -3658,7 +3658,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     >
                       {/* Left Column: Redesigned circle score badge */}
                       <div className="flex flex-col items-center justify-center p-3 bg-black/60 rounded-xl border border-white/5 w-24 shrink-0 text-center select-none">
-                        <span className="text-[9px] font-mono font-bold tracking-wider text-slate-500 uppercase">Subscore</span>
+                        <span className="text-[11px] font-mono font-bold tracking-wider text-slate-500 uppercase">Subscore</span>
                         
                         {/* Nested flat arc score circle */}
                         <div className="relative flex items-center justify-center my-2" style={{ width: 64, height: 64 }}>
@@ -3689,7 +3689,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                           </span>
                         </div>
 
-                        <span className={`text-[10px] font-mono font-black tracking-wider uppercase mt-1 ${statusColorClass}`}>
+                        <span className={`text-[12px] font-mono font-black tracking-wider uppercase mt-1 ${statusColorClass}`}>
                           {statusLabel}
                         </span>
                       </div>
@@ -3701,12 +3701,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             <span className="text-sm font-black text-slate-100 font-sans tracking-tight flex items-baseline gap-2">
                               <span className="leading-none">{param.name.split(" (")[0]}</span>
                               {isLufsRow && (
-                                <span className="text-[9px] px-1.5 py-0.5 bg-teal-500/10 text-teal-400 border border-teal-500/20 rounded font-mono font-bold uppercase tracking-widest leading-none">
+                                <span className="text-[11px] px-1.5 py-0.5 bg-teal-500/10 text-teal-400 border border-teal-500/20 rounded font-mono font-bold uppercase tracking-widest leading-none">
                                   {lufsOpen ? "Toggled On" : "Click to review"}
                                 </span>
                               )}
                             </span>
-                            <span className="text-[10px] text-blue-400 font-mono font-bold uppercase tracking-wider leading-none">
+                            <span className="text-[12px] text-blue-400 font-mono font-bold uppercase tracking-wider leading-none">
                               Weight: {(() => {
                                 const embeddedMatch = param.name.match(/\((\d+)%\)/);
                                 if (embeddedMatch) return `${embeddedMatch[1]}%`;
@@ -3725,7 +3725,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         {/* Decoupled layout element for laying why the score got what it did! */}
                         <div className="mt-3.5 p-3.5 bg-black/60 border border-white/5 rounded-xl text-xs text-slate-300 leading-relaxed font-sans shadow-inner relative overflow-hidden">
                           <div className="absolute top-0 left-0 w-0.5 h-full bg-blue-500/40" />
-                          <span className="text-[9px] font-mono text-blue-400 font-bold uppercase tracking-widest block mb-1">
+                          <span className="text-[11px] font-mono text-blue-400 font-bold uppercase tracking-widest block mb-1">
                             A&amp;R Deep-Dive Analysis
                           </span>
                           {realSub ? realSub.commentary : getSubScoreExplanationText(param.name, subScore)}
@@ -3745,7 +3745,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           <div className="w-full md:w-[256px] bg-[#020203] py-5 px-3 rounded-2xl border border-white/10 self-stretch flex flex-col justify-between">
             <div>
               <div className="mb-4">
-                <span className="text-[9px] font-mono uppercase tracking-widest text-[#a855f7] block mb-1 font-bold select-none">
+                <span className="text-[11px] font-mono uppercase tracking-widest text-[#a855f7] block mb-1 font-bold select-none">
                   Your A&amp;R Evaluation Summary
                 </span>
                 {/* REQ: Elevated highlighted target rating pill on the A&R Eval summary block */}
@@ -3760,12 +3760,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-500/[0.03] to-transparent pointer-events-none" />
                   <div className="relative z-10">
-                    <span className={`text-[9px] font-mono font-bold uppercase tracking-wider block ${
+                    <span className={`text-[11px] font-mono font-bold uppercase tracking-wider block ${
                       activeCategory === "blueprints" ? "text-cyan-400" : activeCategory === "mainstream" ? "text-blue-400" : activeCategory === "dna" ? "text-emerald-400" : "text-purple-400"
                     }`}>Target Audit Rating</span>
                     <span className="text-xl font-mono font-black text-white">{selectedObj.score}/100</span>
                   </div>
-                  <span className={`relative z-10 px-2 py-0.5 rounded-lg text-[9px] font-mono font-bold uppercase tracking-widest shadow-[0_0_10px_rgba(59,130,246,0.4)] ${
+                  <span className={`relative z-10 px-2 py-0.5 rounded-lg text-[11px] font-mono font-bold uppercase tracking-widest shadow-[0_0_10px_rgba(59,130,246,0.4)] ${
                     activeCategory === "blueprints" ? "bg-cyan-600 text-white" : activeCategory === "mainstream" ? "bg-blue-600 text-white" : activeCategory === "dna" ? "bg-emerald-600 text-white" : "bg-purple-600 text-white"
                   }`} style={activeCategory === "blueprints" ? { backgroundColor: '#0891b2' } : activeCategory === "mainstream" ? { backgroundColor: '#2563eb' } : activeCategory === "dna" ? { backgroundColor: '#10b981' } : { backgroundColor: '#9333ea' }}>
                     {selectedObj.score >= 85 ? "OPTIMAL AUDIT" : selectedObj.score >= 75 ? "HEALTHY AUDIT" : "CRITICAL AUDIT"}
@@ -3847,7 +3847,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               })()}
             </div>
 
-            <div className="mt-4 pt-3.5 border-t border-white/5 flex items-center justify-between text-[10px] font-mono text-slate-500">
+            <div className="mt-4 pt-3.5 border-t border-white/5 flex items-center justify-between text-[12px] font-mono text-slate-500">
               <span>Critique Status</span>
               <span className="text-emerald-500 font-bold uppercase tracking-wide">COMPLETED</span>
             </div>
@@ -4029,14 +4029,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             <div className="flex flex-col text-left">
               <h2 className="text-lg font-bold text-white tracking-wide uppercase flex items-center gap-2">
                 Algotorial Playlist Sandbox
-                <span className="text-[10px] bg-amber-500/20 border border-amber-500/30 text-amber-500 font-mono tracking-widest px-2 py-0.5 rounded-full">SIMULATION ENGINE</span>
+                <span className="text-[12px] bg-amber-500/20 border border-amber-500/30 text-amber-500 font-mono tracking-widest px-2 py-0.5 rounded-full">SIMULATION ENGINE</span>
               </h2>
               <p className="text-xs text-slate-400 mt-1">
                 Contextual Modeling: Simulating track performance inside Spotify's "Algotorial" curation &amp; feedback loops.
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-slate-500 text-[11px] font-mono select-none">
+          <div className="flex items-center gap-2 text-slate-500 text-[13px] font-mono select-none">
             <Activity className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
             <span>LATENT CODES MODEL: V1.8.2-PREVIEW</span>
           </div>
@@ -4053,11 +4053,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <span className="text-blue-400 font-mono text-[14px]">A</span>
                   Cosine Similarity Mapping
                 </span>
-                <span className="text-[10px] font-mono text-slate-500">Vector Alignment (θ)</span>
+                <span className="text-[12px] font-mono text-slate-500">Vector Alignment (θ)</span>
                 <div className="w-full flex justify-start pl-5 mt-1">
                   <button 
                     onClick={() => onViewDefinition && onViewDefinition("cosine-similarity")}
-                    className="text-[9px] text-[#22d3ee] hover:text-white font-mono hover:underline cursor-pointer transition-colors text-left font-bold"
+                    className="text-[11px] text-[#22d3ee] hover:text-white font-mono hover:underline cursor-pointer transition-colors text-left font-bold"
                   >
                     (see explanation)
                   </button>
@@ -4076,7 +4076,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <button
                       key={pId}
                       onClick={() => setSelectedTargetPlaylist(pId)}
-                      className={`px-2.5 py-1.5 rounded-xl border text-[11px] font-semibold text-left transition-all flex items-center gap-1.5 cursor-pointer select-none ${
+                      className={`px-2.5 py-1.5 rounded-xl border text-[13px] font-semibold text-left transition-all flex items-center gap-1.5 cursor-pointer select-none ${
                         isSel
                           ? "bg-blue-600/10 border-blue-500 text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
                           : "bg-black/50 border-white/5 text-slate-400 hover:text-slate-200 hover:border-white/10"
@@ -4142,22 +4142,22 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   />
                 </svg>
                 {/* Latent space labels */}
-                <span className="absolute bottom-0 text-[8px] font-mono text-slate-600">VALENCE</span>
-                <span className="absolute left-1 top-12 text-[8px] font-mono text-slate-600 rotate-90 origin-left">ENERGY</span>
+                <span className="absolute bottom-0 text-[10px] font-mono text-slate-600">VALENCE</span>
+                <span className="absolute left-1 top-12 text-[10px] font-mono text-slate-600 rotate-90 origin-left">ENERGY</span>
               </div>
 
               {/* Angle Description & Formula */}
               <div className="flex-1 flex flex-col text-left gap-1.5 justify-center">
-                <span className="text-[10px] font-mono text-blue-400 font-bold bg-blue-600/10 py-0.5 px-2 rounded-md border border-blue-500/15 w-fit">
+                <span className="text-[12px] font-mono text-blue-400 font-bold bg-blue-600/10 py-0.5 px-2 rounded-md border border-blue-500/15 w-fit">
                   MATCH: {percentageMatch}% COHERENCE
                 </span>
-                <div className="text-[11px] text-slate-300 font-medium leading-relaxed">
+                <div className="text-[13px] text-slate-300 font-medium leading-relaxed">
                   Vector Distance θ = {Math.round(Math.acos(cosSimilarity) * (180 / Math.PI))}°
                 </div>
-                <div className="font-mono text-[9px] text-slate-400 leading-normal">
+                <div className="font-mono text-[11px] text-slate-400 leading-normal">
                   Sim(u,s) = cos(θ) = <span className="font-bold text-white">{(cosSimilarity).toFixed(4)}</span>
                 </div>
-                <p className="text-[9.5px] text-slate-500 leading-snug">
+                <p className="text-[11px] text-slate-500 leading-snug">
                   {target.desc} Match factor is {percentageMatch >= 88 ? "Outstanding: fits native vibe perfectly." : percentageMatch >= 75 ? "Healthy: strong placement probability." : "Marginal Transition: will sound divergent."}
                 </p>
               </div>
@@ -4173,19 +4173,19 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   Circumplex Mood Space Plotter
                   {!hasUserSetMood && (
                     <span 
-                      className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-mono uppercase tracking-wide inline-block truncate"
-                      style={{ width: "61.225px", paddingRight: "9px" }}
+                      className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[12px] font-mono uppercase tracking-wide inline-block truncate"
+                      style={{ width: "67px", paddingRight: "9px" }}
                     >
                       Needs Your Input
                     </span>
                   )}
                 </span>
-                <span className="text-[10px] font-mono text-slate-500 flex items-center gap-1">Valence-Energy Affect Space</span>
+                <span className="text-[12px] font-mono text-slate-500 flex items-center gap-1">Valence-Energy Affect Space</span>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed mb-4 text-left">
                 Defines the song's musical emotion quadrant (Russell's model of affect) derived from theory and lyrics.
               </p>
-              <p className="text-[11px] text-slate-500 leading-relaxed mb-3 text-left">
+              <p className="text-[13px] text-slate-500 leading-relaxed mb-3 text-left">
                 Mood is subjective — audio alone can't reliably measure how a song feels. You know your track better than any algorithm. Click or drag the dot below to place it where it actually sits.
               </p>
             </div>
@@ -4230,16 +4230,16 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   
                   {/* 4 Quadrants colored backgrounds */}
                   <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-amber-500/[0.03] flex items-center justify-center pointer-events-none">
-                    <span className="text-[7.5px] font-mono text-amber-500/50 tracking-widest font-bold">EUPHORIC</span>
+                    <span className="text-[9px] font-mono text-amber-500/50 tracking-widest font-bold">EUPHORIC</span>
                   </div>
                   <div className="absolute top-0 left-0 w-1/2 h-1/2 bg-red-500/[0.03] flex items-center justify-center pointer-events-none">
-                    <span className="text-[7.5px] font-mono text-red-500/50 tracking-widest font-bold">INTENSE</span>
+                    <span className="text-[9px] font-mono text-red-500/50 tracking-widest font-bold">INTENSE</span>
                   </div>
                   <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-violet-500/[0.03] flex items-center justify-center pointer-events-none">
-                    <span className="text-[7.5px] font-mono text-violet-500/50 tracking-widest font-bold">MELANCHOLY</span>
+                    <span className="text-[9px] font-mono text-violet-500/50 tracking-widest font-bold">MELANCHOLY</span>
                   </div>
                   <div className="absolute bottom-0 right-0 w-1/2 h-1/2 bg-emerald-500/[0.03] flex items-center justify-center pointer-events-none">
-                    <span className="text-[7.5px] font-mono text-emerald-500/50 tracking-widest font-bold">SERENE</span>
+                    <span className="text-[9px] font-mono text-emerald-500/50 tracking-widest font-bold">SERENE</span>
                   </div>
 
                   {/* Glowing Pulsing Point for Your Song */}
@@ -4259,14 +4259,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                 {/* Coordinates read-out details */}
                 <div className="flex flex-col text-left justify-center gap-1.5 pl-3">
-                  <div className="font-mono text-[10px] text-slate-400">
+                  <div className="font-mono text-[12px] text-slate-400">
                     Valence <span className="text-white font-bold font-sans">({inferredValence})</span>
                   </div>
-                  <div className="font-mono text-[10px] text-slate-400">
+                  <div className="font-mono text-[12px] text-slate-400">
                     Energy <span className="text-white font-bold font-sans">({inferredEnergy})</span>
                   </div>
                   
-                  <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-pink-400 mt-1">
+                  <span className="text-[12px] uppercase font-mono font-bold tracking-wider text-pink-400 mt-1">
                     EST. QUADRANT: {
                       inferredValence >= 0.5 && inferredEnergy >= 0.5 ? "★ Euphoric Cheer" : 
                       inferredValence < 0.5 && inferredEnergy >= 0.5 ? "★ Intense / Aggressive" : 
@@ -4275,7 +4275,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     }
                   </span>
                   
-                  <p className="text-[9.5px] text-slate-500 leading-normal mt-1">
+                  <p className="text-[11px] text-slate-500 leading-normal mt-1">
                     Valence maps the chord scale harmonic mood, while energy models transient complexity. Evaluators query this vector to schedule mood alignment playlists.
                   </p>
                   
@@ -4285,7 +4285,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       setLiveEnergy(0.5);
                       saveCircumplexPosition(0.5, 0.5);
                     }}
-                    className="text-[10px] text-slate-600 hover:text-slate-400 underline transition-colors mt-2 text-left block w-fit"
+                    className="text-[12px] text-slate-600 hover:text-slate-400 underline transition-colors mt-2 text-left block w-fit"
                   >
                     Reset to center
                   </button>
@@ -4302,11 +4302,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <span className="text-emerald-400 font-mono text-[14px]">C</span>
                   Sequential Variance / Transition Lab
                 </span>
-                <span className="text-[10px] font-mono text-slate-500">Consecutive Variance (s²)</span>
+                <span className="text-[12px] font-mono text-slate-500">Consecutive Variance (s²)</span>
                 <div className="w-full flex justify-start pl-5 mt-1">
                   <button 
                     onClick={() => onViewDefinition && onViewDefinition("vibe-transition")}
-                    className="text-[9px] text-[#22d3ee] hover:text-white font-mono hover:underline cursor-pointer transition-colors text-left font-bold"
+                    className="text-[11px] text-[#22d3ee] hover:text-white font-mono hover:underline cursor-pointer transition-colors text-left font-bold"
                   >
                     (see explanation)
                   </button>
@@ -4322,7 +4322,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <button
                     key={mode}
                     onClick={() => setVibeTransitionTheme(mode)}
-                    className={`flex-1 text-[9.5px] font-mono font-bold py-1 px-1.5 rounded-lg border transition-all text-center uppercase cursor-pointer select-none ${
+                    className={`flex-1 text-[11px] font-mono font-bold py-1 px-1.5 rounded-lg border transition-all text-center uppercase cursor-pointer select-none ${
                       vibeTransitionTheme === mode
                         ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
                         : "border-transparent text-slate-400 hover:text-slate-300"
@@ -4339,7 +4339,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Chain Representation */}
               <div className="flex items-center justify-between gap-2.5 bg-black/40 border border-white/5 rounded-xl p-3 pr-4">
                 <div className="flex flex-col gap-0.5 max-w-[80px]">
-                  <span className="text-[8px] font-mono text-slate-500 uppercase tracking-wider leading-none">A: PREVIOUS</span>
+                  <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider leading-none">A: PREVIOUS</span>
                   <span className="text-[10px] font-bold text-slate-400 truncate leading-tight">{trans.prevBpm} BPM</span>
                   <span className="text-[8.5px] font-mono text-slate-500 truncate leading-none">{trans.prevKey}</span>
                 </div>
@@ -4349,11 +4349,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping absolute" />
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 absolute" />
                   </div>
-                  <span className="text-[8px] font-mono text-emerald-400 font-bold mt-1.5 leading-none">Simulating...</span>
+                  <span className="text-[10px] font-mono text-emerald-400 font-bold mt-1.5 leading-none">Simulating...</span>
                 </div>
 
                 <div className="flex flex-col gap-0.5 border-x border-white/5 px-3 max-w-[100px]">
-                  <span className="text-[8px] font-mono text-blue-400 uppercase tracking-wider leading-none">YOUR TRACK</span>
+                  <span className="text-[10px] font-mono text-blue-400 uppercase tracking-wider leading-none">YOUR TRACK</span>
                   <span className="text-[10px] font-bold text-blue-200 truncate leading-tight">{trackBpm} BPM</span>
                   <span className="text-[8.5px] font-mono text-blue-400 truncate leading-none">{trackKey}</span>
                 </div>
@@ -4366,7 +4366,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 </div>
 
                 <div className="flex flex-col gap-0.5 max-w-[80px]">
-                  <span className="text-[8px] font-mono text-slate-500 uppercase tracking-wider leading-none">B: NEXT</span>
+                  <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider leading-none">B: NEXT</span>
                   <span className="text-[10px] font-bold text-slate-400 truncate leading-tight">{trans.nextBpm} BPM</span>
                   <span className="text-[8.5px] font-mono text-slate-500 truncate leading-none">{trans.nextKey}</span>
                 </div>
@@ -4380,7 +4380,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     s² = {trans.variance.toFixed(2)} — {trans.status}
                   </span>
                 </div>
-                <p className="text-[9.5px] text-slate-500 leading-normal mt-1">
+                <p className="text-[11px] text-slate-500 leading-normal mt-1">
                   💡 <span className="text-slate-400 font-medium">{trans.notes}</span> Curation programs target low-variance thresholds (below 0.15) on high-retention flagships like "Deep Focus" or "Pop Rising".
                 </p>
               </div>
@@ -4394,7 +4394,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         {/* Sandbox Explanatory Footer */}
         <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-4 text-left relative z-10 flex items-start gap-3 mt-1.5 leading-normal">
           <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-          <p className="text-[11px] text-slate-400 leading-relaxed">
+          <p className="text-[13px] text-slate-400 leading-relaxed">
             <span className="text-slate-200 font-bold">Algorithmic Placement Strategy:</span> Spotify's "Algotorial" system schedules music into feedback sandboxes (Discover Weekly, Daily Mix). If a song satisfies low skip rates and high cross-30s completion targets, the system boosts its indexing weight. This helps the song transfer to highly popular human-curated editorial playlists like Today's Top Hits.
           </p>
         </div>
@@ -4506,7 +4506,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <Activity className="w-40 h-40 text-emerald-500 animate-[spin_20s_linear_infinite]" />
             </div>
             <div className="relative z-10 flex-1">
-              <span className="text-[10px] font-mono tracking-widest text-violet-400 font-bold uppercase block">Predicted Algorithmic Indexing</span>
+              <span className="text-[12px] font-mono tracking-widest text-violet-400 font-bold uppercase block">Predicted Algorithmic Indexing</span>
               <h2 className="text-lg font-extrabold text-white mt-1">Recommender Performance Prediction</h2>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-2xl">
                 Based on acoustic descriptors matching {critique?.vibe?.genre || "your style"}, we index this song's suitability for Spotify's discovery algorithms. {
@@ -4528,7 +4528,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none">
                     NLP semantic Clustered Neighborhood
                   </span>
-                  <span className="text-[8px] bg-sky-500/10 text-sky-400 font-mono px-2 py-0.5 rounded uppercase font-bold border border-sky-500/15 tracking-widest font-semibold">"Artist Universe"</span>
+                  <span className="text-[10px] bg-sky-500/10 text-sky-400 font-mono px-2 py-0.5 rounded uppercase font-bold border border-sky-500/15 tracking-widest font-semibold">"Artist Universe"</span>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed mb-4">
                   Spotify extracts semantic indicators from blogs and websites using LLM transformers. This establishes who your track's close **"Sonic Neighbors"** are:
@@ -4536,25 +4536,25 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               </div>
 
               <div className="bg-neutral-950 p-4 rounded-xl border border-white/5">
-                <span className="text-[9px] font-mono font-semibold text-slate-500 uppercase tracking-widest block mb-2">Target Cluster Alignment:</span>
+                <span className="text-[11px] font-mono font-semibold text-slate-500 uppercase tracking-widest block mb-2">Target Cluster Alignment:</span>
                 <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full block w-fit mb-3">
                   {critique?.vibe?.genre && critique?.vibe?.subgenre 
                     ? `${critique.vibe.genre} / ${critique.vibe.subgenre} (${clusterName})`
                     : clusterName}
                 </span>
 
-                <span className="text-[9px] font-mono font-semibold text-slate-500 uppercase tracking-widest block mb-1">Predicted Sonic Neighbors:</span>
+                <span className="text-[11px] font-mono font-semibold text-slate-500 uppercase tracking-widest block mb-1">Predicted Sonic Neighbors:</span>
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {sonicNeighbors.map((artist) => (
                     <span 
                       key={artist}
-                      className="text-[10px] font-mono text-slate-300 font-bold bg-white/5 border border-white/10 px-2 py-1 rounded-md hover:bg-[#1ed760]/10 hover:border-[#1ed760]/30 hover:text-[#1ed760] hover:-translate-y-0.5 transition-all duration-300 select-none cursor-pointer"
+                      className="text-[12px] font-mono text-slate-300 font-bold bg-white/5 border border-white/10 px-2 py-1 rounded-md hover:bg-[#1ed760]/10 hover:border-[#1ed760]/30 hover:text-[#1ed760] hover:-translate-y-0.5 transition-all duration-300 select-none cursor-pointer"
                     >
                       {artist}
                     </span>
                   ))}
                 </div>
-                <p className="text-[10px] text-slate-500 font-medium leading-relaxed mt-4">
+                <p className="text-[12px] text-slate-500 font-medium leading-relaxed mt-4">
                   *Placement logic: Recommenders seed your track onto users' custom Daily Mixes and Radio queues that are already active on these neighbors' discographies.*
                 </p>
               </div>
@@ -4567,7 +4567,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none">
                     Discovery Feeder Distribution Probabilities
                   </span>
-                  <span className="text-[8px] bg-purple-500/10 text-purple-400 font-mono px-2 py-0.5 rounded uppercase font-bold border border-purple-500/15 tracking-widest font-semibold">Algorithms</span>
+                  <span className="text-[10px] bg-purple-500/10 text-purple-400 font-mono px-2 py-0.5 rounded uppercase font-bold border border-purple-500/15 tracking-widest font-semibold">Algorithms</span>
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed mb-4">
                   Predicted seeding chance across key Spotify recommendation feeder channels:
@@ -4598,11 +4598,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                           style={{ filter: "drop-shadow(0 0 3px currentColor)" }}
                         />
                       </svg>
-                      <span className="absolute text-[10px] font-mono font-black text-white">{item.score}%</span>
+                      <span className="absolute text-[12px] font-mono font-black text-white">{item.score}%</span>
                     </div>
                     <div className="flex flex-col text-left">
-                      <span className="text-[10px] font-bold text-white font-sans">{item.name}</span>
-                      <span className="text-[8.5px] text-slate-500 mt-0.5 leading-none font-mono font-semibold">{item.desc}</span>
+                      <span className="text-[12px] font-bold text-white font-sans">{item.name}</span>
+                      <span className="text-[10px] text-slate-500 mt-0.5 leading-none font-mono font-semibold">{item.desc}</span>
                     </div>
                   </div>
                 ))}
@@ -4617,14 +4617,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none">
                 Collaborative Filtering Prevention Checklist (First 30 Seconds)
               </span>
-              <span className="text-[8px] bg-amber-500/10 text-amber-500 font-mono px-2 py-0.5 rounded uppercase font-bold border border-amber-500/15 tracking-widest font-semibold">Collaborative Filter</span>
+              <span className="text-[10px] bg-amber-500/10 text-amber-500 font-mono px-2 py-0.5 rounded uppercase font-bold border border-amber-500/15 tracking-widest font-semibold">Collaborative Filter</span>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed mb-4">
               Under collaborative filtering, <strong>early skips represent negative feedback</strong> that diminishes algorithmic authority. On Spotify, a listener must listen to a track for more than 30 seconds to register a play. 
             </p>
             <div className="text-xs text-[#1DB954]/90 leading-relaxed bg-[#1DB954]/5 border border-[#1DB954]/15 p-4 rounded-xl mb-5 space-y-2">
               <div>
-                <span className="text-white font-extrabold font-sans uppercase text-[10px] block mb-1">Algorithmic Performance Analysis:</span>
+                <span className="text-white font-extrabold font-sans uppercase text-[12px] block mb-1">Algorithmic Performance Analysis:</span>
                 These parameters assess how your track's physical composition and early structure protects you from skip-out triggers to dynamically raise your simulated <strong>Discovery Feeder Distribution Probabilities</strong> above.
               </div>
               <div className="pt-2 border-t border-[#1DB954]/15 text-slate-300/90 font-normal">
@@ -4636,7 +4636,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   const lraPass = lra !== undefined && lra >= bucket.lraMin && (bucket.lraMax === null || lra <= bucket.lraMax);
                   return (
                     <>
-                      <span className="text-white font-extrabold font-sans uppercase text-[10px] block mb-1">
+                      <span className="text-white font-extrabold font-sans uppercase text-[12px] block mb-1">
                         Genre-Aware Loudness Assessment ({bucket.label})
                       </span>
                       Target window for this genre: <strong className="text-white">{bucket.lufsMin} to {bucket.lufsMax} LUFS</strong>, dynamic range window: <strong className="text-white">{bucket.lraMin}{bucket.lraMax !== null ? `-${bucket.lraMax}` : "+"} LU</strong>.
@@ -4715,7 +4715,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       >
                         {check.title}
                       </span>
-                      <p className="text-[10px] text-slate-400 leading-relaxed mt-0.5">{displayDesc}</p>
+                      <p className="text-[12px] text-slate-400 leading-relaxed mt-0.5">{displayDesc}</p>
                     </div>
                   </button>
                 );
@@ -4851,8 +4851,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             </p>
             {(critique?.vibe?.genre || critique?.vibe?.subgenre) && (
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">Target Profile:</span>
-                <span className="text-[9px] font-mono font-bold text-emerald-400 uppercase tracking-widest px-2 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/5">
+                <span className="text-[11px] font-mono text-slate-500 uppercase tracking-widest">Target Profile:</span>
+                <span className="text-[11px] font-mono font-bold text-emerald-400 uppercase tracking-widest px-2 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/5">
                   {critique?.vibe?.subgenre || critique?.vibe?.genre || "—"}
                 </span>
               </div>
@@ -4872,17 +4872,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <div>
                       <div className="flex justify-between items-baseline mb-1">
                         <div className="flex items-center gap-1 flex-wrap">
-                          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest font-semibold">{item.name}</span>
+                          <span className="text-[12px] font-mono text-slate-400 uppercase tracking-widest font-semibold">{item.name}</span>
                           {item.source === "audio" ? (
-                            <span className="text-[8px] font-mono text-cyan-500/70 border border-cyan-500/20 px-1 py-0.5 rounded uppercase tracking-wide ml-1 normal-case font-medium">
+                            <span className="text-[10px] font-mono text-cyan-500/70 border border-cyan-500/20 px-1 py-0.5 rounded uppercase tracking-wide ml-1 normal-case font-medium">
                               ⬡ audio
                             </span>
                           ) : item.source === "ai-real" ? (
-                            <span className="text-[8px] font-mono text-purple-400/80 border border-purple-500/20 px-1 py-0.5 rounded uppercase tracking-wide ml-1 normal-case font-medium">
+                            <span className="text-[10px] font-mono text-purple-400/80 border border-purple-500/20 px-1 py-0.5 rounded uppercase tracking-wide ml-1 normal-case font-medium">
                               ✦ ai
                             </span>
                           ) : (
-                            <span className="text-[8px] font-mono text-slate-600 border border-white/5 px-1 py-0.5 rounded uppercase tracking-wide ml-1 normal-case font-medium">
+                            <span className="text-[10px] font-mono text-slate-600 border border-white/5 px-1 py-0.5 rounded uppercase tracking-wide ml-1 normal-case font-medium">
                               est
                             </span>
                           )}
@@ -4918,7 +4918,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       </div>
 
                       {/* Explicit Target and Calibration range display */}
-                      <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 mb-2 mt-1">
+                      <div className="flex justify-between items-center text-[11px] font-mono text-slate-500 mb-2 mt-1">
                         <span>Corridor: <strong className="text-white font-black">{item.min}%–{item.max}%</strong> <span className="opacity-70">(Midpoint: {item.target}%)</span></span>
                         <span>Current: <strong className={`${tier.textClass} font-black`}>{item.value}%</strong></span>
                       </div>
@@ -4927,12 +4927,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       {/* Highly descriptive label matching over/under/optimal states exactly */}
                     <div className="mt-2 text-left">
                       <div className="flex items-center gap-1 mb-1.5">
-                        <span className={`text-[9px] font-mono font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-1 font-bold border ${tier.badgeClass}`}>
+                        <span className={`text-[11px] font-mono font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-1 font-bold border ${tier.badgeClass}`}>
                           <span className={`w-1 h-1 rounded-full ${tier.dotClass}`} /> {tier.label}
                         </span>
                       </div>
                       
-                      <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans">
+                      <p className="text-[12px] text-slate-500 leading-relaxed font-sans">
                         {(() => {
                           if (tier.tier === "typical") {
                             const optimalMap: Record<string, string> = {
@@ -4973,7 +4973,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             <span className={`${tier.textClass} font-medium flex flex-col gap-2`}>
                               <span><strong>{tier.label}:</strong> {textFeedback}</span>
                               {fixFeedback && (
-                                <span className={`block mt-1 p-2 rounded font-sans text-[10px] leading-relaxed ${tier.badgeClass}`}>
+                                <span className={`block mt-1 p-2 rounded font-sans text-[12px] leading-relaxed ${tier.badgeClass}`}>
                                   <strong className="text-white">🔧 Mixing Calibration:</strong> {fixFeedback}
                                 </span>
                               )}
@@ -4994,8 +4994,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               }`}>
                 <div>
                   <div className="flex justify-between items-baseline mb-1">
-                    <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">True Peak Limiter Audit</span>
-                    <span className={`text-[9px] font-mono font-black px-2 py-0.5 rounded ${spotifyTruePeak > -1.0 ? "bg-amber-500/10 text-amber-400 border border-amber-500/15" : "bg-emerald-500/10 text-[#1ed760] border border-emerald-500/15"}`}>
+                    <span className="text-[12px] font-mono text-slate-400 uppercase tracking-widest">True Peak Limiter Audit</span>
+                    <span className={`text-[11px] font-mono font-black px-2 py-0.5 rounded ${spotifyTruePeak > -1.0 ? "bg-amber-500/10 text-amber-400 border border-amber-500/15" : "bg-emerald-500/10 text-[#1ed760] border border-emerald-500/15"}`}>
                       {spotifyTruePeak > -1.0 ? "LIMIT EXCEEDED WARNING" : "TARGET COMPLIANT"}
                     </span>
                   </div>
@@ -5003,7 +5003,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <div className={`h-full rounded-full transition-all duration-1000 ${spotifyTruePeak > -1.0 ? "bg-amber-400" : "bg-[#1ed760]"}`} style={{ width: "100%" }} />
                   </div>
                 </div>
-                <p className="text-[10.5px] leading-relaxed mt-1 font-sans">
+                <p className="text-[12px] leading-relaxed mt-1 font-sans">
                   {spotifyTruePeak > -1.0 ? (
                     <span className="text-amber-300">
                       <strong>True Peak Warning: {spotifyTruePeak.toFixed(2)} dBTP exceeds -1.0 dB target</strong>. The hot master peaks risk digital compression artifacts during Vorbis transcoding. Reduce master ceiling slightly to secure dynamic range integrity.
@@ -5018,13 +5018,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
             </div>
 
-            <span className="text-[#1ed760] block mt-1 text-[11px] leading-relaxed bg-[#1ed760]/5 border border-[#1DB954]/15 p-3 rounded-xl shadow-inner">
-              <strong className="font-extrabold uppercase text-[10px] block mb-1">💡 CRITICAL TRADING WINDOW RULE (±3% CORRIDOR):</strong> 
+            <span className="text-[#1ed760] block mt-1 text-[13px] leading-relaxed bg-[#1ed760]/5 border border-[#1DB954]/15 p-3 rounded-xl shadow-inner">
+              <strong className="font-extrabold uppercase text-[12px] block mb-1">💡 CRITICAL TRADING WINDOW RULE (±3% CORRIDOR):</strong> 
               Real recommendation systems don't use a strict pass/fail range - they measure how close a song's traits are to what's typical for its genre, then match it to the audience it's genuinely closest to. A song very close to genre-typical values will likely resonate strongly with that genre's core audience. A more distinctive song isn't penalized - it may simply find a different, sometimes unexpected audience instead, which isn't a flaw, just a different path to discovery.
             </span>
 
             {/* Scorecard bottom info bar */}
-            <div className="border-t border-white/5 pt-3.5 mt-2 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] font-mono text-slate-400">
+            <div className="border-t border-white/5 pt-3.5 mt-2 flex flex-col sm:flex-row items-center justify-between gap-3 text-[13px] font-mono text-slate-400">
               <div className="flex flex-wrap items-center gap-4 animate-fadeIn">
                 {/* BPM and Key display temporarily removed - detection reliability issues confirmed
                     via real-audio testing (see project notes). Underlying detection code in
@@ -5039,7 +5039,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                           : `${critique.liveMetrics.calculatedTimeSignature}/4`}
                       </span>
                       {critique.liveMetrics.calculatedTimeSignatureConfidence !== undefined && (
-                        <span className={`text-[9px] font-mono ml-1 ${
+                        <span className={`text-[11px] font-mono ml-1 ${
                           critique.liveMetrics.calculatedTimeSignatureConfidence >= 0.7
                             ? "text-emerald-500"
                             : "text-amber-500"
@@ -5055,26 +5055,26 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <span>Fade:</span>
                     <strong className="text-white bg-neutral-950 px-2.5 py-1 border border-white/10 rounded-md font-sans flex items-center gap-2">
                       {critique?.liveMetrics?.calculatedEndOfFadeIn !== undefined && critique.liveMetrics.calculatedEndOfFadeIn > 0 && (
-                        <span className="text-[9px] font-mono text-cyan-400">
+                        <span className="text-[11px] font-mono text-cyan-400">
                           In: {critique.liveMetrics.calculatedEndOfFadeIn}s
                         </span>
                       )}
                       {critique?.liveMetrics?.calculatedEndOfFadeIn !== undefined && critique.liveMetrics.calculatedEndOfFadeIn === 0 && (
-                        <span className="text-[9px] font-mono text-slate-500">No fade-in</span>
+                        <span className="text-[11px] font-mono text-slate-500">No fade-in</span>
                       )}
                       {critique?.liveMetrics?.calculatedStartOfFadeOut !== undefined && critique?.liveMetrics?.calculatedDuration !== undefined && critique.liveMetrics.calculatedStartOfFadeOut < critique.liveMetrics.calculatedDuration && (
-                        <span className="text-[9px] font-mono text-cyan-400">
+                        <span className="text-[11px] font-mono text-cyan-400">
                           Out: {critique.liveMetrics.calculatedStartOfFadeOut}s
                         </span>
                       )}
                       {critique?.liveMetrics?.calculatedStartOfFadeOut !== undefined && critique?.liveMetrics?.calculatedDuration !== undefined && critique.liveMetrics.calculatedStartOfFadeOut >= critique.liveMetrics.calculatedDuration && (
-                        <span className="text-[9px] font-mono text-slate-500">No fade-out</span>
+                        <span className="text-[11px] font-mono text-slate-500">No fade-out</span>
                       )}
                     </strong>
                   </div>
                 )}
               </div>
-              <div className="text-[10px] text-slate-500 italic font-sans font-medium">
+              <div className="text-[12px] text-slate-500 italic font-sans font-medium">
                 *Algorithmic triggers analyze raw BPM grid placement relative to transition indices.
               </div>
             </div>
@@ -5111,7 +5111,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             </div>
             <div className="text-left">
               <h3 className="text-sm font-bold text-white tracking-wide">Sonic Lineup Azimuth Simulator v5.0</h3>
-              <p className="text-[10px] text-slate-400 font-mono">
+              <p className="text-[12px] text-slate-400 font-mono">
                 Active Analysis Target: <span className="text-cyan-400 font-bold">{trackName}</span> | {critique?.vibe?.genre || "Production Master"} | 44.1 kHz 24-bit Stereo
               </p>
             </div>
@@ -5162,7 +5162,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         {/* Master Comparison Selector Bar */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#060a12]/80 p-3 rounded-2xl border border-white/5">
           <div className="flex flex-col text-left">
-            <span className="text-[10px] font-mono text-cyan-400 tracking-wider font-semibold uppercase">Soundstage Calibration View</span>
+            <span className="text-[12px] font-mono text-cyan-400 tracking-wider font-semibold uppercase">Soundstage Calibration View</span>
             <span className="text-xs text-slate-400">Toggle between your song and reference masters to inspect panning density.</span>
           </div>
 
@@ -5224,7 +5224,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           <div className="xl:col-span-4 flex flex-col gap-4 self-stretch justify-between">
             <div className="bg-neutral-900 border border-white/5 rounded-2xl p-5 flex-1 flex flex-col justify-between text-left relative overflow-hidden min-h-[300px]">
               <div className="flex flex-col gap-3.5">
-                <span className="text-[9px] font-mono tracking-widest text-[#94a3b8] font-bold uppercase border-b border-white/10 pb-1.5 block">
+                <span className="text-[11px] font-mono tracking-widest text-[#94a3b8] font-bold uppercase border-b border-white/10 pb-1.5 block">
                   AZIMUTH SOUNDSTAGE AUDIT
                 </span>
 
@@ -5234,7 +5234,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <span>Stereo Width Separation</span>
                     <span className="text-cyan-400">{azimuthRefMode === "benchmark" ? "100%" : "68% Matching"}</span>
                   </div>
-                  <p className="text-[10px] text-slate-400 leading-normal">
+                  <p className="text-[12px] text-slate-400 leading-normal">
                     {azimuthRefMode === "benchmark" 
                       ? "Flawless panning limits. Instruments are spread to absolute limits (+/-90°) with correct high shelf level curves."
                       : `${critique?.mixQuality?.stereoField ?? "Solid width."}. Side acoustic elements could be panned wider from +/-35° out to +/-70° to open up the center lane.`
@@ -5250,7 +5250,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       {azimuthRefMode === "benchmark" ? "Pristine Corridor" : "92% Centered"}
                     </span>
                   </div>
-                  <p className="text-[10px] text-slate-400 leading-normal font-sans">
+                  <p className="text-[12px] text-slate-400 leading-normal font-sans">
                     {azimuthRefMode === "benchmark"
                       ? "Zero sub frequencies (>120Hz) detected outside the absolute center corridor, preventing potential vinyl mastering drift."
                       : "Low bass is locked dead center nicely. Only minimal sub-bass bleeding registers on extreme transients below 80Hz."
@@ -5264,7 +5264,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <span>Lateral Panning Symmetry</span>
                     <span className="text-cyan-400">{azimuthRefMode === "benchmark" ? "100% Perfect" : "84% (Slight Left drift)"}</span>
                   </div>
-                  <p className="text-[10px] text-slate-400 leading-normal">
+                  <p className="text-[12px] text-slate-400 leading-normal">
                     {azimuthRefMode === "benchmark"
                       ? "L/R channel power distribution scales calculate to exactly +0.02dB difference, providing ultimate professional acoustic balance."
                       : "Your left channel registers a higher dynamic range signature around the verse (due to double-tracked rhythm elements) than the right, creating a slight spatial weight drift."
@@ -5274,8 +5274,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               </div>
 
               {/* Action Suggestion box */}
-              <div className="bg-slate-950 border border-white/5 p-3 rounded-xl mt-4 text-[10px] text-slate-400 leading-relaxed font-semibold">
-                <span className="text-cyan-400 block mb-0.5 uppercase tracking-wider font-mono text-[9px]">DIAGNOSTIC RECOMMENDATION:</span>
+              <div className="bg-slate-950 border border-white/5 p-3 rounded-xl mt-4 text-[12px] text-slate-400 leading-relaxed font-semibold">
+                <span className="text-cyan-400 block mb-0.5 uppercase tracking-wider font-mono text-[11px]">DIAGNOSTIC RECOMMENDATION:</span>
                 To achieve the flawless wide side clouds shown in the **Ideal Benchmark**, try applying a Haas-effect chorus or a subtle micro-delay (12-18ms) to secondary high synthesizers or ambient delay paths.
               </div>
             </div>
@@ -5283,14 +5283,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             {/* Overall Azimuth Scorecard */}
             <div className="bg-neutral-950 border border-white/10 p-4.5 rounded-2xl flex items-center justify-between gap-4 select-none">
               <div className="text-left flex-1">
-                <span className="text-[9px] font-mono text-cyan-400 font-bold uppercase block tracking-wider">Soundstage Match Rate</span>
+                <span className="text-[11px] font-mono text-cyan-400 font-bold uppercase block tracking-wider">Soundstage Match Rate</span>
                 <h4 className="text-sm font-extrabold text-white mt-0.5 leading-tight">Stereo Panning Integrity Profile</h4>
-                <p className="text-[10px] text-slate-400 mt-1 leading-normal">
+                <p className="text-[12px] text-slate-400 mt-1 leading-normal">
                   Your panning spread and center alignment register at **{azimuthScoreValue}%** of the industry-optimal reference master.
                 </p>
               </div>
               <div className="bg-[#0b1322] border border-cyan-500/20 p-3 rounded-xl text-center shadow-lg min-w-[100px] flex-shrink-0 flex flex-col justify-center items-center">
-                <span className="text-[9.5px] font-bold font-mono text-[#06b6d4]">AZIMUTH INDEX</span>
+                <span className="text-[11px] font-bold font-mono text-[#06b6d4]">AZIMUTH INDEX</span>
                 <span className="text-2xl font-black text-cyan-400 mt-0.5 font-mono">{azimuthScoreValue}%</span>
               </div>
             </div>
@@ -5362,7 +5362,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               }}
               className="bg-[#11131A] px-4 py-3 rounded-xl border border-blue-500/25 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-blue-500/50 transition-all flex flex-col items-start gap-1 justify-center whitespace-nowrap min-w-fit"
             >
-              <span className="text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">Core Genre Profile:</span>
+              <span className="text-[11px] uppercase font-mono tracking-wider text-slate-500 font-bold">Core Genre Profile:</span>
               <div className="font-bold text-white text-sm flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500" />
                 <span>{critique?.vibe?.genre ?? "N/A"}</span>
@@ -5376,7 +5376,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               }}
               className="bg-[#11131A] px-4 py-3 rounded-xl border border-blue-500/25 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-blue-500/50 transition-all flex flex-col items-start gap-1 justify-center whitespace-nowrap min-w-fit"
             >
-              <span className="text-[9px] uppercase font-mono tracking-wider text-slate-500 font-bold">Sub-Genre &amp; Dynamic Style:</span>
+              <span className="text-[11px] uppercase font-mono tracking-wider text-slate-500 font-bold">Sub-Genre &amp; Dynamic Style:</span>
               <div className="font-bold text-white text-sm flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-teal-400" style={{ backgroundColor: '#2dd4bf' }} />
                 <span>{critique?.vibe?.subgenre ?? "N/A"}</span>
@@ -5399,7 +5399,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {isPlaying ? <Pause className="w-4 h-4 fill-current animate-pulse" /> : <Play className="w-4 h-4 fill-current pl-0.5" />}
             </button>
             <div className="flex flex-col pr-4">
-              <span className="text-[10px] font-mono text-slate-400 uppercase flex items-center gap-1">
+              <span className="text-[12px] font-mono text-slate-400 uppercase flex items-center gap-1">
                 {isPlaying ? <Flame className="w-3 h-3 text-blue-500 animate-pulse" /> : null}
                 {isPlaying ? "Auditory playback looping" : "Reference monitor"}
               </span>
@@ -5425,10 +5425,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             }`}
           >
             <div className="flex flex-col min-w-0">
-              <span className="text-[9px] font-mono font-bold uppercase tracking-wider truncate">Streaming</span>
-              <span className="text-[8px] font-mono text-slate-500 truncate">Readiness</span>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider truncate">Streaming</span>
+              <span className="text-[9px] font-mono text-slate-500 truncate">Readiness</span>
             </div>
-            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
+            <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded ${
               activeSection === "streaming" ? "bg-blue-500/25 text-blue-300" : "bg-neutral-800 text-slate-500"
             }`}>{streamingScore}</span>
           </button>
@@ -5442,10 +5442,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             }`}
           >
             <div className="flex flex-col min-w-0">
-              <span className="text-[9px] font-mono font-bold uppercase tracking-wider truncate">Sonic</span>
-              <span className="text-[8px] font-mono text-slate-500 truncate">Soundprint</span>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider truncate">Sonic</span>
+              <span className="text-[9px] font-mono text-slate-500 truncate">Soundprint</span>
             </div>
-            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
+            <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded ${
               activeSection === "sonic" ? "bg-[#46F4CD]/25 text-[#46F4CD]" : "bg-neutral-800 text-slate-500"
             }`}>{sonicScore}</span>
           </button>
@@ -5459,10 +5459,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             }`}
           >
             <div className="flex flex-col min-w-0">
-              <span className="text-[9px] font-mono font-bold uppercase tracking-wider truncate">Compositional</span>
-              <span className="text-[8px] font-mono text-slate-500 truncate">Depth</span>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider truncate">Compositional</span>
+              <span className="text-[9px] font-mono text-slate-500 truncate">Depth</span>
             </div>
-            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
+            <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded ${
               activeSection === "compositional" ? "bg-purple-500/25 text-purple-300" : "bg-neutral-800 text-slate-500"
             }`}>{compositionalScore}</span>
           </button>
@@ -5477,12 +5477,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           >
             {/* Collapse toggle */}
             <div className="flex items-center justify-between px-2 py-1 mb-2">
-              <span className="text-[10px] font-mono text-slate-600 tracking-widest uppercase">
+              <span className="text-[12px] font-mono text-slate-600 tracking-widest uppercase">
                 {sidebarCollapsed ? '' : 'Menu'}
               </span>
               <button
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                className="p-1 rounded-md bg-neutral-900/80 border border-white/5 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer text-[11px] font-mono leading-none"
+                className="p-1 rounded-md bg-neutral-900/80 border border-white/5 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer text-[13px] font-mono leading-none"
               >
                 {sidebarCollapsed ? '»' : '«'}
               </button>
@@ -5517,7 +5517,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 {!sidebarCollapsed && (
                   <>
                     <div className="flex flex-col min-w-0 truncate">
-                      <span className="text-[11px] font-mono font-bold uppercase tracking-widest leading-none">STREAMING READINESS</span>
+                      <span className="text-[13px] font-mono font-bold uppercase tracking-widest leading-none">STREAMING READINESS</span>
                     </div>
                   </>
                 )}
@@ -5589,7 +5589,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 {!sidebarCollapsed && (
                   <>
                     <div className="flex flex-col min-w-0 truncate">
-                      <span className="text-[11px] font-mono font-bold uppercase tracking-widest leading-none">SONIC SOUNDPRINT</span>
+                      <span className="text-[13px] font-mono font-bold uppercase tracking-widest leading-none">SONIC SOUNDPRINT</span>
                     </div>
                   </>
                 )}
@@ -5660,7 +5660,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 {!sidebarCollapsed && (
                   <>
                     <div className="flex flex-col min-w-0 truncate">
-                      <span className="text-[11px] font-mono font-bold uppercase tracking-widest leading-none">STRUCTURAL ENGAGEMENT</span>
+                      <span className="text-[13px] font-mono font-bold uppercase tracking-widest leading-none">STRUCTURAL ENGAGEMENT</span>
                     </div>
                   </>
                 )}
@@ -5728,7 +5728,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 {!sidebarCollapsed && (
                   <>
                     <div className="flex flex-col min-w-0 truncate">
-                      <span className="text-[11px] font-mono font-bold uppercase tracking-widest leading-none">COMPOSITIONAL DEPTH</span>
+                      <span className="text-[13px] font-mono font-bold uppercase tracking-widest leading-none">COMPOSITIONAL DEPTH</span>
                     </div>
                   </>
                 )}
@@ -5803,12 +5803,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-blue-400 to-blue-600" />
                   {/* Content */}
                   <div className="relative z-10 p-7 flex flex-col gap-3">
-                    <span className="text-[10px] font-mono font-bold text-blue-400 uppercase tracking-[0.2em]">Category</span>
+                    <span className="text-[12px] font-mono font-bold text-blue-400 uppercase tracking-[0.2em]">Category</span>
                     <h2 className="text-[32px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Streaming Readiness</h2>
                     <p className="text-[12px] text-slate-400 leading-relaxed max-w-lg mt-1">Commercial impact, streaming alignment, algorithmic sandbox, artist positioning — how streaming services find, categorize, and promote your song.</p>
                     <div className="flex gap-2 mt-2 flex-wrap">
                       {["Commercial Impact", "Streaming Alignment", "Algo Sandbox"].map(tag => (
-                        <span key={tag} className="text-[9px] font-mono text-blue-400/70 border border-blue-500/25 px-2.5 py-1 rounded-full">{tag}</span>
+                        <span key={tag} className="text-[11px] font-mono text-blue-400/70 border border-blue-500/25 px-2.5 py-1 rounded-full">{tag}</span>
                       ))}
                     </div>
                   </div>
@@ -5841,12 +5841,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-[#46F4CD] to-[#2dd4bf]" />
                   {/* Content */}
                   <div className="relative z-10 p-7 flex flex-col gap-3">
-                    <span className="text-[10px] font-mono font-bold text-[#46F4CD] uppercase tracking-[0.2em]">Category</span>
+                    <span className="text-[12px] font-mono font-bold text-[#46F4CD] uppercase tracking-[0.2em]">Category</span>
                     <h2 className="text-[32px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Sonic Soundprint</h2>
                     <p className="text-[12px] text-slate-400 leading-relaxed max-w-lg mt-1">Engineering studio and production quality — whether your mix sounds finished and competitive.</p>
                     <div className="flex gap-2 mt-2 flex-wrap">
                       {["Engineering Studio", "Production Quality"].map(tag => (
-                        <span key={tag} className="text-[9px] font-mono text-[#46F4CD]/70 border border-[#46F4CD]/25 px-2.5 py-1 rounded-full">{tag}</span>
+                        <span key={tag} className="text-[11px] font-mono text-[#46F4CD]/70 border border-[#46F4CD]/25 px-2.5 py-1 rounded-full">{tag}</span>
                       ))}
                     </div>
                   </div>
@@ -5879,12 +5879,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-purple-400 to-purple-600" />
                   {/* Content */}
                   <div className="relative z-10 p-7 flex flex-col gap-3">
-                    <span className="text-[10px] font-mono font-bold text-purple-400 uppercase tracking-[0.2em]">Category</span>
+                    <span className="text-[12px] font-mono font-bold text-purple-400 uppercase tracking-[0.2em]">Category</span>
                     <h2 className="text-[32px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Structural Engagement</h2>
                     <p className="text-[12px] text-slate-400 leading-relaxed max-w-lg mt-1">Pacing, dynamic build, and energy trajectory — the retention dynamics that influence whether listeners and streaming algorithms stay engaged.</p>
                     <div className="flex gap-2 mt-2 flex-wrap">
                       {["Arrangement Flow", "Dynamic Modulation", "Climax Trajectory"].map(tag => (
-                        <span key={tag} className="text-[9px] font-mono text-purple-400/70 border border-purple-500/25 px-2.5 py-1 rounded-full">{tag}</span>
+                        <span key={tag} className="text-[11px] font-mono text-purple-400/70 border border-purple-500/25 px-2.5 py-1 rounded-full">{tag}</span>
                       ))}
                     </div>
                   </div>
@@ -5917,12 +5917,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-amber-400 to-amber-600" />
                   {/* Content */}
                   <div className="relative z-10 p-7 flex flex-col gap-3">
-                    <span className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-[0.2em]">Value Added</span>
+                    <span className="text-[12px] font-mono font-bold text-amber-400 uppercase tracking-[0.2em]">Value Added</span>
                     <h2 className="text-[32px] font-black text-white uppercase leading-none tracking-tight italic" style={{ fontFamily: "Inter, sans-serif" }}>Compositional Depth</h2>
                     <p className="text-[12px] text-slate-400 leading-relaxed max-w-lg mt-1">Harmonic craft, lyrical originality, and artistic sophistication — for your own growth as a songwriter, not part of your overall summary score.</p>
                     <div className="flex gap-2 mt-2 flex-wrap">
                       {["Music Theory", "Lyrical Impact", "Artistic Impact"].map(tag => (
-                        <span key={tag} className="text-[9px] font-mono text-amber-400/70 border border-amber-500/25 px-2.5 py-1 rounded-full">{tag}</span>
+                        <span key={tag} className="text-[11px] font-mono text-amber-400/70 border border-amber-500/25 px-2.5 py-1 rounded-full">{tag}</span>
                       ))}
                     </div>
                   </div>
@@ -5934,7 +5934,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             {expandedCategory !== null && (
               <button
                 onClick={() => setExpandedCategory(null)}
-                className="flex items-center gap-2 text-[10px] font-mono text-slate-400 hover:text-white transition-colors cursor-pointer self-start px-3 py-2 bg-neutral-900 border border-white/10 rounded-xl mb-2"
+                className="flex items-center gap-2 text-[12px] font-mono text-slate-400 hover:text-white transition-colors cursor-pointer self-start px-3 py-2 bg-neutral-900 border border-white/10 rounded-xl mb-2"
               >
                 ← Back to Overview
               </button>
@@ -5960,10 +5960,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-blue-400 to-blue-600" />
                 {/* Content */}
                 <div className="relative z-10 flex flex-col gap-0.5">
-                  <span className="text-[9px] font-mono font-bold text-blue-400 uppercase tracking-[0.2em]">Category</span>
+                  <span className="text-[11px] font-mono font-bold text-blue-400 uppercase tracking-[0.2em]">Category</span>
                   <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Streaming Readiness</span>
                 </div>
-                <span className="relative z-10 text-[9px] font-mono text-slate-500 ml-auto">Algorithmic curation & discovery potential</span>
+                <span className="relative z-10 text-[11px] font-mono text-slate-500 ml-auto">Algorithmic curation & discovery potential</span>
                 <span className="relative z-10 text-[40px] font-black text-white leading-none ml-[24px]" style={{ fontFamily: "Inter, sans-serif" }}>
                   {realCategoryScores.streamingReadiness}
                 </span>
@@ -5973,7 +5973,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <div className="flex flex-col w-full gap-4" id="sidebar-link-streaming-0">
           <button
             onClick={() => handleCategoryChange("mainstream")}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "mainstream"
                 ? "bg-[#090b0e] border-blue-500 shadow-[0_0_35px_rgba(59,130,246,0.35)] ring-1 ring-blue-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-[#2a7eff]/40 hover:border-[#2a7eff] hover:bg-neutral-900/40 text-slate-400"
@@ -6006,7 +6006,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     >
                       COMMERCIAL IMPACT
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Algorithmic Curation Potential</span>
+                    <span className="text-[12px] text-slate-500 font-medium">Algorithmic Curation Potential</span>
                   </div>
                 </div>
 
@@ -6014,13 +6014,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "mainstream" ? "border-blue-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                  <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     This is a generalized, "quick view" analysis of how streaming services algorithms might assess your song upon upload: Engagement Power (80% weight) &amp; Production Index (20% weight).
-                    <span className="block mt-1 text-blue-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Predicts first-listen algorithmic scoring and playlist eligibility.</span>
+                    <span className="block mt-1 text-blue-400/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Predicts first-listen algorithmic scoring and playlist eligibility.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "mainstream"
                       ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
@@ -6062,7 +6062,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                       <span>Active Diagnostics List</span>
                     </span>
-                    <span className="text-[10px] font-mono text-slate-500 text-right">
+                    <span className="text-[12px] font-mono text-slate-500 text-right">
                       Click any metric to expand technical feedback & recommendations
                     </span>
                   </div>
@@ -6097,7 +6097,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         <div className="flex flex-col w-full gap-4" id="sidebar-link-streaming-completion">
           <button
             onClick={() => setIsCompletionRateExpanded(!isCompletionRateExpanded)}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               isCompletionRateExpanded
                 ? "bg-[#090b0e] border-cyan-500 shadow-[0_0_35px_rgba(6,182,212,0.35)] ring-1 ring-cyan-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-[#06b6d4]/40 hover:border-[#06b6d4] hover:bg-neutral-900/40 text-slate-400"
@@ -6130,7 +6130,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     >
                       COMPLETION RATE
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">First-30-Second Retention Prediction</span>
+                    <span className="text-[12px] text-slate-500 font-medium">First-30-Second Retention Prediction</span>
                   </div>
                 </div>
 
@@ -6138,13 +6138,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   isCompletionRateExpanded ? "border-cyan-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                  <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Predicts listener retention through your song's critical opening window. Skip behavior in the first 30 seconds serves as a primary feedback signal algorithms use to promote or throttle discovery.
-                    <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Determines whether your track survives the first-30-second skip window that shapes algorithmic trust.</span>
+                    <span className="block mt-1 text-cyan-400/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Determines whether your track survives the first-30-second skip window that shapes algorithmic trust.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     isCompletionRateExpanded
                       ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-400"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-cyan-400"
@@ -6186,7 +6186,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
                       <span>Active Diagnostics List</span>
                     </span>
-                    <span className="text-[10px] font-mono text-slate-500 text-right">
+                    <span className="text-[12px] font-mono text-slate-500 text-right">
                       How These Numbers Are Calculated
                     </span>
                   </div>
@@ -6207,28 +6207,28 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <span className="text-xs font-bold text-white font-sans uppercase flex items-center gap-1.5 leading-none mb-2">
                         How Your Numbers Were Reached
                       </span>
-                      <p className="text-[10px] text-slate-500 leading-relaxed mb-3">
+                      <p className="text-[12px] text-slate-500 leading-relaxed mb-3">
                         This isn't a simple weighted average - it starts from an optimistic baseline, then subtracts points based on your song's real inputs. Here's the exact math for this track:
                       </p>
                       <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between text-[11px] font-mono">
+                        <div className="flex items-center justify-between text-[13px] font-mono">
                           <span className="text-slate-400">Starting baseline (most optimistic case)</span>
                           <span className="text-slate-300 font-bold">91%</span>
                         </div>
-                        <div className="flex items-center justify-between text-[11px] font-mono pl-3">
+                        <div className="flex items-center justify-between text-[13px] font-mono pl-3">
                           <span className="text-slate-500">− Weighted score (Engagement Power {commercialReadinessVal}/100 × 70% + Production Index {overallProductionVal}/100 × 20%)</span>
                           <span className="text-slate-400">{Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20))}</span>
                         </div>
-                        <div className="flex items-center justify-between text-[11px] font-mono pt-1 border-t border-white/5">
+                        <div className="flex items-center justify-between text-[13px] font-mono pt-1 border-t border-white/5">
                           <span className="text-slate-400">= Resulting predicted Skip Rate</span>
                           <span className="text-blue-400 font-bold">{predictedSkipRate}%</span>
                         </div>
-                        <div className="flex items-center justify-between text-[11px] font-mono">
+                        <div className="flex items-center justify-between text-[13px] font-mono">
                           <span className="text-slate-400">Completion Rate (100% minus Skip Rate)</span>
                           <span className="text-cyan-400 font-bold">{predictedCompletionRate}%</span>
                         </div>
                       </div>
-                      <p className="text-[10px] text-slate-500 leading-relaxed mt-3">
+                      <p className="text-[12px] text-slate-500 leading-relaxed mt-3">
                         On top of these two inputs, real measured penalty points can also apply when the audio itself shows a specific, checkable issue - for example, unusually quiet mastering or a stereo mix at genuine risk of phase cancellation in mono playback. No such penalties are currently applying to this track beyond what's reflected above.
                       </p>
                     </div>
@@ -6251,7 +6251,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 handleCategoryChange("spotify");
               }
             }}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "spotify"
                 ? "bg-[#090b0e] border-emerald-500 shadow-[0_0_35px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500/30 font-black"
                 : "bg-[#0A0B0E]/60 border-[#1ed760]/40 hover:border-[#1ed760] hover:bg-[#090c0a]/40 text-slate-400"
@@ -6284,7 +6284,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     >
                       STREAMING ALGORITHMIC ALIGNMENT
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Pillars of Content &amp; Collaborative Filtering</span>
+                    <span className="text-[12px] text-slate-500 font-medium">Pillars of Content &amp; Collaborative Filtering</span>
                   </div>
                 </div>
 
@@ -6292,13 +6292,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "spotify" ? "border-[#1ed760]/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                  <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     This is the high level, deep dive audit of your track's potential alignment against Spotify's content-based acoustic analysis — mapping your song's core audio features against genre-specific target ranges.
-                    <span className="block mt-1 text-[#1ed760]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Measures how closely your acoustic profile matches what Spotify expects for your genre.</span>
+                    <span className="block mt-1 text-[#1ed760]/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Measures how closely your acoustic profile matches what Spotify expects for your genre.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "spotify"
                       ? "bg-[#1ed760]/10 border-[#1ed760]/20 text-[#1ed760]"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-[#1ed760]/80"
@@ -6345,7 +6345,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         </div>
 
         <div className="flex flex-col items-center gap-2 py-4">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500 text-center">
+          <span className="text-[12px] font-mono uppercase tracking-widest text-slate-500 text-center">
             The Below Data Is Not Used In the Overall Summary Score
           </span>
           <div className="w-full h-px bg-gradient-to-r from-transparent via-blue-500/30 to-transparent" />
@@ -6361,7 +6361,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 handleCategoryChange("recommender");
               }
             }}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "recommender"
                 ? "bg-[#0c0a14] border-violet-500 shadow-[0_0_35px_rgba(139,92,246,0.25)] ring-1 ring-violet-500/30 font-black"
                 : "bg-[#0A0B0E]/60 border-violet-500/40 hover:border-violet-500 hover:bg-[#0b0a12]/40 text-slate-400"
@@ -6394,7 +6394,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     >
                       RECOMMENDER PERFORMANCE PREDICTION
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Predicted Algorithmic Indexing</span>
+                    <span className="text-[12px] text-slate-500 font-medium">Predicted Algorithmic Indexing</span>
                   </div>
                 </div>
 
@@ -6402,13 +6402,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "recommender" ? "border-violet-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                  <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Contains information specific to Spotify's algorithmic decisions as to where your song may fit compared to other artists in the genre, and probabilities for discovery feeder distribution.
-                    <span className="block mt-1 text-violet-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Anticipates playlist placement odds, though excluded from your overall score.</span>
+                    <span className="block mt-1 text-violet-400/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Anticipates playlist placement odds, though excluded from your overall score.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "recommender"
                       ? "bg-violet-500/10 border-violet-500/20 text-violet-400"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-violet-400/80"
@@ -6420,7 +6420,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
               {/* Right side: informational, not a scored circle */}
               <div className="flex-shrink-0 flex items-center justify-center px-4">
-                <span className="text-[11px] font-sans font-bold text-white text-center leading-snug max-w-[150px]">
+                <span className="text-[13px] font-sans font-bold text-white text-center leading-snug max-w-[150px]">
                   This Data is Not Scored
                 </span>
               </div>
@@ -6445,7 +6445,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
                       <span>ADDITIONAL INFO · NOT PART OF SUMMARY SCORE</span>
                     </span>
-                    <span className="text-[10px] font-mono text-slate-500 text-right">
+                    <span className="text-[12px] font-mono text-slate-500 text-right">
                       Discovery feeder and semantic clustering probability audit
                     </span>
                   </div>
@@ -6468,7 +6468,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 handleCategoryChange("sandbox");
               }
             }}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "sandbox"
                 ? "bg-[#090b0e] border-amber-500 shadow-[0_0_35px_rgba(245,158,11,0.35)] ring-1 ring-amber-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-[#f59e0b]/40 hover:border-[#f59e0b] hover:bg-neutral-900/40 text-slate-400"
@@ -6499,7 +6499,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     }`}>
                       ALGORITHMIC SANDBOX
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Placement & Retention Simulator</span>
+                    <span className="text-[12px] text-slate-500 font-medium">Placement & Retention Simulator</span>
                   </div>
                 </div>
 
@@ -6507,13 +6507,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "sandbox" ? "border-amber-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 text-left leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                  <p className="text-[12px] text-slate-400 text-left leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Simulate mood positioning, sonic similarity to reference tracks, playlist transition compatibility, and skip-rate risk inside curators' placement filters.
-                    <span className="block mt-1 text-[#fe9a00]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Simulates how curators and algorithms are likely to place your song.</span>
+                    <span className="block mt-1 text-[#fe9a00]/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Simulates how curators and algorithms are likely to place your song.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "sandbox"
                       ? "bg-amber-500/10 border-amber-500/20 text-amber-500"
                       : "bg-[#0A0B0E]/60 border-white/5 hover:border-amber-500/40 hover:bg-neutral-900/40 text-slate-500 group-hover:text-amber-400"
@@ -6525,7 +6525,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
               {/* Right side: informational, not a scored circle */}
               <div className="flex-shrink-0 flex items-center justify-center px-4">
-                <span className="text-[11px] font-sans font-bold text-white text-center leading-snug max-w-[150px]">
+                <span className="text-[13px] font-sans font-bold text-white text-center leading-snug max-w-[150px]">
                   This Data is Not Scored
                 </span>
               </div>
@@ -6550,7 +6550,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                       <span>ACTIVE PLAYBACK INSTANCE</span>
                     </span>
-                    <span className="text-[10px] font-mono text-slate-500 text-right">
+                    <span className="text-[12px] font-mono text-slate-500 text-right">
                       Tune skip-rates and metric feedback parameters inside Spotify curator loops
                     </span>
                   </div>
@@ -6564,7 +6564,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         </div>
 
         <div className="pt-2">
-          <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-3 pl-1">The Below Data Is Not Used In the Overall Summary Score</p>
+          <p className="text-[12px] font-mono text-slate-500 uppercase tracking-widest mb-3 pl-1">The Below Data Is Not Used In the Overall Summary Score</p>
         </div>
 
         {/* Card: Song Title Searchability (pink) - rewritten to pull directly from the same
@@ -6576,7 +6576,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         <div className="flex flex-col w-full gap-4" id="sidebar-link-streaming-searchability">
           <button
             onClick={() => setExpandedMetric(expandedMetric === "searchability" ? null : "searchability")}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               expandedMetric === "searchability"
                 ? "bg-[#0e090c] border-pink-500 shadow-[0_0_35px_rgba(236,72,153,0.35)] ring-1 ring-pink-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-pink-500/40 hover:border-pink-500 hover:bg-neutral-900/40 text-slate-400"
@@ -6598,20 +6598,20 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     }`}>
                       Song Title Searchability
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Digital Search Indexing</span>
+                    <span className="text-[12px] text-slate-500 font-medium">Digital Search Indexing</span>
                   </div>
                 </div>
 
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   expandedMetric === "searchability" ? "border-pink-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                  <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Audits search duplication risk. Unique titles rank faster; common phrases get buried in search index traffic.
-                    <span className="block mt-1 text-pink-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>A real score, scored separately - does not factor into your Streaming Readiness total.</span>
+                    <span className="block mt-1 text-pink-400/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>A real score, scored separately - does not factor into your Streaming Readiness total.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                       expandedMetric === "searchability"
                         ? "bg-pink-500/10 border-pink-500/20 text-pink-400"
                         : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-pink-400"
@@ -6655,10 +6655,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           }} />
           <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-[#46F4CD] to-[#2dd4bf]" />
           <div className="relative z-10 flex flex-col gap-0.5">
-            <span className="text-[9px] font-mono font-bold text-[#46F4CD] uppercase tracking-[0.2em]">Category</span>
+            <span className="text-[11px] font-mono font-bold text-[#46F4CD] uppercase tracking-[0.2em]">Category</span>
             <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Sonic Soundprint</span>
           </div>
-          <span className="relative z-10 text-[9px] font-mono text-slate-500 ml-auto">Technical mix architecture & engineering diagnostics</span>
+          <span className="relative z-10 text-[11px] font-mono text-slate-500 ml-auto">Technical mix architecture & engineering diagnostics</span>
           <span className="relative z-10 text-[40px] font-black text-white leading-none ml-[24px]" style={{ fontFamily: "Inter, sans-serif" }}>
             {realCategoryScores.sonicSoundprint}
           </span>
@@ -6682,7 +6682,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             <div>
               <h3 className="text-xl font-bold text-white tracking-wide uppercase flex items-center justify-center md:justify-start gap-2.5">
                 THE ENGINEERING STUDIO
-                <span className="text-[9px] bg-[#2563EB]/15 border border-[#2563EB]/25 text-blue-400 font-mono tracking-widest px-2.5 py-0.5 rounded-full uppercase">High Precision Analysis</span>
+                <span className="text-[11px] bg-[#2563EB]/15 border border-[#2563EB]/25 text-blue-400 font-mono tracking-widest px-2.5 py-0.5 rounded-full uppercase">High Precision Analysis</span>
               </h3>
               <p className="text-xs text-slate-400 mt-2 max-w-xl leading-relaxed">
                 <span className="font-bold text-white">Enter the studio.</span>{"  "}<span className="text-[#90a1b9]">This powerhouse engineering and production mix/master diagnostic suite guides a mix from good to masterful. Nine diagnostic modules analyze a broad array of measurements that guide step-by-step, plugin setting specific mix correction blueprints.</span>
@@ -6697,7 +6697,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 e.stopPropagation();
                 if (onNavigateToEngineeringStudio) onNavigateToEngineeringStudio();
               }}
-              className="px-6 py-3 bg-[#2563EB] hover:bg-blue-500 text-white font-mono text-[11px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)] cursor-pointer flex items-center gap-2 group-hover:scale-102"
+              className="px-6 py-3 bg-[#2563EB] hover:bg-blue-500 text-white font-mono text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)] cursor-pointer flex items-center gap-2 group-hover:scale-102"
             >
               <span>Enter Engineering Studio</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
@@ -6716,7 +6716,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <>
                 <button
                   onClick={() => setExpandedMetric(isExpanded ? null : "mix")}
-                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
                     isExpanded
                       ? "bg-[#090b0e] border-[#ff66cc] shadow-[0_0_35px_rgba(255,102,204,0.35)] ring-1 ring-[#ff66cc]/40 font-black"
                       : "bg-[#0A0B0E]/60 border-[#ff66cc]/40 hover:border-[#ff66cc] hover:bg-neutral-900/40 text-slate-400"
@@ -6738,20 +6738,20 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                           }`}>
                             {mixMetric.name}
                           </span>
-                          <span className="text-[10px] text-slate-500 font-medium">{mixMetric.subtitle}</span>
+                          <span className="text-[12px] text-slate-500 font-medium">{mixMetric.subtitle}</span>
                         </div>
                       </div>
 
                       <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                         isExpanded ? "border-[#ff66cc]/15" : "border-white/5"
                       }`}>
-                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                        <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                           {mixMetric.callout}
-                          <span className="block mt-1 text-[#ff66cc]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Measures whether your mix translates cleanly across playback systems and streaming compression.</span>
+                          <span className="block mt-1 text-[#ff66cc]/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Measures whether your mix translates cleanly across playback systems and streaming compression.</span>
                         </p>
                         <span 
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                           isExpanded
                             ? "bg-[#ff66cc]/10 border-[#ff66cc]/20 text-[#ff66cc]"
                             : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-[#ff66cc]"
@@ -6789,7 +6789,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <>
                 <button
                   onClick={() => setExpandedMetric(isExpanded ? null : "instrumental")}
-                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
                     isExpanded
                       ? "bg-[#090b0e] border-emerald-500 shadow-[0_0_35px_rgba(16,185,129,0.35)] ring-1 ring-emerald-500/40 font-black"
                       : "bg-[#0A0B0E]/60 border-emerald-500/40 hover:border-emerald-500 hover:bg-neutral-900/40 text-slate-400"
@@ -6811,20 +6811,20 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                           }`}>
                             {instrumentalMetric.name}
                           </span>
-                          <span className="text-[10px] text-slate-500 font-medium">{instrumentalMetric.subtitle}</span>
+                          <span className="text-[12px] text-slate-500 font-medium">{instrumentalMetric.subtitle}</span>
                         </div>
                       </div>
 
                       <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                         isExpanded ? "border-emerald-500/15" : "border-white/5"
                       }`}>
-                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                        <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                           {instrumentalMetric.callout}
-                          <span className="block mt-1 text-emerald-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>{instrumentalMetric.hoverText}</span>
+                          <span className="block mt-1 text-emerald-400/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>{instrumentalMetric.hoverText}</span>
                         </p>
                         <span 
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                           isExpanded
                             ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                             : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-emerald-400"
@@ -6862,7 +6862,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <>
                 <button
                   onClick={() => setExpandedMetric(isExpanded ? null : "vocals")}
-                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
                     isExpanded
                       ? "bg-[#090b0e] border-[#9999ff] shadow-[0_0_35px_rgba(153,153,255,0.35)] ring-1 ring-[#9999ff]/40 font-black"
                       : "bg-[#0A0B0E]/60 border-[#9999ff]/40 hover:border-[#9999ff] hover:bg-neutral-900/40 text-slate-400"
@@ -6890,20 +6890,20 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                           }`}>
                             {vocalsMetric.name}
                           </span>
-                          <span className="text-[10px] text-slate-500 font-medium">{vocalsMetric.subtitle}</span>
+                          <span className="text-[12px] text-slate-500 font-medium">{vocalsMetric.subtitle}</span>
                         </div>
                       </div>
 
                       <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                         isExpanded ? "border-[#9999ff]/15" : "border-white/5"
                       }`}>
-                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                        <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                           {vocalsMetric.callout}
-                          <span className="block mt-1 text-[#9999ff]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Assesses vocal clarity, pitch accuracy, and presence in the mix.</span>
+                          <span className="block mt-1 text-[#9999ff]/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Assesses vocal clarity, pitch accuracy, and presence in the mix.</span>
                         </p>
                         <span 
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                           isExpanded
                             ? "bg-[#9999ff]/10 border-[#9999ff]/20 text-[#9999ff]"
                             : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-[#9999ff]"
@@ -6933,7 +6933,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
 
           <div className="flex flex-col items-center gap-2 py-4">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500 text-center">
+            <span className="text-[12px] font-mono uppercase tracking-widest text-slate-500 text-center">
               The Below Data Is Not Used In the Overall Summary Score
             </span>
             <div className="w-full h-px bg-gradient-to-r from-transparent via-[#46F4CD]/30 to-transparent" />
@@ -6943,7 +6943,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         <div className="flex flex-col w-full gap-4" id="sidebar-link-sonic-2">
           <button
             onClick={() => setProductionQualityExpanded(!productionQualityExpanded)}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               productionQualityExpanded
                 ? "bg-[#090b0e] border-[#46F4CD] shadow-[0_0_35px_rgba(70,244,205,0.35)] ring-1 ring-[#46F4CD]/40 font-black"
                 : "bg-[#0A0B0E]/60 border-[#46F4CD]/40 hover:border-[#46F4CD] hover:bg-neutral-900/40 text-slate-400"
@@ -6976,7 +6976,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     >
                       PRODUCTION QUALITY
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Sonic Fidelity & Engineering Polish</span>
+                    <span className="text-[12px] text-slate-500 font-medium">Sonic Fidelity & Engineering Polish</span>
                   </div>
                 </div>
 
@@ -6984,13 +6984,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   productionQualityExpanded ? "border-[#46F4CD]/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                  <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     A diagnostic of arrangement, sonic texture, low-end power, stereo depth, vocals, and energy.
-                    <span className="block mt-1 text-[#46F4CD]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Reflects overall production polish relative to genre-standard commercial releases.</span>
+                    <span className="block mt-1 text-[#46F4CD]/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Reflects overall production polish relative to genre-standard commercial releases.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     productionQualityExpanded
                       ? "bg-[#46F4CD]/10 border-[#46F4CD]/20 text-[#46F4CD]"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
@@ -7043,7 +7043,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <p className="text-xs text-slate-200 leading-relaxed font-semibold">
                       Streaming algorithms don't hear your mix — but your listeners do. Poor production drives early skips, and early skips tank your algorithmic reach.
                     </p>
-                    <p className="text-[10px] text-slate-500 font-mono italic">
+                    <p className="text-[12px] text-slate-500 font-mono italic">
                       Some of these metrics share data with other YSS modules. PRODUCTION QUALITY combines them here with a single focus: not whether your mix is technically correct, but whether it sounds like a finished, competitive record.
                     </p>
                   </div>
@@ -7147,7 +7147,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <>
                 <button
                   onClick={() => setIsLoudnessComplianceExpanded(!isLoudnessComplianceExpanded)}
-                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
                     isLoudnessComplianceExpanded
                       ? "bg-[#090b0e] border-blue-500 shadow-[0_0_35px_rgba(59,130,246,0.35)] ring-1 ring-blue-500/40 font-black"
                       : "bg-[#0A0B0E]/60 border-blue-500/40 hover:border-blue-500 hover:bg-neutral-900/40 text-slate-400"
@@ -7169,20 +7169,20 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                           }`}>
                             LOUDNESS COMPLIANCE
                           </span>
-                          <span className="text-[10px] text-slate-500 font-medium">Genre-Aware LUFS &amp; Dynamic Range Matching</span>
+                          <span className="text-[12px] text-slate-500 font-medium">Genre-Aware LUFS &amp; Dynamic Range Matching</span>
                         </div>
                       </div>
 
                       <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                         isLoudnessComplianceExpanded ? "border-blue-500/15" : "border-white/5"
                       }`}>
-                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                        <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                           Measures whether your track's integrated loudness (LUFS) and dynamic range (LRA) fall within the target windows for your genre.
-                          <span className="block mt-1 text-blue-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>A compliance fact, not a creative score - does not factor into your Sonic Soundprint total.</span>
+                          <span className="block mt-1 text-blue-400/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>A compliance fact, not a creative score - does not factor into your Sonic Soundprint total.</span>
                         </p>
                         <span 
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                           isLoudnessComplianceExpanded
                             ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
                             : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-blue-400"
@@ -7204,7 +7204,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         ) : (
                           <AlertCircle className="w-8 h-8 text-[#ffba00]" />
                         )}
-                        <span className={`text-[11px] font-mono font-black uppercase tracking-wider ${lcBothPass ? "text-emerald-400" : "text-[#ffba00]"}`}>
+                        <span className={`text-[13px] font-mono font-black uppercase tracking-wider ${lcBothPass ? "text-emerald-400" : "text-[#ffba00]"}`}>
                           {lcBothPass ? "PASS" : "OUT OF RANGE"}
                         </span>
                       </div>
@@ -7225,39 +7225,39 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
                           LOUDNESS COMPLIANCE AUDIT
                         </div>
-                        <span className="text-[10px] font-mono text-slate-500 -mt-3">
+                        <span className="text-[12px] font-mono text-slate-500 -mt-3">
                           Target profile: <span className="text-blue-400 font-bold">{lcBucket.label}</span>
                         </span>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className={`p-4 rounded-xl border ${lcLufsPass ? "bg-[#0A2010]/35 border-emerald-500/25" : "bg-[#201c10]/30 border-[#ffba00]/15"}`}>
                             <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Integrated Loudness</span>
-                              <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${lcLufsPass ? "text-emerald-400 bg-emerald-500/10" : "text-[#ffba00] bg-[#ffba00]/10"}`}>
+                              <span className="text-[12px] font-mono font-bold uppercase tracking-widest text-slate-400">Integrated Loudness</span>
+                              <span className={`text-[11px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${lcLufsPass ? "text-emerald-400 bg-emerald-500/10" : "text-[#ffba00] bg-[#ffba00]/10"}`}>
                                 {lcLufsPass ? "PASS" : "OUT OF RANGE"}
                               </span>
                             </div>
                             <div className="text-2xl font-black text-white font-mono">{lcLufsRaw ?? "--"} <span className="text-xs text-slate-500 font-semibold">LUFS</span></div>
-                            <p className="text-[10px] text-slate-400 leading-relaxed mt-1.5">
+                            <p className="text-[12px] text-slate-400 leading-relaxed mt-1.5">
                               Target window for {lcBucket.label}: {lcBucket.lufsMin} to {lcBucket.lufsMax} LUFS.
                             </p>
                           </div>
 
                           <div className={`p-4 rounded-xl border ${lcLraPass ? "bg-[#0A2010]/35 border-emerald-500/25" : "bg-[#201c10]/30 border-[#ffba00]/15"}`}>
                             <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Dynamic Range (LRA)</span>
-                              <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${lcLraPass ? "text-emerald-400 bg-emerald-500/10" : "text-[#ffba00] bg-[#ffba00]/10"}`}>
+                              <span className="text-[12px] font-mono font-bold uppercase tracking-widest text-slate-400">Dynamic Range (LRA)</span>
+                              <span className={`text-[11px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${lcLraPass ? "text-emerald-400 bg-emerald-500/10" : "text-[#ffba00] bg-[#ffba00]/10"}`}>
                                 {lcLraPass ? "PASS" : "OUT OF RANGE"}
                               </span>
                             </div>
                             <div className="text-2xl font-black text-white font-mono">{lcLraRaw ?? "--"} <span className="text-xs text-slate-500 font-semibold">LU</span></div>
-                            <p className="text-[10px] text-slate-400 leading-relaxed mt-1.5">
+                            <p className="text-[12px] text-slate-400 leading-relaxed mt-1.5">
                               Target window for {lcBucket.label}: {lcBucket.lraMin}{lcBucket.lraMax !== null ? `-${lcBucket.lraMax}` : "+"} LU.
                             </p>
                           </div>
                         </div>
 
-                        <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
+                        <p className="text-[12px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
                           These are pass/fail compliance facts against your genre's target window - they do not factor into your Sonic Soundprint score, which reflects creative and technical judgment only.
                         </p>
                       </div>
@@ -7288,10 +7288,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             }} />
             <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-purple-400 to-purple-600" />
             <div className="relative z-10 flex flex-col gap-0.5">
-              <span className="text-[9px] font-mono font-bold text-purple-400 uppercase tracking-[0.2em]">Category</span>
+              <span className="text-[11px] font-mono font-bold text-purple-400 uppercase tracking-[0.2em]">Category</span>
               <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Structural Engagement</span>
             </div>
-            <span className="relative z-10 text-[9px] font-mono text-slate-500 ml-auto">Pacing and dynamics that keep listeners engaged</span>
+            <span className="relative z-10 text-[11px] font-mono text-slate-500 ml-auto">Pacing and dynamics that keep listeners engaged</span>
             <span className="relative z-10 text-[40px] font-black text-white leading-none ml-[24px]" style={{ fontFamily: "Inter, sans-serif" }}>
               {realCategoryScores.compositionalDepth}
             </span>
@@ -7305,7 +7305,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-5">
           <button
             onClick={() => setExpandedMetric(expandedMetric === "flow" ? null : "flow")}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               expandedMetric === "flow"
                 ? "bg-[#0f0b06] border-amber-500 shadow-[0_0_35px_rgba(245,158,11,0.35)] ring-1 ring-amber-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-amber-500/40 hover:border-amber-500 hover:bg-neutral-900/40 text-slate-400"
@@ -7333,20 +7333,20 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     }`}>
                       ARRANGEMENT FLOW
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Structural Build &amp; Dynamic Arc</span>
+                    <span className="text-[12px] text-slate-500 font-medium">Structural Build &amp; Dynamic Arc</span>
                   </div>
                 </div>
 
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   expandedMetric === "flow" ? "border-amber-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                  <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Assesses whether transitions between sections build tension and release effectively, keeping the arrangement's energy scaling coherent from intro to outro.
-                    <span className="block mt-1 text-amber-500/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Assesses structural pacing and dynamic build across the song, driving 40% of Structural Engagement.</span>
+                    <span className="block mt-1 text-amber-500/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Assesses structural pacing and dynamic build across the song, driving 40% of Structural Engagement.</span>
                   </p>
                   <span
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     expandedMetric === "flow"
                       ? "bg-amber-500/10 border-amber-500/20 text-amber-500"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-amber-500"
@@ -7446,16 +7446,16 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <div>
                       <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }} className="flex items-center gap-2">
                         <span>ARRANGEMENT FLOW &amp; SECTION PACING</span>
-                        <span className="text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                        <span className="text-[11px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
                           {flowScore >= 80 ? "STRONG MOMENTUM" : flowScore >= 60 ? "BALANCED PACING" : "NEEDS TENSION/RELEASE"}
                         </span>
                       </div>
-                      <span className="text-[10px] font-mono text-slate-400 mt-1 block">
+                      <span className="text-[12px] font-mono text-slate-400 mt-1 block">
                         Structural energy shifts, section transitions &amp; pacing continuity
                       </span>
                     </div>
                     <div className="flex items-baseline gap-1.5 self-start sm:self-auto bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-xl font-mono">
-                      <span className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider">Flow Score:</span>
+                      <span className="text-[12px] text-amber-400 font-semibold uppercase tracking-wider">Flow Score:</span>
                       <span className="text-lg font-black text-white">{flowScore}</span>
                       <span className="text-xs text-amber-400 font-bold">/ 100</span>
                     </div>
@@ -7463,7 +7463,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                   {/* Section Stepped Arc Matrix Visualization */}
                   <div className="p-4 bg-[#030407] border border-white/10 rounded-2xl flex flex-col gap-3 relative overflow-hidden">
-                    <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 uppercase tracking-widest px-1">
+                    <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 uppercase tracking-widest px-1">
                       <span className="flex items-center gap-1.5 text-slate-300 font-bold">
                         <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                         Detected Section Energy Steps (dB)
@@ -7473,8 +7473,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                     {segments.length < 2 ? (
                       <div className="flex flex-col items-center justify-center py-10 border border-dashed border-white/5 rounded-xl bg-black/40">
-                        <span className="text-[11px] text-slate-400 font-medium mb-1">Section transition data pending</span>
-                        <p className="text-[9.5px] text-slate-500 max-w-xs text-center leading-relaxed">
+                        <span className="text-[13px] text-slate-400 font-medium mb-1">Section transition data pending</span>
+                        <p className="text-[11px] text-slate-500 max-w-xs text-center leading-relaxed">
                           Run an audio analysis to detect section landmarks and measure inter-section energy shifts.
                         </p>
                       </div>
@@ -7505,7 +7505,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             return (
                               <div key={idx} className="flex flex-col gap-1.5 p-2.5 rounded-xl border border-white/5 bg-black/40 relative overflow-hidden group hover:border-amber-500/30 transition-all">
                                 {/* Segment Header */}
-                                <div className="flex items-center justify-between text-[8px] font-mono">
+                                <div className="flex items-center justify-between text-[10px] font-mono">
                                   <span className="text-slate-400 truncate font-semibold">{seg.label}</span>
                                   <span className="text-slate-600">{fmtTime(seg.startSec)}</span>
                                 </div>
@@ -7517,14 +7517,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                                     style={{ height: `${normalizedH}%`, filter: `brightness(${barBrightness.toFixed(2)})` }}
                                   />
                                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <span className="text-[10px] font-mono font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
-                                      {seg.avgDb} <span className="text-[7.5px] font-normal text-amber-300/80">dB</span>
+                                    <span className="text-[12px] font-mono font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                                      {seg.avgDb} <span className="text-[9px] font-normal text-amber-300/80">dB</span>
                                     </span>
                                   </div>
                                 </div>
 
                                 {/* Delta Step Indicator */}
-                                <div className="flex items-center justify-between text-[8px] font-mono pt-0.5">
+                                <div className="flex items-center justify-between text-[10px] font-mono pt-0.5">
                                   <span className="text-slate-500">{fmtTime(seg.endSec)}</span>
                                   {delta !== null ? (
                                     <span className={`px-1 py-0.2 rounded font-bold ${
@@ -7546,7 +7546,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         </div>
 
                         {/* Transition Flow Summary Bar */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-2 text-[9px] font-mono text-slate-400 px-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-2 text-[11px] font-mono text-slate-400 px-1">
                           <div className="flex items-center gap-4 flex-wrap">
                             <span className="flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -7568,13 +7568,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     {/* Transitions Detected */}
                     <div className="p-4 rounded-xl border border-white/10 bg-[#020203] flex flex-col justify-between">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-amber-400">Section Landmarks</span>
-                        <span className="text-[8px] font-mono uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">DSP Detected</span>
+                        <span className="text-[12px] font-mono font-bold uppercase tracking-widest text-amber-400">Section Landmarks</span>
+                        <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">DSP Detected</span>
                       </div>
                       <div className="text-2xl font-black text-white font-mono mt-1">
                         {segments.length > 0 ? segments.length : "--"} <span className="text-xs text-slate-500 font-semibold">Sections</span>
                       </div>
-                      <p className="text-[9.5px] text-slate-400 leading-relaxed mt-2">
+                      <p className="text-[11px] text-slate-400 leading-relaxed mt-2">
                         Identified structural boundaries where energy shifts create natural musical markers.
                       </p>
                     </div>
@@ -7582,13 +7582,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     {/* Average Chorus/Drop Lift */}
                     <div className="p-4 rounded-xl border border-white/10 bg-[#020203] flex flex-col justify-between">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Avg Build Lift</span>
-                        <span className="text-[8px] font-mono uppercase px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Impact</span>
+                        <span className="text-[12px] font-mono font-bold uppercase tracking-widest text-slate-400">Avg Build Lift</span>
+                        <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Impact</span>
                       </div>
                       <div className="text-2xl font-black text-white font-mono mt-1">
                         {avgLift !== null ? `+${avgLift}` : "--"} <span className="text-xs text-slate-500 font-semibold">dB</span>
                       </div>
-                      <p className="text-[9.5px] text-slate-400 leading-relaxed mt-2">
+                      <p className="text-[11px] text-slate-400 leading-relaxed mt-2">
                         Average energy step going into chorus and peak sections for maximum emotional payoff.
                       </p>
                     </div>
@@ -7596,15 +7596,15 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     {/* Pacing Coherence */}
                     <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 flex flex-col justify-between">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Pacing Coherence</span>
-                        <span className="text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400">
+                        <span className="text-[12px] font-mono font-bold uppercase tracking-widest text-slate-400">Pacing Coherence</span>
+                        <span className="text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400">
                           {flowScore >= 75 ? "EXCELLENT" : "MODERATE"}
                         </span>
                       </div>
                       <div className="text-2xl font-black text-white font-mono mt-1">
                         {flowScore} <span className="text-xs text-slate-500 font-semibold">/ 100</span>
                       </div>
-                      <p className="text-[9.5px] text-slate-300 leading-relaxed mt-2">
+                      <p className="text-[11px] text-slate-300 leading-relaxed mt-2">
                         Overall arrangement rating combining transition impact, structural balance, and dynamic flow.
                       </p>
                     </div>
@@ -7612,14 +7612,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                   {/* AI Qualitative Transitions & Arc Critique */}
                   <div className="p-4 bg-[#020203] border border-white/10 rounded-xl flex flex-col gap-2">
-                    <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500">AI Transitions &amp; Dynamic Arc Analysis</span>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                    <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-slate-500">AI Transitions &amp; Dynamic Arc Analysis</span>
+                    <p className="text-[13px] text-slate-300 leading-relaxed">
                       {critique?.arrangement?.transitionsAndArc ?? "Arrangement transitions and dynamic arc evaluation unavailable for this track."}
                     </p>
                   </div>
 
                   {/* Explanatory Footer */}
-                  <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
+                  <p className="text-[12px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
                     Arrangement Flow is weighted at 40% into your overall Structural Engagement score — the largest single ingredient, alongside Dynamic Modulation (30%) and Climax Trajectory (30%).
                   </p>
                 </div>
@@ -7633,7 +7633,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-6">
           <button
             onClick={() => setExpandedMetric(expandedMetric === "dynamicmod" ? null : "dynamicmod")}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               expandedMetric === "dynamicmod"
                 ? "bg-[#0f0609] border-rose-500 shadow-[0_0_35px_rgba(244,63,94,0.35)] ring-1 ring-rose-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-rose-500/40 hover:border-rose-500 hover:bg-neutral-900/40 text-slate-400"
@@ -7661,20 +7661,20 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     }`}>
                       DYNAMIC MODULATION
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Loud/Quiet Contrast Across the Song</span>
+                    <span className="text-[12px] text-slate-500 font-medium">Loud/Quiet Contrast Across the Song</span>
                   </div>
                 </div>
 
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   expandedMetric === "dynamicmod" ? "border-rose-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                  <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Measures real loudness contrast between the song's quietest and loudest sustained sections — the difference that keeps a listener locked in rather than tuning out.
-                    <span className="block mt-1 text-rose-500/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Measures loud-quiet contrast across the song, driving 30% of Structural Engagement.</span>
+                    <span className="block mt-1 text-rose-500/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Measures loud-quiet contrast across the song, driving 30% of Structural Engagement.</span>
                   </p>
                   <span
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     expandedMetric === "dynamicmod"
                       ? "bg-rose-500/10 border-rose-500/20 text-rose-500"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-rose-500"
@@ -7696,7 +7696,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   />
                 ) : (
                   <div className="flex items-center justify-center w-[110px] h-[110px] rounded-full border border-dashed border-rose-500/30">
-                    <span className="text-[9px] font-mono text-slate-500 text-center px-3 uppercase tracking-wide">Insufficient Real Data</span>
+                    <span className="text-[11px] font-mono text-slate-500 text-center px-3 uppercase tracking-wide">Insufficient Real Data</span>
                   </div>
                 )}
               </div>
@@ -7815,17 +7815,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <div>
                       <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }} className="flex items-center gap-2">
                         <span>DYNAMIC MODULATION &amp; MACRO-CONTOUR</span>
-                        <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${dmTier.bg} ${dmTier.color} border ${dmTier.border}`}>
+                        <span className={`text-[11px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${dmTier.bg} ${dmTier.color} border ${dmTier.border}`}>
                           {dmTier.label}
                         </span>
                       </div>
-                      <span className="text-[10px] font-mono text-slate-400 mt-1 block">
+                      <span className="text-[12px] font-mono text-slate-400 mt-1 block">
                         Waveform Loudness Envelope (RMS dB) vs. Percentile Contrast
                       </span>
                     </div>
                     {dRangeDb != null && (
                       <div className="flex items-baseline gap-1.5 self-start sm:self-auto bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 rounded-xl font-mono">
-                        <span className="text-[10px] text-rose-400 font-semibold uppercase tracking-wider">Dynamic Span:</span>
+                        <span className="text-[12px] text-rose-400 font-semibold uppercase tracking-wider">Dynamic Span:</span>
                         <span className="text-lg font-black text-white">{dRangeDb}</span>
                         <span className="text-xs text-rose-400 font-bold">dB</span>
                       </div>
@@ -7834,7 +7834,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                   {/* Visualizer Chart Container */}
                   <div className="p-4 bg-[#030407] border border-white/10 rounded-2xl flex flex-col gap-2 relative overflow-hidden">
-                    <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 uppercase tracking-widest px-1">
+                    <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 uppercase tracking-widest px-1">
                       <span className="flex items-center gap-1.5 text-slate-300 font-bold">
                         <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
                         Macro Dynamic Loudness Contour
@@ -7846,8 +7846,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <div className="w-full relative">
                       {envelopePoints.length < 2 ? (
                         <div className="flex flex-col items-center justify-center py-10 border border-dashed border-white/5 rounded-xl bg-black/40">
-                          <span className="text-[11px] text-slate-400 font-medium mb-1">No real envelope data available</span>
-                          <p className="text-[9.5px] text-slate-500 max-w-xs text-center leading-relaxed">
+                          <span className="text-[13px] text-slate-400 font-medium mb-1">No real envelope data available</span>
+                          <p className="text-[11px] text-slate-500 max-w-xs text-center leading-relaxed">
                             This chart needs a fresh analysis run to generate real waveform data for this track.
                           </p>
                         </div>
@@ -8010,7 +8010,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     </div>
 
                     {/* Chart Legend / Helper */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-2 text-[9px] font-mono text-slate-400 px-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-2 text-[11px] font-mono text-slate-400 px-1">
                       <div className="flex items-center gap-4 flex-wrap">
                         <span className="flex items-center gap-1.5">
                           <span className="w-3 h-0.5 bg-rose-500 rounded" />
@@ -8030,13 +8030,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     {/* 85th Percentile Peak */}
                     <div className="p-4 rounded-xl border border-white/10 bg-[#020203] flex flex-col justify-between">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-rose-400">Peak Energy (85th %)</span>
-                        <span className="text-[8px] font-mono uppercase px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">Choruses / Drops</span>
+                        <span className="text-[12px] font-mono font-bold uppercase tracking-widest text-rose-400">Peak Energy (85th %)</span>
+                        <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">Choruses / Drops</span>
                       </div>
                       <div className="text-2xl font-black text-white font-mono mt-1">
                         {high85Db != null ? high85Db : "--"} <span className="text-xs text-slate-500 font-semibold">dB</span>
                       </div>
-                      <p className="text-[9.5px] text-slate-400 leading-relaxed mt-2">
+                      <p className="text-[11px] text-slate-400 leading-relaxed mt-2">
                         Sustained loudness level during high-energy sections, ignoring momentary drum transients.
                       </p>
                     </div>
@@ -8044,13 +8044,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     {/* 15th Percentile Floor */}
                     <div className="p-4 rounded-xl border border-white/10 bg-[#020203] flex flex-col justify-between">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Baseline Floor (15th %)</span>
-                        <span className="text-[8px] font-mono uppercase px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-white/10">Verses / Intro</span>
+                        <span className="text-[12px] font-mono font-bold uppercase tracking-widest text-slate-400">Baseline Floor (15th %)</span>
+                        <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-white/10">Verses / Intro</span>
                       </div>
                       <div className="text-2xl font-black text-white font-mono mt-1">
                         {low15Db != null ? low15Db : "--"} <span className="text-xs text-slate-500 font-semibold">dB</span>
                       </div>
-                      <p className="text-[9.5px] text-slate-400 leading-relaxed mt-2">
+                      <p className="text-[11px] text-slate-400 leading-relaxed mt-2">
                         Sustained quiet floor providing essential musical breathing room before dynamic drops.
                       </p>
                     </div>
@@ -8058,15 +8058,15 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     {/* Measured Contrast Δ */}
                     <div className={`p-4 rounded-xl border ${dmTier.bg} ${dmTier.border} flex flex-col justify-between`}>
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Macro Contrast (Δ)</span>
-                        <span className={`text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded ${dmTier.bg} ${dmTier.color}`}>
+                        <span className="text-[12px] font-mono font-bold uppercase tracking-widest text-slate-400">Macro Contrast (Δ)</span>
+                        <span className={`text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded ${dmTier.bg} ${dmTier.color}`}>
                           {dmTier.label}
                         </span>
                       </div>
                       <div className="text-2xl font-black text-white font-mono mt-1">
                         {dRangeDb ?? "--"} <span className="text-xs text-slate-500 font-semibold">dB</span>
                       </div>
-                      <p className="text-[9.5px] text-slate-300 leading-relaxed mt-2">
+                      <p className="text-[11px] text-slate-300 leading-relaxed mt-2">
                         {dmTier.desc}
                       </p>
                     </div>
@@ -8074,7 +8074,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                   {/* Commercial Dynamic Range Spectrum Gauge */}
                   <div className="p-4 bg-[#020203] border border-white/10 rounded-xl flex flex-col gap-3">
-                    <div className="flex items-center justify-between text-[10px] font-mono">
+                    <div className="flex items-center justify-between text-[12px] font-mono">
                       <span className="text-slate-400 font-bold uppercase tracking-wider">Dynamic Range Spectrum Guide</span>
                       <span className="text-slate-500">Industry Target Range</span>
                     </div>
@@ -8112,7 +8112,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             transform: "translateX(-50%)"
                           }}
                         >
-                          <span className="text-[8.5px] font-mono font-bold text-white px-1.5 py-0.5 rounded bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)] whitespace-nowrap mb-0.5">
+                          <span className="text-[10px] font-mono font-bold text-white px-1.5 py-0.5 rounded bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)] whitespace-nowrap mb-0.5">
                             YOUR TRACK: {dRangeDb} dB
                           </span>
                           <div className="w-2.5 h-2.5 rotate-45 bg-rose-500 -mt-1 shadow-[0_0_6px_rgba(244,63,94,0.8)]" />
@@ -8120,7 +8120,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       )}
 
                       {/* Zone Labels */}
-                      <div className="flex justify-between text-[8px] font-mono text-slate-500 mt-2 px-0.5">
+                      <div className="flex justify-between text-[10px] font-mono text-slate-500 mt-2 px-0.5">
                         <span className="text-amber-400 font-semibold">0–3 dB (Squashed)</span>
                         <span className="text-emerald-400 font-semibold text-center">3–10 dB (Commercial Sweet Spot ★)</span>
                         <span className="text-cyan-400 font-semibold text-right">10–16+ dB (Cinematic Arc)</span>
@@ -8129,7 +8129,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   </div>
 
                   {/* Explanatory Footer */}
-                  <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
+                  <p className="text-[12px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
                     Dynamic Modulation is computed from a windowed RMS energy envelope sampled across the entire track — a real, DSP-measured value, not an AI estimate. Weighted at 30% into your overall Structural Engagement score.
                   </p>
                 </div>
@@ -8143,7 +8143,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-7">
           <button
             onClick={() => setExpandedMetric(expandedMetric === "climax" ? null : "climax")}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               expandedMetric === "climax"
                 ? "bg-[#06100e] border-teal-500 shadow-[0_0_35px_rgba(20,184,166,0.35)] ring-1 ring-teal-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-teal-500/40 hover:border-teal-500 hover:bg-neutral-900/40 text-slate-400"
@@ -8171,20 +8171,20 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     }`}>
                       CLIMAX TRAJECTORY
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Does The Song Build Toward A Peak?</span>
+                    <span className="text-[12px] text-slate-500 font-medium">Does The Song Build Toward A Peak?</span>
                   </div>
                 </div>
 
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   expandedMetric === "climax" ? "border-teal-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                  <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Measures whether the song's energy genuinely builds toward a later peak, rather than front-loading its most intense moment early with nothing left to climb toward.
-                    <span className="block mt-1 text-teal-500/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Tracks whether the song genuinely builds toward a late peak, driving 30% of Structural Engagement.</span>
+                    <span className="block mt-1 text-teal-500/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Tracks whether the song genuinely builds toward a late peak, driving 30% of Structural Engagement.</span>
                   </p>
                   <span
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     expandedMetric === "climax"
                       ? "bg-teal-500/10 border-teal-500/20 text-teal-500"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-teal-500"
@@ -8206,7 +8206,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   />
                 ) : (
                   <div className="flex items-center justify-center w-[110px] h-[110px] rounded-full border border-dashed border-teal-500/30">
-                    <span className="text-[9px] font-mono text-slate-500 text-center px-3 uppercase tracking-wide">Insufficient Real Data</span>
+                    <span className="text-[11px] font-mono text-slate-500 text-center px-3 uppercase tracking-wide">Insufficient Real Data</span>
                   </div>
                 )}
               </div>
@@ -8359,18 +8359,18 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <div style={{ fontFamily: "Inter, sans-serif", fontWeight: "bold", color: "#ffffff", fontSize: "16px" }}>
                         CLIMAX TRAJECTORY AUDIT
                       </div>
-                      <span className="text-[10px] font-mono text-slate-500">
+                      <span className="text-[12px] font-mono text-slate-500">
                         Measures whether the song builds toward a later climax (<span className="text-teal-400">55–90% ideal zone</span>) with measurable dynamic power
                       </span>
                     </div>
-                    <span className="text-[9px] font-mono uppercase px-2.5 py-1 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20 font-bold self-start sm:self-auto">
+                    <span className="text-[11px] font-mono uppercase px-2.5 py-1 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20 font-bold self-start sm:self-auto">
                       30% Structural Engagement Weight
                     </span>
                   </div>
 
                   {/* Visualizer Chart Container */}
                   <div className="p-4 bg-[#030407] border border-white/10 rounded-2xl flex flex-col gap-2 relative overflow-hidden">
-                    <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 uppercase tracking-widest px-1">
+                    <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 uppercase tracking-widest px-1">
                       <span className="flex items-center gap-1.5 text-slate-300 font-bold">
                         <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
                         Macro Energy Climax Trajectory
@@ -8382,8 +8382,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <div className="w-full relative">
                       {envelopePoints.length < 2 && posRatio == null ? (
                         <div className="flex flex-col items-center justify-center py-10 border border-dashed border-white/5 rounded-xl bg-black/40">
-                          <span className="text-[11px] text-slate-400 font-medium mb-1">No real envelope data available</span>
-                          <p className="text-[9.5px] text-slate-500 max-w-xs text-center leading-relaxed">
+                          <span className="text-[13px] text-slate-400 font-medium mb-1">No real envelope data available</span>
+                          <p className="text-[11px] text-slate-500 max-w-xs text-center leading-relaxed">
                             This chart needs a fresh analysis run to generate real waveform data for this track.
                           </p>
                         </div>
@@ -8551,7 +8551,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     </div>
 
                     {/* Chart Legend / Helper */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-2 text-[9px] font-mono text-slate-400 px-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-2 text-[11px] font-mono text-slate-400 px-1">
                       <div className="flex items-center gap-4 flex-wrap">
                         <span className="flex items-center gap-1.5">
                           <span className="w-2.5 h-2.5 rounded-full bg-teal-400 shadow-[0_0_6px_rgba(20,184,166,0.8)]" />
@@ -8571,15 +8571,15 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     {/* Peak Position */}
                     <div className={`p-4 rounded-xl border ${posTier.bg} ${posTier.border} flex flex-col justify-between`}>
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Peak Position</span>
-                        <span className={`text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded ${posTier.bg} ${posTier.color}`}>
+                        <span className="text-[12px] font-mono font-bold uppercase tracking-widest text-slate-400">Peak Position</span>
+                        <span className={`text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded ${posTier.bg} ${posTier.color}`}>
                           {posTier.label}
                         </span>
                       </div>
                       <div className="text-2xl font-black text-white font-mono mt-1">
                         {posRatio != null ? Math.round(posRatio * 100) : "--"} <span className="text-xs text-slate-500 font-semibold">% through song</span>
                       </div>
-                      <p className="text-[9.5px] text-slate-300 leading-relaxed mt-2">
+                      <p className="text-[11px] text-slate-300 leading-relaxed mt-2">
                         {posTier.desc}
                       </p>
                     </div>
@@ -8587,15 +8587,15 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     {/* Build Magnitude */}
                     <div className={`p-4 rounded-xl border ${magTier.bg} ${magTier.border} flex flex-col justify-between`}>
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Build Magnitude</span>
-                        <span className={`text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded ${magTier.bg} ${magTier.color}`}>
+                        <span className="text-[12px] font-mono font-bold uppercase tracking-widest text-slate-400">Build Magnitude</span>
+                        <span className={`text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded ${magTier.bg} ${magTier.color}`}>
                           {magTier.label}
                         </span>
                       </div>
                       <div className="text-2xl font-black text-white font-mono mt-1">
                         {buildDb != null ? `+${buildDb}` : "--"} <span className="text-xs text-slate-500 font-semibold">dB</span>
                       </div>
-                      <p className="text-[9.5px] text-slate-300 leading-relaxed mt-2">
+                      <p className="text-[11px] text-slate-300 leading-relaxed mt-2">
                         {magTier.desc}
                       </p>
                     </div>
@@ -8603,15 +8603,15 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     {/* Composite Climax Score */}
                     <div className="p-4 rounded-xl border border-teal-500/20 bg-teal-500/5 flex flex-col justify-between">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">Climax Trajectory</span>
-                        <span className="text-[8px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-400">
+                        <span className="text-[12px] font-mono font-bold uppercase tracking-widest text-slate-400">Climax Trajectory</span>
+                        <span className="text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-400">
                           {climaxScore >= 80 ? "EXCELLENT" : climaxScore >= 65 ? "BALANCED" : "NEEDS ARC"}
                         </span>
                       </div>
                       <div className="text-2xl font-black text-white font-mono mt-1">
                         {climaxScore} <span className="text-xs text-slate-500 font-semibold">/ 100</span>
                       </div>
-                      <p className="text-[9.5px] text-slate-300 leading-relaxed mt-2">
+                      <p className="text-[11px] text-slate-300 leading-relaxed mt-2">
                         50% Peak Timing Alignment + 50% Dynamics Lift from Intro Baseline.
                       </p>
                     </div>
@@ -8619,7 +8619,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                   {/* Climax Timing & Placement Arc Guide */}
                   <div className="p-4 bg-[#020203] border border-white/10 rounded-xl flex flex-col gap-3">
-                    <div className="flex items-center justify-between text-[10px] font-mono">
+                    <div className="flex items-center justify-between text-[12px] font-mono">
                       <span className="text-slate-400 font-bold uppercase tracking-wider">Climax Timing &amp; Placement Arc Guide</span>
                       <span className="text-slate-500">Optimal Delivery Timeline</span>
                     </div>
@@ -8657,7 +8657,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             transform: "translateX(-50%)"
                           }}
                         >
-                          <span className="text-[8.5px] font-mono font-bold text-white px-1.5 py-0.5 rounded bg-teal-500 shadow-[0_0_8px_rgba(20,184,166,0.8)] whitespace-nowrap mb-0.5">
+                          <span className="text-[10px] font-mono font-bold text-white px-1.5 py-0.5 rounded bg-teal-500 shadow-[0_0_8px_rgba(20,184,166,0.8)] whitespace-nowrap mb-0.5">
                             YOUR PEAK: {Math.round(posRatio * 100)}%
                           </span>
                           <div className="w-2.5 h-2.5 rotate-45 bg-teal-500 -mt-1 shadow-[0_0_6px_rgba(20,184,166,0.8)]" />
@@ -8665,7 +8665,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       )}
 
                       {/* Zone Labels */}
-                      <div className="flex justify-between text-[8px] font-mono text-slate-500 mt-2 px-0.5">
+                      <div className="flex justify-between text-[10px] font-mono text-slate-500 mt-2 px-0.5">
                         <span className="text-amber-400 font-semibold">0%–55% (Front-Loaded)</span>
                         <span className="text-teal-400 font-semibold text-center">55%–90% (Golden Climax Zone ★)</span>
                         <span className="text-cyan-400 font-semibold text-right">90%–100% (Late)</span>
@@ -8675,8 +8675,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                   {/* Contextual AI Dynamic Arc Critique */}
                   <div className="p-4 bg-[#020203] border border-white/10 rounded-xl flex flex-col gap-2">
-                    <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-slate-500">Structural Arc &amp; Momentum Assessment</span>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                    <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-slate-500">Structural Arc &amp; Momentum Assessment</span>
+                    <p className="text-[13px] text-slate-300 leading-relaxed">
                       {posRatio != null && posRatio >= 0.55 && posRatio <= 0.90
                         ? `The track's energy arc builds convincingly into its peak at ${Math.round(posRatio * 100)}% of runtime, delivering ${buildDb != null ? `+${buildDb} dB of dynamic lift` : "substantial dynamic lift"} that gives the listener a clear, rewarding destination.`
                         : posRatio != null && posRatio < 0.55
@@ -8686,7 +8686,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   </div>
 
                   {/* Explanatory Footer */}
-                  <p className="text-[10px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
+                  <p className="text-[12px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
                     Climax Trajectory Score is a 50/50 blend of Peak Position and Build Magnitude, both DSP-measured from the actual audio waveform. Weighted at 30% into your overall Structural Engagement score.
                   </p>
                 </div>
@@ -8709,10 +8709,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             }} />
             <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-slate-400 to-slate-600" />
             <div className="relative z-10 flex flex-col gap-0.5">
-              <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-[0.2em]">Additional Insights</span>
+              <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-[0.2em]">Additional Insights</span>
               <span className="text-[16px] font-black text-white uppercase leading-none tracking-tight" style={{ fontFamily: "Inter, sans-serif" }}>Compositional Depth</span>
             </div>
-            <span className="relative z-10 text-[9px] font-mono text-slate-500 ml-auto">Not used in your overall summary score</span>
+            <span className="relative z-10 text-[11px] font-mono text-slate-500 ml-auto">Not used in your overall summary score</span>
           </div>
 
           <p className="text-[12px] text-slate-400 leading-relaxed px-1" style={{ fontFamily: "Inter, sans-serif" }}>
@@ -8729,7 +8729,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <>
                 <button
                   onClick={() => setExpandedMetric(isExpanded ? null : "theory")}
-                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
                     isExpanded
                       ? "bg-[#090b0e] border-[#818cf8] shadow-[0_0_35px_rgba(129,140,248,0.35)] ring-1 ring-[#818cf8]/40 font-black"
                       : "bg-[#0A0B0E]/60 border-[#818cf8]/40 hover:border-[#818cf8] hover:bg-neutral-900/40 text-slate-400"
@@ -8757,20 +8757,20 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                           }`}>
                             {theoryMetric.name}
                           </span>
-                          <span className="text-[10px] text-slate-500 font-medium">{theoryMetric.subtitle}</span>
+                          <span className="text-[12px] text-slate-500 font-medium">{theoryMetric.subtitle}</span>
                         </div>
                       </div>
 
                       <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                         isExpanded ? "border-[#818cf8]/15" : "border-white/5"
                       }`}>
-                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                        <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                           {theoryMetric.description}
-                          <span className="block mt-1 text-[#818cf8]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Assesses harmonic craft and musicological structure, though not factored into your overall score.</span>
+                          <span className="block mt-1 text-[#818cf8]/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Assesses harmonic craft and musicological structure, though not factored into your overall score.</span>
                         </p>
                         <span
                           style={{ paddingTop: "2px" }}
-                          className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                          className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                           isExpanded
                             ? "bg-[#818cf8]/10 border-[#818cf8]/20 text-[#818cf8]"
                             : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-[#818cf8]"
@@ -8799,24 +8799,24 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   return (
                     <div style={{ position: "relative", left: "15px", width: "calc(100% - 15px)" }} className="bg-[#0A0B0E] border border-[#818cf8]/30 rounded-3xl p-5 mt-3 flex flex-col gap-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#818cf8]">AI-Detected Key &amp; Chord Vocabulary</span>
-                        <span className="text-[8.5px] font-mono text-slate-500 uppercase text-right">Direct Gemini audio analysis, not DSP measurement</span>
+                        <span className="text-[12px] font-mono font-bold uppercase tracking-widest text-[#818cf8]">AI-Detected Key &amp; Chord Vocabulary</span>
+                        <span className="text-[10px] font-mono text-slate-500 uppercase text-right">Direct Gemini audio analysis, not DSP measurement</span>
                       </div>
                       {analysis?.keySignature ? (
                         <>
-                          <p className="text-[10px] text-slate-400">
+                          <p className="text-[12px] text-slate-400">
                             Key: <span className="text-slate-200 font-semibold">{analysis.keySignature}</span>
                           </p>
                           <div className="flex flex-wrap gap-1.5 mt-1">
                             {chordsUsed.map((c: any, i: number) => (
-                              <span key={i} className="text-[10px] font-mono text-slate-300 bg-[#818cf8]/10 border border-[#818cf8]/20 rounded-full px-2 py-0.5">
+                              <span key={i} className="text-[12px] font-mono text-slate-300 bg-[#818cf8]/10 border border-[#818cf8]/20 rounded-full px-2 py-0.5">
                                 {c.chord} <span className="text-slate-500">({c.romanNumeral})</span>
                               </span>
                             ))}
                           </div>
                         </>
                       ) : (
-                        <p className="text-[10px] text-slate-500">No AI chord/key analysis available for this track yet.</p>
+                        <p className="text-[12px] text-slate-500">No AI chord/key analysis available for this track yet.</p>
                       )}
                     </div>
                   );
@@ -8837,7 +8837,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <>
                 <button
                   onClick={() => setExpandedMetric(isExpanded ? null : "lyrics")}
-                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+                  className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
                     isExpanded
                       ? "bg-[#090b0e] border-cyan-400 shadow-[0_0_35px_rgba(34,211,238,0.35)] ring-1 ring-cyan-400/40 font-black"
                       : "bg-[#0A0B0E]/60 border-cyan-400/40 hover:border-cyan-400 hover:bg-neutral-900/40 text-slate-400"
@@ -8865,20 +8865,20 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                           }`}>
                             {lyricsMetric.name}
                           </span>
-                          <span className="text-[10px] text-slate-500 font-medium">{lyricsMetric.subtitle}</span>
+                          <span className="text-[12px] text-slate-500 font-medium">{lyricsMetric.subtitle}</span>
                         </div>
                       </div>
 
                       <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                         isExpanded ? "border-cyan-400/15" : "border-white/5"
                       }`}>
-                        <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                        <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                           {lyricsMetric.description}
-                          <span className="block mt-1 text-cyan-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Assesses lyrical clarity and originality, though not factored into your overall score.</span>
+                          <span className="block mt-1 text-cyan-400/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Assesses lyrical clarity and originality, though not factored into your overall score.</span>
                         </p>
                         <span
                           style={{ paddingTop: "2px" }}
-                          className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                          className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                           isExpanded
                             ? "bg-cyan-400/10 border-cyan-400/20 text-cyan-400"
                             : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-cyan-400"
@@ -8910,7 +8910,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-0">
           <button
             onClick={() => handleCategoryChange("artistic")}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "artistic"
                 ? "bg-[#090b0e] border-purple-500 shadow-[0_0_35px_rgba(168,85,247,0.35)] ring-1 ring-purple-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-[#a855f7] hover:border-[#a855f7] hover:bg-neutral-900/40 text-slate-400"
@@ -8943,7 +8943,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     >
                       ARTISTIC IMPACT
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Architecture & Music Theory Application</span>
+                    <span className="text-[12px] text-slate-500 font-medium">Architecture & Music Theory Application</span>
                   </div>
                 </div>
 
@@ -8951,13 +8951,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "artistic" ? "border-purple-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                  <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     An evaluation of creative authenticity, harmonic depth, and musical competence.
-                    <span className="block mt-1 text-purple-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Reflects artistic ambition and creative depth, though not factored into streaming algorithms.</span>
+                    <span className="block mt-1 text-purple-400/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Reflects artistic ambition and creative depth, though not factored into streaming algorithms.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "artistic"
                       ? "bg-purple-500/10 border-purple-500/20 text-purple-400"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
@@ -8999,7 +8999,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
                       <span>Active Diagnostics List</span>
                     </span>
-                    <span className="text-[10px] font-mono text-slate-500 text-right">
+                    <span className="text-[12px] font-mono text-slate-500 text-right">
                       Click any metric to expand technical feedback & recommendations
                     </span>
                   </div>
@@ -9060,7 +9060,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-1">
           <button
             onClick={() => handleCategoryChange("dna")}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "dna"
                 ? "bg-[#090b0e] border-emerald-500 shadow-[0_0_35px_rgba(16,185,129,0.35)] ring-1 ring-emerald-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-[#10b981] hover:border-[#10b981] hover:bg-neutral-900/40 text-slate-400"
@@ -9093,7 +9093,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     >
                       SONGWRITING QUALITY
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Structural Mechanics</span>
+                    <span className="text-[12px] text-slate-500 font-medium">Structural Mechanics</span>
                   </div>
                 </div>
 
@@ -9101,13 +9101,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "dna" ? "border-emerald-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                  <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     An analysis of the underlying strength of the songwriting compared to popular songwriting parameters.
-                    <span className="block mt-1 text-emerald-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Assesses core songwriting strength, though not factored into streaming algorithms.</span>
+                    <span className="block mt-1 text-emerald-400/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Assesses core songwriting strength, though not factored into streaming algorithms.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "dna"
                       ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
@@ -9149,7 +9149,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                       <span>Active Diagnostics List</span>
                     </span>
-                    <span className="text-[10px] font-mono text-slate-500 text-right">
+                    <span className="text-[12px] font-mono text-slate-500 text-right">
                       Click any metric to expand technical feedback & recommendations
                     </span>
                   </div>
@@ -9182,7 +9182,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-2">
           <button
             onClick={() => handleCategoryChange("architecture")}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "architecture"
                 ? "bg-[#090b0e] border-violet-500 shadow-[0_0_35px_rgba(139,92,246,0.35)] ring-1 ring-violet-500/40 font-black"
                 : "bg-[#0A0B0E]/60 border-[#8b5cf6] hover:border-[#8b5cf6] hover:bg-neutral-900/40 text-slate-400"
@@ -9215,7 +9215,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     >
                       SONG STRUCTURE & SECTIONS OUTLINE
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Structural Timeline & Section Map</span>
+                    <span className="text-[12px] text-slate-500 font-medium">Structural Timeline & Section Map</span>
                   </div>
                 </div>
 
@@ -9223,13 +9223,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "architecture" ? "border-violet-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                  <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     A visual breakdown of your song's structural sections with timestamps, loudness arc, and hook placement audit.
-                    <span className="block mt-1 text-violet-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Visualizes your track's pacing and hook placement, though not factored into streaming algorithms.</span>
+                    <span className="block mt-1 text-violet-400/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Visualizes your track's pacing and hook placement, though not factored into streaming algorithms.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "architecture"
                       ? "bg-violet-500/10 border-violet-500/20 text-violet-400"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-slate-400"
@@ -9241,7 +9241,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
               {/* Right side: informational, not a scored circle */}
               <div className="flex-shrink-0 flex items-center justify-center px-4">
-                <span className="text-[11px] font-sans font-bold text-white text-center leading-snug max-w-[150px]">
+                <span className="text-[13px] font-sans font-bold text-white text-center leading-snug max-w-[150px]">
                   This Data is Not Scored
                 </span>
               </div>
@@ -9267,7 +9267,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
                       <span>Timeline-based Arrangement Blueprint</span>
                     </span>
-                    <span className="text-[10px] font-mono text-slate-500 text-right">
+                    <span className="text-[12px] font-mono text-slate-500 text-right">
                       Interactive layout mapping peaks, transitions, and dynamics
                     </span>
                   </div>
@@ -9276,11 +9276,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     {/* Section Map & Progression */}
                     <div className="bg-[#0e1115]/80 border border-white/5 rounded-2xl p-5 shadow-inner">
                       <div className="flex justify-between items-center mb-3.5">
-                        <span className="text-[10px] font-mono text-violet-400 uppercase font-bold tracking-widest flex items-center gap-1.5">
+                        <span className="text-[12px] font-mono text-violet-400 uppercase font-bold tracking-widest flex items-center gap-1.5">
                           <Activity className="w-3.5 h-3.5" />
                           Section Map & Progression
                         </span>
-                        <span className="text-[9px] font-mono text-slate-500">Based on analyzed loudness envelope</span>
+                        <span className="text-[11px] font-mono text-slate-500">Based on analyzed loudness envelope</span>
                       </div>
                       {(() => {
                         const points = liveMetrics?.calculatedWaveformPointsHD ?? liveMetrics?.calculatedWaveformPoints ?? [];
@@ -9288,8 +9288,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         if (points.length === 0 || duration === 0) {
                           return (
                             <div className="flex flex-col items-center justify-center py-6 border border-dashed border-white/5 rounded-xl bg-black/40">
-                              <span className="text-[11px] text-slate-400 font-medium mb-1">No audio data found</span>
-                              <p className="text-[9.5px] text-slate-500 max-w-xs text-center leading-relaxed">
+                              <span className="text-[13px] text-slate-400 font-medium mb-1">No audio data found</span>
+                              <p className="text-[11px] text-slate-500 max-w-xs text-center leading-relaxed">
                                 Upload a local audio file to generate the section map.
                               </p>
                             </div>
@@ -9377,7 +9377,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         return (
                           <div className="flex flex-col gap-4">
                             {/* LUFS label */}
-                            <div className="text-[9px] font-mono text-slate-500 uppercase tracking-widest mb-1">Loudness</div>
+                            <div className="text-[11px] font-mono text-slate-500 uppercase tracking-widest mb-1">Loudness</div>
 
                             {/* Bar chart */}
                             <div className="relative w-full" style={{ height: `${chartHeight + 48}px` }}>
@@ -9385,7 +9385,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                               <div className="absolute left-0 right-0 top-0 flex flex-col justify-between pointer-events-none" style={{ height: `${chartHeight}px` }}>
                                 {[maxLufs, (maxLufs + minLufs) / 2, minLufs].map((v, i) => (
                                   <div key={i} className="flex items-center gap-2">
-                                    <span className="text-[8px] font-mono text-slate-600 w-10 text-right flex-shrink-0">{v.toFixed(1)}dB</span>
+                                    <span className="text-[10px] font-mono text-slate-600 w-10 text-right flex-shrink-0">{v.toFixed(1)}dB</span>
                                     <div className="flex-1 h-px bg-white/[0.03]" />
                                   </div>
                                 ))}
@@ -9417,7 +9417,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                                       >
                                         {/* Hover tooltip */}
                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/bar:flex flex-col items-center z-30 pointer-events-none">
-                                          <div className="bg-neutral-900 border border-white/10 px-2 py-1 rounded-md text-[9px] font-mono text-white whitespace-nowrap shadow-2xl">
+                                          <div className="bg-neutral-900 border border-white/10 px-2 py-1 rounded-md text-[11px] font-mono text-white whitespace-nowrap shadow-2xl">
                                             {s.label} · {s.fmt(s.startTime)}–{s.fmt(s.endTime)} · {s.sectionLufs} LUFS
                                           </div>
                                           <div className="w-1.5 h-1.5 bg-neutral-900 border-r border-b border-white/10 rotate-45 -mt-1" />
@@ -9426,10 +9426,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                                       {/* X axis label */}
                                       <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full flex flex-col items-center pt-1.5" style={{ width: 'max-content' }}>
-                                        <span className="text-[8px] font-mono text-slate-500">{s.fmt(s.startTime)}</span>
-                                        <span className={`text-[9px] font-mono font-bold mt-0.5`} style={{ color }}>{s.label}</span>
+                                        <span className="text-[10px] font-mono text-slate-500">{s.fmt(s.startTime)}</span>
+                                        <span className={`text-[11px] font-mono font-bold mt-0.5`} style={{ color }}>{s.label}</span>
                                         {hookEarly && (
-                                          <span className="text-[8px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1 py-0.5 rounded mt-0.5 whitespace-nowrap">
+                                          <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1 py-0.5 rounded mt-0.5 whitespace-nowrap">
                                             Peak Energy at {s.fmt(s.startTime)}
                                           </span>
                                         )}
@@ -9450,17 +9450,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <div className="bg-[#0e1115]/80 border border-white/5 rounded-2xl p-5 shadow-inner flex flex-col justify-between">
                         <div>
                           <div className="flex justify-between items-center mb-3">
-                            <span className="text-[10px] font-mono text-violet-400 uppercase font-bold tracking-widest flex items-center gap-1.5">
+                            <span className="text-[12px] font-mono text-violet-400 uppercase font-bold tracking-widest flex items-center gap-1.5">
                               <Sparkles className="w-3.5 h-3.5" />
                               Hook Placement Audit
                             </span>
-                            <span className="text-[9px] font-mono text-slate-500">First 30s analysis</span>
+                            <span className="text-[11px] font-mono text-slate-500">First 30s analysis</span>
                           </div>
                           {(() => {
                             const points = liveMetrics?.calculatedWaveformPointsHD ?? liveMetrics?.calculatedWaveformPoints ?? [];
                             const duration = liveMetrics?.calculatedDuration ?? 0;
                             if (points.length === 0 || duration === 0) {
-                              return <div className="text-[10px] text-slate-600 font-mono py-4">Upload a track to analyze hooks.</div>;
+                              return <div className="text-[12px] text-slate-600 font-mono py-4">Upload a track to analyze hooks.</div>;
                             }
                         const first30Count = Math.max(1, Math.floor(points.length * (30 / duration)));
                         const first30 = points.slice(0, first30Count);
@@ -9476,7 +9476,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             return (
                               <div className="flex flex-col gap-3">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-[10px] text-slate-400">Energy ratio in first 30 seconds</span>
+                                  <span className="text-[12px] text-slate-400">Energy ratio in first 30 seconds</span>
                                   <span className={`text-sm font-black font-mono ${hookScore > 70 ? 'text-emerald-400' : hookScore > 45 ? 'text-amber-400' : 'text-rose-400'}`}>{hookScore}%</span>
                                 </div>
                                 <div className="w-full bg-neutral-950 border border-white/[0.03] rounded-full h-2.5 overflow-hidden p-[2px]">
@@ -9484,7 +9484,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                                     hookScore > 70 ? 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_8px_rgba(16,185,129,0.3)]' : hookScore > 45 ? 'bg-gradient-to-r from-amber-500 to-yellow-400 shadow-[0_0_8px_rgba(245,158,11,0.3)]' : 'bg-gradient-to-r from-rose-500 to-red-400 shadow-[0_0_8px_rgba(244,63,94,0.3)]'
                                   }`} style={{ width: `${hookScore}%` }} />
                                 </div>
-                                <p className="text-[10px] text-slate-400 leading-relaxed bg-black/30 border border-white/[0.02] rounded-xl p-3 mt-1.5 font-sans">
+                                <p className="text-[12px] text-slate-400 leading-relaxed bg-black/30 border border-white/[0.02] rounded-xl p-3 mt-1.5 font-sans">
                                   {hookScore > 70 ? (
                                     <>
                                       <strong className="text-emerald-400">Strong early engagement:</strong> Peak energy arrives within the first 30 seconds of the song. Outstanding arrangement strategy matching popular playlist standards for maximizing listener retention.
@@ -9509,17 +9509,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <div className="bg-[#0e1115]/80 border border-white/5 rounded-2xl p-5 shadow-inner flex flex-col justify-between">
                         <div>
                           <div className="flex justify-between items-center mb-3">
-                            <span className="text-[10px] font-mono text-violet-400 uppercase font-bold tracking-widest flex items-center gap-1.5">
+                            <span className="text-[12px] font-mono text-violet-400 uppercase font-bold tracking-widest flex items-center gap-1.5">
                               <Layers className="w-3.5 h-3.5" />
                               Dynamic Arc Lift
                             </span>
-                            <span className="text-[9px] font-mono text-slate-500">Chorus vs. Verse Delta</span>
+                            <span className="text-[11px] font-mono text-slate-500">Chorus vs. Verse Delta</span>
                           </div>
                           {(() => {
                             const points = liveMetrics?.calculatedWaveformPointsHD ?? liveMetrics?.calculatedWaveformPoints ?? [];
                             const lufs = liveMetrics?.calculatedLufs ?? -12;
                             if (points.length === 0) {
-                              return <div className="text-[10px] text-slate-600 font-mono py-4">Upload a track to analyze dynamics.</div>;
+                              return <div className="text-[12px] text-slate-600 font-mono py-4">Upload a track to analyze dynamics.</div>;
                             }
                         // Use detected windows for verse/chorus positions
                         const wSize = Math.floor(points.length / 16);
@@ -9541,22 +9541,22 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             return (
                               <div className="flex flex-col gap-3">
                                 <div className="flex flex-col gap-2 bg-black/40 border border-white/[0.02] p-3 rounded-xl font-mono">
-                                  <div className="flex items-center justify-between text-[11px]">
+                                  <div className="flex items-center justify-between text-[13px]">
                                     <span className="text-slate-400">Verse Loudness Estimate</span>
                                     <span className="text-cyan-400 font-bold">{verseLufs} LUFS</span>
                                   </div>
-                                  <div className="flex items-center justify-between text-[11px]">
+                                  <div className="flex items-center justify-between text-[13px]">
                                     <span className="text-slate-400">Chorus Loudness Estimate</span>
                                     <span className="text-rose-400 font-bold">{chorusLufs} LUFS</span>
                                   </div>
-                                  <div className="flex items-center justify-between text-[11px] border-t border-white/5 pt-2 mt-1">
+                                  <div className="flex items-center justify-between text-[13px] border-t border-white/5 pt-2 mt-1">
                                     <span className="text-slate-400">Chorus Power Lift</span>
                                     <span className={`font-black ${diff > 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
                                       {diff > 0 ? `+${diff}` : diff} dB
                                     </span>
                                   </div>
                                 </div>
-                                <p className="text-[10px] text-slate-400 leading-relaxed bg-black/30 border border-white/[0.02] rounded-xl p-3 font-sans">
+                                <p className="text-[12px] text-slate-400 leading-relaxed bg-black/30 border border-white/[0.02] rounded-xl p-3 font-sans">
                                   {diff > 2 ? (
                                     <>
                                       <strong className="text-emerald-400">Excellent Dynamic Lift:</strong> Strong power boost detected when transitioning into the chorus section. This helps keep listeners emotionally stimulated and prevents arrangement fatigue.
@@ -9603,7 +9603,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 handleCategoryChange("spotify");
               }
             }}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "spotify"
                 ? "bg-[#090b0e] border-emerald-500 shadow-[0_0_35px_rgba(16,185,129,0.25)] ring-1 ring-emerald-500/30 font-black"
                 : "bg-[#0A0B0E]/60 border-[#1ed760]/40 hover:border-[#1ed760] hover:bg-[#090c0a]/40 text-slate-400"
@@ -9636,7 +9636,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     >
                       STREAMING ALGORITHMIC ALIGNMENT
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Pillars of Content &amp; Collaborative Filtering</span>
+                    <span className="text-[12px] text-slate-500 font-medium">Pillars of Content &amp; Collaborative Filtering</span>
                   </div>
                 </div>
 
@@ -9644,13 +9644,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "spotify" ? "border-[#1ed760]/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                  <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     This is the high level, deep dive audit of your track's potential alignment against Spotify's content-based acoustic analysis — mapping your song's core audio features against genre-specific target ranges.
-                    <span className="block mt-1 text-[#1ed760]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Measures how closely your acoustic profile matches what Spotify expects for your genre.</span>
+                    <span className="block mt-1 text-[#1ed760]/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Measures how closely your acoustic profile matches what Spotify expects for your genre.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "spotify"
                       ? "bg-[#1ed760]/10 border-[#1ed760]/20 text-[#1ed760]"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-[#1ed760]/80"
@@ -9706,7 +9706,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 handleCategoryChange("recommender");
               }
             }}
-            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
+            className={`relative z-10 flex flex-col justify-between py-[15px] px-6 min-h-[159px] rounded-[24px] border transition-all duration-300 text-left cursor-pointer group overflow-hidden select-none text-white w-full ${
               activeCategory === "recommender"
                 ? "bg-[#0c0a14] border-violet-500 shadow-[0_0_35px_rgba(139,92,246,0.25)] ring-1 ring-violet-500/30 font-black"
                 : "bg-[#0A0B0E]/60 border-violet-500/40 hover:border-violet-500 hover:bg-[#0b0a12]/40 text-slate-400"
@@ -9739,7 +9739,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     >
                       RECOMMENDER PERFORMANCE PREDICTION
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Predicted Algorithmic Indexing</span>
+                    <span className="text-[12px] text-slate-500 font-medium">Predicted Algorithmic Indexing</span>
                   </div>
                 </div>
 
@@ -9747,13 +9747,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "recommender" ? "border-violet-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                  <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Contains information specific to Spotify's algorithmic decisions as to where your song may fit compared to other artists in the genre, and probabilities for discovery feeder distribution.
-                    <span className="block mt-1 text-violet-400/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Anticipates playlist placement odds, though excluded from your overall score.</span>
+                    <span className="block mt-1 text-violet-400/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Anticipates playlist placement odds, though excluded from your overall score.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "recommender"
                       ? "bg-violet-500/10 border-violet-500/20 text-violet-400"
                       : "bg-neutral-900/50 border-white/5 text-slate-600 group-hover:text-violet-400/80"
@@ -9765,7 +9765,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
               {/* Right side: informational, not a scored circle */}
               <div className="flex-shrink-0 flex items-center justify-center px-4">
-                <span className="text-[11px] font-sans font-bold text-white text-center leading-snug max-w-[150px]">
+                <span className="text-[13px] font-sans font-bold text-white text-center leading-snug max-w-[150px]">
                   This Data is Not Scored
                 </span>
               </div>
@@ -9790,7 +9790,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
                       <span>ADDITIONAL INFO · NOT PART OF SUMMARY SCORE</span>
                     </span>
-                    <span className="text-[10px] font-mono text-slate-500 text-right">
+                    <span className="text-[12px] font-mono text-slate-500 text-right">
                       Discovery feeder and semantic clustering probability audit
                     </span>
                   </div>
@@ -9844,7 +9844,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     }`}>
                       ALGORITHMIC SANDBOX
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Placement & Retention Simulator</span>
+                    <span className="text-[12px] text-slate-500 font-medium">Placement & Retention Simulator</span>
                   </div>
                 </div>
 
@@ -9852,13 +9852,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div className={`border-t text-left pt-2 px-0.5 transition-colors ${
                   activeCategory === "sandbox" ? "border-amber-500/15" : "border-white/5"
                 }`}>
-                  <p className="text-[10px] text-slate-400 text-left leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
+                  <p className="text-[12px] text-slate-400 text-left leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     Simulate mood positioning, sonic similarity to reference tracks, playlist transition compatibility, and skip-rate risk inside curators' placement filters.
-                    <span className="block mt-1 text-[#fe9a00]/90 font-mono text-[8.5px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Simulates how curators and algorithms are likely to place your song.</span>
+                    <span className="block mt-1 text-[#fe9a00]/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Simulates how curators and algorithms are likely to place your song.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
-                    className={`inline-block text-[9px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
+                    className={`inline-block text-[11px] font-mono tracking-widest px-2 py-0.5 rounded-full border transition-all ${
                     activeCategory === "sandbox"
                       ? "bg-amber-500/10 border-amber-500/20 text-amber-500"
                       : "bg-[#0A0B0E]/60 border-white/5 hover:border-amber-500/40 hover:bg-neutral-900/40 text-slate-500 group-hover:text-amber-400"
@@ -9870,7 +9870,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
               {/* Right side: informational, not a scored circle */}
               <div className="flex-shrink-0 flex items-center justify-center px-4">
-                <span className="text-[11px] font-sans font-bold text-white text-center leading-snug max-w-[150px]">
+                <span className="text-[13px] font-sans font-bold text-white text-center leading-snug max-w-[150px]">
                   This Data is Not Scored
                 </span>
               </div>
@@ -9895,7 +9895,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                       <span>ACTIVE PLAYBACK INSTANCE</span>
                     </span>
-                    <span className="text-[10px] font-mono text-slate-500 text-right">
+                    <span className="text-[12px] font-mono text-slate-500 text-right">
                       Tune skip-rates and metric feedback parameters inside Spotify curator loops
                     </span>
                   </div>
@@ -9930,7 +9930,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           <div>
             <h3 className="text-xl font-bold text-white tracking-wide uppercase flex items-center justify-center md:justify-start gap-2.5">
               Consult with your A&amp;R Executive
-              <span className="text-[9px] bg-blue-500/15 border border-blue-500/25 text-blue-400 font-mono tracking-widest px-2.5 py-0.5 rounded-full uppercase">Strategic AI Suite</span>
+              <span className="text-[11px] bg-blue-500/15 border border-blue-500/25 text-blue-400 font-mono tracking-widest px-2.5 py-0.5 rounded-full uppercase">Strategic AI Suite</span>
             </h3>
             <p className="text-xs text-slate-400 mt-2 max-w-xl leading-relaxed font-sans">
               Your hired industry representative (Mr. Z, Kirsten Z, and other Spotify experts) has analyzed this audit's specific scores. Get immediate strategic consult, curated task prioritizations, and action guide lists.
@@ -9945,7 +9945,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               e.stopPropagation();
               if (onOpenArConsult) onOpenArConsult();
             }}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-mono text-[11px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] cursor-pointer flex items-center gap-2 group-hover:scale-102"
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-mono text-[13px] font-bold uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] cursor-pointer flex items-center gap-2 group-hover:scale-102"
           >
             <span>Open Consultation Suite</span>
             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
@@ -9968,7 +9968,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             <div className="text-left">
               <h2 className="text-lg font-bold text-white tracking-wide uppercase flex items-center gap-2">
                 A&amp;R Executive Consultation Console
-                <span className="text-[9px] bg-blue-500/10 border border-blue-500/20 text-blue-400 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase">Ask Your Rep</span>
+                <span className="text-[11px] bg-blue-500/10 border border-blue-500/20 text-blue-400 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase">Ask Your Rep</span>
               </h2>
               <p className="text-xs text-slate-400 mt-1 font-sans">
                 Hire and consult with professional A&amp;R representatives trained with deep strategic knowledge of Spotify algorithms, loudness norms, and our Studio rating taxonomy.
@@ -9981,10 +9981,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           {/* Left Side: The Roster Slate ("Hire Your Representative") */}
           <div className="lg:col-span-4 flex flex-col gap-4">
             <div className="text-left mb-1.5">
-              <span className="text-[10px] font-mono tracking-widest text-slate-400 uppercase font-black">
+              <span className="text-[12px] font-mono tracking-widest text-slate-400 uppercase font-black">
                 The Representative Roster (Z Y Z Y X)
               </span>
-              <p className="text-[10px] text-slate-500 mt-0.5 font-sans">
+              <p className="text-[12px] text-slate-500 mt-0.5 font-sans">
                 Choose a dedicated strategist. Each representative brings the exact same app knowledge base adapted to their unique professional tone.
               </p>
             </div>
@@ -10034,17 +10034,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         <span className={`text-[13px] font-bold tracking-tight ${isSelected ? "text-white" : "text-slate-400"}`}>
                           {rep.name}
                         </span>
-                        <span className="text-[8px] font-mono tracking-widest text-slate-500 uppercase font-black">
+                        <span className="text-[10px] font-mono tracking-widest text-slate-500 uppercase font-black">
                           {rep.label} ID:{(rep.id as string).toUpperCase()}
                         </span>
                       </div>
-                      <span className="text-[10px] text-slate-400 font-medium truncate mt-0.5">
+                      <span className="text-[12px] text-slate-400 font-medium truncate mt-0.5">
                         {rep.tagline}
                       </span>
                     </div>
 
                     <div className="flex-shrink-0">
-                      <span className={`text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded-full border transition-all ${
+                      <span className={`text-[12px] uppercase font-mono font-bold px-2 py-0.5 rounded-full border transition-all ${
                         isSelected 
                           ? "bg-blue-600/10 border-blue-500/20 text-blue-400"
                           : "bg-neutral-900 border-white/5 text-slate-600 group-hover:text-slate-400"
@@ -10081,7 +10081,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     </span>
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   </div>
-                  <p className="text-[10px] text-slate-400 max-w-md line-clamp-1">
+                  <p className="text-[12px] text-slate-400 max-w-md line-clamp-1">
                     {REPRESENTATIVES.find(r => r.id === selectedRepId)?.tagline} · {REPRESENTATIVES.find(r => r.id === selectedRepId)?.bio}
                   </p>
                 </div>
@@ -10090,7 +10090,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Reset discussion handler */}
               <button
                 onClick={() => handleHireRep(selectedRepId)}
-                className="px-2.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-white/5 text-slate-400 hover:text-slate-200 text-[10px] font-mono rounded-lg transition-all cursor-pointer"
+                className="px-2.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-white/5 text-slate-400 hover:text-slate-200 text-[12px] font-mono rounded-lg transition-all cursor-pointer"
               >
                 Clear Chats
               </button>
@@ -10105,7 +10105,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 if (isSystem) {
                   return (
                     <div key={index} className="flex justify-center my-1 select-none animate-fadeIn">
-                      <span className="px-3.5 py-1.5 bg-red-950/20 border border-red-500/20 text-red-400 rounded-xl text-[10px] font-semibold flex items-center gap-1.5 font-mono shadow-inner">
+                      <span className="px-3.5 py-1.5 bg-red-950/20 border border-red-500/20 text-red-400 rounded-xl text-[12px] font-semibold flex items-center gap-1.5 font-mono shadow-inner">
                         {msg.text}
                       </span>
                     </div>
@@ -10134,10 +10134,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
                     <div className="flex flex-col">
                       <div className={`flex items-center gap-2 mb-1 justify-start ${isUser ? "flex-row-reverse" : "flex-row"}`}>
-                        <span className="font-bold text-[11px] text-slate-300">
+                        <span className="font-bold text-[13px] text-slate-300">
                           {msg.senderName}
                         </span>
-                        <span className="text-[9px] font-mono text-slate-600 font-medium select-none">
+                        <span className="text-[11px] font-mono text-slate-600 font-medium select-none">
                           {isUser ? "Artist Account" : "Industry Rep"}
                         </span>
                       </div>
@@ -10160,7 +10160,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     <Radar className="w-3.5 h-3.5 animate-spin-strobe" />
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-bold text-[11px] text-slate-500 mb-1 block">
+                    <span className="font-bold text-[13px] text-slate-500 mb-1 block">
                       Representative listening...
                     </span>
                     <div className="p-3 bg-[#090b0d] border border-white/5 text-slate-500 rounded-2xl rounded-tl-none tracking-wide text-[11.5px] italic">
@@ -10173,7 +10173,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
             {/* Quick Suggestions Box */}
             <div className="px-4 py-2 bg-neutral-950 border-t border-white/5 flex flex-wrap gap-2 text-left justify-start">
-              <span className="text-[10px] font-mono text-slate-500 uppercase font-bold flex items-center gap-1 py-1 mr-1.5 select-none">
+              <span className="text-[12px] font-mono text-slate-500 uppercase font-bold flex items-center gap-1 py-1 mr-1.5 select-none">
                 <Sliders className="w-3 h-3" /> Quick Questions:
               </span>
               {[
@@ -10192,7 +10192,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       if (inp) inp.focus();
                     }, 50);
                   }}
-                  className="px-2.5 py-1 bg-[#13161C] hover:bg-white/5 border border-white/5 hover:border-white/12 text-[10px] text-slate-400 hover:text-slate-200 rounded-lg transition-all cursor-pointer font-medium disabled:opacity-50"
+                  className="px-2.5 py-1 bg-[#13161C] hover:bg-white/5 border border-white/5 hover:border-white/12 text-[12px] text-slate-400 hover:text-slate-200 rounded-lg transition-all cursor-pointer font-medium disabled:opacity-50"
                 >
                   {sug.label}
                 </button>
@@ -10796,7 +10796,7 @@ function StereoAzimuthVisualizer({ activeTab, onActiveTabChange, refMode, isPlay
       <div className="flex flex-wrap items-center justify-center gap-1.5 bg-neutral-900/60 p-2 border border-white/5 rounded-xl">
         <button
           onClick={() => onActiveTabChange("outline")}
-          className={`px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase transition-all tracking-wider ${
+          className={`px-3 py-1.5 rounded-lg text-[12px] font-mono font-bold uppercase transition-all tracking-wider ${
             activeTab === "outline"
               ? "bg-[#06b6d4]/15 text-[#06b6d4] border border-[#06b6d4]/30"
               : "bg-black/40 hover:bg-black/80 hover:text-white text-slate-400 border border-transparent"
@@ -10806,7 +10806,7 @@ function StereoAzimuthVisualizer({ activeTab, onActiveTabChange, refMode, isPlay
         </button>
         <button
           onClick={() => onActiveTabChange("waveform")}
-          className={`px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase transition-all tracking-wider ${
+          className={`px-3 py-1.5 rounded-lg text-[12px] font-mono font-bold uppercase transition-all tracking-wider ${
             activeTab === "waveform"
               ? "bg-[#06b6d4]/15 text-[#06b6d4] border border-[#06b6d4]/30"
               : "bg-black/40 hover:bg-black/80 hover:text-white text-slate-400 border border-transparent"
@@ -10816,7 +10816,7 @@ function StereoAzimuthVisualizer({ activeTab, onActiveTabChange, refMode, isPlay
         </button>
         <button
           onClick={() => onActiveTabChange("melodic")}
-          className={`px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase transition-all tracking-wider ${
+          className={`px-3 py-1.5 rounded-lg text-[12px] font-mono font-bold uppercase transition-all tracking-wider ${
             activeTab === "melodic"
               ? "bg-[#06b6d4]/15 text-[#06b6d4] border border-[#06b6d4]/30"
               : "bg-black/40 hover:bg-black/80 hover:text-white text-slate-400 border border-transparent"
@@ -10826,7 +10826,7 @@ function StereoAzimuthVisualizer({ activeTab, onActiveTabChange, refMode, isPlay
         </button>
         <button
           onClick={() => onActiveTabChange("spectrogram")}
-          className={`px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase transition-all tracking-wider ${
+          className={`px-3 py-1.5 rounded-lg text-[12px] font-mono font-bold uppercase transition-all tracking-wider ${
             activeTab === "spectrogram"
               ? "bg-[#06b6d4]/15 text-[#06b6d4] border border-[#06b6d4]/30"
               : "bg-black/40 hover:bg-black/80 hover:text-white text-slate-400 border border-transparent"
@@ -10836,7 +10836,7 @@ function StereoAzimuthVisualizer({ activeTab, onActiveTabChange, refMode, isPlay
         </button>
         <button
           onClick={() => onActiveTabChange("pitch")}
-          className={`px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase transition-all tracking-wider ${
+          className={`px-3 py-1.5 rounded-lg text-[12px] font-mono font-bold uppercase transition-all tracking-wider ${
             activeTab === "pitch"
               ? "bg-[#06b6d4]/15 text-[#06b6d4] border border-[#06b6d4]/30"
               : "bg-black/40 hover:bg-black/80 hover:text-white text-slate-400 border border-transparent"
@@ -10846,7 +10846,7 @@ function StereoAzimuthVisualizer({ activeTab, onActiveTabChange, refMode, isPlay
         </button>
         <button
           onClick={() => onActiveTabChange("key")}
-          className={`px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase transition-all tracking-wider ${
+          className={`px-3 py-1.5 rounded-lg text-[12px] font-mono font-bold uppercase transition-all tracking-wider ${
             activeTab === "key"
               ? "bg-[#06b6d4]/15 text-[#06b6d4] border border-[#06b6d4]/30"
               : "bg-black/40 hover:bg-black/40 hover:text-white text-slate-400 border border-transparent"
@@ -10856,7 +10856,7 @@ function StereoAzimuthVisualizer({ activeTab, onActiveTabChange, refMode, isPlay
         </button>
         <button
           onClick={() => onActiveTabChange("azimuth")}
-          className={`px-3 py-1.5 rounded-lg text-[10px] font-mono font-semibold uppercase transition-all tracking-widest ${
+          className={`px-3 py-1.5 rounded-lg text-[12px] font-mono font-semibold uppercase transition-all tracking-widest ${
             activeTab === "azimuth"
               ? "bg-cyan-500 text-black border border-cyan-400 font-bold shadow-[0_0_15px_rgba(6,182,212,0.4)]"
               : "bg-black/60 hover:bg-black border border-white/5 text-cyan-400/80 hover:text-cyan-400"
