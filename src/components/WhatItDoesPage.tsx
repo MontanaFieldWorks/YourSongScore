@@ -3,7 +3,8 @@ import {
   ArrowLeft, BookOpen, Clock, Code, ShieldCheck, HelpCircle,
   Rabbit, Activity, Compass, Music, FileMusic, AudioLines, Headphones,
   Layers, Radio, Wrench, LineChart, BarChart3, Sparkles,
-  ChevronDown, ChevronUp, ChevronsUp, Volume2, ChevronsRight, Cog
+  ChevronDown, ChevronUp, ChevronsUp, Volume2, ChevronsRight, Cog,
+  Sliders, Guitar, Mic, Waves, TrendingUp, Music4, Feather, Vault
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -75,19 +76,23 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
   const [isMixBalanceOpen, setIsMixBalanceOpen] = React.useState(false);
   const [isInstrumentalStagingOpen, setIsInstrumentalStagingOpen] = React.useState(false);
   const [isVocalTrackingOpen, setIsVocalTrackingOpen] = React.useState(false);
+  const [isArrangementFlowOpen, setIsArrangementFlowOpen] = React.useState(false);
+  const [isDynamicModulationOpen, setIsDynamicModulationOpen] = React.useState(false);
+  const [isClimaxTrajectoryOpen, setIsClimaxTrajectoryOpen] = React.useState(false);
   const [isArtisticAnalysisOpen, setIsArtisticAnalysisOpen] = React.useState(false);
   const [isLyricalImpactOpen, setIsLyricalImpactOpen] = React.useState(false);
   const [isMusicTheoryOpen, setIsMusicTheoryOpen] = React.useState(false);
   const [isSongwritingQualityOpen, setIsSongwritingQualityOpen] = React.useState(false);
   const [isAcousticTensionOpen, setIsAcousticTensionOpen] = React.useState(false);
   const [isLyricsAnalysisOpen, setIsLyricsAnalysisOpen] = React.useState(false);
+  const [isSongStructureOpen, setIsSongStructureOpen] = React.useState(false);
 
   React.useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
   return (
-    <div className="flex flex-col gap-8 font-sans animate-fadeIn max-w-5xl mx-auto" id="what-it-does-yoursongscore-page">
+    <div className="flex flex-col gap-8 font-sans animate-fadeIn max-w-[1400px] w-full mx-auto" id="what-it-does-yoursongscore-page">
       
       {/* 1. Header Navigation and Title Block */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#0a0b0e] border border-white/5 rounded-3xl p-6 shadow-2xl relative overflow-hidden select-none">
@@ -125,37 +130,39 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
       <div className="flex flex-col gap-6 text-left">
         <div>
           <span className="text-[12px] font-mono uppercase bg-[#16203a] border border-blue-500/20 text-blue-400 px-3 py-1 rounded-full w-fit tracking-widest font-bold">
-            18 Dynamic Measurements across 7 Core Metrics in 3 Critical Categories
+            Comprehensive Diagnostics Across Four Core Assessment Categories
           </span>
           <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight mt-2.5">
-            A Monster Diagnostic Engine: The Three Assessment Categories
+            A Monster Diagnostic Engine: The Four Assessment Categories
           </h2>
           <p className="text-[13px] text-slate-400 mt-1">
-            Understanding the math and methodology behind the three major assessment categories that empower better music performance - on streaming services, and through your speakers.
+            Understanding the math and methodology behind the four assessment categories that empower better music performance — on streaming services, through your speakers, and in the writing room.
           </p>
         </div>
 
         {/* Diagnostic Score Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           
           {/* Column 1: Streaming Readiness */}
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4">
             {/* Mainstream Card */}
-            <div className="bg-[#0A0B0E] border border-blue-500/10 rounded-2xl p-6 flex flex-col justify-between hover:border-blue-500/20 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
-              <div>
+            <div className="bg-[#0A0B0E] border border-blue-500/10 rounded-2xl p-2 flex flex-col justify-between hover:border-blue-500/20 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)] h-[426px]">
+              <div className="flex flex-col h-full">
                 <h3 className="text-xl font-extrabold text-white">Streaming Readiness</h3>
                 <p className="text-[13px] font-mono text-blue-400/90 tracking-wider uppercase mt-1">Algorithmic Readiness Index</p>
-                <p className="text-[13px] text-slate-400 mt-3 leading-relaxed">
-                  Measures the potential of your track successfully surviving the split-second decisions made by the modern digital gatekeepers of music streaming services (like Spotify and Apple Music) that determine whether your song gets promoted to their editorial playlists.
-                  <span className="block mt-2 pl-4">• Core Objective: To ensure the track isn’t skipped, filtered out, or buried by automated playlist recommendation systems.</span>
-                  <span className="block mt-2 italic text-slate-500">Great songs don’t always fit the “algo,” while bad songs that do can still get past this gatekeeper.</span>
+                <p className="text-[13px] text-slate-400 mt-3 leading-relaxed flex-1 flex flex-col justify-between">
+                  <span>
+                    Measures the potential of your track successfully surviving the split-second decisions made by the modern digital gatekeepers of music streaming services (like Spotify and Apple Music) that determine whether your song gets promoted to their editorial playlists.
+                    <span className="block mt-2 pl-4">• Core Objective: To ensure the track isn’t skipped, filtered out, or buried by automated playlist recommendation systems.</span>
+                    <span className="block mt-2 italic text-slate-500">Great songs don’t always fit the “algo,” while bad songs that do can still get past this gatekeeper.</span>
+                  </span>
                   <a href="#" onClick={(e) => e.preventDefault()} className="text-blue-400 hover:underline font-semibold block mt-3">See the associated metrics below</a>
                 </p>
               </div>
             </div>
 
             {/* Streaming Readiness Metrics Card */}
-            <div className="bg-[#0A0B0E] border border-blue-500/10 rounded-2xl p-6 flex flex-col justify-between hover:border-blue-500/20 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
+            <div className="bg-[#0A0B0E] border border-blue-500/10 rounded-2xl p-2 flex flex-col justify-between hover:border-blue-500/20 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
               <div>
                 <h3 className="text-[16px] font-bold text-blue-400 mb-4">Streaming Readiness Metrics</h3>
                 
@@ -181,7 +188,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
                         <Rabbit className="w-4 h-4 text-blue-400 shrink-0" />
-                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">COMMERCIAL IMPACT</h4>
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">COMMERCIAL IMPACT (30%)</h4>
                       </div>
                       <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isCommercialImpactOpen ? "rotate-180 text-blue-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
@@ -331,21 +338,21 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                     tabIndex={0}
                     role="button"
                     aria-expanded={isCompletionRateOpen}
-                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 ${
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 ${
                       isCompletionRateOpen 
-                        ? "border-cyan-500/60 bg-cyan-500/[0.12] shadow-[0_0_15px_rgba(6,182,212,0.15)]" 
-                        : "border-cyan-500/30 bg-cyan-500/[0.07] hover:border-cyan-500/50 hover:bg-cyan-500/[0.10]"
+                        ? "border-blue-500/60 bg-blue-500/[0.12] shadow-[0_0_15px_rgba(59,130,246,0.15)]" 
+                        : "border-blue-500/30 bg-blue-500/[0.07] hover:border-blue-500/50 hover:bg-blue-500/[0.10]"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-cyan-400 shrink-0" />
-                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">COMPLETION RATE</h4>
+                        <Clock className="w-4 h-4 text-blue-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">COMPLETION RATE (40%)</h4>
                       </div>
-                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isCompletionRateOpen ? "rotate-180 text-cyan-400" : "group-hover/btn:text-slate-200"}`} />
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isCompletionRateOpen ? "rotate-180 text-blue-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
                     <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
-                      Predicts the probability a listener finishes the critical first-30-second window, built from a real, transparent formula rather than a black box. <span className="text-[12px] text-cyan-400 font-semibold block mt-1 hover:underline">Click to {isCompletionRateOpen ? "collapse details" : "expand details"}</span>
+                      Predicts the probability a listener finishes the critical first-30-second window, built from a real, transparent formula rather than a black box. <span className="text-[12px] text-blue-400 font-semibold block mt-1 hover:underline">Click to {isCompletionRateOpen ? "collapse details" : "expand details"}</span>
                     </p>
                   </div>
 
@@ -358,8 +365,8 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="border border-cyan-500/15 bg-cyan-950/20 rounded-xl p-4 flex flex-col gap-3 text-left font-sans text-[13px] shadow-xl relative my-1">
-                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-cyan-500/5 rounded-full blur-[20px] pointer-events-none" />
+                        <div className="border border-blue-500/15 bg-blue-950/20 rounded-xl p-4 flex flex-col gap-3 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-blue-500/5 rounded-full blur-[20px] pointer-events-none" />
                           <p className="text-[14px] text-slate-300 leading-[1.375] font-sans relative z-10">
                             Starts from an honest 91% baseline (a small amount of real-world skip risk exists for any song), then subtracts a weighted score built from Engagement Power (70%) and Production Index (20%) - the same two real inputs behind Commercial Impact. The result is your predicted Skip Rate; Completion Rate is simply 100% minus that number.
                           </p>
@@ -380,7 +387,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                                   }
                                 }, 100);
                               }}
-                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 hover:border-cyan-500/40 text-cyan-400 hover:text-cyan-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-cyan-500/50 w-full"
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-blue-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 w-full"
                               title="Collapse details"
                             >
                               <ChevronsUp className="w-3.5 h-3.5" />
@@ -404,21 +411,21 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                     tabIndex={0}
                     role="button"
                     aria-expanded={isAlgorithmicAlignmentOpen}
-                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 ${
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 ${
                       isAlgorithmicAlignmentOpen 
-                        ? "border-emerald-500/60 bg-emerald-500/[0.12] shadow-[0_0_15px_rgba(16,185,129,0.15)]" 
-                        : "border-emerald-500/30 bg-emerald-500/[0.07] hover:border-emerald-500/50 hover:bg-emerald-500/[0.10]"
+                        ? "border-blue-500/60 bg-blue-500/[0.12] shadow-[0_0_15px_rgba(59,130,246,0.15)]" 
+                        : "border-blue-500/30 bg-blue-500/[0.07] hover:border-blue-500/50 hover:bg-blue-500/[0.10]"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">STREAMING ALGORITHMIC ALIGNMENT</h4>
+                        <Activity className="w-4 h-4 text-blue-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">STREAMING ALGORITHMIC ALIGNMENT (30%)</h4>
                       </div>
-                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isAlgorithmicAlignmentOpen ? "rotate-180 text-emerald-400" : "group-hover/btn:text-slate-200"}`} />
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isAlgorithmicAlignmentOpen ? "rotate-180 text-blue-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
                     <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
-                      Models fundamental recommendation attributes (such as Danceability, Energy, Mood Valence, and Acousticness) to predict how auto-curation systems will profile and package the release. <span className="text-[12px] text-emerald-400 font-semibold block mt-1 hover:underline">Click to {isAlgorithmicAlignmentOpen ? "collapse details" : "expand details"}</span>
+                      Models fundamental recommendation attributes (such as Danceability, Energy, Mood Valence, and Acousticness) to predict how auto-curation systems will profile and package the release. <span className="text-[12px] text-blue-400 font-semibold block mt-1 hover:underline">Click to {isAlgorithmicAlignmentOpen ? "collapse details" : "expand details"}</span>
                     </p>
                   </div>
 
@@ -431,25 +438,25 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="border border-emerald-500/15 bg-emerald-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-[13px] shadow-xl relative my-1">
-                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-emerald-500/5 rounded-full blur-[20px] pointer-events-none" />
+                        <div className="border border-blue-500/15 bg-blue-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-blue-500/5 rounded-full blur-[20px] pointer-events-none" />
                           
                           {/* Section 1: The ECHO NEST SIMULATOR */}
                           <div className="flex flex-col gap-1 relative z-10">
                             <div className="flex items-center gap-2 pb-0 border-b border-white/5">
-                              <GlowingLoader color="#10b981" glowColor="rgba(16, 185, 129, 0.4)" className="text-emerald-400 shrink-0" />
-                              <h5 className="text-[13px] font-mono tracking-wider font-extrabold text-emerald-400 uppercase">
+                              <GlowingLoader color="#3b82f6" glowColor="rgba(59, 130, 246, 0.4)" className="text-blue-500 shrink-0" />
+                              <h5 className="text-[13px] font-mono tracking-wider font-extrabold text-blue-400 uppercase">
                                 The ECHO NEST SIMULATOR
                               </h5>
                             </div>
                             <p className="text-[14px] text-slate-300 leading-[1.375] font-sans">
-                              The Echo Nest (now a core part of Spotify's recommendation engine) pioneered computational audio analysis. To determine editorial playlist placement, The Echo Nest’s algorithm uses <span className="text-emerald-400 font-semibold">7 Core Metrics (details here)</span>. YSS’s The Echo Nest Simulator use those same, genre specific indicators to help predict how auto-curation systems will profile and package your release.
+                              The Echo Nest (now a core part of Spotify's recommendation engine) pioneered computational audio analysis. To determine editorial playlist placement, The Echo Nest’s algorithm uses <span className="text-blue-400 font-semibold">7 Core Metrics (details here)</span>. YSS’s The Echo Nest Simulator use those same, genre specific indicators to help predict how auto-curation systems will profile and package your release.
                             </p>
                             <p className="text-[14px] text-slate-300 font-bold mt-1">
                               This is the 1st CRITICAL STREAMING GATE …{" "}
                               <span
                                 onClick={onNavigateToRabbitHole}
-                                className="text-emerald-400 hover:text-emerald-300 underline cursor-pointer hover:brightness-110 active:scale-[0.98] transition-all"
+                                className="text-blue-400 hover:text-blue-300 underline cursor-pointer hover:brightness-110 active:scale-[0.98] transition-all"
                               >
                                 Read More in the Rabbit Hole
                               </span>
@@ -470,7 +477,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                                   }
                                 }, 100);
                               }}
-                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 hover:text-emerald-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 w-full"
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-blue-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 w-full"
                               title="Collapse details"
                             >
                               <ChevronsUp className="w-3.5 h-3.5" />
@@ -497,21 +504,21 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                     tabIndex={0}
                     role="button"
                     aria-expanded={isRecommenderPredictionOpen}
-                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 ${
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 ${
                       isRecommenderPredictionOpen 
-                        ? "border-emerald-500/60 bg-emerald-500/[0.12] shadow-[0_0_15px_rgba(16,185,129,0.15)]" 
-                        : "border-emerald-500/30 bg-emerald-500/[0.07] hover:border-emerald-500/50 hover:bg-emerald-500/[0.10]"
+                        ? "border-violet-500/60 bg-violet-500/[0.12] shadow-[0_0_15px_rgba(139,92,246,0.15)]" 
+                        : "border-violet-500/30 bg-violet-500/[0.07] hover:border-violet-500/50 hover:bg-violet-500/[0.10]"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
-                        <Radio className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <Compass className="w-4 h-4 text-violet-400 shrink-0" />
                         <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">RECOMMENDER PERFORMANCE PREDICTION</h4>
                       </div>
-                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isRecommenderPredictionOpen ? "rotate-180 text-emerald-400" : "group-hover/btn:text-slate-200"}`} />
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isRecommenderPredictionOpen ? "rotate-180 text-violet-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
                     <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
-                      Simulates how recommendation and discovery systems might position your track relative to similar artists and playlists. <span className="text-[12px] text-emerald-400 font-semibold block mt-1 hover:underline">Click to {isRecommenderPredictionOpen ? "collapse details" : "expand details"}</span>
+                      Simulates how recommendation and discovery systems might position your track relative to similar artists and playlists. <span className="text-[12px] text-violet-400 font-semibold block mt-1 hover:underline">Click to {isRecommenderPredictionOpen ? "collapse details" : "expand details"}</span>
                     </p>
                   </div>
 
@@ -524,12 +531,12 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="border border-emerald-500/15 bg-emerald-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-[13px] shadow-xl relative my-1">
-                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-emerald-500/5 rounded-full blur-[20px] pointer-events-none" />
+                        <div className="border border-violet-500/15 bg-violet-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-violet-500/5 rounded-full blur-[20px] pointer-events-none" />
 
                           <div className="flex flex-col gap-2.5 pl-[6px] w-[220px] self-center mt-1 relative z-10">
                             <div className="flex gap-2">
-                              <span className="text-emerald-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <span className="text-violet-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
                                 <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">NLP semantic Clustered Neighborhood "Artist Universe"</span>
                                 <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
@@ -539,7 +546,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                             </div>
 
                             <div className="flex gap-2">
-                              <span className="text-emerald-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <span className="text-violet-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
                                 <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Discovery Feeder Distribution Probabilities Algorithms</span>
                                 <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
@@ -549,7 +556,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                             </div>
 
                             <div className="flex gap-2">
-                              <span className="text-emerald-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <span className="text-violet-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
                                 <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Collaborative Filtering Prevention Checklist</span>
                                 <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
@@ -572,7 +579,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                                   }
                                 }, 100);
                               }}
-                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 hover:text-emerald-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 w-full"
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 hover:border-violet-500/40 text-violet-400 hover:text-violet-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-violet-500/50 w-full"
                               title="Collapse details"
                             >
                               <ChevronsUp className="w-3.5 h-3.5" />
@@ -605,7 +612,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                   >
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
-                        <Compass className="w-4 h-4 text-amber-400 shrink-0" />
+                        <Vault className="w-4 h-4 text-amber-400 shrink-0" />
                         <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">ALGORITHMIC SANDBOX</h4>
                       </div>
                       <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isAlgorithmicSandboxOpen ? "rotate-180 text-amber-400" : "group-hover/btn:text-slate-200"}`} />
@@ -714,25 +721,27 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
           </div>
 
           {/* Column 2: The Sonic Soundprint */}
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4">
             {/* Artistic Card */}
-            <div className="bg-[#0A0B0E] border border-purple-500/10 rounded-2xl p-6 flex flex-col justify-between hover:border-purple-500/20 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
-              <div>
+            <div className="bg-[#0A0B0E] border border-[#46F4CD]/20 rounded-2xl p-2 flex flex-col justify-between hover:border-[#46F4CD]/35 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)] h-[426px]">
+              <div className="flex flex-col h-full">
                 <h3 className="text-xl font-extrabold text-white">The Sonic Soundprint</h3>
-                <p className="text-[13px] font-mono text-purple-400/90 tracking-wider uppercase mt-1">TECHNICAL ARCHITECTURE</p>
-                <p className="text-[13px] text-slate-400 mt-3 leading-relaxed">
-                  Analyzes the song purely from an audio perspective and assesses how cleanly the individual stems and mixing decisions form a professional sonic field, reporting whether the song’s mix meets the established sonic standards of your genre. Includes recommendations for corrections.
-                  <span className="block mt-2 pl-4">• Core Objective: To diagnose flaws inside the DAW project that prevent a home mix from sounding competitive on club systems or high-end monitors.</span>
-                  <span className="block mt-2 italic text-slate-500">Even if your mix is good, not great, streaming services' algorithms might "pass" on it.</span>
-                  <a href="#" onClick={(e) => e.preventDefault()} className="text-purple-400 hover:underline font-semibold block mt-3">See the associated metrics below</a>
+                <p className="text-[13px] font-mono text-[#46F4CD]/90 tracking-wider uppercase mt-1">TECHNICAL ARCHITECTURE</p>
+                <p className="text-[13px] text-slate-400 mt-3 leading-relaxed flex-1 flex flex-col justify-between">
+                  <span>
+                    Analyzes the song purely from an audio perspective and assesses how cleanly the individual stems and mixing decisions form a professional sonic field, reporting whether the song’s mix meets the established sonic standards of your genre. Includes recommendations for corrections.
+                    <span className="block mt-2 pl-4">• Core Objective: To diagnose flaws inside the DAW project that prevent a home mix from sounding competitive on club systems or high-end monitors.</span>
+                    <span className="block mt-2 italic text-slate-500">Even if your mix is good, not great, streaming services' algorithms might "pass" on it.</span>
+                  </span>
+                  <a href="#" onClick={(e) => e.preventDefault()} className="text-[#46F4CD] hover:underline font-semibold block mt-3">See the associated metrics below</a>
                 </p>
               </div>
             </div>
 
             {/* Sonic Soundprint Metrics Card */}
-            <div className="bg-[#0A0B0E] border border-purple-500/10 rounded-2xl p-6 flex flex-col justify-between hover:border-purple-500/20 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
+            <div className="bg-[#0A0B0E] border border-[#46F4CD]/20 rounded-2xl p-2 flex flex-col justify-between hover:border-[#46F4CD]/35 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
               <div>
-                <h3 className="text-[16px] font-bold text-purple-400 mb-4">Sonic Soundprint Metrics</h3>
+                <h3 className="text-[16px] font-bold text-[#46F4CD] mb-4">Sonic Soundprint Metrics</h3>
 
                 <div className="flex flex-col gap-1.5 text-left mb-4">
                   <div 
@@ -747,21 +756,21 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                     tabIndex={0}
                     role="button"
                     aria-expanded={isMixBalanceOpen}
-                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50 ${
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-[#46F4CD]/50 ${
                       isMixBalanceOpen 
-                        ? "border-purple-500/60 bg-purple-500/[0.12] shadow-[0_0_15px_rgba(168,85,247,0.15)]" 
-                        : "border-purple-500/30 bg-purple-500/[0.07] hover:border-purple-500/50 hover:bg-purple-500/[0.10]"
+                        ? "border-[#46F4CD]/60 bg-[#46F4CD]/[0.12] shadow-[0_0_15px_rgba(70,244,205,0.15)]" 
+                        : "border-[#46F4CD]/30 bg-[#46F4CD]/[0.07] hover:border-[#46F4CD]/50 hover:bg-[#46F4CD]/[0.10]"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
-                        <Volume2 className="w-4 h-4 text-purple-400 shrink-0" />
+                        <Sliders className="w-4 h-4 text-[#46F4CD] shrink-0" />
                         <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">MIX BALANCE QUALITY (50%)</h4>
                       </div>
-                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isMixBalanceOpen ? "rotate-180 text-purple-400" : "group-hover/btn:text-slate-200"}`} />
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isMixBalanceOpen ? "rotate-180 text-[#46F4CD]" : "group-hover/btn:text-slate-200"}`} />
                     </div>
                     <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
-                      Real, measured checks across five frequency and stereo dimensions - each with a genre-aware gate so intentional artistic choices aren't scored as flaws. <span className="text-[12px] text-purple-400 font-semibold block mt-1 hover:underline">Click to {isMixBalanceOpen ? "collapse details" : "expand details"}</span>
+                      Real, measured checks across five frequency and stereo dimensions - each with a genre-aware gate so intentional artistic choices aren't scored as flaws. <span className="text-[12px] text-[#46F4CD] font-semibold block mt-1 hover:underline">Click to {isMixBalanceOpen ? "collapse details" : "expand details"}</span>
                     </p>
                   </div>
 
@@ -774,39 +783,39 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="border border-purple-500/15 bg-purple-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
-                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-purple-500/5 rounded-full blur-[20px] pointer-events-none" />
+                        <div className="border border-[#46F4CD]/15 bg-neutral-900/40 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-[#46F4CD]/5 rounded-full blur-[20px] pointer-events-none" />
                           <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
                             <div className="flex gap-2">
-                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <span className="text-[#46F4CD] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
                                 <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Mud Prevention</span>
                                 <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Checks for uncontrolled low-mid buildup, distinguishing genuine masking from intentional genre weight (e.g. dark pop, hip-hop).</span>
                               </div>
                             </div>
                             <div className="flex gap-2">
-                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <span className="text-[#46F4CD] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
                                 <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Midrange Spacing</span>
                                 <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Audits whether the vocal and lead elements have real room to sit forward without competing instruments crowding them out.</span>
                               </div>
                             </div>
                             <div className="flex gap-2">
-                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <span className="text-[#46F4CD] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
                                 <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Low-End Division</span>
                                 <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Checks the real relationship between sub-bass and kick drum to confirm they occupy clean, separate zones.</span>
                               </div>
                             </div>
                             <div className="flex gap-2">
-                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <span className="text-[#46F4CD] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
                                 <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Sibilance Shaving</span>
                                 <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Uses a real measured sibilance score to catch harsh "S" and "T" sounds without penalizing intentionally bright vocal chains.</span>
                               </div>
                             </div>
                             <div className="flex gap-2">
-                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <span className="text-[#46F4CD] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
                                 <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Stereo Width</span>
                                 <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Uses real measured phase correlation - genuine phase risk is flagged regardless of genre, while a narrow, centered image is judged on artistic intent.</span>
@@ -826,7 +835,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                                   }
                                 }, 100);
                               }}
-                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 w-full"
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#46F4CD]/10 hover:bg-[#46F4CD]/20 border border-[#46F4CD]/20 hover:border-[#46F4CD]/40 text-[#46F4CD] hover:text-white text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-[#46F4CD]/50 w-full"
                               title="Collapse details"
                             >
                               <ChevronsUp className="w-3.5 h-3.5" />
@@ -850,21 +859,21 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                     tabIndex={0}
                     role="button"
                     aria-expanded={isInstrumentalStagingOpen}
-                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50 ${
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-[#46F4CD]/50 ${
                       isInstrumentalStagingOpen 
-                        ? "border-purple-500/60 bg-purple-500/[0.12] shadow-[0_0_15px_rgba(168,85,247,0.15)]" 
-                        : "border-purple-500/30 bg-purple-500/[0.07] hover:border-purple-500/50 hover:bg-purple-500/[0.10]"
+                        ? "border-[#46F4CD]/60 bg-[#46F4CD]/[0.12] shadow-[0_0_15px_rgba(70,244,205,0.15)]" 
+                        : "border-[#46F4CD]/30 bg-[#46F4CD]/[0.07] hover:border-[#46F4CD]/50 hover:bg-[#46F4CD]/[0.10]"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
-                        <Music className="w-4 h-4 text-purple-400 shrink-0" />
+                        <Guitar className="w-4 h-4 text-[#46F4CD] shrink-0" />
                         <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">INSTRUMENTAL STAGING (20%)</h4>
                       </div>
-                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isInstrumentalStagingOpen ? "rotate-180 text-purple-400" : "group-hover/btn:text-slate-200"}`} />
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isInstrumentalStagingOpen ? "rotate-180 text-[#46F4CD]" : "group-hover/btn:text-slate-200"}`} />
                     </div>
                     <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
-                      Timing cohesion, transient punch, stereo staging, and warmth - each measured for real, with genre-appropriate exceptions. <span className="text-[12px] text-purple-400 font-semibold block mt-1 hover:underline">Click to {isInstrumentalStagingOpen ? "collapse details" : "expand details"}</span>
+                      Timing cohesion, transient punch, stereo staging, and warmth - each measured for real, with genre-appropriate exceptions. <span className="text-[12px] text-[#46F4CD] font-semibold block mt-1 hover:underline">Click to {isInstrumentalStagingOpen ? "collapse details" : "expand details"}</span>
                     </p>
                   </div>
 
@@ -877,32 +886,32 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="border border-purple-500/15 bg-purple-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
-                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-purple-500/5 rounded-full blur-[20px] pointer-events-none" />
+                        <div className="border border-[#46F4CD]/15 bg-neutral-900/40 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-[#46F4CD]/5 rounded-full blur-[20px] pointer-events-none" />
                           <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
                             <div className="flex gap-2">
-                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <span className="text-[#46F4CD] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
                                 <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Timeline Grid Cohesion</span>
                                 <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Measures real timing alignment, distinguishing a deliberate stylistic pocket from genuinely erratic timing.</span>
                               </div>
                             </div>
                             <div className="flex gap-2">
-                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <span className="text-[#46F4CD] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
                                 <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Transient Punch</span>
                                 <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Measures real drum attack sharpness, recognizing intentionally soft transients in genres like lo-fi and ambient.</span>
                               </div>
                             </div>
                             <div className="flex gap-2">
-                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <span className="text-[#46F4CD] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
                                 <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Melodic Staging</span>
                                 <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Despite the name, judges real stereo placement of instruments - a centered arrangement is judged on artistic intent, not penalized by default.</span>
                               </div>
                             </div>
                             <div className="flex gap-2">
-                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <span className="text-[#46F4CD] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
                                 <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Instrumental Warmth</span>
                                 <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Measures real low-mid to high-frequency balance, recognizing deliberately bright production as a genre choice, not a flaw.</span>
@@ -922,7 +931,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                                   }
                                 }, 100);
                               }}
-                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 w-full"
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#46F4CD]/10 hover:bg-[#46F4CD]/20 border border-[#46F4CD]/20 hover:border-[#46F4CD]/40 text-[#46F4CD] hover:text-white text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-[#46F4CD]/50 w-full"
                               title="Collapse details"
                             >
                               <ChevronsUp className="w-3.5 h-3.5" />
@@ -946,21 +955,21 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                     tabIndex={0}
                     role="button"
                     aria-expanded={isVocalTrackingOpen}
-                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50 ${
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-[#46F4CD]/50 ${
                       isVocalTrackingOpen 
-                        ? "border-purple-500/60 bg-purple-500/[0.12] shadow-[0_0_15px_rgba(168,85,247,0.15)]" 
-                        : "border-purple-500/30 bg-purple-500/[0.07] hover:border-purple-500/50 hover:bg-purple-500/[0.10]"
+                        ? "border-[#46F4CD]/60 bg-[#46F4CD]/[0.12] shadow-[0_0_15px_rgba(70,244,205,0.15)]" 
+                        : "border-[#46F4CD]/30 bg-[#46F4CD]/[0.07] hover:border-[#46F4CD]/50 hover:bg-[#46F4CD]/[0.10]"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
-                        <Headphones className="w-4 h-4 text-purple-400 shrink-0" />
+                        <Mic className="w-4 h-4 text-[#46F4CD] shrink-0" />
                         <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">VOCAL TRACKING (30%)</h4>
                       </div>
-                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isVocalTrackingOpen ? "rotate-180 text-purple-400" : "group-hover/btn:text-slate-200"}`} />
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isVocalTrackingOpen ? "rotate-180 text-[#46F4CD]" : "group-hover/btn:text-slate-200"}`} />
                     </div>
                     <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
-                      Pitch accuracy, dynamic delivery, and layer fit - judged on real register and phrasing expression, not just raw loudness variance. <span className="text-[12px] text-purple-400 font-semibold block mt-1 hover:underline">Click to {isVocalTrackingOpen ? "collapse details" : "expand details"}</span>
+                      Pitch accuracy, dynamic delivery, and layer fit - judged on real register and phrasing expression, not just raw loudness variance. <span className="text-[12px] text-[#46F4CD] font-semibold block mt-1 hover:underline">Click to {isVocalTrackingOpen ? "collapse details" : "expand details"}</span>
                     </p>
                   </div>
 
@@ -973,25 +982,25 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="border border-purple-500/15 bg-purple-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
-                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-purple-500/5 rounded-full blur-[20px] pointer-events-none" />
+                        <div className="border border-[#46F4CD]/15 bg-neutral-900/40 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-[#46F4CD]/5 rounded-full blur-[20px] pointer-events-none" />
                           <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
                             <div className="flex gap-2">
-                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <span className="text-[#46F4CD] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
                                 <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Pitch Accuracy</span>
                                 <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Uses detected pitch data as supporting evidence, with real listening judgment as the primary basis for the score.</span>
                               </div>
                             </div>
                             <div className="flex gap-2">
-                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <span className="text-[#46F4CD] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
                                 <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Dynamic Delivery</span>
                                 <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Checks for genuine register shifts and phrasing variety - a compressed pop vocal isn't penalized just for staying at a consistent volume.</span>
                               </div>
                             </div>
                             <div className="flex gap-2">
-                              <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                              <span className="text-[#46F4CD] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
                                 <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Vocal Layer Fit</span>
                                 <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Audits how well doubles and harmonies balance against the lead vocal in stereo, phase, and volume.</span>
@@ -1011,7 +1020,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                                   }
                                 }, 100);
                               }}
-                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 w-full"
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#46F4CD]/10 hover:bg-[#46F4CD]/20 border border-[#46F4CD]/20 hover:border-[#46F4CD]/40 text-[#46F4CD] hover:text-white text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-[#46F4CD]/50 w-full"
                               title="Collapse details"
                             >
                               <ChevronsUp className="w-3.5 h-3.5" />
@@ -1039,22 +1048,22 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                     tabIndex={0}
                     role="button"
                     aria-expanded={isEngineeringStudioOpen}
-                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50 ${
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/50 ${
                       isEngineeringStudioOpen 
-                        ? "border-purple-500/60 bg-purple-500/[0.12] shadow-[0_0_15px_rgba(168,85,247,0.15)]" 
-                        : "border-purple-500/30 bg-purple-500/[0.07] hover:border-purple-500/50 hover:bg-purple-500/[0.10]"
+                        ? "border-[#2563EB]/60 bg-[#2563EB]/[0.12] shadow-[0_0_15px_rgba(37,99,235,0.15)]" 
+                        : "border-[#2563EB]/30 bg-[#2563EB]/[0.07] hover:border-[#2563EB]/50 hover:bg-[#2563EB]/[0.10]"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
-                        <Volume2 className="w-4 h-4 text-purple-400 shrink-0" />
+                        <Volume2 className="w-4 h-4 text-blue-400 shrink-0" />
                         <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">THE ENGINEERING STUDIO</h4>
                       </div>
-                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isEngineeringStudioOpen ? "rotate-180 text-purple-400" : "group-hover/btn:text-slate-200"}`} />
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isEngineeringStudioOpen ? "rotate-180 text-blue-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
-                    <h3 className="text-[13px] font-bold text-purple-400 mb-1 leading-snug">Mixing & Mastering Technical Recommendation</h3>
+                    <h3 className="text-[13px] font-bold text-blue-400 mb-1 leading-snug">Mixing & Mastering Technical Recommendation</h3>
                     <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
-                      A powerhouse engineering and production mix/master diagnostic suite guides with nine diagnostic modules.  Analyzes a broad array of measurements that guide step-by-step mix correction blueprints. <span className="text-[12px] text-purple-400 font-semibold block mt-1 hover:underline">Click to {isEngineeringStudioOpen ? "collapse details" : "expand details"}</span>
+                      A powerhouse engineering and production mix/master diagnostic suite guides with nine diagnostic modules.  Analyzes a broad array of measurements that guide step-by-step mix correction blueprints. <span className="text-[12px] text-blue-400 font-semibold block mt-1 hover:underline">Click to {isEngineeringStudioOpen ? "collapse details" : "expand details"}</span>
                     </p>
                   </div>
 
@@ -1067,8 +1076,8 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <div className="border border-purple-500/15 bg-purple-950/20 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-[13px] shadow-xl relative my-1">
-                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-purple-500/5 rounded-full blur-[20px] pointer-events-none" />
+                        <div className="border border-[#2563EB]/15 bg-neutral-900/40 rounded-xl p-4 flex flex-col gap-4 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-[#2563EB]/5 rounded-full blur-[20px] pointer-events-none" />
                           
                           <div className="flex flex-col gap-1 relative z-10">
                             <button 
@@ -1080,22 +1089,22 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                               }} 
                               className="text-white font-bold hover:underline text-left bg-transparent border-none p-0 cursor-pointer outline-none focus:underline flex items-center gap-1.5"
                             >
-                              <ChevronsRight className="w-4 h-4 text-purple-400 shrink-0" />
+                              <ChevronsRight className="w-4 h-4 text-blue-400 shrink-0" />
                               <span>see The Engineering Studio Details Page for Module by Module Details</span>
                             </button>
                           </div>
 
                           <div className="flex flex-col gap-1 relative z-10">
                             <div className="flex items-center gap-2 pb-0 border-b border-white/5">
-                              <GlowingLoader color="#a855f7" glowColor="rgba(168, 85, 247, 0.4)" className="text-purple-500 shrink-0" />
-                              <h5 className="text-[13px] font-mono tracking-wider font-extrabold text-purple-400 uppercase">
+                              <GlowingLoader color="#2563EB" glowColor="rgba(37, 99, 235, 0.4)" className="text-blue-500 shrink-0" />
+                              <h5 className="text-[13px] font-mono tracking-wider font-extrabold text-blue-400 uppercase">
                                 MIXING & MASTERING TECHNICAL ANALYSIS
                               </h5>
                             </div>
                             
                             <div className="flex flex-col gap-2.5 pl-[6px] mt-1.5">
                               <div className="flex gap-2">
-                                <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                                <span className="text-blue-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                                 <div className="flex flex-col">
                                   <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Harmonic Resolution</span>
                                   <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
@@ -1105,7 +1114,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                               </div>
 
                               <div className="flex gap-2">
-                                <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                                <span className="text-blue-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                                 <div className="flex flex-col">
                                   <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Signal &amp; Levels</span>
                                   <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
@@ -1115,7 +1124,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                               </div>
 
                               <div className="flex gap-2">
-                                <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                                <span className="text-blue-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                                 <div className="flex flex-col">
                                   <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Dynamics Profile</span>
                                   <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
@@ -1125,7 +1134,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                               </div>
 
                               <div className="flex gap-2">
-                                <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                                <span className="text-blue-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                                 <div className="flex flex-col">
                                   <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Frequency Balance</span>
                                   <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
@@ -1135,7 +1144,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                               </div>
 
                               <div className="flex gap-2">
-                                <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                                <span className="text-blue-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                                 <div className="flex flex-col">
                                   <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Stereo Field</span>
                                   <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
@@ -1145,7 +1154,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                               </div>
 
                               <div className="flex gap-2">
-                                <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                                <span className="text-blue-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                                 <div className="flex flex-col">
                                   <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Genre Compliance</span>
                                   <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
@@ -1155,7 +1164,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                               </div>
 
                               <div className="flex gap-2">
-                                <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                                <span className="text-blue-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                                 <div className="flex flex-col">
                                   <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Noise &amp; Artifacts</span>
                                   <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
@@ -1165,7 +1174,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                               </div>
 
                               <div className="flex gap-2">
-                                <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                                <span className="text-blue-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                                 <div className="flex flex-col">
                                   <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Arrangement Patterns</span>
                                   <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
@@ -1175,7 +1184,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                               </div>
 
                               <div className="flex gap-2">
-                                <span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
+                                <span className="text-blue-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                                 <div className="flex flex-col">
                                   <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Stereo Azimuth Profile</span>
                                   <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">
@@ -1200,7 +1209,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                                   }
                                 }, 100);
                               }}
-                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 w-full"
+                              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-white text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 w-full"
                               title="Collapse details"
                             >
                               <ChevronsUp className="w-3.5 h-3.5" />
@@ -1233,7 +1242,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                   >
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
-                        <Cog className="w-4 h-4 text-[#46F4CD] shrink-0 animate-spin" style={{ animationDuration: '6s' }} />
+                        <Cog className="w-4 h-4 text-[#46F4CD] shrink-0" />
                         <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">PRODUCTION QUALITY</h4>
                       </div>
                       <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isProductionQualityOpen ? "rotate-180 text-[#46F4CD]" : "group-hover/btn:text-slate-200"}`} />
@@ -1450,28 +1459,307 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
             </div>
           </div>
 
-          {/* Column 3: Compositional Depth */}
-          <div className="flex flex-col gap-6">
-            {/* Songwriting Card */}
-            <div className="bg-[#0A0B0E] border border-emerald-500/10 rounded-2xl p-6 flex flex-col justify-between hover:border-emerald-500/20 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
+          {/* Column 3: Structural Engagement */}
+          <div className="flex flex-col gap-4">
+            {/* Structural Engagement Card */}
+            <div className="bg-[#0A0B0E] border border-purple-500/20 rounded-2xl p-2 flex flex-col justify-between hover:border-purple-500/30 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)] h-[426px]">
+              <div className="flex flex-col h-full">
+                <h3 className="text-xl font-extrabold text-white">Structural Engagement</h3>
+                <p className="text-[13px] font-mono text-purple-400/90 tracking-wider uppercase mt-1">RETENTION &amp; DYNAMIC MOMENTUM</p>
+                <p className="text-[13px] text-slate-400 mt-3 leading-relaxed flex-1 flex flex-col justify-between">
+                  <span>
+                    Reflects your song's pacing, dynamic build, and energy trajectory — the retention dynamics that influence whether listeners and streaming algorithms stay engaged past the critical early moments of a track.
+                    <span className="block mt-2 pl-4">• Core Objective: To ensure the arrangement sustains forward momentum and delivers satisfying dynamic contrast without losing listeners to mid-track skip fatigue.</span>
+                    <span className="block mt-2 italic text-slate-500">A track with great mixing can still tank algorithmically if its pacing stalls or its energy arc never pays off.</span>
+                  </span>
+                  <a href="#" onClick={(e) => e.preventDefault()} className="text-purple-400 hover:underline font-semibold block mt-3">See the associated metrics below</a>
+                </p>
+              </div>
+            </div>
+
+            {/* Structural Engagement Metrics Card */}
+            <div className="bg-[#0A0B0E] border border-purple-500/20 rounded-2xl p-2 flex flex-col justify-between hover:border-purple-500/30 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
               <div>
-                <h3 className="text-xl font-extrabold text-white">Compositional Depth</h3>
-                <p className="text-[13px] font-mono text-emerald-400/90 tracking-wider uppercase mt-1">THE SONGWRITING CORE</p>
-                <p className="text-[13px] text-slate-400 mt-3 leading-relaxed">
-                  Bypasses the production value and mixing polish to critique the actual songwriting, lyrical themes, and musical theory that create human connection. Your song is being measured against the benchmark parameters common among successful songs in your genre.
-                  <span className="block mt-2 pl-4">• Core Objective: To analyze if the song has the fundamental structural components necessary to transcend being "well-produced noise."</span>
-                  <span className="block mt-2 italic text-slate-500">A three-chord song won’t score high on these measurements. But that doesn’t mean it’s not good.</span>
-                  <a href="#" onClick={(e) => e.preventDefault()} className="text-emerald-400 hover:underline font-semibold block mt-3">See the associated metrics below</a>
+                <h3 className="text-[16px] font-bold text-purple-400 mb-4">Structural Engagement Metrics</h3>
+                
+                <div className="flex flex-col gap-1.5 text-left">
+                  {/* Arrangement Flow (40%) */}
+                  <div 
+                    id="arrangement-flow-toggle-btn"
+                    onClick={() => setIsArrangementFlowOpen(!isArrangementFlowOpen)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIsArrangementFlowOpen(!isArrangementFlowOpen); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isArrangementFlowOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50 ${
+                      isArrangementFlowOpen ? "border-purple-500/60 bg-purple-500/[0.12] shadow-[0_0_15px_rgba(168,85,247,0.15)]" : "border-purple-500/30 bg-purple-500/[0.07] hover:border-purple-500/50 hover:bg-purple-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Waves className="w-4 h-4 text-purple-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">ARRANGEMENT FLOW (40%)</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isArrangementFlowOpen ? "rotate-180 text-purple-400" : "group-hover/btn:text-slate-200"}`} />
+                    </div>
+                    <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
+                      Assesses whether transitions between sections build tension and release effectively, keeping energy scaling coherent from intro to outro. <span className="text-[12px] text-purple-400 font-semibold block mt-1 hover:underline">Click to {isArrangementFlowOpen ? "collapse details" : "expand details"}</span>
+                    </p>
+                  </div>
+
+                  <AnimatePresence>
+                    {isArrangementFlowOpen && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="overflow-hidden">
+                        <div className="border border-purple-500/15 bg-purple-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-purple-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                            <span className="text-purple-400 font-bold uppercase tracking-wider text-[11px] font-mono flex items-center gap-1.5">
+                              <GlowingLoader color="#a855f7" glowColor="rgba(168, 85, 247, 0.4)" />
+                              ARRANGEMENT FLOW &amp; SECTION PACING
+                            </span>
+                            <span className="text-slate-500 font-mono text-[10px]">WEIGHT: 40%</span>
+                          </div>
+                          <p className="text-[12px] text-slate-400 italic">
+                            Computed from section boundary energy and transition delta measurements — weighted at 40% into Structural Engagement.
+                          </p>
+                          <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
+                            <div className="flex gap-2"><span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Section Transitions &amp; Pacing</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Assesses whether shifts between verse, chorus, and bridge build tension and release effectively.</span></div></div>
+                            <div className="flex gap-2"><span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Dynamic Lift Across Boundaries</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Measures whether energy levels step up convincingly at key structural milestones rather than remaining static.</span></div></div>
+                            <div className="flex gap-2"><span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Momentum Continuity</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Checks that transitions keep the arrangement moving forward from intro to outro without jarring energy drops.</span></div></div>
+                            <div className="flex gap-2"><span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Pacing Balance</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Confirms that verses, pre-choruses, and hooks maintain a tight, engaging runtime ratio without dragging.</span></div></div>
+                          </div>
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
+                            <button onClick={(e) => { e.stopPropagation(); setIsArrangementFlowOpen(false); setTimeout(() => { const b = document.getElementById("arrangement-flow-toggle-btn"); if (b) { b.scrollIntoView({ behavior: "smooth", block: "nearest" }); b.focus(); } }, 100); }} className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 w-full" title="Collapse details">
+                              <ChevronsUp className="w-3.5 h-3.5" /><span>Collapse Details</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Dynamic Modulation (30%) */}
+                  <div 
+                    id="dynamic-modulation-toggle-btn"
+                    onClick={() => setIsDynamicModulationOpen(!isDynamicModulationOpen)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIsDynamicModulationOpen(!isDynamicModulationOpen); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isDynamicModulationOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50 ${
+                      isDynamicModulationOpen ? "border-purple-500/60 bg-purple-500/[0.12] shadow-[0_0_15px_rgba(168,85,247,0.15)]" : "border-purple-500/30 bg-purple-500/[0.07] hover:border-purple-500/50 hover:bg-purple-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <AudioLines className="w-4 h-4 text-purple-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">DYNAMIC MODULATION (30%)</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isDynamicModulationOpen ? "rotate-180 text-purple-400" : "group-hover/btn:text-slate-200"}`} />
+                    </div>
+                    <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
+                      Measures real loudness contrast between the song's quietest and loudest sustained sections — the difference that keeps a listener locked in. <span className="text-[12px] text-purple-400 font-semibold block mt-1 hover:underline">Click to {isDynamicModulationOpen ? "collapse details" : "expand details"}</span>
+                    </p>
+                  </div>
+
+                  <AnimatePresence>
+                    {isDynamicModulationOpen && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="overflow-hidden">
+                        <div className="border border-purple-500/15 bg-purple-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-purple-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                            <span className="text-purple-400 font-bold uppercase tracking-wider text-[11px] font-mono flex items-center gap-1.5">
+                              <GlowingLoader color="#a855f7" glowColor="rgba(168, 85, 247, 0.4)" />
+                              DYNAMIC MODULATION AUDIT
+                            </span>
+                            <span className="text-slate-500 font-mono text-[10px]">WEIGHT: 30%</span>
+                          </div>
+                          <p className="text-[12px] text-slate-400 italic">
+                            Computed from a windowed RMS energy envelope sampled across the entire track — weighted at 30% into Structural Engagement.
+                          </p>
+                          <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
+                            <div className="flex gap-2"><span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">RMS Dynamic Envelope</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Measures the real dB difference between quietest 15th percentile and loudest 85th percentile sustained sections.</span></div></div>
+                            <div className="flex gap-2"><span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Section-to-Section Relief</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Prevents listener ear fatigue by verifying breakdowns, verses, and drops create perceptible dynamic breathing room.</span></div></div>
+                            <div className="flex gap-2"><span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Commercial Sweet Spot Calibration</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Rewards dynamic variety between 3 dB and 10 dB without penalizing intentional genre compression.</span></div></div>
+                            <div className="flex gap-2"><span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Energy Crest Contrast</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Evaluates how dramatically choruses and drops punch through relative to surrounding verses.</span></div></div>
+                          </div>
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
+                            <button onClick={(e) => { e.stopPropagation(); setIsDynamicModulationOpen(false); setTimeout(() => { const b = document.getElementById("dynamic-modulation-toggle-btn"); if (b) { b.scrollIntoView({ behavior: "smooth", block: "nearest" }); b.focus(); } }, 100); }} className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 w-full" title="Collapse details">
+                              <ChevronsUp className="w-3.5 h-3.5" /><span>Collapse Details</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Climax Trajectory (30%) */}
+                  <div 
+                    id="climax-trajectory-toggle-btn"
+                    onClick={() => setIsClimaxTrajectoryOpen(!isClimaxTrajectoryOpen)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIsClimaxTrajectoryOpen(!isClimaxTrajectoryOpen); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isClimaxTrajectoryOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50 ${
+                      isClimaxTrajectoryOpen ? "border-purple-500/60 bg-purple-500/[0.12] shadow-[0_0_15px_rgba(168,85,247,0.15)]" : "border-purple-500/30 bg-purple-500/[0.07] hover:border-purple-500/50 hover:bg-purple-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-purple-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">CLIMAX TRAJECTORY (30%)</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isClimaxTrajectoryOpen ? "rotate-180 text-purple-400" : "group-hover/btn:text-slate-200"}`} />
+                    </div>
+                    <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
+                      Measures whether the song's energy genuinely builds toward a later peak, rather than front-loading its most intense moment early. <span className="text-[12px] text-purple-400 font-semibold block mt-1 hover:underline">Click to {isClimaxTrajectoryOpen ? "collapse details" : "expand details"}</span>
+                    </p>
+                  </div>
+
+                  <AnimatePresence>
+                    {isClimaxTrajectoryOpen && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="overflow-hidden">
+                        <div className="border border-purple-500/15 bg-purple-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-purple-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                            <span className="text-purple-400 font-bold uppercase tracking-wider text-[11px] font-mono flex items-center gap-1.5">
+                              <GlowingLoader color="#a855f7" glowColor="rgba(168, 85, 247, 0.4)" />
+                              CLIMAX TRAJECTORY AUDIT
+                            </span>
+                            <span className="text-slate-500 font-mono text-[10px]">WEIGHT: 30%</span>
+                          </div>
+                          <p className="text-[12px] text-slate-400 italic">
+                            Evaluates peak position timing and build magnitude from the actual audio waveform — weighted at 30% into Structural Engagement.
+                          </p>
+                          <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
+                            <div className="flex gap-2"><span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Peak Timing (55%–90% Ideal Window)</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Rewards songs that place their most intense climax in the second half to provide a clear emotional destination.</span></div></div>
+                            <div className="flex gap-2"><span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Build Magnitude &amp; Dynamic Lift</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Confirms measurable decibel lift leading into the climax for a genuine structural and emotional payoff.</span></div></div>
+                            <div className="flex gap-2"><span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Late-Track Retention</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Keeps streaming listeners from dropping off before track completion by delivering a high-energy late peak.</span></div></div>
+                            <div className="flex gap-2"><span className="text-purple-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Narrative Arc Delivery</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Verifies that early sections build anticipation toward a primary hook rather than plateauing with nowhere left to climb.</span></div></div>
+                          </div>
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
+                            <button onClick={(e) => { e.stopPropagation(); setIsClimaxTrajectoryOpen(false); setTimeout(() => { const b = document.getElementById("climax-trajectory-toggle-btn"); if (b) { b.scrollIntoView({ behavior: "smooth", block: "nearest" }); b.focus(); } }, 100); }} className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 w-full" title="Collapse details">
+                              <ChevronsUp className="w-3.5 h-3.5" /><span>Collapse Details</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Column 4: Compositional Depth */}
+          <div className="flex flex-col gap-4">
+            {/* Songwriting Card */}
+            <div className="bg-[#0A0B0E] border border-amber-500/20 rounded-2xl p-2 flex flex-col justify-between hover:border-amber-500/30 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)] h-[426px]">
+              <div className="flex flex-col h-full">
+                <h3 className="text-xl font-extrabold text-white italic">Compositional Depth</h3>
+                <p className="text-[13px] font-mono text-amber-400/90 tracking-wider uppercase mt-1">not part of summary scores</p>
+                <p className="text-[13px] text-slate-400 mt-3 leading-relaxed flex-1 flex flex-col justify-between">
+                  <span>
+                    Bypasses production polish and commercial mixing to critique the actual songwriting, lyrical themes, and musical theory that forge deep human connection. Evaluates your craft against benchmark songwriting principles.
+                    <span className="block mt-2 pl-4">• Core Objective: To provide meaningful artistic diagnostics for your personal growth as a songwriter — without affecting your algorithmic streaming score.</span>
+                    <span className="block mt-2 italic text-slate-500">A three-chord song won’t score high on complex harmonic theory, but that doesn’t mean it’s not a great record. This data is purely for creative growth.</span>
+                  </span>
+                  <a href="#" onClick={(e) => e.preventDefault()} className="text-amber-400 hover:underline font-semibold block mt-3">See the associated metrics below</a>
                 </p>
               </div>
             </div>
 
             {/* Compositional Depth Metrics Card */}
-            <div className="bg-[#0A0B0E] border border-emerald-500/10 rounded-2xl p-6 flex flex-col justify-between hover:border-emerald-500/20 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
+            <div className="bg-[#0A0B0E] border border-amber-500/20 rounded-2xl p-2 flex flex-col justify-between hover:border-amber-500/30 transition-all shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
               <div>
-                <h3 className="text-[16px] font-bold text-emerald-400 mb-4">Composition Metrics</h3>
+                <h3 className="text-[16px] font-bold text-amber-400 mb-4">Composition Metrics</h3>
                 
                 <div className="flex flex-col gap-1.5 text-left">
+                  <div 
+                    id="music-theory-toggle-btn"
+                    onClick={() => setIsMusicTheoryOpen(!isMusicTheoryOpen)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIsMusicTheoryOpen(!isMusicTheoryOpen); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isMusicTheoryOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-[#818cf8]/50 ${
+                      isMusicTheoryOpen ? "border-[#818cf8]/60 bg-[#818cf8]/[0.12] shadow-[0_0_15px_rgba(129,140,248,0.15)]" : "border-[#818cf8]/30 bg-[#818cf8]/[0.07] hover:border-[#818cf8]/50 hover:bg-[#818cf8]/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Music4 className="w-4 h-4 text-[#818cf8] shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">MUSIC THEORY ANALYSIS</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isMusicTheoryOpen ? "rotate-180 text-[#818cf8]" : "group-hover/btn:text-slate-200"}`} />
+                    </div>
+                    <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
+                      Decodes the foundational theory, key changes, structural forms, and meters driving the composition. <span className="text-[12px] text-[#818cf8] font-semibold block mt-1 hover:underline">Click to {isMusicTheoryOpen ? "collapse details" : "expand details"}</span>
+                    </p>
+                  </div>
+                  <AnimatePresence>
+                    {isMusicTheoryOpen && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="overflow-hidden">
+                        <div className="border border-[#818cf8]/15 bg-[#818cf8]/10 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-[#818cf8]/5 rounded-full blur-[20px] pointer-events-none" />
+                          <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
+                            <div className="flex gap-2"><span className="text-[#818cf8] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Chord Dynamics</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Inspects how successfully tension and release are crafted through chord progressions and substitutions.</span></div></div>
+                            <div className="flex gap-2"><span className="text-[#818cf8] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Melody</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Measures harmonic variety and richness across the timeline, without penalizing intentionally simple, constrained melodies.</span></div></div>
+                            <div className="flex gap-2"><span className="text-[#818cf8] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Form &amp; Structure</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Examines the arrangement of verses, choruses, bridges, and pre-choruses for a satisfying structural progression.</span></div></div>
+                          </div>
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
+                            <button onClick={(e) => { e.stopPropagation(); setIsMusicTheoryOpen(false); setTimeout(() => { const b = document.getElementById("music-theory-toggle-btn"); if (b) { b.scrollIntoView({ behavior: "smooth", block: "nearest" }); b.focus(); } }, 100); }} className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#818cf8]/10 hover:bg-[#818cf8]/20 border border-[#818cf8]/20 hover:border-[#818cf8]/40 text-[#818cf8] hover:text-[#a5b4fc] text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-[#818cf8]/50 w-full" title="Collapse details">
+                              <ChevronsUp className="w-3.5 h-3.5" /><span>Collapse Details</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div 
+                    id="lyrical-impact-toggle-btn"
+                    onClick={() => setIsLyricalImpactOpen(!isLyricalImpactOpen)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIsLyricalImpactOpen(!isLyricalImpactOpen); } }}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={isLyricalImpactOpen}
+                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 ${
+                      isLyricalImpactOpen ? "border-cyan-500/60 bg-cyan-500/[0.12] shadow-[0_0_15px_rgba(6,182,212,0.15)]" : "border-cyan-500/30 bg-cyan-500/[0.07] hover:border-cyan-500/50 hover:bg-cyan-500/[0.10]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <Feather className="w-4 h-4 text-cyan-400 shrink-0" />
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">LYRICAL IMPACT</h4>
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isLyricalImpactOpen ? "rotate-180 text-cyan-400" : "group-hover/btn:text-slate-200"}`} />
+                    </div>
+                    <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
+                      Scores the expressive and thematic value of the written lyrics on a technical and narrative level. <span className="text-[12px] text-cyan-400 font-semibold block mt-1 hover:underline">Click to {isLyricalImpactOpen ? "collapse details" : "expand details"}</span>
+                    </p>
+                  </div>
+                  <AnimatePresence>
+                    {isLyricalImpactOpen && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="overflow-hidden">
+                        <div className="border border-cyan-500/15 bg-cyan-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
+                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-cyan-500/5 rounded-full blur-[20px] pointer-events-none" />
+                          <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
+                            <div className="flex gap-2"><span className="text-cyan-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Meaning Clarity</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Measures whether the lyrics' theme and message come across clearly, even through abstract or metaphorical imagery.</span></div></div>
+                            <div className="flex gap-2"><span className="text-cyan-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Cliché Avoidance</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Evaluates whether the phrasing uses original, poetic concepts over tired, predictable rhyming schemes.</span></div></div>
+                          </div>
+                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
+                            <button onClick={(e) => { e.stopPropagation(); setIsLyricalImpactOpen(false); setTimeout(() => { const b = document.getElementById("lyrical-impact-toggle-btn"); if (b) { b.scrollIntoView({ behavior: "smooth", block: "nearest" }); b.focus(); } }, 100); }} className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 hover:border-cyan-500/40 text-cyan-400 hover:text-cyan-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-cyan-500/50 w-full" title="Collapse details">
+                              <ChevronsUp className="w-3.5 h-3.5" /><span>Collapse Details</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <div 
                     id="artistic-analysis-toggle-btn"
                     onClick={() => setIsArtisticAnalysisOpen(!isArtisticAnalysisOpen)}
@@ -1485,7 +1773,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                   >
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
-                        <Headphones className="w-4 h-4 text-pink-400 shrink-0" />
+                        <Music4 className="w-4 h-4 text-pink-400 shrink-0" />
                         <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">ARTISTIC ANALYSIS</h4>
                       </div>
                       <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isArtisticAnalysisOpen ? "rotate-180 text-pink-400" : "group-hover/btn:text-slate-200"}`} />
@@ -1507,89 +1795,6 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                           </div>
                           <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
                             <button onClick={(e) => { e.stopPropagation(); setIsArtisticAnalysisOpen(false); setTimeout(() => { const b = document.getElementById("artistic-analysis-toggle-btn"); if (b) { b.scrollIntoView({ behavior: "smooth", block: "nearest" }); b.focus(); } }, 100); }} className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/20 hover:border-pink-500/40 text-pink-400 hover:text-pink-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-pink-500/50 w-full" title="Collapse details">
-                              <ChevronsUp className="w-3.5 h-3.5" /><span>Collapse Details</span>
-                            </button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <div 
-                    id="lyrical-impact-toggle-btn"
-                    onClick={() => setIsLyricalImpactOpen(!isLyricalImpactOpen)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIsLyricalImpactOpen(!isLyricalImpactOpen); } }}
-                    tabIndex={0}
-                    role="button"
-                    aria-expanded={isLyricalImpactOpen}
-                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 ${
-                      isLyricalImpactOpen ? "border-emerald-500/60 bg-emerald-500/[0.12] shadow-[0_0_15px_rgba(16,185,129,0.15)]" : "border-emerald-500/30 bg-emerald-500/[0.07] hover:border-emerald-500/50 hover:bg-emerald-500/[0.10]"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">LYRICAL IMPACT</h4>
-                      </div>
-                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isLyricalImpactOpen ? "rotate-180 text-emerald-400" : "group-hover/btn:text-slate-200"}`} />
-                    </div>
-                    <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
-                      Scores the expressive and thematic value of the written lyrics on a technical and narrative level. <span className="text-[12px] text-emerald-400 font-semibold block mt-1 hover:underline">Click to {isLyricalImpactOpen ? "collapse details" : "expand details"}</span>
-                    </p>
-                  </div>
-                  <AnimatePresence>
-                    {isLyricalImpactOpen && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="overflow-hidden">
-                        <div className="border border-emerald-500/15 bg-emerald-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
-                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-emerald-500/5 rounded-full blur-[20px] pointer-events-none" />
-                          <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
-                            <div className="flex gap-2"><span className="text-emerald-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Meaning Clarity</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Measures whether the lyrics' theme and message come across clearly, even through abstract or metaphorical imagery.</span></div></div>
-                            <div className="flex gap-2"><span className="text-emerald-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Cliché Avoidance</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Evaluates whether the phrasing uses original, poetic concepts over tired, predictable rhyming schemes.</span></div></div>
-                          </div>
-                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
-                            <button onClick={(e) => { e.stopPropagation(); setIsLyricalImpactOpen(false); setTimeout(() => { const b = document.getElementById("lyrical-impact-toggle-btn"); if (b) { b.scrollIntoView({ behavior: "smooth", block: "nearest" }); b.focus(); } }, 100); }} className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 hover:text-emerald-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-emerald-500/50 w-full" title="Collapse details">
-                              <ChevronsUp className="w-3.5 h-3.5" /><span>Collapse Details</span>
-                            </button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <div 
-                    id="music-theory-toggle-btn"
-                    onClick={() => setIsMusicTheoryOpen(!isMusicTheoryOpen)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setIsMusicTheoryOpen(!isMusicTheoryOpen); } }}
-                    tabIndex={0}
-                    role="button"
-                    aria-expanded={isMusicTheoryOpen}
-                    className={`border transition-all duration-300 p-3.5 rounded-xl cursor-pointer select-none group/btn outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 ${
-                      isMusicTheoryOpen ? "border-cyan-500/60 bg-cyan-500/[0.12] shadow-[0_0_15px_rgba(6,182,212,0.15)]" : "border-cyan-500/30 bg-cyan-500/[0.07] hover:border-cyan-500/50 hover:bg-cyan-500/[0.10]"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <Code className="w-4 h-4 text-cyan-400 shrink-0" />
-                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">MUSIC THEORY ANALYSIS</h4>
-                      </div>
-                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isMusicTheoryOpen ? "rotate-180 text-cyan-400" : "group-hover/btn:text-slate-200"}`} />
-                    </div>
-                    <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
-                      Decodes the foundational theory, key changes, structural forms, and meters driving the composition. <span className="text-[12px] text-cyan-400 font-semibold block mt-1 hover:underline">Click to {isMusicTheoryOpen ? "collapse details" : "expand details"}</span>
-                    </p>
-                  </div>
-                  <AnimatePresence>
-                    {isMusicTheoryOpen && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.25, ease: "easeInOut" }} className="overflow-hidden">
-                        <div className="border border-cyan-500/15 bg-cyan-950/20 rounded-xl p-4 flex flex-col gap-2.5 text-left font-sans text-[13px] shadow-xl relative my-1">
-                          <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-cyan-500/5 rounded-full blur-[20px] pointer-events-none" />
-                          <div className="flex flex-col gap-2.5 pl-[6px] relative z-10">
-                            <div className="flex gap-2"><span className="text-cyan-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Chord Dynamics</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Inspects how successfully tension and release are crafted through chord progressions and substitutions.</span></div></div>
-                            <div className="flex gap-2"><span className="text-cyan-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Melody</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Measures harmonic variety and richness across the timeline, without penalizing intentionally simple, constrained melodies.</span></div></div>
-                            <div className="flex gap-2"><span className="text-cyan-400 font-mono text-[12px] select-none shrink-0 mt-0.5">○</span><div className="flex flex-col"><span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Form &amp; Structure</span><span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Examines the arrangement of verses, choruses, bridges, and pre-choruses for a satisfying structural progression.</span></div></div>
-                          </div>
-                          <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
-                            <button onClick={(e) => { e.stopPropagation(); setIsMusicTheoryOpen(false); setTimeout(() => { const b = document.getElementById("music-theory-toggle-btn"); if (b) { b.scrollIntoView({ behavior: "smooth", block: "nearest" }); b.focus(); } }, 100); }} className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 hover:border-cyan-500/40 text-cyan-400 hover:text-cyan-300 text-[12px] font-mono uppercase tracking-widest transition-all duration-200 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-cyan-500/50 w-full" title="Collapse details">
                               <ChevronsUp className="w-3.5 h-3.5" /><span>Collapse Details</span>
                             </button>
                           </div>
