@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import jsmediatags from "jsmediatags";
 import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile } from "./types";
@@ -54,8 +54,39 @@ export default function App() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [errorHeader, setErrorHeader] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
-  const [critiqueResult, setCritiqueResult] = useState<CritiqueResponse | null>(null);
-  const [viewingFullAudit, setViewingFullAudit] = useState(false);
+  const [critiqueResult, setCritiqueResult] = useState<CritiqueResponse | null>(() => {
+    try {
+      const saved = sessionStorage.getItem("yss_active_critique");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [viewingFullAudit, setViewingFullAudit] = useState(() => {
+    try {
+      return sessionStorage.getItem("yss_active_critique") !== null;
+    } catch {
+      return false;
+    }
+  });
+
+  // Automatically sync critiqueResult to sessionStorage whenever it changes - saves when
+  // a critique exists, removes when cleared to null. This single effect handles all 5
+  // places in this file that clear critiqueResult, without needing to modify any of them
+  // individually, since it just reacts to the current state value. Wrapped in try/catch
+  // since sessionStorage can fail (private browsing, storage quota) and should never
+  // crash the app - a failed save just means refresh-recovery won't work this session.
+  useEffect(() => {
+    try {
+      if (critiqueResult) {
+        sessionStorage.setItem("yss_active_critique", JSON.stringify(critiqueResult));
+      } else {
+        sessionStorage.removeItem("yss_active_critique");
+      }
+    } catch (e) {
+      console.warn("Could not persist critique to sessionStorage (non-fatal - refresh-recovery unavailable this session):", e);
+    }
+  }, [critiqueResult]);
   // Carries an explicit destination (set by the Locker's Report/Summary buttons) through to
   // the effect below, so it isn't clobbered by the effect's default "always start at Summary"
   // behavior for every other flow (fresh analysis, etc.) that doesn't specify one.
