@@ -392,6 +392,46 @@ export default function App() {
 
   // A&R Custom routing and followers states
   const [viewingArRep, setViewingArRep] = useState(false);
+
+  // Back-button support for sub-pages (Definitions, About, What It Does, Engineering
+  // Studio, etc.) - pressing back closes whichever sub-page is open and returns to
+  // whatever was showing underneath (Dashboard or the critique view), rather than doing
+  // nothing or leaving the app. Deliberately does not attempt to replicate every possible
+  // view combination - just the single most common, highest-value case.
+  const hasPushedSubPageHistoryRef = React.useRef(false);
+  const isAnySubPageActive =
+    viewingDefinitions || viewingAboutPage || viewingWhatItDoesPage || viewingUsefulTools ||
+    viewingRabbitHoleV2 || viewingMarketingPage || viewingMetadataGenerator || viewingStacks ||
+    viewingEngineeringStudio || viewingEngineeringDetails || viewingAlphaPage || viewingArRep;
+
+  useEffect(() => {
+    if (isAnySubPageActive && !hasPushedSubPageHistoryRef.current) {
+      window.history.pushState({ yssSubPage: true }, "");
+      hasPushedSubPageHistoryRef.current = true;
+    } else if (!isAnySubPageActive) {
+      hasPushedSubPageHistoryRef.current = false;
+    }
+  }, [isAnySubPageActive]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setViewingDefinitions(false);
+      setViewingAboutPage(false);
+      setViewingWhatItDoesPage(false);
+      setViewingUsefulTools(false);
+      setViewingRabbitHoleV2(false);
+      setViewingMarketingPage(false);
+      setViewingMetadataGenerator(false);
+      setViewingStacks(false);
+      setViewingEngineeringStudio(false);
+      setViewingEngineeringDetails(false);
+      setViewingAlphaPage(false);
+      setViewingArRep(false);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   const [followerEnabled, setFollowerEnabled] = useState<boolean>(() => {
     return safeLocalStorage.getItem("ar_follower_enabled") === "true";
   });
