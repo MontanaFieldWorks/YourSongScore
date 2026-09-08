@@ -484,6 +484,13 @@ export default function Dashboard({
   };
 
   const runWavToMp3Conversion = async (file: File) => {
+    if (converting) {
+      // Defensive guard: prevents a duplicate conversion (and duplicate database record)
+      // if this fires again before the disabled button state has visually/functionally
+      // taken effect - the root cause of tracks getting stuck permanently at
+      // "pending_analysis" while a different, actually-analyzed duplicate exists.
+      return;
+    }
     setErrorMsg(null);
     setSuccessMsg(null);
 
@@ -1205,9 +1212,14 @@ export default function Dashboard({
                     </button>
                     <button
                       onClick={() => runWavToMp3Conversion(selectedWavFile!)}
-                      className="flex-2 py-3.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs rounded-xl transition-all cursor-pointer select-none leading-none shadow-[0_0_15px_rgba(245,158,11,0.25)] hover:scale-[1.01] active:scale-[0.99]"
+                      disabled={converting}
+                      className={`flex-2 py-3.5 font-bold text-xs rounded-xl transition-all leading-none select-none ${
+                        converting
+                          ? "bg-amber-500/30 text-neutral-500 cursor-not-allowed"
+                          : "bg-amber-500 hover:bg-amber-400 text-neutral-950 cursor-pointer shadow-[0_0_15px_rgba(245,158,11,0.25)] hover:scale-[1.01] active:scale-[0.99]"
+                      }`}
                     >
-                      Start 320kbps MP3 Conversion
+                      {converting ? "Converting..." : "Start 320kbps MP3 Conversion"}
                     </button>
                   </div>
                 </div>
