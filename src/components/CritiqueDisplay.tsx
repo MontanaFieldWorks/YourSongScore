@@ -5351,82 +5351,69 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </div>
 
           {/* Key and BPM Row - Version 4 Harmonic Audit */}
-          <div className="flex flex-col sm:flex-row gap-4 flex-wrap mt-1">
+          <div className="flex flex-row flex-nowrap gap-4 overflow-x-auto mt-1 pb-1">
             {/* Detected Key / Tempo (BPM) cards removed - detection reliability issues
                 confirmed via real-audio testing (see project notes). Underlying detection
                 code and getEstimatedKey/getEstimatedBpm helpers remain untouched. */}
 
             {critique?.liveMetrics?.calculatedKey && (
-              <div 
-                style={{ 
-                  width: isMobile ? "100%" : "auto"
-                }}
-                className="bg-[#11131A] px-4 py-3 rounded-xl border border-violet-500/25 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-violet-500/50 transition-all flex flex-col items-start gap-1 justify-center min-w-fit max-w-[280px]"
-              >
-                <span className="text-[11px] uppercase font-mono tracking-wider text-slate-500 font-bold whitespace-nowrap">Estimated Key:</span>
-                <div className="font-bold text-white text-sm flex items-center gap-2 whitespace-nowrap">
-                  <span className="w-2 h-2 rounded-full bg-violet-500" />
+              <div className="bg-[#11131A] px-4 py-3 rounded-xl border border-violet-500/25 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-violet-500/50 transition-all flex flex-col items-start gap-1 justify-center whitespace-nowrap shrink-0 group relative">
+                <span className="text-[11px] uppercase font-mono tracking-wider text-slate-500 font-bold flex items-center gap-1">
+                  Estimated Key:
+                  <Info className="w-2.5 h-2.5 text-slate-600 shrink-0" />
+                </span>
+                <div className="font-bold text-white text-sm flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-violet-500 shrink-0" />
                   <span>{critique.liveMetrics.calculatedKey}</span>
                 </div>
-                <p className="text-[10px] text-slate-500 leading-snug mt-0.5">
-                  Major and relative minor keys share the same pitch collection, and some recordings contain modal or otherwise ambiguous tonal material. Treat this as an analysis result, not an absolute determination.
-                </p>
+                <div className="absolute top-full left-0 mt-1.5 w-[260px] p-2.5 rounded-lg bg-neutral-900 border border-white/10 text-[10px] text-slate-400 leading-relaxed opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-xl whitespace-normal">
+                  Key estimation may be inaccurate due to shared pitch content between relative major/minor keys, or modal and otherwise ambiguous tonal material.
+                </div>
               </div>
             )}
 
-            <div 
-              style={{ 
-                width: isMobile ? "100%" : "auto"
-              }}
-              className="bg-[#11131A] px-4 py-3 rounded-xl border border-blue-500/25 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-blue-500/50 transition-all flex flex-col items-start gap-1 justify-center whitespace-nowrap min-w-fit"
-            >
+            <div className="bg-[#11131A] px-4 py-3 rounded-xl border border-blue-500/25 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-blue-500/50 transition-all flex flex-col items-start gap-1 justify-center whitespace-nowrap shrink-0">
               <span className="text-[11px] uppercase font-mono tracking-wider text-slate-500 font-bold">Core Genre Profile:</span>
               <div className="font-bold text-white text-sm flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-blue-500" />
+                <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
                 <span>{critique?.vibe?.genre ?? "N/A"}</span>
                 {getGenreIcon(critique?.vibe?.genre ?? "", "w-4.5 h-4.5 ml-1")}
               </div>
             </div>
 
-            <div 
-              style={{ 
-                width: isMobile ? "100%" : "auto"
-              }}
-              className="bg-[#11131A] px-4 py-3 rounded-xl border border-blue-500/25 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-blue-500/50 transition-all flex flex-col items-start gap-1 justify-center whitespace-nowrap min-w-fit"
-            >
+            <div className="bg-[#11131A] px-4 py-3 rounded-xl border border-blue-500/25 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-blue-500/50 transition-all flex flex-col items-start gap-1 justify-center whitespace-nowrap shrink-0">
               <span className="text-[11px] uppercase font-mono tracking-wider text-slate-500 font-bold">Sub-Genre &amp; Dynamic Style:</span>
               <div className="font-bold text-white text-sm flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-teal-400" style={{ backgroundColor: '#2dd4bf' }} />
+                <span className="w-2.5 h-2.5 rounded-full bg-teal-400 shrink-0" style={{ backgroundColor: '#2dd4bf' }} />
                 <span>{critique?.vibe?.subgenre ?? "N/A"}</span>
               </div>
             </div>
+
+            {audioSourceUrl && (
+              <div className="flex items-center gap-3 bg-[#11131A] border border-blue-500/25 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-blue-500/50 transition-all px-3 py-2 rounded-xl whitespace-nowrap shrink-0" id="header-audio-player">
+                <button
+                  onClick={togglePlayback}
+                  className={`p-2.5 rounded-lg flex items-center justify-center transition-all duration-300 cursor-pointer shrink-0 ${
+                    isPlaying 
+                      ? "bg-blue-600 hover:bg-blue-500 text-white" 
+                      : "bg-neutral-900/60 hover:bg-white/5 text-blue-400 border border-white/5"
+                  }`}
+                >
+                  {isPlaying ? <Pause className="w-4 h-4 fill-current animate-pulse" /> : <Play className="w-4 h-4 fill-current pl-0.5" />}
+                </button>
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-mono text-slate-400 uppercase flex items-center gap-1">
+                    {isPlaying ? <Flame className="w-3 h-3 text-blue-500 animate-pulse shrink-0" /> : null}
+                    {isPlaying ? "Auditory playback looping" : "Reference monitor"}
+                  </span>
+                  <span className="text-xs text-slate-500 mt-0.5">
+                    {localFileBlobUrl ? "Your uploaded file format" : "Spotify 30s audio sample preview"}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Playback utility desk */}
-        {audioSourceUrl && (
-          <div className="flex items-center gap-3 bg-neutral-950 border border-white/15 p-3 rounded-xl relative z-10 shadow-inner" id="header-audio-player">
-            <button
-              onClick={togglePlayback}
-              className={`p-3 rounded-lg flex items-center justify-center transition-all duration-300 cursor-pointer ${
-                isPlaying 
-                  ? "bg-blue-600 hover:bg-blue-500 text-white" 
-                  : "bg-neutral-900/60 hover:bg-white/5 text-blue-400 border border-white/5"
-              }`}
-            >
-              {isPlaying ? <Pause className="w-4 h-4 fill-current animate-pulse" /> : <Play className="w-4 h-4 fill-current pl-0.5" />}
-            </button>
-            <div className="flex flex-col pr-4">
-              <span className="text-[12px] font-mono text-slate-400 uppercase flex items-center gap-1">
-                {isPlaying ? <Flame className="w-3 h-3 text-blue-500 animate-pulse" /> : null}
-                {isPlaying ? "Auditory playback looping" : "Reference monitor"}
-              </span>
-              <span className="text-xs text-slate-500 mt-0.5">
-                {localFileBlobUrl ? "Your uploaded file format" : "Spotify 30s audio sample preview"}
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
         {/* Combined Interactive Category Selectors & Main Scoreboard Grid */}
