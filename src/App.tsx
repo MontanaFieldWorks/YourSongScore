@@ -2,7 +2,25 @@ import React, { useState, useEffect } from "react";
 import jsmediatags from "jsmediatags";
 import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile } from "./types";
-import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer } from "./lib/liveAudioAnalyzer";
+import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
+
+// Runs the new, validated essentia.js key detection and overwrites the old,
+// confirmed-unreliable chroma-based key on the given liveMetrics object in place.
+// Falls back silently to the existing (old) value only if the new detection fails,
+// so a WASM load issue degrades gracefully rather than breaking the analysis.
+async function applyRealKeyDetection(audioBuffer: AudioBuffer, liveMetrics: any): Promise<void> {
+  try {
+    const keyResult = await detectMusicalKey(audioBuffer);
+    if (keyResult) {
+      liveMetrics.calculatedKey = `${keyResult.key} ${keyResult.scale}`;
+      // Old confidence field is not reused - validated this session to not reliably
+      // reflect actual correctness, so it's cleared rather than left stale/misleading.
+      delete liveMetrics.calculatedKeyConfidence;
+    }
+  } catch (e) {
+    console.warn("[App] Real key detection failed, keeping prior estimate:", e);
+  }
+}
 import { getLocalFile } from "./lib/localFileCache";
 import { safeLocalStorage } from "./lib/safeStorage";
 import UploadSection from "./components/UploadSection";
@@ -819,6 +837,7 @@ export default function App() {
       try {
         const audioBuffer = await decodeAudioFile(selectedFile);
         liveMetrics = analyzeAudioBuffer(audioBuffer);
+        await applyRealKeyDetection(audioBuffer, liveMetrics);
         console.log("[App] Live Metrics analyzed:", liveMetrics);
       } catch (errAnalyz) {
         console.warn("Could not decode audio files client-side, falling back:", errAnalyz);
@@ -935,6 +954,7 @@ export default function App() {
         try {
           const audioBuffer = await decodeAudioUrl(data.trackInfo.previewUrl);
           liveMetrics = analyzeAudioBuffer(audioBuffer);
+          await applyRealKeyDetection(audioBuffer, liveMetrics);
           console.log("[App] Spotify Live Metrics analyzed:", liveMetrics);
         } catch (errAnalyz) {
           console.warn("Could not decode Spotify file client-side, falling back:", errAnalyz);
@@ -991,6 +1011,7 @@ export default function App() {
       try {
         const audioBuffer = await decodeAudioUrl(sample.audioUrl);
         liveMetrics = analyzeAudioBuffer(audioBuffer);
+        await applyRealKeyDetection(audioBuffer, liveMetrics);
         console.log("[App] Sample Live Metrics analyzed:", liveMetrics);
       } catch (errAnalyz) {
         console.warn("Could not decode sample file client-side, falling back:", errAnalyz);
@@ -1075,9 +1096,11 @@ export default function App() {
       if (cachedFileForAnalysis) {
         const audioBuffer = await decodeAudioFile(cachedFileForAnalysis);
         earlyLiveMetrics = analyzeAudioBuffer(audioBuffer);
+        await applyRealKeyDetection(audioBuffer, earlyLiveMetrics);
       } else if (track.convertedMp3Url) {
         const audioBuffer = await decodeAudioUrl(track.convertedMp3Url);
         earlyLiveMetrics = analyzeAudioBuffer(audioBuffer);
+        await applyRealKeyDetection(audioBuffer, earlyLiveMetrics);
       }
       if (earlyLiveMetrics && earlyLiveMetrics.timeResolvedChromagram) {
         chromagramImageForGemini = renderChromagramImage(earlyLiveMetrics);
@@ -1174,6 +1197,7 @@ export default function App() {
             try {
               const audioBuffer = await decodeAudioFile(cachedFile);
               const liveMetrics = analyzeAudioBuffer(audioBuffer);
+              await applyRealKeyDetection(audioBuffer, liveMetrics);
               if (liveMetrics) {
                 finalCritique.liveMetrics = liveMetrics;
               }
@@ -1242,6 +1266,7 @@ export default function App() {
         try {
           const audioBuffer = await decodeAudioUrl(track.convertedMp3Url);
           liveMetrics = analyzeAudioBuffer(audioBuffer);
+          await applyRealKeyDetection(audioBuffer, liveMetrics);
           console.log("[App] Queued Live Metrics analyzed:", liveMetrics);
         } catch (errAnalyz) {
           console.warn("Could not decode queued track file client-side, falling back:", errAnalyz);
