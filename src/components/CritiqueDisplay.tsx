@@ -5356,6 +5356,24 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 confirmed via real-audio testing (see project notes). Underlying detection
                 code and getEstimatedKey/getEstimatedBpm helpers remain untouched. */}
 
+            {critique?.liveMetrics?.calculatedKey && (
+              <div 
+                style={{ 
+                  width: isMobile ? "100%" : "auto"
+                }}
+                className="bg-[#11131A] px-4 py-3 rounded-xl border border-violet-500/25 shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-violet-500/50 transition-all flex flex-col items-start gap-1 justify-center min-w-fit max-w-[280px]"
+              >
+                <span className="text-[11px] uppercase font-mono tracking-wider text-slate-500 font-bold whitespace-nowrap">Estimated Key:</span>
+                <div className="font-bold text-white text-sm flex items-center gap-2 whitespace-nowrap">
+                  <span className="w-2 h-2 rounded-full bg-violet-500" />
+                  <span>{critique.liveMetrics.calculatedKey}</span>
+                </div>
+                <p className="text-[10px] text-slate-500 leading-snug mt-0.5">
+                  Major and relative minor keys share the same pitch collection, and some recordings contain modal or otherwise ambiguous tonal material. Treat this as an analysis result, not an absolute determination.
+                </p>
+              </div>
+            )}
+
             <div 
               style={{ 
                 width: isMobile ? "100%" : "auto"
