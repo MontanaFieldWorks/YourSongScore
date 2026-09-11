@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
-  Sparkles, Lightbulb, ArrowRight, X, TrendingUp, CheckCircle2, Activity, Flame, Rabbit, XCircle
+  Sparkles, Lightbulb, ArrowRight, X, TrendingUp, CheckCircle2, Activity, Flame, Rabbit, XCircle, Info, Music
 } from "lucide-react";
 import { getGenreLoudnessBucket, getEchoNestTier, computeEchoNestScorecard, computeCategoryScores } from "./CritiqueDisplay";
 import { CritiqueData, TrackInfo } from "../types";
@@ -325,6 +325,29 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
 
             {/* Dynamic Parameter Cards */}
             <div className="flex flex-row flex-nowrap gap-2 flex-grow mt-2 md:mt-0 md:justify-end w-[400px] max-w-full">
+              {/* Estimated Key - restored using the validated essentia.js detector. Deliberately
+                  shows no per-song confidence/strength figure (validated this session against
+                  19 real songs: strength does not reliably separate correct from incorrect
+                  results), and no manufactured "alternative key" (that would be derived from
+                  music theory, not detected from audio - a mistake caught and corrected during
+                  development). A single, honest, unvarying disclaimer covers the known
+                  relative-key and modal-ambiguity limitation instead. */}
+              {critique.liveMetrics?.calculatedKey && (
+                <div className="bg-[#090b11] border border-white/5 rounded-xl px-2.5 py-1.5 flex flex-col justify-center flex-1 min-w-0 group relative">
+                  <span className="text-[9px] font-mono font-bold tracking-widest text-slate-500 uppercase truncate flex items-center gap-1">
+                    ESTIMATED KEY
+                    <Info className="w-2.5 h-2.5 text-slate-600 flex-shrink-0" />
+                  </span>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Music className="w-3.5 h-3.5 text-violet-400 flex-shrink-0" />
+                    <span className="text-xs font-mono font-black text-white uppercase truncate">{critique.liveMetrics.calculatedKey}</span>
+                  </div>
+                  <div className="absolute top-full left-0 mt-1.5 w-[240px] p-2.5 rounded-lg bg-neutral-900 border border-white/10 text-[10px] text-slate-400 leading-relaxed opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-xl">
+                    Major and relative minor keys share the same pitch collection, and some recordings contain modal or otherwise ambiguous tonal material. This estimate should be treated as an analysis result rather than an absolute determination.
+                  </div>
+                </div>
+              )}
+
               {/* Key and Tempo cards removed - detection reliability issues confirmed via
                   real-audio testing (see project notes). Underlying detection code in
                   liveAudioAnalyzer.ts is untouched; re-enable here once resolved. */}
