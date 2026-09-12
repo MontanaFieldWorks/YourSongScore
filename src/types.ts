@@ -88,6 +88,13 @@ export interface LiveAudioMetrics {
   calculatedCoreMidsBandEnergy?: number;
   calculatedPresenceBandEnergy?: number;
   calculatedAirBandEnergy?: number;
+  calculatedSubBassCorrelation?: number;
+  calculatedSubBassCrestFactor?: number;
+  calculatedBassCrestFactor?: number;
+  calculatedMudFlatness?: number;
+  calculatedMudFlux?: number;
+  calculatedMidrangeFlatness?: number;
+  calculatedMidrangeFlux?: number;
   detectedChordProgression?: { root: number; quality: "major" | "minor" | "power" | "sus4"; startFrame: number; endFrame: number; bassPitchClass: number }[];
   detectedChordProgressionNamed?: { root: number; quality: "major" | "minor" | "power" | "sus4"; startFrame: number; endFrame: number; name: string; startTimeSec: number; endTimeSec: number; bassPitchClass: number }[];
   detectedMelodyContour?: { voiced: boolean; frequencyHz?: number; midiNote?: number; timeSec: number }[];
