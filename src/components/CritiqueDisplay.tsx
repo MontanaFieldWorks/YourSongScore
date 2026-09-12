@@ -1594,7 +1594,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     ws.getColumn(3).width = 8;
     ws.getColumn(4).width = 13;
     ws.getColumn(5).width = 30;
-    ws.getColumn(6).width = 9;
+    ws.getColumn(6).width = 12;
     ws.getColumn(7).width = 136;
 
     ws.getCell("B2").value = "YOURSONGSCORE REPORT";
@@ -1603,9 +1603,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     ws.getCell("C3").value = trackInfo?.artist || "Independent Artist";
     ws.getCell("B4").value = "SONG TITLE:";
     ws.getCell("C4").value = trackInfo?.name || "Untitled";
-    // KEY and TEMPO fields removed from export - detection reliability issues confirmed
-    // via real-audio testing, matching the same UI removal. Underlying detection code is
-    // untouched; reinstate here once resolved.
+    // Key reinstated using the new, validated essentia.js-based detection (real algorithm,
+    // honestly framed - see the Estimated Key card elsewhere in the app for the same value
+    // and its disclaimer). Tempo/BPM deliberately remains removed - that detection was
+    // never fixed and stays unreliable; do not reinstate it here without the same rigor
+    // applied to Key this session.
+    ws.getCell("E3").value = "ESTIMATED KEY:";
+    ws.getCell("F3").value = critique?.liveMetrics?.calculatedKey || "N/A";
     ws.getCell("B5").value = "GENRE:";
     ws.getCell("C5").value = critique?.vibe?.genre || "Unclassified";
     ws.getCell("B6").value = "SUBGENRE:";
