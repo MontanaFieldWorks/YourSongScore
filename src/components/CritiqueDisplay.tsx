@@ -1462,7 +1462,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       subParams: [
         { name: "Timeline Grid Cohesion (25%)", desc: "Tightness and timing sync between drum elements and bass groove lines." },
         { name: "Transient Punch (25%)", desc: "The snap of kick drums, synth envelope releases, and guitar picking presence." },
-        { name: "Melodic Staging (25%)", desc: "Layer separation of instrumentation across the stereo panning soundstage." },
+        { name: "Stereo Instrument Staging (25%)", desc: "Layer separation of instrumentation across the stereo panning soundstage." },
         { name: "Instrumental Warmth (25%)", desc: "The general tonal warmth and richness of the backing instrumentation - full and rounded versus thin and harsh." }
       ],
       callout: "This Metric audits backing timing grids, transient levels, and tonal warmth to optimize playback punchiness.",
@@ -1488,7 +1488,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     },
     {
       id: "dna-tension",
-      name: "Acoustic Tension",
+      name: "Dynamic Tension & Release",
       subtitle: "Dynamic Structural Builds & Narrative Arc",
       score: dnaTensionScore,
       colorClass: "stroke-amber-400",
@@ -3119,7 +3119,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         return `The song attacks feel soft, squashed, or flat. This usually happens when master compression is too aggressive or attack times are too fast, crushing the transient's crack. Let the peaks breathe more to restore punch.`;
       }
     }
-    if (cleanName === "Melodic Staging") {
+    if (cleanName === "Stereo Instrument Staging") {
       if (score >= 90) {
         return `Breathtaking stereo soundstage placement! Secondary guitars, keyboards, and backing tracks are spread nicely to the sides, while key solos and the main kick/bass/snare sit boldly in the center.`;
       } else if (score >= 80) {
