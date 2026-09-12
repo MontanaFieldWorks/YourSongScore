@@ -1595,7 +1595,17 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   let climaxBuildDb: number | null = null;
 
   if (windowRmsDb.length >= 8) {
-    const sortedDb = [...windowRmsDb].sort((a, b) => a - b);
+    // Silence gate: exclude genuinely silent windows (below -50dB) before computing the
+    // percentile range, so true dead air - intro silence, a fade to silence at the outro -
+    // doesn't skew the result. Tested empirically this session: this only removes actual
+    // silence, not quiet-but-intentional musical content, unlike a blind fixed-time trim
+    // (which would cut real music regardless of loudness and was rejected for that reason).
+    // Falls back to the ungated set if gating would leave too few windows to be meaningful.
+    const SILENCE_GATE_DB = -50;
+    const gated = windowRmsDb.filter(db => db > SILENCE_GATE_DB);
+    const gatedForRange = gated.length >= 8 ? gated : windowRmsDb;
+
+    const sortedDb = [...gatedForRange].sort((a, b) => a - b);
     const pIndex = (p: number) => sortedDb[Math.min(sortedDb.length - 1, Math.floor(p * sortedDb.length))];
     const highP = pIndex(0.85);
     const lowP = pIndex(0.15);
