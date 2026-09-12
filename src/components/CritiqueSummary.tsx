@@ -17,8 +17,9 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
   // State for tracking open explanatory banners
   const [openExplanations, setOpenExplanations] = useState<Record<string, boolean>>({});
   const [animatedScores, setAnimatedScores] = useState<number[]>([0, 0, 0, 0]);
+  const [isRevealed, setIsRevealed] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const animationRefs = useRef<(number | null)[]>([null, null, null]);
+  const animationRefs = useRef<(number | null)[]>([null, null, null, null]);
 
   useEffect(() => {
     setImageError(false);
@@ -161,7 +162,15 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
     }
   ];
 
+  // Reset reveal state if a new critique is loaded
   useEffect(() => {
+    setIsRevealed(false);
+    setAnimatedScores([0, 0, 0, 0]);
+  }, [critique]);
+
+  useEffect(() => {
+    if (!isRevealed) return;
+
     const duration = 2000;
     const timeoutIds: ReturnType<typeof setTimeout>[] = [];
     categories.forEach((cat, i) => {
@@ -192,7 +201,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
         if (id) cancelAnimationFrame(id);
       });
     };
-  }, []);
+  }, [isRevealed]);
 
   return (
     <motion.div 
@@ -698,7 +707,13 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
           
           {/* Glowing Portal Container */}
           <div 
-            onClick={onViewFullAudit}
+            onClick={() => {
+              if (!isRevealed) {
+                setIsRevealed(true);
+              } else {
+                onViewFullAudit();
+              }
+            }}
             className="w-full h-full bg-none border-none relative overflow-hidden transition-all duration-500 rounded-3xl p-6 pt-[3px] flex flex-col gap-5 justify-between cursor-pointer group z-10 translate-x-[100px]"
             id="glowing-score-portal"
           >
@@ -722,11 +737,60 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
 
               {/* Glowing Ring Score Cards List */}
               <div className="w-[440px] flex flex-col gap-3 relative z-10 mt-[10px] text-left">
+                {/* "See your Results" Overlay sitting on top of the 4 categories and circles */}
+                <AnimatePresence>
+                  {!isRevealed && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0, scale: 0.96 }}
+                      transition={{ duration: 0.35, ease: "easeOut" }}
+                      className="absolute inset-0 z-30 rounded-2xl bg-black/80 backdrop-blur-md border border-cyan-500/20 flex flex-col items-center justify-center p-6 text-center shadow-[0_8px_32px_rgba(0,0,0,0.85)] cursor-default"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsRevealed(true);
+                      }}
+                    >
+                      <div className="flex flex-col items-center max-w-[320px] mx-auto gap-3.5">
+                        <span className="text-[10px] font-mono tracking-widest uppercase text-cyan-400 font-bold bg-cyan-950/80 border border-cyan-500/30 px-3 py-1 rounded-full shadow-[0_0_12px_rgba(34,211,238,0.25)] flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                          Analysis Complete
+                        </span>
+                        
+                        <div>
+                          <h3 className="font-['Inter'] text-xl font-extrabold text-white tracking-tight">
+                            Song Audit Ready
+                          </h3>
+                          <p className="text-xs text-slate-400 mt-1 font-sans leading-relaxed">
+                            Commercial viability and acoustic metrics are calculated.
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          id="see-your-results-button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsRevealed(true);
+                          }}
+                          className="mt-1 group relative inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-xl font-['Inter'] font-bold text-base text-white tracking-wide bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:via-indigo-500 hover:to-cyan-400 shadow-[0_0_25px_rgba(59,130,246,0.6)] hover:shadow-[0_0_40px_rgba(34,211,238,0.8)] border border-cyan-300/40 hover:border-cyan-200 transition-all duration-300 transform hover:scale-[1.03] active:scale-[0.98] cursor-pointer"
+                        >
+                          <Sparkles className="w-5 h-5 text-cyan-200 group-hover:rotate-12 transition-transform duration-300" />
+                          <span>See your Results</span>
+                          <ArrowRight className="w-4 h-4 text-cyan-200 group-hover:translate-x-1 transition-transform" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 {categories.map((cat, i) => {
                   const radius = 52;
                   const strokeWidth = 5.25;
                   const circumference = 2 * Math.PI * radius;
-                  const strokeDashoffset = circumference - (animatedScores[i] / 100) * circumference;
+                  const strokeDashoffset = isRevealed 
+                    ? circumference - (animatedScores[i] / 100) * circumference
+                    : circumference;
                   
                   const itemColorConfigs = [
                     {
@@ -795,7 +859,9 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                         </svg>
                         {/* Center number */}
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="font-['Inter'] text-[40px] font-bold text-white">{animatedScores[i]}</span>
+                          {isRevealed && (
+                            <span className="font-['Inter'] text-[40px] font-bold text-white">{animatedScores[i]}</span>
+                          )}
                         </div>
                       </div>
 
