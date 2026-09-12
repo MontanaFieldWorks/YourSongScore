@@ -1804,7 +1804,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       (m.subParams || []).forEach((param: any, idx: number) => {
         const realSub = getRealSubMetric(critique, m.id, idx);
         const subScore = realSub ? realSub.score : getSubScore(m.score, idx, m.subParams.length, m.id);
-        const subText = realSub ? realSub.commentary : getSubScoreExplanationText(param.name, subScore);
+        const fallbackWarning = realSub ? "" : getFallbackWarning(critique, m.id);
+        const subText = (fallbackWarning) + (realSub ? realSub.commentary : getSubScoreExplanationText(param.name, subScore));
         addSubRow(param.name, subScore, (subText || "").replace(/\n/g, " ").replace(/(\d+\s*)?[+-]\s*\d+\s*points?:\s*/gi, ""));
       });
     });
@@ -3728,6 +3729,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                           <span className="text-[11px] font-mono text-blue-400 font-bold uppercase tracking-widest block mb-1">
                             A&amp;R Deep-Dive Analysis
                           </span>
+                          {!realSub && getFallbackWarning(critique, selectedObj.id) && (
+                            <span className="block mb-2 text-[11px] font-mono text-amber-400 font-bold">
+                              {getFallbackWarning(critique, selectedObj.id)}
+                            </span>
+                          )}
                           {realSub ? realSub.commentary : getSubScoreExplanationText(param.name, subScore)}
                         </div>
                       </div>
