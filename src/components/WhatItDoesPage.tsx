@@ -906,7 +906,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                             <div className="flex gap-2">
                               <span className="text-[#46F4CD] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
-                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Melodic Staging</span>
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Stereo Instrument Staging</span>
                                 <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Despite the name, judges real stereo placement of instruments - a centered arrangement is judged on artistic intent, not penalized by default.</span>
                               </div>
                             </div>
@@ -1858,7 +1858,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
                         <BarChart3 className="w-4 h-4 text-red-400 shrink-0" />
-                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">ACOUSTIC TENSION</h4>
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">DYNAMIC TENSION &amp; RELEASE</h4>
                       </div>
                       <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isAcousticTensionOpen ? "rotate-180 text-red-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
