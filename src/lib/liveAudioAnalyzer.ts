@@ -1504,6 +1504,113 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     bandEnergies[b] = Math.max(0, Math.min(100, Math.round(score)));
   }
 
+  // DSP evidence package for Mud Prevention / Midrange Spacing / Low-End Division,
+  // built per the agreed approach: real, multi-signal observations (not a single
+  // manufactured "mud score" or "separation score") for Gemini to interpret alongside
+  // genre context. Reuses the exact same FFT frames from the loop above - tracked
+  // separately here since these need per-frame time-series (for correlation/flux),
+  // not just an aggregate sum like the 6-band energy measurement above.
+  const subBassTimeSeries: number[] = [];
+  const bassTimeSeries: number[] = [];
+  const mudFrameMagnitudes: number[][] = [];
+  const midrangeFrameMagnitudes: number[][] = [];
+
+  for (let f = 0; f < bandNumFrames; f += bandFrameStep) {
+    const start = f * bandFftSize;
+    const frame = new Array(bandFftSize);
+    for (let n = 0; n < bandFftSize; n++) {
+      frame[n] = (ch0[start + n] || 0) * bandHannWindow[n];
+    }
+
+    bandFft.realTransform(bandComplexOut, frame);
+    bandFft.completeSpectrum(bandComplexOut);
+
+    const binHz = sampleRate / bandFftSize;
+    const numBins = bandFftSize / 2;
+    let subSum = 0, subCount = 0, bassSum = 0, bassCount = 0;
+    const mudMags: number[] = [];
+    const midMags: number[] = [];
+
+    for (let k = 1; k < numBins; k++) {
+      const freq = k * binHz;
+      const re = bandComplexOut[2 * k];
+      const im = bandComplexOut[2 * k + 1];
+      const magnitude = Math.sqrt(re * re + im * im);
+
+      if (freq >= 20 && freq < 60) { subSum += magnitude; subCount++; }
+      if (freq >= 60 && freq < 150) { bassSum += magnitude; bassCount++; }
+      if (freq >= 150 && freq < 400) mudMags.push(magnitude);
+      if (freq >= 400 && freq < 4000) midMags.push(magnitude);
+    }
+
+    subBassTimeSeries.push(subCount > 0 ? subSum / subCount : 0);
+    bassTimeSeries.push(bassCount > 0 ? bassSum / bassCount : 0);
+    mudFrameMagnitudes.push(mudMags);
+    midrangeFrameMagnitudes.push(midMags);
+  }
+
+  function pearsonCorrelation(a: number[], b: number[]): number {
+    const n = Math.min(a.length, b.length);
+    if (n < 3) return 0;
+    const meanA = a.slice(0, n).reduce((s, v) => s + v, 0) / n;
+    const meanB = b.slice(0, n).reduce((s, v) => s + v, 0) / n;
+    let num = 0, denA = 0, denB = 0;
+    for (let i = 0; i < n; i++) {
+      const da = a[i] - meanA, db = b[i] - meanB;
+      num += da * db;
+      denA += da * da;
+      denB += db * db;
+    }
+    const den = Math.sqrt(denA * denB);
+    return den > 0 ? num / den : 0;
+  }
+
+  function crestFactor(series: number[]): number {
+    if (series.length === 0) return 0;
+    const peak = Math.max(...series);
+    const avg = series.reduce((s, v) => s + v, 0) / series.length;
+    return avg > 0 ? peak / avg : 0;
+  }
+
+  function spectralFlatnessAndFlux(frameMags: number[][]): { flatness: number; flux: number } {
+    const flatnessVals: number[] = [];
+    const fluxVals: number[] = [];
+    let prevFrame: number[] | null = null;
+    for (const mags of frameMags) {
+      const positive = mags.filter(m => m > 1e-10);
+      if (positive.length > 0) {
+        const logSum = positive.reduce((s, v) => s + Math.log(v), 0);
+        const geoMean = Math.exp(logSum / positive.length);
+        const arithMean = positive.reduce((s, v) => s + v, 0) / positive.length;
+        flatnessVals.push(arithMean > 0 ? geoMean / arithMean : 0);
+      }
+      if (prevFrame && prevFrame.length === mags.length && mags.length > 0) {
+        let sumSq = 0;
+        for (let i = 0; i < mags.length; i++) {
+          const d = mags[i] - prevFrame[i];
+          sumSq += d * d;
+        }
+        fluxVals.push(Math.sqrt(sumSq / mags.length));
+      }
+      prevFrame = mags;
+    }
+    const flatness = flatnessVals.length > 0 ? flatnessVals.reduce((s, v) => s + v, 0) / flatnessVals.length : 0;
+    const flux = fluxVals.length > 0 ? fluxVals.reduce((s, v) => s + v, 0) / fluxVals.length : 0;
+    return { flatness: parseFloat(flatness.toFixed(3)), flux: parseFloat(flux.toFixed(2)) };
+  }
+
+  const subBassCorrelation = parseFloat(pearsonCorrelation(subBassTimeSeries, bassTimeSeries).toFixed(3));
+  const subBassCrestFactor = parseFloat(crestFactor(subBassTimeSeries).toFixed(2));
+  const bassCrestFactor = parseFloat(crestFactor(bassTimeSeries).toFixed(2));
+  const mudEvidence = spectralFlatnessAndFlux(mudFrameMagnitudes);
+  const midrangeEvidence = spectralFlatnessAndFlux(midrangeFrameMagnitudes);
+
+
+  // Modulation (how much loudness contrast exists between quiet and loud sections) and
+  // Climax Trajectory (whether the song builds toward a genuine late peak, rather than
+  // front-loading its energy). Real, computed values - first-pass reasoned scoring curves,
+  // not yet empirically calibrated against real songs, same as other new metrics this
+  // session; worth checking against real test songs before trusting the exact numbers.
   // Windowed RMS energy envelope across the whole song - shared basis for both Dynamic
   // Modulation (how much loudness contrast exists between quiet and loud sections) and
   // Climax Trajectory (whether the song builds toward a genuine late peak, rather than
@@ -1709,6 +1816,13 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     calculatedCoreMidsBandEnergy: bandEnergies[3],
     calculatedPresenceBandEnergy: bandEnergies[4],
     calculatedAirBandEnergy: bandEnergies[5],
+    calculatedSubBassCorrelation: subBassCorrelation,
+    calculatedSubBassCrestFactor: subBassCrestFactor,
+    calculatedBassCrestFactor: bassCrestFactor,
+    calculatedMudFlatness: mudEvidence.flatness,
+    calculatedMudFlux: mudEvidence.flux,
+    calculatedMidrangeFlatness: midrangeEvidence.flatness,
+    calculatedMidrangeFlux: midrangeEvidence.flux,
     calculatedStartOfFadeOut: startOfFadeOut,
     calculatedTimeSignature: detectedTimeSignature,
     calculatedTimeSignatureConfidence: timeSignatureConfidence,
