@@ -328,12 +328,12 @@ FIELD DEFINITION - vocalTracking (parent score): this score should genuinely ref
 
 FIELD DEFINITION - instrumentalStaging (parent score): this score should genuinely reflect the constellation of its own sub-metrics (timelineGridCohesion, transientPunch, melodicStaging, instrumentalWarmth) rather than an independent holistic guess - if your sub-scores for this track are mixed, your parent score and commentary should reflect that mix specifically, not default to a generic summary that doesn't match the sub-metric picture.
 
-RUBRIC ANCHOR FOR MUD PREVENTION: measures the absence of uncontrolled frequency masking in the 150-400Hz range.
+RUBRIC ANCHOR FOR MUD PREVENTION: measures the absence of uncontrolled frequency masking in the 150-400Hz range. Real spectral flatness and flux measurements for this exact range are provided above as 'Measured Mud Band Evidence' - use them as supporting evidence for how tonal/structured versus noise-like/smeared this range genuinely is, alongside what you actually hear. Neither measurement alone proves masking - a distorted guitar, dense drums, or intentionally saturated production can also produce high flatness or flux without any real mud - so judge the combination of the real evidence and the audible result together, not either signal in isolation.
 CRITICAL DISTINCTION: Low-mid warmth, body, and heavy harmonic density are deliberate, desirable signatures in many genres (dark pop, indie rock, R&B, synth-pop). Thick, warm, or heavy low-mids are ONLY considered 'mud' if there is genuine, audible masking that buries the lead vocal, blurs pitch definition of the bass, or muffles drum attack. If the vocal is intimately clear and drums/synths retain their articulation (even in a heavy, dark, or warm mix), mud prevention is successful and must score 90-100. Reserve deductions below 90 ONLY for tracks where instruments genuinely clash into an indistinct, boomy blur.
 
-RUBRIC ANCHOR FOR MIDRANGE SPACING: a score of 90-100 requires the midrange (roughly 500Hz to 4kHz) content to stay clearly separated between instruments at all times - lead vocals, primary hooks, and backing synths or guitars each occupy distinguishable space with no persistent clash. A score of 70-85 applies when the mix is generally functional but has at least one identifiable moment where two or more elements genuinely overlap and blur together - name the specific elements. Below 70 is reserved for mixes with structural, persistent crowding throughout.
+RUBRIC ANCHOR FOR MIDRANGE SPACING: a score of 90-100 requires the midrange (roughly 500Hz to 4kHz) content to stay clearly separated between instruments at all times - lead vocals, primary hooks, and backing synths or guitars each occupy distinguishable space with no persistent clash. Real spectral flatness and flux measurements for this exact range are provided above as 'Measured Midrange Evidence' and real energy readings for the Low-Mids/Core Mids bands are in 'Measured Spectral Band Distribution' - use these as supporting evidence for how densely and how tonally this range is occupied, alongside what you actually hear; neither number alone determines whether the density represents genuine crowding or healthy, well-arranged density. A score of 70-85 applies when the mix is generally functional but has at least one identifiable moment where two or more elements genuinely overlap and blur together - name the specific elements. Below 70 is reserved for mixes with structural, persistent crowding throughout.
 
-RUBRIC ANCHOR FOR LOW-END DIVISION: a score of 90-100 requires the kick drum and bass (synth bass, 808, or bass guitar) to occupy clearly separated frequency pockets with both audible and distinct throughout - neither one masking or swallowing the other. In modern dark pop, hip-hop, or synthwave, powerful low-end with sustained bass notes that underpin punchy transients represents elite low-end engineering (90-100), not an overlap problem. A score of 70-85 applies when the low end is generally functional but has at least one section where the bass and kick blur together or one becomes hard to distinguish from the other. Below 70 is reserved for a persistent, structural failure of separation - one element (most commonly the bass) is genuinely difficult to hear as a distinct part for most of the track, buried under or merged with the other low-frequency content.
+RUBRIC ANCHOR FOR LOW-END DIVISION: a score of 90-100 requires the kick drum and bass (synth bass, 808, or bass guitar) to occupy clearly separated frequency pockets with both audible and distinct throughout - neither one masking or swallowing the other. Real sub-bass/bass temporal correlation and crest factor measurements are provided above as 'Measured Low-End Evidence' - use them as supporting evidence for how independently the sub-bass and bass regions actually behave over time, alongside what you actually hear. Low correlation can reflect deliberate, independent sound design (e.g. a modulated sub-bass in electronic genres) rather than a problem, and neither correlation nor crest factor alone proves or disproves genuine separation - judge the combination alongside the audible result. In modern dark pop, hip-hop, or synthwave, powerful low-end with sustained bass notes that underpin punchy transients represents elite low-end engineering (90-100), not an overlap problem. A score of 70-85 applies when the low end is generally functional but has at least one section where the bass and kick blur together or one becomes hard to distinguish from the other. Below 70 is reserved for a persistent, structural failure of separation - one element (most commonly the bass) is genuinely difficult to hear as a distinct part for most of the track, buried under or merged with the other low-frequency content.
 
 - sibilanceShaving: IMPORTANT - a real, precomputed sibilance severity measurement for this track will be provided in the context below as 'Measured Sibilance Severity Score'. This is a genuine, objective measurement (0-100, where 100 = no detected harsh spikes in the 5-10kHz range, lower values = more/worse detected spikes), not a guess. You MUST treat this measured value as the primary, authoritative basis for the sibilanceShaving score - use your own listening impression only as a secondary, qualitative supplement in the commentary (e.g. identifying which specific words or moments sound harsh), not as a basis for overriding what the measurement shows. RUBRIC ANCHOR: map the measured value to your score directly and consistently - measured 90-100 -> score 90-100; measured 70-89 -> score 70-89; measured 50-69 -> score 50-69; below 50 -> score below 50. Do not compress the measured value toward a "safe middle" score - a genuinely low measured value must produce a genuinely low score, even for a well-known or otherwise well-produced track. A professionally released, well-mixed track can still have real, measured sibilance issues (e.g. a mixing engineer choosing to actively de-ess a vocal is direct evidence that real sibilance existed before correction) - this is common and does not imply the whole mix is bad.
 - stereoWidth: judges the width and spatial use of the stereo field - is the mix appropriately wide (backing elements, reverbs, doubled parts spread across the stereo image) without being so wide that mono compatibility or center-focus suffers? Judge this from what you actually hear in the stereo image, not from any external measurement. IMPORTANT - a real, precomputed phase correlation measurement for this track will be provided in the context below as 'Measured Stereo Phase Correlation'. This is a genuine, objective measurement (not a guess) ranging from -1 (fully out of phase, will collapse or cancel in mono playback) to +1 (fully mono/identical channels), where values roughly between 0.15 and 0.85 represent a healthy, wide-but-mono-safe stereo field. You MUST treat this measured value as the primary, authoritative basis for the stereoWidth score.
@@ -362,10 +362,25 @@ async function performSubMetricsCall1(
     coreMids?: number;
     presence?: number;
     air?: number;
-  }
+  },
+  measuredLowEndEvidence?: { subBassCorrelation?: number; subBassCrestFactor?: number; bassCrestFactor?: number },
+  measuredMudEvidence?: { flatness?: number; flux?: number },
+  measuredMidrangeEvidence?: { flatness?: number; flux?: number }
 ): Promise<any> {
   const bandEnergySummary = measuredBandEnergies
     ? `Sub-Bass (20-64Hz): ${measuredBandEnergies.subBass ?? 'N/A'}%, Bass (64-250Hz): ${measuredBandEnergies.bass ?? 'N/A'}%, Low-Mids (250Hz-1kHz): ${measuredBandEnergies.lowMids ?? 'N/A'}%, Core Mids (1-4kHz): ${measuredBandEnergies.coreMids ?? 'N/A'}%, Presence (4-8kHz): ${measuredBandEnergies.presence ?? 'N/A'}%, Air (8-20kHz): ${measuredBandEnergies.air ?? 'N/A'}%`
+    : "not available";
+
+  const mudEvidenceSummary = measuredMudEvidence
+    ? `spectral flatness ${measuredMudEvidence.flatness ?? 'N/A'} (0=purely tonal/structured, 1=noise-like/smeared), spectral flux ${measuredMudEvidence.flux ?? 'N/A'} (frame-to-frame spectral change - higher means more active/shifting content in this range)`
+    : "not available";
+
+  const midrangeEvidenceSummary = measuredMidrangeEvidence
+    ? `spectral flatness ${measuredMidrangeEvidence.flatness ?? 'N/A'}, spectral flux ${measuredMidrangeEvidence.flux ?? 'N/A'}`
+    : "not available";
+
+  const lowEndEvidenceSummary = measuredLowEndEvidence
+    ? `sub-bass/bass temporal correlation ${measuredLowEndEvidence.subBassCorrelation ?? 'N/A'} (-1 to 1 - how closely sub-bass and bass energy rise and fall together over time; low correlation can reflect independent sound design such as modulated sub-bass, not necessarily a problem), sub-bass crest factor ${measuredLowEndEvidence.subBassCrestFactor ?? 'N/A'}, bass crest factor ${measuredLowEndEvidence.bassCrestFactor ?? 'N/A'} (peak-to-average ratio - higher suggests more transient, punchier low-end activity; lower suggests sustained, consistent energy)`
     : "not available";
 
   const contextSummary = `
@@ -377,7 +392,11 @@ Parent category context already determined:
 - Measured Stereo Phase Correlation: ${measuredStereoCorrelation !== undefined && measuredStereoCorrelation !== null ? measuredStereoCorrelation : "not available"}
 - Measured Sibilance Severity Score: ${measuredSibilanceSeverity !== undefined && measuredSibilanceSeverity !== null ? measuredSibilanceSeverity : "not available"}
 - Measured Timbral Consistency Score: ${measuredTimbralConsistency !== undefined && measuredTimbralConsistency !== null ? measuredTimbralConsistency : "not available"} (Primary authoritative basis for Palette Cohesion)
-- Measured Spectral Band Distribution: ${bandEnergySummary} (Objective frequency energy profile informing Space & Density, Mud Prevention, and Spectral Match)
+- Measured Spectral Band Distribution: ${bandEnergySummary} (Objective frequency energy profile informing Space & Density and Spectral Match)
+- Measured Mud Band Evidence (150-400Hz - the range this metric is specifically about): ${mudEvidenceSummary}
+- Measured Midrange Evidence (400Hz-4kHz - the range Midrange Spacing is specifically about): ${midrangeEvidenceSummary}
+- Measured Low-End Evidence (for Low-End Division): ${lowEndEvidenceSummary}
+IMPORTANT ON THE THREE EVIDENCE LINES ABOVE: these are real, objective DSP measurements - not a "mud score," "spacing score," or "separation score" on their own, and none of them should be treated as a single definitive verdict. Combine what these measurements suggest with what you actually hear and with genre context to reach your own scored judgment for mudPrevention, midrangeSpacing, and lowEndDivision - the measurements are evidence to reason with, not a formula to plug into a scoring equation, and no fixed numeric threshold should be treated as a hard pass/fail line.
 
 Listen to the actual audio again and generate specific, deduction-based sub-metric scores and commentary for each of the 12 required fields, consistent with the above context but grounded in what you actually hear this time.
 
@@ -1233,6 +1252,27 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
     const airBandEnergy = (req.body.airBandEnergy !== undefined && req.body.airBandEnergy !== null && req.body.airBandEnergy !== "")
       ? parseFloat(req.body.airBandEnergy)
       : undefined;
+    const subBassCorrelation = (req.body.subBassCorrelation !== undefined && req.body.subBassCorrelation !== null && req.body.subBassCorrelation !== "")
+      ? parseFloat(req.body.subBassCorrelation)
+      : undefined;
+    const subBassCrestFactor = (req.body.subBassCrestFactor !== undefined && req.body.subBassCrestFactor !== null && req.body.subBassCrestFactor !== "")
+      ? parseFloat(req.body.subBassCrestFactor)
+      : undefined;
+    const bassCrestFactor = (req.body.bassCrestFactor !== undefined && req.body.bassCrestFactor !== null && req.body.bassCrestFactor !== "")
+      ? parseFloat(req.body.bassCrestFactor)
+      : undefined;
+    const mudFlatness = (req.body.mudFlatness !== undefined && req.body.mudFlatness !== null && req.body.mudFlatness !== "")
+      ? parseFloat(req.body.mudFlatness)
+      : undefined;
+    const mudFlux = (req.body.mudFlux !== undefined && req.body.mudFlux !== null && req.body.mudFlux !== "")
+      ? parseFloat(req.body.mudFlux)
+      : undefined;
+    const midrangeFlatness = (req.body.midrangeFlatness !== undefined && req.body.midrangeFlatness !== null && req.body.midrangeFlatness !== "")
+      ? parseFloat(req.body.midrangeFlatness)
+      : undefined;
+    const midrangeFlux = (req.body.midrangeFlux !== undefined && req.body.midrangeFlux !== null && req.body.midrangeFlux !== "")
+      ? parseFloat(req.body.midrangeFlux)
+      : undefined;
 
     const bandEnergies = (subBassBandEnergy !== undefined || bassBandEnergy !== undefined || lowMidsBandEnergy !== undefined) ? {
       subBass: subBassBandEnergy,
@@ -1242,6 +1282,12 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       presence: presenceBandEnergy,
       air: airBandEnergy
     } : undefined;
+
+    const lowEndEvidence = (subBassCorrelation !== undefined || subBassCrestFactor !== undefined || bassCrestFactor !== undefined) ? {
+      subBassCorrelation, subBassCrestFactor, bassCrestFactor
+    } : undefined;
+    const mudEvidence = (mudFlatness !== undefined || mudFlux !== undefined) ? { flatness: mudFlatness, flux: mudFlux } : undefined;
+    const midrangeEvidence = (midrangeFlatness !== undefined || midrangeFlux !== undefined) ? { flatness: midrangeFlatness, flux: midrangeFlux } : undefined;
 
     const chordProgressionSummary = req.body.chordProgressionSummary || undefined;
     const melodySummary = req.body.melodySummary || undefined;
@@ -1273,7 +1319,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 
     try {
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
-      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies);
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
@@ -1391,6 +1437,27 @@ app.post("/api/critique-url", async (req, res) => {
     const airBandEnergy = (req.body.airBandEnergy !== undefined && req.body.airBandEnergy !== null && req.body.airBandEnergy !== "")
       ? parseFloat(req.body.airBandEnergy)
       : undefined;
+    const subBassCorrelation = (req.body.subBassCorrelation !== undefined && req.body.subBassCorrelation !== null && req.body.subBassCorrelation !== "")
+      ? parseFloat(req.body.subBassCorrelation)
+      : undefined;
+    const subBassCrestFactor = (req.body.subBassCrestFactor !== undefined && req.body.subBassCrestFactor !== null && req.body.subBassCrestFactor !== "")
+      ? parseFloat(req.body.subBassCrestFactor)
+      : undefined;
+    const bassCrestFactor = (req.body.bassCrestFactor !== undefined && req.body.bassCrestFactor !== null && req.body.bassCrestFactor !== "")
+      ? parseFloat(req.body.bassCrestFactor)
+      : undefined;
+    const mudFlatness = (req.body.mudFlatness !== undefined && req.body.mudFlatness !== null && req.body.mudFlatness !== "")
+      ? parseFloat(req.body.mudFlatness)
+      : undefined;
+    const mudFlux = (req.body.mudFlux !== undefined && req.body.mudFlux !== null && req.body.mudFlux !== "")
+      ? parseFloat(req.body.mudFlux)
+      : undefined;
+    const midrangeFlatness = (req.body.midrangeFlatness !== undefined && req.body.midrangeFlatness !== null && req.body.midrangeFlatness !== "")
+      ? parseFloat(req.body.midrangeFlatness)
+      : undefined;
+    const midrangeFlux = (req.body.midrangeFlux !== undefined && req.body.midrangeFlux !== null && req.body.midrangeFlux !== "")
+      ? parseFloat(req.body.midrangeFlux)
+      : undefined;
 
     const bandEnergies = (subBassBandEnergy !== undefined || bassBandEnergy !== undefined || lowMidsBandEnergy !== undefined) ? {
       subBass: subBassBandEnergy,
@@ -1400,6 +1467,12 @@ app.post("/api/critique-url", async (req, res) => {
       presence: presenceBandEnergy,
       air: airBandEnergy
     } : undefined;
+
+    const lowEndEvidence = (subBassCorrelation !== undefined || subBassCrestFactor !== undefined || bassCrestFactor !== undefined) ? {
+      subBassCorrelation, subBassCrestFactor, bassCrestFactor
+    } : undefined;
+    const mudEvidence = (mudFlatness !== undefined || mudFlux !== undefined) ? { flatness: mudFlatness, flux: mudFlux } : undefined;
+    const midrangeEvidence = (midrangeFlatness !== undefined || midrangeFlux !== undefined) ? { flatness: midrangeFlatness, flux: midrangeFlux } : undefined;
 
     if (!ai) {
       return res.status(500).json({ error: "Gemini API Client is not configured." });
@@ -1468,7 +1541,7 @@ app.post("/api/critique-url", async (req, res) => {
 
     try {
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
-      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies);
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
       parsedCritique.subMetricsCall1Failed = false;
     } catch (subErr: any) {
