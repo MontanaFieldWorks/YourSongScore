@@ -1180,6 +1180,13 @@ export default function App() {
           formData.append("coreMidsBandEnergy", String(earlyLiveMetrics?.calculatedCoreMidsBandEnergy ?? ""));
           formData.append("presenceBandEnergy", String(earlyLiveMetrics?.calculatedPresenceBandEnergy ?? ""));
           formData.append("airBandEnergy", String(earlyLiveMetrics?.calculatedAirBandEnergy ?? ""));
+          formData.append("subBassCorrelation", String(earlyLiveMetrics?.calculatedSubBassCorrelation ?? ""));
+          formData.append("subBassCrestFactor", String(earlyLiveMetrics?.calculatedSubBassCrestFactor ?? ""));
+          formData.append("bassCrestFactor", String(earlyLiveMetrics?.calculatedBassCrestFactor ?? ""));
+          formData.append("mudFlatness", String(earlyLiveMetrics?.calculatedMudFlatness ?? ""));
+          formData.append("mudFlux", String(earlyLiveMetrics?.calculatedMudFlux ?? ""));
+          formData.append("midrangeFlatness", String(earlyLiveMetrics?.calculatedMidrangeFlatness ?? ""));
+          formData.append("midrangeFlux", String(earlyLiveMetrics?.calculatedMidrangeFlux ?? ""));
           formData.append("chordProgressionSummary", chordProgressionSummary || "");
           formData.append("melodySummary", melodySummary || "");
           
@@ -1240,6 +1247,13 @@ export default function App() {
               coreMidsBandEnergy: earlyLiveMetrics?.calculatedCoreMidsBandEnergy ?? null,
               presenceBandEnergy: earlyLiveMetrics?.calculatedPresenceBandEnergy ?? null,
               airBandEnergy: earlyLiveMetrics?.calculatedAirBandEnergy ?? null,
+              subBassCorrelation: earlyLiveMetrics?.calculatedSubBassCorrelation ?? null,
+              subBassCrestFactor: earlyLiveMetrics?.calculatedSubBassCrestFactor ?? null,
+              bassCrestFactor: earlyLiveMetrics?.calculatedBassCrestFactor ?? null,
+              mudFlatness: earlyLiveMetrics?.calculatedMudFlatness ?? null,
+              mudFlux: earlyLiveMetrics?.calculatedMudFlux ?? null,
+              midrangeFlatness: earlyLiveMetrics?.calculatedMidrangeFlatness ?? null,
+              midrangeFlux: earlyLiveMetrics?.calculatedMidrangeFlux ?? null,
               chordProgressionSummary: chordProgressionSummary,
               melodySummary: melodySummary
             }),
