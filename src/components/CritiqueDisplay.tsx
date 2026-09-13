@@ -611,11 +611,20 @@ export function computeCategoryScores(critique: any) {
   const lraPass = lraRaw !== undefined && lraRaw >= loudnessBucket.lraMin && (loudnessBucket.lraMax === null || lraRaw <= loudnessBucket.lraMax);
   const loudnessComplianceScore = ((lufsPass ? 100 : 50) + (lraPass ? 100 : 50)) / 2;
 
-  const scoreSonicSoundprint = Math.round(
-    ((critique?.mixQuality?.score ?? 75) * 0.50) +
-    ((critique?.performance?.vocalScore ?? 75) * 0.30) +
-    ((critique?.performance?.instrumentalScore ?? 75) * 0.20)
-  );
+  const vocalApplicable = critique?.performance?.vocalApplicable !== false; // default true if field absent (older saved critiques)
+  const scoreSonicSoundprint = vocalApplicable
+    ? Math.round(
+        ((critique?.mixQuality?.score ?? 75) * 0.50) +
+        ((critique?.performance?.vocalScore ?? 75) * 0.30) +
+        ((critique?.performance?.instrumentalScore ?? 75) * 0.20)
+      )
+    : Math.round(
+        // Vocal Tracking genuinely doesn't apply (instrumental track) - re-normalize
+        // the remaining two weights (0.50 and 0.20) to sum to 100% instead of silently
+        // including a meaningless vocal score in the average.
+        ((critique?.mixQuality?.score ?? 75) * (0.50 / 0.70)) +
+        ((critique?.performance?.instrumentalScore ?? 75) * (0.20 / 0.70))
+      );
 
   const scoreCompositionalDepth = Math.round(
     ((critique?.arrangement?.flowScore ?? 75) * 0.40) +
@@ -2103,21 +2112,21 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     theory: { parent: "musicTheorySubs", fields: ["chordDynamics", "harmonicVariety", "formAndStructure"] },
   };
 
-  const getRealSubMetric = (critiqueData: any, id: string, index: number): { score: number; commentary: string } | null => {
+  const getRealSubMetric = (critiqueData: any, id: string, index: number): { score: number; commentary: string; applicable?: boolean } | null => {
     if (id === "readiness") {
       const entry = READINESS_MIXED_MAP[index];
       if (!entry) return null;
       if (entry.call === 1 && critiqueData?.subMetricsCall1) {
         const data = critiqueData.subMetricsCall1[entry.field];
         if (data && typeof data.score === "number") {
-          return { score: data.score, commentary: data.commentary || "" };
+          return { score: data.score, commentary: data.commentary || "", applicable: data.applicable };
         }
       }
       if (entry.call === 3 && critiqueData?.subMetricsCall3) {
         const parentData = entry.parent ? critiqueData.subMetricsCall3[entry.parent] : critiqueData.subMetricsCall3;
         const data = parentData ? parentData[entry.field] : null;
         if (data && typeof data.score === "number") {
-          return { score: data.score, commentary: data.commentary || "" };
+          return { score: data.score, commentary: data.commentary || "", applicable: data.applicable };
         }
       }
       return null;
@@ -2127,7 +2136,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       const fieldName = fields[index];
       const data = fieldName ? critiqueData.subMetricsCall1[fieldName] : null;
       if (data && typeof data.score === "number") {
-        return { score: data.score, commentary: data.commentary || "" };
+        return { score: data.score, commentary: data.commentary || "", applicable: data.applicable };
       }
     }
     const call2Entry = CALL2_FIELD_MAP[id];
@@ -2136,7 +2145,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       const fieldName = call2Entry.fields[index];
       const data = parentData && fieldName ? parentData[fieldName] : null;
       if (data && typeof data.score === "number") {
-        return { score: data.score, commentary: data.commentary || "" };
+        return { score: data.score, commentary: data.commentary || "", applicable: data.applicable };
       }
     }
     const call3Entry = CALL3_FIELD_MAP[id];
@@ -3690,7 +3699,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             />
                           </svg>
                           <span className="absolute font-mono font-black text-white text-base select-none">
-                            {subScore}
+                            {realSub?.applicable === false ? "N/A" : subScore}
                           </span>
                         </div>
 
