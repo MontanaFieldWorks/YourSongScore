@@ -1357,10 +1357,28 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const parentInstrumentalScore = critique?.performance?.instrumentalScore ?? 75;
   const parentVocalScore = critique?.performance?.vocalScore ?? 75;
   const parentLyricalScore = critique?.lyricalImpact?.score ?? 78;
+  const vocalApplicableForDensity = critique?.performance?.vocalApplicable !== false;
+  const lyricalApplicableForDensity = critique?.lyricalImpact?.applicable !== false;
 
   const dnaMelodicScore = critique?.subMetricsCall2?.melodicHooks?.score ?? Math.max(0, Math.min(100, Math.round(parentFlowScore * 0.7 + parentTheoryScore * 0.3)));
   const dnaTensionScore = critique?.subMetricsCall2?.acousticTension?.score ?? Math.max(0, Math.min(100, Math.round(parentFlowScore * 0.6 + parentInstrumentalScore * 0.4)));
-  const dnaDensityScore = critique?.subMetricsCall2?.songwritingDensity?.score ?? Math.max(0, Math.min(100, Math.round(parentLyricalScore * 0.8 + parentVocalScore * 0.2)));
+  // Fallback formula for when Gemini's own songwritingDensity.score is unavailable - fixed
+  // to exclude vocal/lyrical inputs when genuinely not applicable (instrumental track),
+  // re-normalizing the remaining weight instead of blindly multiplying a meaningless
+  // placeholder score by its fixed 0.8/0.2 weight.
+  let dnaDensityFallback: number;
+  if (lyricalApplicableForDensity && vocalApplicableForDensity) {
+    dnaDensityFallback = Math.round(parentLyricalScore * 0.8 + parentVocalScore * 0.2);
+  } else if (lyricalApplicableForDensity) {
+    dnaDensityFallback = Math.round(parentLyricalScore);
+  } else if (vocalApplicableForDensity) {
+    dnaDensityFallback = Math.round(parentVocalScore);
+  } else {
+    // Neither applies (fully instrumental) - fall back to the flow score as a neutral
+    // basis rather than averaging two meaningless placeholders together.
+    dnaDensityFallback = Math.round(parentFlowScore);
+  }
+  const dnaDensityScore = critique?.subMetricsCall2?.songwritingDensity?.score ?? Math.max(0, Math.min(100, dnaDensityFallback));
   const dnaScore = Math.round((dnaMelodicScore + dnaTensionScore + dnaDensityScore) / 3);
 
   // Metric definitions dictionary for breakdowns and hover states
