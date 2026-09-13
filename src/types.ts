@@ -21,6 +21,7 @@ export interface MixQualityCritique {
 export interface PerformanceCritique {
   vocalScore: number;
   vocalsCritique: string;
+  vocalApplicable?: boolean;
   instrumentalScore: number;
   instrumentationCritique: string;
 }
@@ -45,6 +46,7 @@ export interface LyricalImpactCritique {
   score: number;
   meaningClarity: string;
   feedback: string;
+  applicable?: boolean;
 }
 
 export interface MusicTheoryCritique {
