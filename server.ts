@@ -129,10 +129,11 @@ const CRITIQUE_SCHEMA = {
       properties: {
         vocalScore: { type: Type.INTEGER, description: "Vocal execution score out of 100." },
         vocalsCritique: { type: Type.STRING, description: "Detailed guide on vocals: pitch accuracy, timing, breath control, emotional delivery, tuning and vocal chain effects." },
+        vocalApplicable: { type: Type.BOOLEAN, description: "False if the track is a genuine instrumental with no vocals - see mandatory instructions on handling tracks without vocals or lyrics." },
         instrumentalScore: { type: Type.INTEGER, description: "Backing performance and instrumentation score out of 100." },
         instrumentationCritique: { type: Type.STRING, description: "Critique of instrumental track layout: tightness, organic vibe, synth programming quality, drums pacing, energy transmission." },
       },
-      required: ["vocalScore", "vocalsCritique", "instrumentalScore", "instrumentationCritique"],
+      required: ["vocalScore", "vocalsCritique", "vocalApplicable", "instrumentalScore", "instrumentationCritique"],
     },
     arrangement: {
       type: Type.OBJECT,
@@ -148,8 +149,9 @@ const CRITIQUE_SCHEMA = {
         score: { type: Type.INTEGER, description: "Lyrical impact score out of 100 based on message clarity and cliché level." },
         meaningClarity: { type: Type.STRING, description: "Designation like Clear, Metaphorical, Simplistic/Cliché, or Academic." },
         feedback: { type: Type.STRING, description: "Constructive feedback regarding lyrical phrasing, cliches, and emotional resonance." },
+        applicable: { type: Type.BOOLEAN, description: "False if the track has no lyrics (genuine instrumental) - see mandatory instructions on handling tracks without vocals or lyrics." },
       },
-      required: ["score", "meaningClarity", "feedback"],
+      required: ["score", "meaningClarity", "feedback", "applicable"],
     },
     musicTheory: {
       type: Type.OBJECT,
@@ -440,7 +442,7 @@ const SUBMETRICS_SCHEMA_2 = {
         score: { type: Type.INTEGER },
         feedback: { type: Type.STRING },
         intervalMemory: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-        syllabicPlacement: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        syllabicPlacement: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
       },
       required: ["score", "feedback", "intervalMemory", "syllabicPlacement"],
     },
@@ -459,8 +461,8 @@ const SUBMETRICS_SCHEMA_2 = {
       properties: {
         score: { type: Type.INTEGER },
         feedback: { type: Type.STRING },
-        vocalPocketing: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-        poeticBrevity: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        vocalPocketing: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
+        poeticBrevity: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
       },
       required: ["score", "feedback", "vocalPocketing", "poeticBrevity"],
     },
@@ -613,9 +615,9 @@ const SUBMETRICS_SCHEMA_3 = {
     vocalTrackingSubs: {
       type: Type.OBJECT,
       properties: {
-        pitchAccuracy: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-        dynamicDelivery: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-        vocalLayerFit: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        pitchAccuracy: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
+        dynamicDelivery: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
+        vocalLayerFit: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
       },
       required: ["pitchAccuracy", "dynamicDelivery", "vocalLayerFit"],
     },
@@ -632,8 +634,8 @@ const SUBMETRICS_SCHEMA_3 = {
     lyricalImpactSubs: {
       type: Type.OBJECT,
       properties: {
-        meaningClarity: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-        clicheAvoidance: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        meaningClarity: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
+        clicheAvoidance: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
       },
       required: ["meaningClarity", "clicheAvoidance"],
     },
@@ -699,6 +701,10 @@ FIELD DEFINITION - instrumentalWarmth (part of instrumentalStagingSubs): judges 
 IMPORTANT CALIBRATION NOTE: a deliberately bright, thin, or minimal low-mid presence is a genuine aesthetic choice in genres like synth-pop, EDM, and modern pop - not automatically a tonal shortcoming.
 GATE: if the measured value is low (below 55), before scoring below 85, explicitly check: does the brighter/thinner tonal balance fit the genre's convention and read as an intentional, controlled choice rather than an accidentally harsh or undernourished mix? If YES - name that genre fit in the commentary and score 85-100. If NO - meaning the thinness reads as a genuine tonal deficiency rather than a stylistic choice - score using the bands below.
 RUBRIC ANCHOR: measured 80-100 -> score 85-100 (genuinely full, rounded low-mid presence - the kind of low-end character engineers specifically describe as "warm" in their own words about a mix). Measured 55-79 -> score 65-84 (reasonably full-bodied with some real warmth present). Measured 30-54 -> score 45-64 only if the gate above finds a genuine tonal deficiency - otherwise 85-100 per the gate. Below 30 -> score below 45 only if the gate above finds a genuine tonal deficiency - otherwise 85-100 per the gate.
+
+HANDLING TRACKS WITHOUT VOCALS OR LYRICS - MANDATORY: several fields include an "applicable" (or "vocalApplicable") boolean alongside their score and commentary: pitchAccuracy, dynamicDelivery, vocalLayerFit, syllabicPlacement, vocalPocketing, poeticBrevity, meaningClarity, clicheAvoidance, the parent lyricalImpact score, and the parent vocalScore (as vocalApplicable) in the performance object. If the track is a genuine instrumental with no vocals, or has no discernible lyrical content, set applicable/vocalApplicable to false for every one of these fields that depends on vocals or lyrics existing - this includes both the parent-level scores and their sub-metrics, not just one or the other. When applicable is false, still provide a real score (use 0 as a clear placeholder) and a commentary explaining that this field does not apply because the track is instrumental/has no lyrics - do not invent a score of 100 (implying flawless vocal or lyrical work that was never attempted) and do not invent a low score either (implying a real deficiency that doesn't exist, since there was nothing to fail at). The applicable flag, not the placeholder score, is what determines whether this field is used in any parent-score calculation - getting that flag right matters far more than the placeholder number itself. Note that instrumentalScore (backing performance/instrumentation) and instrumentalStagingSubs always remain applicable regardless of vocals - only the vocal-specific and lyric-specific fields listed above are affected.
+
+PARENT-SCORE COMPUTATION WHEN A SUB-METRIC IS NOT APPLICABLE - MANDATORY: melodicHooks.score must be based entirely on intervalMemory when syllabicPlacement.applicable is false - do not average in the 0 placeholder for syllabicPlacement, since that would silently drag the parent score down for a reason that has nothing to do with the actual melodic hook quality. Likewise, songwritingDensity.score must be based entirely on whichever of vocalPocketing/poeticBrevity remains applicable (or reflect that neither applies, if both are false for an instrumental) - never average in a not-applicable placeholder score as if it were a real, weighted contributor.
 
 FIELD DEFINITION - pitchAccuracy (part of vocalTrackingSubs): judges genuine pitch drift and intonation stability ONLY - do not confuse this with vocal timbre. A raspy, gritty, distorted, or aggressive vocal delivery (common in rock, punk, blues, and similar genres) can create the AUDITORY IMPRESSION of pitch instability due to the vocal's harmonic complexity and grain, without the singer actually being off-pitch. Before deducting points, confirm the note is genuinely landing on the wrong pitch relative to the underlying harmony - not simply that the vocal has a rough, unpolished, or grainy tonal quality. A technically in-tune singer with a naturally raspy or aggressive voice should score highly here; reserve deductions for cases where the actual pitch center is audibly wrong, not merely where the vocal timbre sounds "imperfect" or "raw." ADDITIONALLY: if real Detected Melody/Pitch Data is provided in the context above, use it as supporting evidence, keeping in mind the caveat that it reflects the dominant mix pitch generally, not confirmed-isolated vocal - weight your own listening impression more heavily than this data specifically for pitchAccuracy, unlike chordDynamics and melody where the detected data should be primary. RUBRIC ANCHOR: a score of 95-100 requires genuinely rock-solid pitch center throughout, including any exposed or unaccompanied moments (an a cappella opening or bridge with no instrumental cover to hide drift is the clearest test - if present and the pitch holds, that alone supports a top-band score). A score of 80-94 is correct for a vocal with solid overall pitch control but at least one audible, specific moment of real drift or strain (typically on a sustained high note or a fast, difficult run) - name the moment. A score of 60-79 applies when drift is noticeable at multiple points but the performance is still clearly landing on the intended notes overall, not genuinely off-key. Below 60 is reserved for audible, sustained pitch problems that a listener would notice without needing to be told - this is uncommon on professionally released tracks and should not be used as a default low score out of caution; only use it when the evidence genuinely supports it.
 
