@@ -1837,7 +1837,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         const subScore = realSub ? realSub.score : getSubScore(m.score, idx, m.subParams.length, m.id);
         const fallbackWarning = realSub ? "" : getFallbackWarning(critique, m.id);
         const subText = (fallbackWarning) + (realSub ? realSub.commentary : getSubScoreExplanationText(param.name, subScore));
-        addSubRow(param.name, subScore, (subText || "").replace(/\n/g, " ").replace(/(\d+\s*)?[+-]\s*\d+\s*points?:\s*/gi, ""));
+        // A genuinely not-applicable sub-metric exports as "N/A", never as its placeholder
+        // number. Exporting the placeholder would reproduce in the spreadsheet exactly the
+        // problem the applicable flag exists to prevent - a meaningless score presented as
+        // if it were a real measurement of something that was never there to measure.
+        const exportScore = realSub?.applicable === false ? "N/A" : subScore;
+        addSubRow(param.name, exportScore, (subText || "").replace(/\n/g, " ").replace(/(\d+\s*)?[+-]\s*\d+\s*points?:\s*/gi, ""));
       });
     });
 
@@ -3877,10 +3882,16 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     name: param.name.split(" (")[0],
                     score: subScore,
                     color: ringColor,
-                    weight: parsedWeight
+                    weight: parsedWeight,
+                    applicable: realSub?.applicable !== false,
                   };
                 });
-                return <RoseChart data={roseData} />;
+                // Drop genuinely not-applicable sub-metrics from the chart rather than
+                // plotting their 0 placeholder, which would render as a collapsed petal
+                // and read as a catastrophic failure score - the opposite distortion from
+                // the absence-scored-as-100 problem, but just as misleading to the user.
+                const visibleRoseData = roseData.filter((d: any) => d.applicable);
+                return <RoseChart data={visibleRoseData.length > 0 ? visibleRoseData : roseData} />;
               })()}
             </div>
 
