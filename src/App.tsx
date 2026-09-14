@@ -6,19 +6,28 @@ import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey }
 
 // Runs the new, validated essentia.js key detection and overwrites the old,
 // confirmed-unreliable chroma-based key on the given liveMetrics object in place.
-// Falls back silently to the existing (old) value only if the new detection fails,
-// so a WASM load issue degrades gracefully rather than breaking the analysis.
+// IMPORTANT: if the new detection fails (e.g. a WASM load issue in the browser), this
+// now CLEARS calculatedKey entirely rather than silently leaving the old, confirmed-
+// unreliable value in place. That earlier "graceful fallback" design was a real bug -
+// it meant a WASM failure could silently show a wrong key with zero indication anything
+// had gone wrong, which is exactly what surfaced during testing on a real upload. The
+// UI's existing conditional render (only shows the card when calculatedKey is present)
+// correctly hides the card entirely when this happens, which is honest - showing nothing
+// is better than showing a confirmed-unreliable number as if it were the validated one.
 async function applyRealKeyDetection(audioBuffer: AudioBuffer, liveMetrics: any): Promise<void> {
+  // Clear the old, unreliable value up front - it must never be shown as if it came
+  // from the new, validated detector, regardless of what happens below.
+  delete liveMetrics.calculatedKey;
+  delete liveMetrics.calculatedKeyConfidence;
   try {
     const keyResult = await detectMusicalKey(audioBuffer);
     if (keyResult) {
       liveMetrics.calculatedKey = `${keyResult.key} ${keyResult.scale}`;
-      // Old confidence field is not reused - validated this session to not reliably
-      // reflect actual correctness, so it's cleared rather than left stale/misleading.
-      delete liveMetrics.calculatedKeyConfidence;
+    } else {
+      console.warn("[App] Real key detection returned no result - key will not be displayed for this analysis.");
     }
   } catch (e) {
-    console.warn("[App] Real key detection failed, keeping prior estimate:", e);
+    console.warn("[App] Real key detection failed - key will not be displayed for this analysis:", e);
   }
 }
 import { getLocalFile } from "./lib/localFileCache";
