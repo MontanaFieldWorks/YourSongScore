@@ -6,34 +6,62 @@ import FFT from "fft.js";
 // is deliberately kept separate from the synchronous analyzeAudioBuffer function below.
 let essentiaInstancePromise: Promise<any> | null = null;
 
+// Tracks in-flight script loads by src, so a second concurrent call to loadScript for
+// the same script genuinely waits for the first load to finish (resolve or reject)
+// rather than assuming the mere presence of a <script> tag in the DOM means it's done.
+const inFlightScriptLoads = new Map<string, Promise<void>>();
+
 function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${src}"]`);
-    if (existing) {
-      resolve();
+  const existing = inFlightScriptLoads.get(src);
+  if (existing) return existing;
+
+  const existingTag = document.querySelector(`script[src="${src}"]`) as HTMLScriptElement | null;
+  if (existingTag && (existingTag as any)._loaded) {
+    return Promise.resolve();
+  }
+
+  const promise = new Promise<void>((resolve, reject) => {
+    if (existingTag) {
+      // A tag exists but we don't know if it already finished - attach listeners to
+      // find out, rather than assuming success just because the element is present.
+      existingTag.addEventListener("load", () => { (existingTag as any)._loaded = true; resolve(); });
+      existingTag.addEventListener("error", () => reject(new Error(`Failed to load script: ${src}`)));
       return;
     }
     const script = document.createElement("script");
     script.src = src;
     script.async = true;
-    script.onload = () => resolve();
+    script.onload = () => { (script as any)._loaded = true; resolve(); };
     script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
     document.head.appendChild(script);
   });
+
+  inFlightScriptLoads.set(src, promise);
+  return promise;
 }
 
 async function getEssentiaInstance(): Promise<any> {
   if (essentiaInstancePromise) return essentiaInstancePromise;
 
   essentiaInstancePromise = (async () => {
-    await loadScript("/essentia/essentia-wasm.web.js");
-    await loadScript("/essentia/essentia.js-core.js");
-    const w = window as any;
-    if (!w.EssentiaWASM || !w.Essentia) {
-      throw new Error("essentia.js scripts loaded but did not expose expected globals");
+    try {
+      await loadScript("/essentia/essentia-wasm.web.js");
+      await loadScript("/essentia/essentia.js-core.js");
+      const w = window as any;
+      if (!w.EssentiaWASM || !w.Essentia) {
+        throw new Error("essentia.js scripts loaded but did not expose expected globals");
+      }
+      const wasmModule = await w.EssentiaWASM();
+      return new w.Essentia(wasmModule);
+    } catch (e) {
+      // Critical fix: clear the cached promise on failure so the NEXT call genuinely
+      // retries from scratch, instead of permanently returning this same rejected
+      // promise for the rest of the browser session. Without this, one transient
+      // failure (e.g. a slow network on first load) would silently break key
+      // detection for every subsequent song analyzed in that session.
+      essentiaInstancePromise = null;
+      throw e;
     }
-    const wasmModule = await w.EssentiaWASM();
-    return new w.Essentia(wasmModule);
   })();
 
   return essentiaInstancePromise;
