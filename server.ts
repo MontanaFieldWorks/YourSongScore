@@ -781,7 +781,7 @@ IMPORTANT CALIBRATION NOTE: this measurement only captures raw loudness variance
 GATE: if the measured value is low (below 55), before scoring below the 82-88 professional band, explicitly check: does the vocal show genuine register shifts, phrasing variation, or emotional escalation across sections despite the flat raw loudness (e.g. an intimate low verse building to a soaring falsetto or belted chorus)? If YES - name that specific register/phrasing evidence in the commentary and score at 82-88 or above, going to 89+ where that expressive range is genuinely striking rather than merely present; the low raw-loudness measurement does not override real, audible expressive variety. If NO - meaning the vocal is genuinely flat in register, phrasing, AND loudness with no describable expressive arc - score using the bands below.
 RUBRIC ANCHOR: measured 80-100 -> score 85-100 (genuine, wide dynamic range, e.g. a whisper-to-belt vocal arc); measured 55-79 -> score 65-84 (real but moderate push and pull); measured 30-54 -> score 45-64 only if the gate above finds no genuine register/phrasing variety - otherwise score per the gate above; below 30 -> score below 45 only if the gate above finds no genuine register/phrasing variety - otherwise score per the gate above.
 
-FIELD DEFINITION - vocalLayerFit - MANDATORY JUSTIFICATION STRUCTURE: before assigning a score, you must first explicitly determine whether this song actually contains audible backing vocals, harmonies, or vocal doubling/layering at all. If NO layered vocal elements are audible anywhere in the track, state this plainly in your commentary (e.g. 'This track features a single lead vocal with no audible backing harmonies or doubling') and assign a score of exactly 100 - there is nothing to judge the fit of, so a perfect score reflects the absence of any layering problem, not a judgment of quality. If YES, layered vocals ARE present, your commentary MUST describe specifically how they interact with the lead (blend well / compete for space / timing misalignment / etc.), and your score should genuinely reflect the quality of that specific interaction, using the full 0-100 range as appropriate - do not default to a comfortable high number without describing the actual layering behavior you hear. RUBRIC ANCHOR for the layering-present case: a score of 90-100 requires genuinely tight, well-blended layering with clean timing and pitch alignment between parts, even in complex multi-part harmony - a listener would need to listen closely to pick the individual layers apart. A score of 70-89 applies when the layering is functional and generally blends but has at least one identifiable moment of loose timing, pitch mismatch, or a layer that sits slightly awkwardly against the lead. Below 70 is reserved for layering with a persistent, structural fit problem - audible timing drift, clashing pitch, or backing vocals that compete with rather than support the lead throughout most of their appearances.`;
+FIELD DEFINITION - vocalLayerFit - MANDATORY JUSTIFICATION STRUCTURE: before assigning a score, you must first explicitly determine whether this song actually contains audible backing vocals, harmonies, or vocal doubling/layering at all. If NO layered vocal elements are audible anywhere in the track, state this plainly in your commentary and set vocalLayerFit.applicable to FALSE with a 0 placeholder score, exactly as the ELEMENT-LEVEL ABSENCE rule above requires. Do NOT assign 100 or any other high score: there is nothing to judge the fit of, and an absence of layering is an absence of evidence, not a perfect result. Before concluding that layering is absent, re-check carefully - backing harmonies and doubling are common and often mixed subtly under the lead. If YES, layered vocals ARE present, your commentary MUST describe specifically how they interact with the lead (blend well / compete for space / timing misalignment / etc.), and your score should genuinely reflect the quality of that specific interaction, using the full 0-100 range as appropriate - do not default to a comfortable high number without describing the actual layering behavior you hear. RUBRIC ANCHOR for the layering-present case: a score of 90-100 requires genuinely tight, well-blended layering with clean timing and pitch alignment between parts, even in complex multi-part harmony - a listener would need to listen closely to pick the individual layers apart. A score of 70-89 applies when the layering is functional and generally blends but has at least one identifiable moment of loose timing, pitch mismatch, or a layer that sits slightly awkwardly against the lead. Below 70 is reserved for layering with a persistent, structural fit problem - audible timing drift, clashing pitch, or backing vocals that compete with rather than support the lead throughout most of their appearances.`;
 
 async function performSubMetricsCall3(
   audioPart: any,
@@ -845,6 +845,14 @@ Listen to the actual audio again and generate specific, evidence-based scores an
 }
 
 function reconcileParentScores(parsedCritique: any): void {
+  // Returns a sub-metric's score ONLY when it genuinely applies to this track.
+  // A not-applicable field carries a 0 placeholder, and 0 is a number - so without this
+  // guard weightedAvg would average that placeholder in as if it were a real result,
+  // silently dragging the parent score down and overriding the prompt's own instruction
+  // to reweight across applicable metrics only.
+  const appScore = (sub: any): number | undefined =>
+    (sub && sub.applicable === false) ? undefined : sub?.score;
+
   const weightedAvg = (pairs: Array<[number | undefined, number]>): number | null => {
     const validPairs = pairs.filter(([score]) => typeof score === "number");
     if (validPairs.length === 0) return null;
@@ -872,7 +880,7 @@ function reconcileParentScores(parsedCritique: any): void {
   if (c2Ready?.melodicHooks) {
     const melodicHooksScore = weightedAvg([
       [c2Ready.melodicHooks.intervalMemory?.score, 50],
-      [c2Ready.melodicHooks.syllabicPlacement?.score, 50],
+      [appScore(c2Ready.melodicHooks.syllabicPlacement), 50],
     ]);
     if (melodicHooksScore !== null) {
       parsedCritique.subMetricsCall2.melodicHooks.score = melodicHooksScore;
@@ -891,8 +899,8 @@ function reconcileParentScores(parsedCritique: any): void {
 
   if (c2Ready?.songwritingDensity) {
     const songwritingDensityScore = weightedAvg([
-      [c2Ready.songwritingDensity.vocalPocketing?.score, 50],
-      [c2Ready.songwritingDensity.poeticBrevity?.score, 50],
+      [appScore(c2Ready.songwritingDensity.vocalPocketing), 50],
+      [appScore(c2Ready.songwritingDensity.poeticBrevity), 50],
     ]);
     if (songwritingDensityScore !== null) {
       parsedCritique.subMetricsCall2.songwritingDensity.score = songwritingDensityScore;
@@ -954,9 +962,9 @@ function reconcileParentScores(parsedCritique: any): void {
     }
 
     const vocal = weightedAvg([
-      [c3.vocalTrackingSubs?.pitchAccuracy?.score, 40],
-      [c3.vocalTrackingSubs?.dynamicDelivery?.score, 35],
-      [c3.vocalTrackingSubs?.vocalLayerFit?.score, 25],
+      [appScore(c3.vocalTrackingSubs?.pitchAccuracy), 40],
+      [appScore(c3.vocalTrackingSubs?.dynamicDelivery), 35],
+      [appScore(c3.vocalTrackingSubs?.vocalLayerFit), 25],
     ]);
     if (vocal !== null && parsedCritique.performance) {
       parsedCritique.performance.vocalScore = vocal;
@@ -972,8 +980,8 @@ function reconcileParentScores(parsedCritique: any): void {
     }
 
     const lyrical = weightedAvg([
-      [c3.lyricalImpactSubs?.meaningClarity?.score, 50],
-      [c3.lyricalImpactSubs?.clicheAvoidance?.score, 50],
+      [appScore(c3.lyricalImpactSubs?.meaningClarity), 50],
+      [appScore(c3.lyricalImpactSubs?.clicheAvoidance), 50],
     ]);
     if (lyrical !== null && parsedCritique.lyricalImpact) {
       parsedCritique.lyricalImpact.score = lyrical;
@@ -1173,13 +1181,18 @@ async function performCritiqueAnalysis(
       crit.mixQuality.score = clamp(crit.mixQuality.score);
     }
     if (crit.performance) {
-      crit.performance.vocalScore = clamp(crit.performance.vocalScore);
+      // Never clamp a not-applicable vocal score: for a genuine instrumental the 0 is a
+      // deliberate N/A placeholder, and clamping it to 45 would surface a bogus "failing"
+      // vocal score for a track that has no vocals to fail at.
+      if (crit.performance.vocalApplicable !== false) {
+        crit.performance.vocalScore = clamp(crit.performance.vocalScore);
+      }
       crit.performance.instrumentalScore = clamp(crit.performance.instrumentalScore);
     }
     if (crit.arrangement) {
       crit.arrangement.flowScore = clamp(crit.arrangement.flowScore);
     }
-    if (crit.lyricalImpact) {
+    if (crit.lyricalImpact && crit.lyricalImpact.applicable !== false) {
       crit.lyricalImpact.score = clamp(crit.lyricalImpact.score);
     }
     if (crit.musicTheory) {
