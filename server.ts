@@ -844,6 +844,34 @@ Listen to the actual audio again and generate specific, evidence-based scores an
   return JSON.parse(response.text);
 }
 
+// Genre and subgenre are two independent enums in the response schema, so a structurally
+// valid response can still pair a genre with a subgenre belonging to a DIFFERENT genre
+// (e.g. Rock + "Triple A", which actually lives under Alternative). The prompt forbids it,
+// but nothing enforced it. That matters beyond tidiness: downstream profile lookups are
+// keyed on `genre|subgenre`, so a mismatched pair silently misses its profile and falls
+// back to a generic one. Where the subgenre is valid for some other genre, we trust the
+// subgenre (the more specific, more considered signal) and correct the parent genre to
+// match. If the subgenre matches nothing at all, we leave both untouched rather than guess.
+function validateGenrePair(parsedCritique: any): void {
+  const vibe = parsedCritique?.vibe;
+  if (!vibe?.genre || !vibe?.subgenre) return;
+  const genre = String(vibe.genre).trim();
+  const subgenre = String(vibe.subgenre).trim();
+
+  const subsForGenre: string[] | undefined = (GENRE_MAP as Record<string, string[]>)[genre];
+  if (subsForGenre && subsForGenre.includes(subgenre)) return; // already consistent
+
+  const owner = Object.keys(GENRE_MAP as Record<string, string[]>).find(g =>
+    (GENRE_MAP as Record<string, string[]>)[g].includes(subgenre)
+  );
+  if (owner) {
+    console.warn(`[GenreValidation] "${genre}" / "${subgenre}" is an invalid pair; "${subgenre}" belongs to "${owner}". Correcting genre to "${owner}".`);
+    vibe.genre = owner;
+  } else {
+    console.warn(`[GenreValidation] Subgenre "${subgenre}" does not belong to any genre in GENRE_MAP (genre reported as "${genre}"). Leaving both unchanged.`);
+  }
+}
+
 function reconcileParentScores(parsedCritique: any): void {
   // Returns a sub-metric's score ONLY when it genuinely applies to this track.
   // A not-applicable field carries a 0 placeholder, and 0 is a number - so without this
@@ -970,10 +998,15 @@ function reconcileParentScores(parsedCritique: any): void {
       parsedCritique.performance.vocalScore = vocal;
     }
 
+    // All four instrumentalStagingSubs contribute at 25% each, matching the weights the
+    // UI actually displays to the user. melodicStaging (shown as "Stereo Instrument
+    // Staging") was previously computed, displayed and labelled 25% but contributed 0%
+    // to this parent score - the app was showing a weight it did not honour.
     const instrumental = weightedAvg([
-      [c3.instrumentalStagingSubs?.timelineGridCohesion?.score, 34],
-      [c3.instrumentalStagingSubs?.transientPunch?.score, 33],
-      [c3.instrumentalStagingSubs?.instrumentalWarmth?.score, 33],
+      [c3.instrumentalStagingSubs?.timelineGridCohesion?.score, 25],
+      [c3.instrumentalStagingSubs?.transientPunch?.score, 25],
+      [c3.instrumentalStagingSubs?.melodicStaging?.score, 25],
+      [c3.instrumentalStagingSubs?.instrumentalWarmth?.score, 25],
     ]);
     if (instrumental !== null && parsedCritique.performance) {
       parsedCritique.performance.instrumentalScore = instrumental;
@@ -1465,6 +1498,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       parsedCritique.subMetricsCall3Failed = true;
     }
 
+    validateGenrePair(parsedCritique);
     reconcileParentScores(parsedCritique);
 
     res.json({ critique: parsedCritique });
@@ -1683,6 +1717,7 @@ app.post("/api/critique-url", async (req, res) => {
       parsedCritique.subMetricsCall3Failed = true;
     }
 
+    validateGenrePair(parsedCritique);
     reconcileParentScores(parsedCritique);
 
     res.json({ critique: parsedCritique });
@@ -1848,6 +1883,7 @@ app.post("/api/critique-spotify", async (req, res) => {
       critique.subMetricsCall3Failed = true;
     }
 
+    validateGenrePair(critique);
     reconcileParentScores(critique);
 
     res.json({
