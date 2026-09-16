@@ -1419,7 +1419,7 @@ export function getSubgenreProfile(genreName: string, subgenreName: string): Sub
     "ska": "alternative|alternative",
     "musical theatre": "classical|traditional classical",
     "broadway": "classical|traditional classical",
-    "ambient": "classical|traditional classical",
+    "ambient": "dance / electronic|ambient / downtempo",
     "afrobeats": "world music|afrobeats / afro-pop mainstream",
     "drill": "hip hop|trap / mainstream hip-hop",
     "garage": "electronic|edm / dance",
