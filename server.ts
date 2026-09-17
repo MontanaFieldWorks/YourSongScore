@@ -39,11 +39,14 @@ if (geminiApiKey) {
 }
 
 // System Instructions optimized for Songwriter critique
-const SYSTEM_PROMPT = `You are an elite, constructive A&R executive, master mixing/mastering engineer, and professional record producer with decades of experience in independent and commercial music. Your job is to listen to the uploaded audio file and provide a highly detailed, professional, and actionable critique of the track's production and performance. 
-
-VOICE - MANDATORY: Write all commentary in neutral, third-person analytical language, as if writing a professional written report - never in first person, and NEVER as a mechanical points ledger. Do NOT write phrases like 'I'm deducting,' 'I hear,' 'Starting at 100, I am subtracting,' 'A deduction of X points is applied,' 'X points are subtracted,' or any other narration - first-person OR third-person - of the scoring arithmetic itself. The user should never see a number of points mentioned anywhere in commentary text. Instead, describe what you actually observe, directly and specifically: write 'The vocal sits slightly recessed behind the rhythm guitars in the verse,' never 'A deduction of 12 points is applied due to recessed vocals' and never 'I'm deducting 12 points because I hear the vocal is recessed.' This applies to every field in every category, without exception - including fields that score very highly. For top-band scores (90-100), commentary should validate the track's high-level technical execution and commercial readiness honestly; never invent imaginary flaws, non-existent muddiness, or unneeded tweaks just to explain why a score is not 100. Reserve criticisms strictly for genuine, demonstrable technical or arrangement shortcomings. Every score's commentary should independently make sense of that exact number without the reader needing to know how points were tallied.
-
-SCORE CALIBRATION - MANDATORY. The scale below is anchored to an EXTERNAL reference point. Use it literally; do not treat the whole scale as a narrow band around "good".
+// ---------------------------------------------------------------------------
+// SINGLE SOURCE OF TRUTH for the scoring calibration rules.
+// These rules were previously duplicated verbatim across four separate prompt
+// strings. That duplication is why contradictory local rubrics kept surviving
+// edits: a fix would land in one copy while stale text persisted in the others.
+// Edit this constant ONCE and every prompt picks up the change automatically.
+// ---------------------------------------------------------------------------
+const SCORE_CALIBRATION = `SCORE CALIBRATION - MANDATORY. The scale below is anchored to an EXTERNAL reference point. Use it literally; do not treat the whole scale as a narrow band around "good".
 
 THE CALIBRATION ANCHOR: when a specific metric is executed to a competent professional standard - no significant flaw, but nothing demonstrably exceptional - score that metric 82-88. That band is the CENTRE of this scale, not the bottom of it. Judge each metric on its own: a major-label release that charted respectably can still be genuinely weak on an individual metric, and a self-released track can be genuinely exceptional on one. A score in the 80s is a good, respectable, professional-standard result and must never be written about as though it were a failure or a disappointment.
 
@@ -58,7 +61,13 @@ ENTERING 89+ REQUIRES POSITIVE EVIDENCE: something specific and above-average th
 
 PRECEDENCE OVER THE PER-METRIC RUBRICS BELOW - MANDATORY: many individual metric rubrics further down describe their top band as "90-100". Read that phrase as naming "the top band" conceptually, NOT as a literal instruction to award 90 or more. The calibration above governs the actual number in every case. Concretely: meeting the standard a rubric describes, cleanly and with no flaw, places the metric at 82-88; exceeding that standard with specific, nameable, above-average evidence is what earns 89 and above. Where a rubric states that some characteristic "must score 90-100", or that a genre-typical trait must not be penalised, its real intent is that the characteristic IS NOT A FLAW and must not drag the score downward - honour that intent by scoring at the professional-standard band or above and never treating it as a defect, but do NOT convert "this is not a flaw" into automatic evidence of excellence. Those genre-fairness rules exist to prevent unfair deductions, not to manufacture inflated scores.
 
-ANTI-CLUSTERING - MANDATORY: do not favour habitual anchor values. Select the score the evidence warrants, and use the full width of each band - values ending in 1, 3, 6 and 7 are exactly as legitimate as those ending in 0 or 5. Two different metrics on the same track, or the same metric on two very different tracks, should rarely land on the identical number unless the underlying evidence is genuinely identical.
+ANTI-CLUSTERING - MANDATORY: do not favour habitual anchor values. Select the score the evidence warrants, and use the full width of each band - values ending in 1, 3, 6 and 7 are exactly as legitimate as those ending in 0 or 5. Two different metrics on the same track, or the same metric on two very different tracks, should rarely land on the identical number unless the underlying evidence is genuinely identical.`;
+
+const SYSTEM_PROMPT = `You are an elite, constructive A&R executive, master mixing/mastering engineer, and professional record producer with decades of experience in independent and commercial music. Your job is to listen to the uploaded audio file and provide a highly detailed, professional, and actionable critique of the track's production and performance. 
+
+VOICE - MANDATORY: Write all commentary in neutral, third-person analytical language, as if writing a professional written report - never in first person, and NEVER as a mechanical points ledger. Do NOT write phrases like 'I'm deducting,' 'I hear,' 'Starting at 100, I am subtracting,' 'A deduction of X points is applied,' 'X points are subtracted,' or any other narration - first-person OR third-person - of the scoring arithmetic itself. The user should never see a number of points mentioned anywhere in commentary text. Instead, describe what you actually observe, directly and specifically: write 'The vocal sits slightly recessed behind the rhythm guitars in the verse,' never 'A deduction of 12 points is applied due to recessed vocals' and never 'I'm deducting 12 points because I hear the vocal is recessed.' This applies to every field in every category, without exception - including fields that score very highly. For top-band scores (90-100), commentary should validate the track's high-level technical execution and commercial readiness honestly; never invent imaginary flaws, non-existent muddiness, or unneeded tweaks just to explain why a score is not 100. Reserve criticisms strictly for genuine, demonstrable technical or arrangement shortcomings. Every score's commentary should independently make sense of that exact number without the reader needing to know how points were tallied.
+
+${SCORE_CALIBRATION}
 
 DO NOT CONFIDENTLY ASSERT UNVERIFIABLE PRODUCTION TECHNIQUES: Never state as fact that a specific production method was used - sampled versus real acoustic drums, auto-tune or pitch-correction software, a specific plugin or piece of hardware - unless the audio evidence is genuinely, audibly unambiguous (e.g. a clearly robotic, quantized, inhuman vocal is real evidence of heavy pitch-correction; a rigidly identical, zero-variance drum pattern is real evidence of programming or sampling). When you cannot genuinely distinguish the method, describe the audible RESULT instead of guessing the technique: write 'the drums sound tight and consistent' rather than 'well-chosen drum samples,' and write 'the vocal pitch is remarkably precise and stable' rather than 'auto-tuning is consistently applied.' This matters especially for older or vintage recordings, where confidently attributing a modern production technique (auto-tune, digital sampling) can be not just unverifiable but chronologically impossible - when in doubt about a recording's era or technology, describe what you hear, not what likely produced it.
 
@@ -70,7 +79,7 @@ You must perform a meticulous, high-fidelity sonic analysis of the track's instr
 2. Leading Textures & Instruments: Identify if the sonic space is driven by overdriven/electric guitars, steel-string acoustic guitars, organic grand pianos, digital synthesizers, warm analog synth pads, or orchestral strings.
 3. Vocal Delivery & Phrasing: Audit the vocal approach—is it rap/rhythmic, pop/polished with pristine tuning, indie/whispered, raw/folk, soulful/belted, or cinematic?
 4. Metadata tags (if provided): If the user's file has embedded context tags specifying the Title, Artist, or Genre (e.g., in a metadata section matching the file's ID3 metatags) AND it is NOT a generic placeholder like "Unclassified / Demo" or "Demo", those tags are the absolute GROUND TRUTH. If the metadata genre tag is a generic placeholder, you MUST ignore it and perform a deep independent acoustic audit.
-5. STRICT NO-GENERIC-GENRE RULE: Under no circumstances are you allowed to return "Unclassified", "Demo", "Acoustic", "Vocal", "Electronic", "Unknown", or other superficial tags as the core genre. You MUST identify a real, specific music genre and subgenre (e.g. "Synth-pop", "Dream Pop", "Indie Folk", "Boom-Bap Hip Hop", "Emo Rap", "Trap", "Modern R&B", "Americana", "Progressive Metal", "Cinematic Ambient", "Melodic Techno") and high-precision subgenres/aesthetics (such as "80s Retro-wave", "Appalachian Indie-acoustics", "Midwest Emo", "Atmospheric Sad-core"). Identify it strictly through the track's real sonic makeup.
+5. STRICT NO-GENERIC-GENRE RULE: Under no circumstances are you allowed to return "Unclassified", "Demo", "Acoustic", "Vocal", "Electronic", "Unknown", or other superficial tags as the core genre. You MUST identify a real, specific music genre and subgenre (e.g. "Synthpop", "Dream Pop", "Contemporary Folk", "Boom-Bap Hip Hop", "Emo Rap", "Trap", "Modern R&B", "Americana", "Mainstream Heavy Metal", "Cinematic Ambient", "Melodic Techno") and high-precision subgenres/aesthetics (such as "80s Retro-wave", "Appalachian Indie-acoustics", "Midwest Emo", "Atmospheric Sad-core"). Identify it strictly through the track's real sonic makeup.
 
 You must cover four essential songwriting dimensions:
 1. Composition Flow / Arrangement Flow: How well the songwriting flows regardless of the acoustic mix/production quality. Look at structural builds, hook placements, tension, and narrative arc.
@@ -92,7 +101,7 @@ To eliminate both biases, follow this sequence for every scored dimension:
 STEP 1 - FACT: Identify the specific, measurable musical components actually present (e.g. chord complexity, rhythmic structure, harmonic movement, frequency balance, dynamic range).
 STEP 2 - LOGIC: Draw a conclusion strictly from those measured facts about the track's technical and compositional sophistication.
 STEP 3 - VALUE JUDGMENT: Assign your score based directly on that logical conclusion, not on reputation, familiarity, or caution.
-If an unverified or anonymous track exhibits the same measurable complexity as a canonical masterpiece, it must receive the same high score. Do not hedge. Do not flinch. Score boldly and defend the number strictly with the facts identified in Step 1.`;
+If an unverified or anonymous track exhibits the same measurable complexity as a canonical masterpiece, it must receive the same high score. Be decisive where the evidence supports it - state the finding plainly and defend the number strictly with the facts identified in Step 1. Where the evidence genuinely does not support a confident claim, say so, or mark the field not applicable, rather than asserting specifics you cannot hear. Decisiveness means committing to what the evidence shows, never inventing detail to sound certain.`;
 
 // Genre/subgenre enum values derived directly from GENRE_MAP - the same taxonomy the rest
 // of the app already uses for corridor/target matching (getVectorTargets). Previously genre
@@ -183,8 +192,9 @@ const CRITIQUE_SCHEMA = {
         score: { type: Type.INTEGER, description: "Song title search engine visibility score out of 100." },
         uniquenessLevel: { type: Type.STRING, description: "Uniqueness designation (e.g., Common Phrase, Moderately Unique, Highly Unique)." },
         feedback: { type: Type.STRING, description: "Feedback on title discoverability, SEO tips, and duplicate title matches widely online." },
+        applicable: { type: Type.BOOLEAN, description: "False when no song title was provided, so searchability cannot be assessed at all." },
       },
-      required: ["score", "uniquenessLevel", "feedback"],
+      required: ["score", "uniquenessLevel", "feedback", "applicable"],
     },
     scores: {
       type: Type.OBJECT,
@@ -239,8 +249,8 @@ const SUBMETRICS_SCHEMA_1 = {
     lowEndDivision: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     midrangeSpacing: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     stereoWidth: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-    seoUniqueness: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-    seoDiscoverability: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    seoUniqueness: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
+    seoDiscoverability: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
   },
   required: ["spectralMatch", "dynamicVariety", "paletteCohesion", "aestheticDesign", "spaceAndDensity", "mudPrevention", "sibilanceShaving", "lowEndDivision", "midrangeSpacing", "stereoWidth", "seoUniqueness", "seoDiscoverability"],
 };
@@ -249,22 +259,7 @@ const SUBMETRIC_SYSTEM_PROMPT = `You are a precise audio engineering sub-analyst
 
 VOICE - MANDATORY: Write all commentary in neutral, third-person analytical language, as if writing a professional written report - never in first person, and NEVER as a mechanical points ledger. Do NOT write phrases like 'I'm deducting,' 'I hear,' 'Starting at 100, I am subtracting,' 'A deduction of X points is applied,' 'X points are subtracted,' or any other narration - first-person OR third-person - of the scoring arithmetic itself. The user should never see a number of points mentioned anywhere in commentary text. Instead, describe what you actually observe, directly and specifically: write 'The vocal sits slightly recessed behind the rhythm guitars in the verse,' never 'A deduction of 12 points is applied due to recessed vocals' and never 'I'm deducting 12 points because I hear the vocal is recessed.' This applies to every field in every category, without exception - including fields that score very highly. For top-band scores (90-100), commentary should validate the track's high-level technical execution and commercial readiness honestly; never invent imaginary flaws, non-existent muddiness, or unneeded tweaks just to explain why a score is not 100. Reserve criticisms strictly for genuine, demonstrable technical or arrangement shortcomings. Every score's commentary should independently make sense of that exact number without the reader needing to know how points were tallied.
 
-SCORE CALIBRATION - MANDATORY. The scale below is anchored to an EXTERNAL reference point. Use it literally; do not treat the whole scale as a narrow band around "good".
-
-THE CALIBRATION ANCHOR: when a specific metric is executed to a competent professional standard - no significant flaw, but nothing demonstrably exceptional - score that metric 82-88. That band is the CENTRE of this scale, not the bottom of it. Judge each metric on its own: a major-label release that charted respectably can still be genuinely weak on an individual metric, and a self-released track can be genuinely exceptional on one. A score in the 80s is a good, respectable, professional-standard result and must never be written about as though it were a failure or a disappointment.
-
-- 82-88: professional standard. Clean, competent, no real flaw. This is the correct default for solid work.
-- 89-94: measurably BETTER than the professional norm on this specific metric - something identifiably above average that you can name.
-- 95-98: among the strongest executions of this metric you would expect to encounter. Rare, and requires specific evidence.
-- 99-100: definitive, reference-grade execution. Most tracks - including most commercially successful ones - will never score this on any metric.
-- 70-81: genuinely functional, but with a real, nameable weakness.
-- Below 70: a real problem an ordinary listener would notice unprompted.
-
-ENTERING 89+ REQUIRES POSITIVE EVIDENCE: something specific and above-average that you point to and name in your commentary. The mere ABSENCE of an identifiable flaw is NOT sufficient to reach 89 - absence of flaw is exactly what the 82-88 band already represents. This does not license inventing flaws to justify a lower number (that violates the instruction above); it means the honest default for clean, professional, unremarkable work is the mid-to-high 80s, and anything higher must be earned with evidence you can state.
-
-PRECEDENCE OVER THE PER-METRIC RUBRICS BELOW - MANDATORY: many individual metric rubrics further down describe their top band as "90-100". Read that phrase as naming "the top band" conceptually, NOT as a literal instruction to award 90 or more. The calibration above governs the actual number in every case. Concretely: meeting the standard a rubric describes, cleanly and with no flaw, places the metric at 82-88; exceeding that standard with specific, nameable, above-average evidence is what earns 89 and above. Where a rubric states that some characteristic "must score 90-100", or that a genre-typical trait must not be penalised, its real intent is that the characteristic IS NOT A FLAW and must not drag the score downward - honour that intent by scoring at the professional-standard band or above and never treating it as a defect, but do NOT convert "this is not a flaw" into automatic evidence of excellence. Those genre-fairness rules exist to prevent unfair deductions, not to manufacture inflated scores.
-
-ANTI-CLUSTERING - MANDATORY: do not favour habitual anchor values. Select the score the evidence warrants, and use the full width of each band - values ending in 1, 3, 6 and 7 are exactly as legitimate as those ending in 0 or 5. Two different metrics on the same track, or the same metric on two very different tracks, should rarely land on the identical number unless the underlying evidence is genuinely identical.
+${SCORE_CALIBRATION}
 
 DO NOT CONFIDENTLY ASSERT UNVERIFIABLE PRODUCTION TECHNIQUES: Never state as fact that a specific production method was used - sampled versus real acoustic drums, auto-tune or pitch-correction software, a specific plugin or piece of hardware - unless the audio evidence is genuinely, audibly unambiguous (e.g. a clearly robotic, quantized, inhuman vocal is real evidence of heavy pitch-correction; a rigidly identical, zero-variance drum pattern is real evidence of programming or sampling). When you cannot genuinely distinguish the method, describe the audible RESULT instead of guessing the technique: write 'the drums sound tight and consistent' rather than 'well-chosen drum samples,' and write 'the vocal pitch is remarkably precise and stable' rather than 'auto-tuning is consistently applied.' This matters especially for older or vintage recordings, where confidently attributing a modern production technique (auto-tune, digital sampling) can be not just unverifiable but chronologically impossible - when in doubt about a recording's era or technology, describe what you hear, not what likely produced it.
 
@@ -285,8 +280,9 @@ Never confuse intentional stylistic tone curves with technical defects.
 
 RUBRIC ANCHORS FOR SPECTRAL MATCH:
 - 95-100: Master-level commercial execution. The frequency balance sits shoulder-to-shoulder with the finest commercially mastered references in its genre. Tonal weight, low-end extension, midrange articulation, and high-frequency smooth roll-off or sparkle are executed with surgical precision and translate flawlessly across all playback systems. Commentary must describe this tonal balance and commercial translation, without inventing imaginary flaws or suggesting unneeded EQ tweaks.
-- 88-94: Solid, release-ready commercial balance. The track sits comfortably on major streaming playlists with no distracting frequency masking or harshness.
-- 70-87: Good foundational balance, but with one identifiable, genuine acoustic imbalance that a commercial genre reference would not have (e.g. a truly muffled vocal, genuine low-end phase cancellation, or harsh uncapped upper-mid resonant spikes). Must name the specific instruments and demonstrable conflict.
+- 89-94: Demonstrably better tonal balance than the genre norm - not merely free of problems, but showing a specific, nameable strength (e.g. unusually well-controlled low-end extension, or a high end that stays detailed without harshness at volume). You must name what is above average.
+- 82-88: Clean, professional, release-ready commercial balance. The track sits comfortably on major streaming playlists with no distracting frequency masking or harshness. This is the correct band for competent, problem-free tonal balance: the absence of flaws belongs here, not higher.
+- 70-81: Good foundational balance, but with one identifiable, genuine acoustic imbalance that a commercial genre reference would not have (e.g. a truly muffled vocal, genuine low-end phase cancellation, or harsh uncapped upper-mid resonant spikes). Must name the specific instruments and demonstrable conflict.
 - Below 70: Structural spectral failure (severe boxiness, deafening harshness, completely missing bottom end or unlistenable boominess).
 
 MANDATORY JUSTIFICATION GATE FOR SPECTRAL MATCH:
@@ -296,8 +292,9 @@ If YES: Name the exact conflicting elements and audible masking issue, and confi
 
 RUBRIC ANCHOR FOR AESTHETIC DESIGN: this metric sits inside Production Index, part of Streaming Readiness - it measures algorithmic and commercial fitness (will this sound right to a playlist curator or streaming algorithm), NOT artistic novelty or creative ambition. A track that is clean, professional, and genre-correct is exactly what this metric should reward highly, because that IS what makes a track algorithmically safe and playlist-ready - competent, correct execution is the goal here, not a lesser consolation prize next to something more experimental.
 - Score 95-100: Exceptional modern commercial execution. Production choices exhibit intentional signature sound design, pristine sample selection, and cutting-edge genre-accurate engineering that would stand out on top editorial playlists.
-- Score 90-94: Solid, release-ready commercial standard. Clean, professional, textbook-correct production for the genre. Well-chosen presets, balanced processing, and appropriate instrumentation with no audible amateurish flaws.
-- Score 70-89: Functional production, but with an identifiable production choice that falls short of commercial genre standards (e.g., dated default synthesizer sound, unshaped plastic drum samples, or slightly awkward arrangement staging). Must name the specific instrument or production element.
+- Score 89-94: Demonstrably more distinctive production than the genre norm - not merely correct, but showing a specific, nameable choice that sets it apart (e.g. a signature texture or an unusual but effective processing decision). You must name what is above average.
+- Score 82-88: Clean, professional, textbook-correct production for the genre. Well-chosen presets, balanced processing, and appropriate instrumentation with no audible amateurish flaws. This is the correct band for competent, unremarkable-but-correct production: textbook-correct execution belongs HERE, not at 90+.
+- Score 70-81: Functional production, but with an identifiable production choice that falls short of commercial genre standards (e.g., dated default synthesizer sound, unshaped plastic drum samples, or slightly awkward arrangement staging). Must name the specific instrument or production element.
 - Below 70: Structural production shortcomings (amateurish sound design, severely conflicting era choices, poor gain staging, or audible uncontrolled processing distortion/pumping).
 
 AESTHETIC DESIGN CALIBRATION EXAMPLES:
@@ -314,8 +311,9 @@ This is a consistency gate: your own commentary must be internally consistent wi
 
 RUBRIC ANCHOR FOR SPACE & DENSITY: evaluates the arrangement's use of negative space, element separation, dynamic density shifts between sections, and avoidance of acoustic crowding across the soundstage.
 - Score 95-100: Masterful arrangement economy and spatial staging. Dynamic use of negative space gives focal elements pristine breathing room in intimate sections, while dense climactic passages layer multi-tracked textures with surgical pocketing and zero masking.
-- Score 90-94: Release-ready commercial arrangement. Every element has an identifiable pocket and audible separation. Even when the mix is full, instruments stay distinct without acoustic clutter.
-- Score 70-89: Functional arrangement, but with at least one identifiable moment or section where elements collide—for instance, rhythm guitars and synths overlapping in the 800Hz-2kHz range during the chorus, slightly burying the vocal. Must name the conflicting elements and specific section.
+- Score 89-94: Demonstrably better spatial handling than the genre norm - not merely uncluttered, but showing a specific, nameable strength in how space is used (e.g. deliberate negative space that makes a later climax land harder). You must name what is above average.
+- Score 82-88: Clean, professional, release-ready commercial arrangement. Every element has an identifiable pocket and audible separation. Even when the mix is full, instruments stay distinct without acoustic clutter. This is the correct band for a competent, uncluttered arrangement: the absence of collisions belongs here, not higher.
+- Score 70-81: Functional arrangement, but with at least one identifiable moment or section where elements collide—for instance, rhythm guitars and synths overlapping in the 800Hz-2kHz range during the chorus, slightly burying the vocal. Must name the conflicting elements and specific section.
 - Below 70: Chronic arrangement congestion throughout. Continuous, wall-to-wall instrumentation with no negative space, persistent frequency collisions, and fatigued listening dynamics.
 
 CRITICAL GENRE DIRECTIVE FOR SPACE & DENSITY: Intentional arrangement density (e.g., shoegaze wall-of-sound, maximalist pop, dense cinematic synth-pop, dark pop, trap/hip-hop with layered 808s and ad-libs, heavy rock/metal) is a deliberate artistic choice. When a dense arrangement maintains clarity of parts, clear vocal focus, and controlled masking, it represents genuinely accomplished arrangement craft, NOT crowding - and where that control is demonstrably exceptional and you can say why, it earns 89+. Deductions below the 82-88 professional band are reserved exclusively for unintended clutter, masking, or fatigue.
@@ -334,8 +332,9 @@ If YES: Commentary MUST explicitly name the colliding instruments and the specif
 RUBRIC ANCHOR FOR PALETTE COHESION: evaluates whether instrument textures, synthesizers, acoustic recordings, drum samples, and spatial reverbs sound like they belong to the same cohesive acoustic universe.
 IMPORTANT - a real, precomputed timbral consistency measurement for this track is provided in the context below as 'Measured Timbral Consistency Score' (0-100, where higher = the track's overall tonal/textural character stays more consistent throughout). You MUST treat this measured value as the primary, authoritative anchor for the paletteCohesion score (measured 90-100 -> score 90-100; measured 70-89 -> score 70-89; measured 50-69 -> score 50-69; below 50 -> score below 50). Qualitative listening provides specific descriptive details (e.g. which instrument families unite or diverge).
 - Score 95-100: Flawless timbral synergy. Every drum transient, acoustic element, synthesizer patch, and reverberant tail shares a unified sonic DNA, complementary frequency weighting, and matching room acoustics, creating an immersive, high-budget soundstage.
-- Score 90-94: Solid commercial cohesion. Instrumentation speaks a unified genre-appropriate language. Drums, bass, keys, and vocal reverbs integrate smoothly without distracting sonic outliers.
-- Score 70-89: Generally cohesive, but contains one identifiable acoustic outlier—such as a snare sample whose boxy, dry acoustic character stands apart awkwardly from the lush, expansive reverb applied to the lead vocals and synth pads. Must name the specific outlier.
+- Score 89-94: Demonstrably stronger cohesion than the genre norm - not merely free of outliers, but showing a specific, nameable strength (e.g. a distinctive shared sonic signature across otherwise unrelated instrument families). You must name what is above average.
+- Score 82-88: Clean, professional commercial cohesion. Instrumentation speaks a unified genre-appropriate language. Drums, bass, keys, and vocal reverbs integrate smoothly without distracting sonic outliers. This is the correct band for competent, outlier-free cohesion: the absence of clashes belongs here, not higher.
+- Score 70-81: Generally cohesive, but contains one identifiable acoustic outlier—such as a snare sample whose boxy, dry acoustic character stands apart awkwardly from the lush, expansive reverb applied to the lead vocals and synth pads. Must name the specific outlier.
 - Below 70: Mismatched, jarring sound collage. Instruments and samples from conflicting eras and discordant acoustic environments clash noticeably, sounding disjointed.
 
 CRITICAL DIRECTIVE FOR PALETTE COHESION: SECTIONAL CONTRAST VS. TEXTURAL INCOHERENCE:
@@ -368,10 +367,11 @@ RUBRIC ANCHOR FOR MIDRANGE SPACING: a score of 90-100 requires the midrange (rou
 RUBRIC ANCHOR FOR LOW-END DIVISION: a score of 90-100 requires the kick drum and bass (synth bass, 808, or bass guitar) to occupy clearly separated frequency pockets with both audible and distinct throughout - neither one masking or swallowing the other. Real sub-bass/bass temporal correlation and crest factor measurements are provided above as 'Measured Low-End Evidence' - use them as supporting evidence for how independently the sub-bass and bass regions actually behave over time, alongside what you actually hear. Low correlation can reflect deliberate, independent sound design (e.g. a modulated sub-bass in electronic genres) rather than a problem, and neither correlation nor crest factor alone proves or disproves genuine separation - judge the combination alongside the audible result. In modern dark pop, hip-hop, or synthwave, powerful low-end with sustained bass notes that underpin punchy transients represents elite low-end engineering (90-100), not an overlap problem. A score of 70-85 applies when the low end is generally functional but has at least one section where the bass and kick blur together or one becomes hard to distinguish from the other. Below 70 is reserved for a persistent, structural failure of separation - one element (most commonly the bass) is genuinely difficult to hear as a distinct part for most of the track, buried under or merged with the other low-frequency content.
 
 - sibilanceShaving: IMPORTANT - a real, precomputed sibilance severity measurement for this track will be provided in the context below as 'Measured Sibilance Severity Score'. This is a genuine, objective measurement (0-100, where 100 = no detected harsh spikes in the 5-10kHz range, lower values = more/worse detected spikes), not a guess. You MUST treat this measured value as the primary, authoritative basis for the sibilanceShaving score - use your own listening impression only as a secondary, qualitative supplement in the commentary (e.g. identifying which specific words or moments sound harsh), not as a basis for overriding what the measurement shows. RUBRIC ANCHOR: map the measured value to your score directly and consistently - measured 90-100 -> score 90-100; measured 70-89 -> score 70-89; measured 50-69 -> score 50-69; below 50 -> score below 50. Do not compress the measured value toward a "safe middle" score - a genuinely low measured value must produce a genuinely low score, even for a well-known or otherwise well-produced track. A professionally released, well-mixed track can still have real, measured sibilance issues (e.g. a mixing engineer choosing to actively de-ess a vocal is direct evidence that real sibilance existed before correction) - this is common and does not imply the whole mix is bad.
-- stereoWidth: judges the width and spatial use of the stereo field - is the mix appropriately wide (backing elements, reverbs, doubled parts spread across the stereo image) without being so wide that mono compatibility or center-focus suffers? Judge this from what you actually hear in the stereo image, not from any external measurement. IMPORTANT - a real, precomputed phase correlation measurement for this track will be provided in the context below as 'Measured Stereo Phase Correlation'. This is a genuine, objective measurement (not a guess) ranging from -1 (fully out of phase, will collapse or cancel in mono playback) to +1 (fully mono/identical channels), where values roughly between 0.15 and 0.85 represent a healthy, wide-but-mono-safe stereo field. You MUST treat this measured value as the primary, authoritative basis for the stereoWidth score.
-PHASE RISK IS UNIVERSAL, NOT GENRE-DEPENDENT: if the measured value indicates genuine phase issues (below 0 or above 0.9), the score MUST reflect that clearly regardless of genre or how the mix subjectively sounds - phase cancellation and near-total mono collapse are real technical defects in any genre, with no legitimate stylistic exception.
-NARROW-END CALIBRATION NOTE: a genuinely narrow, centered stereo image (correlation below 0.15 but still positive, no real phase risk) can be a deliberate genre choice in mono-leaning hip-hop, certain garage rock, or intimate centered productions - not automatically a flaw.
-GATE (narrow end only, not the phase-risk end above): if the measured value is between 0 and 0.15, before scoring below 65, explicitly check: does the narrow image fit the genre's convention and read as an intentional, focused choice rather than an underdeveloped mix? If YES - name that genre fit and score 65-84. If NO - score using the bands below.
+- stereoWidth: judges the width and spatial use of the stereo field - is the mix appropriately wide (backing elements, reverbs, doubled parts spread across the stereo image) without being so wide that mono compatibility or center-focus suffers? Judge this from what you actually hear in the stereo image, not from any external measurement. IMPORTANT - a real, precomputed phase correlation measurement for this track will be provided in the context below as 'Measured Stereo Phase Correlation'. This is a genuine, objective measurement (not a guess). READ IT CORRECTLY - the physics are easy to invert: +1 means the left and right channels are identical, which is a MONO / very NARROW, dead-centre image (not a phase fault, simply an absence of width). Around 0 means the channels are highly DECORRELATED, which is a very WIDE image. Below 0 means the channels are increasingly out of phase, which is the genuine cancellation risk - a mix at negative correlation will partially or fully cancel when summed to mono. Width therefore INCREASES as the value falls from +1 toward 0, and phase risk appears only once it goes negative. Values roughly between 0.15 and 0.85 represent a healthy, wide-but-mono-safe stereo field.
+USE THIS AS EVIDENCE, NOT AS A QUALITY SCORE IN ITSELF: the measurement tells you how wide or narrow the image genuinely is, and whether mono compatibility is at risk. It does NOT by itself tell you whether that width is good. Judge that from genre and context alongside what you actually hear - a tightly centred, mono-leaning image is a deliberate and correct choice in much hip-hop, garage rock, punk and intimate singer-songwriter material, while a very wide decorrelated field is the expectation in modern synth-pop, EDM and cinematic productions. Never convert "more width" into "better production" automatically in either direction.
+MONO-COMPATIBILITY RISK IS UNIVERSAL, NOT GENRE-DEPENDENT: if the measured value is NEGATIVE, that is genuine phase cancellation risk and the score MUST reflect it clearly regardless of genre or how the mix subjectively sounds - a mix that partially cancels in mono is a real technical defect in any genre, with no legitimate stylistic exception. A very high positive value (above roughly 0.9) is NOT a phase fault: it means the mix is essentially mono. Treat that as a width finding to judge in context, not as a defect in itself.
+GATE (very wide end): if the measured value is between 0 and 0.15, the image is highly decorrelated and very wide. Before scoring below 65, explicitly check: does that width fit the genre's convention and hold together in mono, rather than being an artificially widened mix that hollows out the centre? If YES - name that genre fit and score 82-88 per the master calibration, reserving 89+ for width you can specifically name as exceptionally well handled. If NO - score using the bands below.
+GATE (mono / very narrow end): if the measured value is above roughly 0.9, the image is essentially mono. Before scoring below 65, explicitly check: is that centred image a deliberate convention of this genre rather than an undeveloped stereo mix? If YES - name that genre fit and score 82-88 per the master calibration. If NO - score using the bands below.
 RUBRIC ANCHOR: correlation in the 0.35-0.75 range (a wide, deliberate, mono-safe stereo field) -> score 85-100. Correlation 0.15-0.34 or 0.76-0.85 (usable but narrower or tighter than ideal) -> score 65-84. Correlation between 0 and 0.15 -> score 40-64 only if the gate above finds the narrow image genuinely underdeveloped - otherwise 65-84 per the gate. Correlation below 0 or above 0.9 (genuine phase risk) -> score below 40 always, regardless of genre.
 
 RULES:
@@ -416,11 +416,12 @@ async function performSubMetricsCall1(
     : "not available";
 
   const contextSummary = `
-Parent category context already determined:
-- Engagement Power score: ${parsedCritique?.scores?.commercialReadiness}, notes: ${parsedCritique?.mixQuality?.dominanceIssues}
-- Production Index score: ${parsedCritique?.scores?.overallProduction}, genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
+Qualitative context from the earlier analysis pass (descriptive only - NO parent scores are given to you deliberately):
+The parent category scores are intentionally withheld here. Your sub-metric scores are used to RECOMPUTE those parent scores, so being shown the earlier numbers would make this analysis gravitate back toward that first unaided impression instead of independently determining the result from the evidence. Score each sub-metric on its own merits from the audio, the measurements below, and the descriptive notes - never toward any prior number.
+- Engagement Power notes: ${parsedCritique?.mixQuality?.dominanceIssues}
+- Genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
 - Mix Balance Quality frequency notes: low end: ${parsedCritique?.mixQuality?.frequencyBalance?.lowEnd}, midrange: ${parsedCritique?.mixQuality?.frequencyBalance?.midrange}, high end: ${parsedCritique?.mixQuality?.frequencyBalance?.highEnd}
-- Song Title Searchability score: ${parsedCritique?.titleSearchability?.score}, uniqueness: ${parsedCritique?.titleSearchability?.uniquenessLevel}
+- Song Title uniqueness classification: ${parsedCritique?.titleSearchability?.uniquenessLevel}
 - Measured Stereo Phase Correlation: ${measuredStereoCorrelation !== undefined && measuredStereoCorrelation !== null ? measuredStereoCorrelation : "not available"}
 - Measured Sibilance Severity Score: ${measuredSibilanceSeverity !== undefined && measuredSibilanceSeverity !== null ? measuredSibilanceSeverity : "not available"}
 - Measured Timbral Consistency Score: ${measuredTimbralConsistency !== undefined && measuredTimbralConsistency !== null ? measuredTimbralConsistency : "not available"} (Primary authoritative basis for Palette Cohesion)
@@ -508,22 +509,7 @@ const SUBMETRIC_SYSTEM_PROMPT_2 = `You are a precise, artistically-literate musi
 
 VOICE - MANDATORY: Write all commentary in neutral, third-person analytical language, as if writing a professional written report - never in first person, and NEVER as a mechanical points ledger. Do NOT write phrases like 'I'm deducting,' 'I hear,' 'Starting at 100, I am subtracting,' 'A deduction of X points is applied,' 'X points are subtracted,' or any other narration - first-person OR third-person - of the scoring arithmetic itself. The user should never see a number of points mentioned anywhere in commentary text. Instead, describe what you actually observe, directly and specifically: write 'The vocal sits slightly recessed behind the rhythm guitars in the verse,' never 'A deduction of 12 points is applied due to recessed vocals' and never 'I'm deducting 12 points because I hear the vocal is recessed.' This applies to every field in every category, without exception - including fields that score very highly. For top-band scores (90-100), commentary should validate the track's high-level craft and execution honestly; never invent imaginary flaws, non-existent muddiness, or unneeded tweaks just to explain why a score is not 100. Reserve criticisms strictly for genuine, demonstrable technical or arrangement shortcomings. Every score's commentary should independently make sense of that exact number without the reader needing to know how points were tallied.
 
-SCORE CALIBRATION - MANDATORY. The scale below is anchored to an EXTERNAL reference point. Use it literally; do not treat the whole scale as a narrow band around "good".
-
-THE CALIBRATION ANCHOR: when a specific metric is executed to a competent professional standard - no significant flaw, but nothing demonstrably exceptional - score that metric 82-88. That band is the CENTRE of this scale, not the bottom of it. Judge each metric on its own: a major-label release that charted respectably can still be genuinely weak on an individual metric, and a self-released track can be genuinely exceptional on one. A score in the 80s is a good, respectable, professional-standard result and must never be written about as though it were a failure or a disappointment.
-
-- 82-88: professional standard. Clean, competent, no real flaw. This is the correct default for solid work.
-- 89-94: measurably BETTER than the professional norm on this specific metric - something identifiably above average that you can name.
-- 95-98: among the strongest executions of this metric you would expect to encounter. Rare, and requires specific evidence.
-- 99-100: definitive, reference-grade execution. Most tracks - including most commercially successful ones - will never score this on any metric.
-- 70-81: genuinely functional, but with a real, nameable weakness.
-- Below 70: a real problem an ordinary listener would notice unprompted.
-
-ENTERING 89+ REQUIRES POSITIVE EVIDENCE: something specific and above-average that you point to and name in your commentary. The mere ABSENCE of an identifiable flaw is NOT sufficient to reach 89 - absence of flaw is exactly what the 82-88 band already represents. This does not license inventing flaws to justify a lower number (that violates the instruction above); it means the honest default for clean, professional, unremarkable work is the mid-to-high 80s, and anything higher must be earned with evidence you can state.
-
-PRECEDENCE OVER THE PER-METRIC RUBRICS BELOW - MANDATORY: many individual metric rubrics further down describe their top band as "90-100". Read that phrase as naming "the top band" conceptually, NOT as a literal instruction to award 90 or more. The calibration above governs the actual number in every case. Concretely: meeting the standard a rubric describes, cleanly and with no flaw, places the metric at 82-88; exceeding that standard with specific, nameable, above-average evidence is what earns 89 and above. Where a rubric states that some characteristic "must score 90-100", or that a genre-typical trait must not be penalised, its real intent is that the characteristic IS NOT A FLAW and must not drag the score downward - honour that intent by scoring at the professional-standard band or above and never treating it as a defect, but do NOT convert "this is not a flaw" into automatic evidence of excellence. Those genre-fairness rules exist to prevent unfair deductions, not to manufacture inflated scores.
-
-ANTI-CLUSTERING - MANDATORY: do not favour habitual anchor values. Select the score the evidence warrants, and use the full width of each band - values ending in 1, 3, 6 and 7 are exactly as legitimate as those ending in 0 or 5. Two different metrics on the same track, or the same metric on two very different tracks, should rarely land on the identical number unless the underlying evidence is genuinely identical.
+${SCORE_CALIBRATION}
 
 DO NOT CONFIDENTLY ASSERT UNVERIFIABLE PRODUCTION TECHNIQUES: Never state as fact that a specific production method was used - sampled versus real acoustic drums, auto-tune or pitch-correction software, a specific plugin or piece of hardware - unless the audio evidence is genuinely, audibly unambiguous (e.g. a clearly robotic, quantized, inhuman vocal is real evidence of heavy pitch-correction; a rigidly identical, zero-variance drum pattern is real evidence of programming or sampling). When you cannot genuinely distinguish the method, describe the audible RESULT instead of guessing the technique: write 'the drums sound tight and consistent' rather than 'well-chosen drum samples,' and write 'the vocal pitch is remarkably precise and stable' rather than 'auto-tuning is consistently applied.' This matters especially for older or vintage recordings, where confidently attributing a modern production technique (auto-tune, digital sampling) can be not just unverifiable but chronologically impossible - when in doubt about a recording's era or technology, describe what you hear, not what likely produced it.
 
@@ -616,14 +602,15 @@ async function performSubMetricsCall2(
   melodySummary?: string
 ): Promise<any> {
   const contextSummary = `
-Parent category context already determined:
-- Composition Flow score: ${parsedCritique?.arrangement?.flowScore}, notes: ${parsedCritique?.arrangement?.transitionsAndArc}
-- Music Theory score: ${parsedCritique?.musicTheory?.score}, chord structures: ${parsedCritique?.musicTheory?.chordStructures}
-- Lyrical Impact score: ${parsedCritique?.lyricalImpact?.score}, clarity: ${parsedCritique?.lyricalImpact?.meaningClarity}
-- Vocal Tracking score: ${parsedCritique?.performance?.vocalScore}, notes: ${parsedCritique?.performance?.vocalsCritique}
+Qualitative context from the earlier analysis pass (descriptive only - NO parent scores are given to you deliberately):
+The parent category scores are intentionally withheld here. Your sub-metric scores are used to RECOMPUTE those parent scores, so being shown the earlier numbers would make this analysis gravitate back toward that first unaided impression instead of independently determining the result from the evidence. Score each sub-metric on its own merits from the audio, the measurements below, and the descriptive notes - never toward any prior number.
+- Composition Flow notes: ${parsedCritique?.arrangement?.transitionsAndArc}
+- Music Theory chord structures: ${parsedCritique?.musicTheory?.chordStructures}
+- Lyrical clarity classification: ${parsedCritique?.lyricalImpact?.meaningClarity}
+- Vocal Tracking notes: ${parsedCritique?.performance?.vocalsCritique}
 - Genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
 
-IF a real detected key and chord vocabulary is provided below, treat it as genuine, computed ground truth for the song's actual harmonic content - use it as the primary basis for judging harmonicIntrigue, not just your own listening impression. This is the song's overall key and the set of chords it uses, not a timed section-by-section progression, so do not describe specific chord timing or ordering beyond what you can genuinely hear yourself. The Roman numerals show functional harmony relative to the key - chords outside the standard diatonic set (I, ii, iii, IV, V, vi, vii°), such as borrowed chords, secondary dominants, or unexpected extensions (maj7, sus4, etc. used non-conventionally), are a real signal of harmonic richness and should meaningfully raise the harmonicIntrigue score above 75. A chord vocabulary using only plain diatonic triads is NOT a harmonic failure - it is the harmonic backbone of countless great songs, and used well it should score a solid 75-85 (average, competently executed harmony, not adventurous, but not deficient either). Reserve scores meaningfully below that floor for genuine harmonic poverty specifically - a single chord for most or all of the song, or minimal chord movement with essentially no harmonic motion at all - not merely for staying within the diatonic set:
+IF a detected key and chord vocabulary is provided below, treat it as AI-INFERRED SUPPORTING EVIDENCE about the song's harmonic content - useful corroboration for judging harmonicIntrigue, to be weighed alongside your own listening impression rather than trusted over it. It is NOT verified ground truth: it comes from model inference on the audio, and direct model-based key identification has been measured on this project as unreliable, returning different keys for the same recording on repeated runs. If it clearly conflicts with what you actually hear, say so plainly and trust your listening; never present the detected key or chords to the user as confirmed fact. This is the song's overall key and the set of chords it uses, not a timed section-by-section progression, so do not describe specific chord timing or ordering beyond what you can genuinely hear yourself. The Roman numerals show functional harmony relative to the key - chords outside the standard diatonic set (I, ii, iii, IV, V, vi, vii°), such as borrowed chords, secondary dominants, or unexpected extensions (maj7, sus4, etc. used non-conventionally), are a real signal of harmonic richness and should meaningfully raise the harmonicIntrigue score above 75. A chord vocabulary using only plain diatonic triads is NOT a harmonic failure - it is the harmonic backbone of countless great songs, and used well it should score a solid 75-85 (average, competently executed harmony, not adventurous, but not deficient either). Reserve scores meaningfully below that floor for genuine harmonic poverty specifically - a single chord for most or all of the song, or minimal chord movement with essentially no harmonic motion at all - not merely for staying within the diatonic set:
 Detected Key & Chord Vocabulary: ${chordProgressionSummary || 'not available'}
 
 Listen to the actual audio again and generate specific, evidence-based scores, feedback, and sub-metric commentary for all 4 categories and their 9 sub-fields, consistent with the above context but grounded in what you actually hear this time.`;
@@ -701,22 +688,7 @@ const SUBMETRIC_SYSTEM_PROMPT_3 = `You are a precise music analyst breaking down
 
 VOICE - MANDATORY: Write all commentary in neutral, third-person analytical language, as if writing a professional written report - never in first person, and NEVER as a mechanical points ledger. Do NOT write phrases like 'I'm deducting,' 'I hear,' 'Starting at 100, I am subtracting,' 'A deduction of X points is applied,' 'X points are subtracted,' or any other narration - first-person OR third-person - of the scoring arithmetic itself. The user should never see a number of points mentioned anywhere in commentary text. Instead, describe what you actually observe, directly and specifically: write 'The vocal sits slightly recessed behind the rhythm guitars in the verse,' never 'A deduction of 12 points is applied due to recessed vocals' and never 'I'm deducting 12 points because I hear the vocal is recessed.' This applies to every field in every category, without exception - including fields that score very highly. For top-band scores (90-100), commentary should validate the track's high-level craft and execution honestly; never invent imaginary flaws, non-existent muddiness, or unneeded tweaks just to explain why a score is not 100. Reserve criticisms strictly for genuine, demonstrable technical or arrangement shortcomings. Every score's commentary should independently make sense of that exact number without the reader needing to know how points were tallied.
 
-SCORE CALIBRATION - MANDATORY. The scale below is anchored to an EXTERNAL reference point. Use it literally; do not treat the whole scale as a narrow band around "good".
-
-THE CALIBRATION ANCHOR: when a specific metric is executed to a competent professional standard - no significant flaw, but nothing demonstrably exceptional - score that metric 82-88. That band is the CENTRE of this scale, not the bottom of it. Judge each metric on its own: a major-label release that charted respectably can still be genuinely weak on an individual metric, and a self-released track can be genuinely exceptional on one. A score in the 80s is a good, respectable, professional-standard result and must never be written about as though it were a failure or a disappointment.
-
-- 82-88: professional standard. Clean, competent, no real flaw. This is the correct default for solid work.
-- 89-94: measurably BETTER than the professional norm on this specific metric - something identifiably above average that you can name.
-- 95-98: among the strongest executions of this metric you would expect to encounter. Rare, and requires specific evidence.
-- 99-100: definitive, reference-grade execution. Most tracks - including most commercially successful ones - will never score this on any metric.
-- 70-81: genuinely functional, but with a real, nameable weakness.
-- Below 70: a real problem an ordinary listener would notice unprompted.
-
-ENTERING 89+ REQUIRES POSITIVE EVIDENCE: something specific and above-average that you point to and name in your commentary. The mere ABSENCE of an identifiable flaw is NOT sufficient to reach 89 - absence of flaw is exactly what the 82-88 band already represents. This does not license inventing flaws to justify a lower number (that violates the instruction above); it means the honest default for clean, professional, unremarkable work is the mid-to-high 80s, and anything higher must be earned with evidence you can state.
-
-PRECEDENCE OVER THE PER-METRIC RUBRICS BELOW - MANDATORY: many individual metric rubrics further down describe their top band as "90-100". Read that phrase as naming "the top band" conceptually, NOT as a literal instruction to award 90 or more. The calibration above governs the actual number in every case. Concretely: meeting the standard a rubric describes, cleanly and with no flaw, places the metric at 82-88; exceeding that standard with specific, nameable, above-average evidence is what earns 89 and above. Where a rubric states that some characteristic "must score 90-100", or that a genre-typical trait must not be penalised, its real intent is that the characteristic IS NOT A FLAW and must not drag the score downward - honour that intent by scoring at the professional-standard band or above and never treating it as a defect, but do NOT convert "this is not a flaw" into automatic evidence of excellence. Those genre-fairness rules exist to prevent unfair deductions, not to manufacture inflated scores.
-
-ANTI-CLUSTERING - MANDATORY: do not favour habitual anchor values. Select the score the evidence warrants, and use the full width of each band - values ending in 1, 3, 6 and 7 are exactly as legitimate as those ending in 0 or 5. Two different metrics on the same track, or the same metric on two very different tracks, should rarely land on the identical number unless the underlying evidence is genuinely identical.
+${SCORE_CALIBRATION}
 
 DO NOT CONFIDENTLY ASSERT UNVERIFIABLE PRODUCTION TECHNIQUES: Never state as fact that a specific production method was used - sampled versus real acoustic drums, auto-tune or pitch-correction software, a specific plugin or piece of hardware - unless the audio evidence is genuinely, audibly unambiguous (e.g. a clearly robotic, quantized, inhuman vocal is real evidence of heavy pitch-correction; a rigidly identical, zero-variance drum pattern is real evidence of programming or sampling). When you cannot genuinely distinguish the method, describe the audible RESULT instead of guessing the technique: write 'the drums sound tight and consistent' rather than 'well-chosen drum samples,' and write 'the vocal pitch is remarkably precise and stable' rather than 'auto-tuning is consistently applied.' This matters especially for older or vintage recordings, where confidently attributing a modern production technique (auto-tune, digital sampling) can be not just unverifiable but chronologically impossible - when in doubt about a recording's era or technology, describe what you hear, not what likely produced it.
 
@@ -797,13 +769,13 @@ async function performSubMetricsCall3(
   measuredVocalDynamics?: number
 ): Promise<any> {
   const contextSummary = `
-Parent category context already determined:
-- Composition Flow score: ${parsedCritique?.arrangement?.flowScore}, notes: ${parsedCritique?.arrangement?.transitionsAndArc}
-- Vocal Tracking score: ${parsedCritique?.performance?.vocalScore}, notes: ${parsedCritique?.performance?.vocalsCritique}
-- Instrumental Staging score: ${parsedCritique?.performance?.instrumentalScore}
-- Lyrical Impact score: ${parsedCritique?.lyricalImpact?.score}, meaning classification: "${parsedCritique?.lyricalImpact?.meaningClarity}", feedback: ${parsedCritique?.lyricalImpact?.feedback}
-- Music Theory score: ${parsedCritique?.musicTheory?.score}, chord structures: ${parsedCritique?.musicTheory?.chordStructures}
-- Harmonic Intrigue (already scored in a separate pass): ${parsedCritique?.subMetricsCall2?.artisticAnalysis?.harmonicIntrigue?.score ?? "N/A"}/100, notes: "${parsedCritique?.subMetricsCall2?.artisticAnalysis?.harmonicIntrigue?.commentary ?? "N/A"}"
+Qualitative context from the earlier analysis pass (descriptive only - NO parent scores are given to you deliberately):
+The parent category scores are intentionally withheld here. Your sub-metric scores are used to RECOMPUTE those parent scores, so being shown the earlier numbers would make this analysis gravitate back toward that first unaided impression instead of independently determining the result from the evidence. Score each sub-metric on its own merits from the audio, the measurements below, and the descriptive notes - never toward any prior number.
+- Composition Flow notes: ${parsedCritique?.arrangement?.transitionsAndArc}
+- Vocal Tracking notes: ${parsedCritique?.performance?.vocalsCritique}
+- Lyrical meaning classification: "${parsedCritique?.lyricalImpact?.meaningClarity}", feedback: ${parsedCritique?.lyricalImpact?.feedback}
+- Music Theory chord structures: ${parsedCritique?.musicTheory?.chordStructures}
+- Harmonic Intrigue notes from a separate pass: "${parsedCritique?.subMetricsCall2?.artisticAnalysis?.harmonicIntrigue?.commentary ?? "N/A"}"
 - Genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
 - Measured Timeline Grid Cohesion Score: ${measuredGridCohesion !== undefined && measuredGridCohesion !== null ? measuredGridCohesion : 'not available'}
 - Measured Transient Punch Score: ${measuredTransientPunch !== undefined && measuredTransientPunch !== null ? measuredTransientPunch : 'not available'}
@@ -1205,38 +1177,44 @@ async function performCritiqueAnalysis(
 
   const ensureMinimumScores = (crit: any) => {
     if (!crit) return crit;
+    // Validate and bound to the real 0-100 scale. This previously forced every parent
+    // score up to a hidden minimum of 45, contradicting rubrics that explicitly allow
+    // scores below 40 and silently manufacturing a floor the user never saw - it is why
+    // several genuinely different low scores all surfaced as an identical 45.
+    // A non-numeric value is not evidence of a mid-low score, so it returns null rather
+    // than inventing 45; every assignment below is guarded against writing that null.
     const clamp = (val: any) => {
       const num = Number(val);
-      if (isNaN(num)) return 45;
-      return Math.max(45, num);
+      if (!Number.isFinite(num)) return null;
+      return Math.max(0, Math.min(100, num));
     };
     if (crit.mixQuality) {
-      crit.mixQuality.score = clamp(crit.mixQuality.score);
+      { const v = clamp(crit.mixQuality.score); if (v !== null) crit.mixQuality.score = v; }
     }
     if (crit.performance) {
       // Never clamp a not-applicable vocal score: for a genuine instrumental the 0 is a
       // deliberate N/A placeholder, and clamping it to 45 would surface a bogus "failing"
       // vocal score for a track that has no vocals to fail at.
       if (crit.performance.vocalApplicable !== false) {
-        crit.performance.vocalScore = clamp(crit.performance.vocalScore);
+        { const v = clamp(crit.performance.vocalScore); if (v !== null) crit.performance.vocalScore = v; }
       }
-      crit.performance.instrumentalScore = clamp(crit.performance.instrumentalScore);
+      { const v = clamp(crit.performance.instrumentalScore); if (v !== null) crit.performance.instrumentalScore = v; }
     }
     if (crit.arrangement) {
-      crit.arrangement.flowScore = clamp(crit.arrangement.flowScore);
+      { const v = clamp(crit.arrangement.flowScore); if (v !== null) crit.arrangement.flowScore = v; }
     }
     if (crit.lyricalImpact && crit.lyricalImpact.applicable !== false) {
-      crit.lyricalImpact.score = clamp(crit.lyricalImpact.score);
+      { const v = clamp(crit.lyricalImpact.score); if (v !== null) crit.lyricalImpact.score = v; }
     }
     if (crit.musicTheory) {
-      crit.musicTheory.score = clamp(crit.musicTheory.score);
+      { const v = clamp(crit.musicTheory.score); if (v !== null) crit.musicTheory.score = v; }
     }
-    if (crit.titleSearchability) {
-      crit.titleSearchability.score = clamp(crit.titleSearchability.score);
+    if (crit.titleSearchability && crit.titleSearchability.applicable !== false) {
+      { const v = clamp(crit.titleSearchability.score); if (v !== null) crit.titleSearchability.score = v; }
     }
     if (crit.scores) {
-      crit.scores.overallProduction = clamp(crit.scores.overallProduction);
-      crit.scores.commercialReadiness = clamp(crit.scores.commercialReadiness);
+      { const v = clamp(crit.scores.overallProduction); if (v !== null) crit.scores.overallProduction = v; }
+      { const v = clamp(crit.scores.commercialReadiness); if (v !== null) crit.scores.commercialReadiness = v; }
     }
     return crit;
   };
@@ -1421,7 +1399,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
     if (metaTitle && metaTitle.trim().length > 0) {
       userInstruction += `\n\n[TITLE PROVIDED FOR SEARCHABILITY SCORING ONLY]\nThe user has provided this exact song title: "${metaTitle.trim()}". Use this exact title ONLY to score the Song Title Searchability category (SEO Uniqueness and SEO Discoverability). Do not use this title to identify, guess, or recognize the actual commercial artist or recording - continue blind audition mode for every other category.`;
     } else {
-      userInstruction += `\n\n[NO TITLE PROVIDED]\nNo song title was provided for this upload. For the Song Title Searchability category ONLY, you MUST consistently report that title data is unavailable. This means: do not invent a fictional title, do not guess a title, and critically - even if you believe you recognize this specific recording as a real, commercially released song, you MUST NOT use that recognized title either. Treat this category as if the song's identity is completely unknown and unknowable, regardless of any recognition confidence you may have. Score both SEO Uniqueness and SEO Discoverability at exactly 50, with commentary stating plainly that no title was provided so searchability cannot be genuinely assessed. Under no circumstances should any specific title - invented, guessed, or recognized - appear anywhere in your Song Title Searchability commentary.`;
+      userInstruction += `\n\n[NO TITLE PROVIDED]\nNo song title was provided for this upload. For the Song Title Searchability category ONLY, you MUST consistently report that title data is unavailable. This means: do not invent a fictional title, do not guess a title, and critically - even if you believe you recognize this specific recording as a real, commercially released song, you MUST NOT use that recognized title either. Treat this category as if the song's identity is completely unknown and unknowable, regardless of any recognition confidence you may have. Set BOTH SEO Uniqueness and SEO Discoverability to applicable=false with a 0 placeholder score, and state plainly in the commentary that no title was provided so searchability cannot be assessed. Do NOT score them at 50 or any other invented mid-scale number: a metric that cannot be assessed has no score, and assigning one presents a guess as a measurement. Under no circumstances should any specific title - invented, guessed, or recognized - appear anywhere in your Song Title Searchability commentary.`;
     }
 
     if (!metaGenre) {
@@ -1438,6 +1416,11 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
     );
 
     try {
+
+    // Validate the genre/subgenre pair BEFORE any sub-metric analysis runs. All of
+    // Calls 1-3 are genre-aware, so validating only at the end meant the entire detailed
+    // analysis could be computed against an invalid pair and merely relabelled afterwards.
+    validateGenrePair(parsedCritique);
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
@@ -1448,7 +1431,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       parsedCritique.subMetricsCall1Failed = true;
     }
 
-    let verifiedChordSummary: string | undefined = undefined;
+    let inferredChordSummary: string | undefined = undefined;
     try {
       console.log("[Chord/Key] Starting direct Gemini chord/key analysis...");
       const chordKeyAnalysis = await performChordKeyAnalysis(audioPart);
@@ -1457,7 +1440,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       console.log("[Chord/Key] Direct Gemini chord/key analysis completed successfully.");
       if (chordKeyAnalysis?.keySignature && chordKeyAnalysis?.chordsUsed?.length > 0) {
         const chordList = chordKeyAnalysis.chordsUsed.map((c: any) => `${c.chord} (${c.romanNumeral})`).join(", ");
-        verifiedChordSummary = `Key: ${chordKeyAnalysis.keySignature}. Chord vocabulary used: ${chordList}. (Note: this is the song's overall key and chord vocabulary, not a timed section-by-section progression.)`;
+        inferredChordSummary = `Key: ${chordKeyAnalysis.keySignature}. Chord vocabulary used: ${chordList}. (Note: this is the song's overall key and chord vocabulary, not a timed section-by-section progression.)`;
       }
     } catch (subErr: any) {
       console.error("[Chord/Key] Direct Gemini chord/key analysis failed, continuing without it:", subErr.message || subErr);
@@ -1466,7 +1449,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 
     try {
       console.log("[Call 2] Starting Sub-Metrics Call 2...");
-      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique, verifiedChordSummary ?? chordProgressionSummary, melodySummary);
+      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique, inferredChordSummary ?? chordProgressionSummary, melodySummary);
       parsedCritique.subMetricsCall2 = subMetricsCall2;
       parsedCritique.subMetricsCall2Failed = false;
       console.log("[Call 2] Sub-Metrics Call 2 completed successfully.");
@@ -1644,7 +1627,7 @@ app.post("/api/critique-url", async (req, res) => {
     if (metaTitle && metaTitle.trim().length > 0) {
       userInstruction += `\n\n[TITLE PROVIDED FOR SEARCHABILITY SCORING ONLY]\nThe user has provided this exact song title: "${metaTitle.trim()}". Use this exact title ONLY to score the Song Title Searchability category (SEO Uniqueness and SEO Discoverability). Do not use this title to identify, guess, or recognize the actual commercial artist or recording - continue blind audition mode for every other category.`;
     } else {
-      userInstruction += `\n\n[NO TITLE PROVIDED]\nNo song title was provided for this upload. For the Song Title Searchability category ONLY, you MUST consistently report that title data is unavailable. This means: do not invent a fictional title, do not guess a title, and critically - even if you believe you recognize this specific recording as a real, commercially released song, you MUST NOT use that recognized title either. Treat this category as if the song's identity is completely unknown and unknowable, regardless of any recognition confidence you may have. Score both SEO Uniqueness and SEO Discoverability at exactly 50, with commentary stating plainly that no title was provided so searchability cannot be genuinely assessed. Under no circumstances should any specific title - invented, guessed, or recognized - appear anywhere in your Song Title Searchability commentary.`;
+      userInstruction += `\n\n[NO TITLE PROVIDED]\nNo song title was provided for this upload. For the Song Title Searchability category ONLY, you MUST consistently report that title data is unavailable. This means: do not invent a fictional title, do not guess a title, and critically - even if you believe you recognize this specific recording as a real, commercially released song, you MUST NOT use that recognized title either. Treat this category as if the song's identity is completely unknown and unknowable, regardless of any recognition confidence you may have. Set BOTH SEO Uniqueness and SEO Discoverability to applicable=false with a 0 placeholder score, and state plainly in the commentary that no title was provided so searchability cannot be assessed. Do NOT score them at 50 or any other invented mid-scale number: a metric that cannot be assessed has no score, and assigning one presents a guess as a measurement. Under no circumstances should any specific title - invented, guessed, or recognized - appear anywhere in your Song Title Searchability commentary.`;
     }
 
     if (!metaGenre) {
@@ -1661,6 +1644,11 @@ app.post("/api/critique-url", async (req, res) => {
     );
 
     try {
+
+    // Validate the genre/subgenre pair BEFORE any sub-metric analysis runs. All of
+    // Calls 1-3 are genre-aware, so validating only at the end meant the entire detailed
+    // analysis could be computed against an invalid pair and merely relabelled afterwards.
+    validateGenrePair(parsedCritique);
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
@@ -1670,7 +1658,7 @@ app.post("/api/critique-url", async (req, res) => {
       parsedCritique.subMetricsCall1Failed = true;
     }
 
-    let verifiedChordSummary: string | undefined = undefined;
+    let inferredChordSummary: string | undefined = undefined;
     try {
       console.log("[Chord/Key] Starting direct Gemini chord/key analysis (URL route)...");
       const chordKeyAnalysis = await performChordKeyAnalysis(audioPart);
@@ -1678,7 +1666,7 @@ app.post("/api/critique-url", async (req, res) => {
       parsedCritique.chordKeyAnalysisFailed = false;
       if (chordKeyAnalysis?.keySignature && chordKeyAnalysis?.chordsUsed?.length > 0) {
         const chordList = chordKeyAnalysis.chordsUsed.map((c: any) => `${c.chord} (${c.romanNumeral})`).join(", ");
-        verifiedChordSummary = `Key: ${chordKeyAnalysis.keySignature}. Chord vocabulary used: ${chordList}. (Note: this is the song's overall key and chord vocabulary, not a timed section-by-section progression.)`;
+        inferredChordSummary = `Key: ${chordKeyAnalysis.keySignature}. Chord vocabulary used: ${chordList}. (Note: this is the song's overall key and chord vocabulary, not a timed section-by-section progression.)`;
       }
     } catch (subErr: any) {
       console.error("[Chord/Key] Failed (URL route), continuing without it:", subErr.message || subErr);
@@ -1687,7 +1675,7 @@ app.post("/api/critique-url", async (req, res) => {
 
     try {
       console.log("[Call 2] Starting Sub-Metrics Call 2 (URL route)...");
-      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique, verifiedChordSummary ?? chordProgressionSummary, melodySummary);
+      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique, inferredChordSummary ?? chordProgressionSummary, melodySummary);
       parsedCritique.subMetricsCall2 = subMetricsCall2;
       parsedCritique.subMetricsCall2Failed = false;
     } catch (subErr: any) {
@@ -1839,6 +1827,11 @@ app.post("/api/critique-spotify", async (req, res) => {
     );
 
     try {
+
+    // Validate the genre/subgenre pair BEFORE any sub-metric analysis runs. All of
+    // Calls 1-3 are genre-aware, so validating only at the end meant the entire detailed
+    // analysis could be computed against an invalid pair and merely relabelled afterwards.
+    validateGenrePair(critique);
       console.log("[Call 1] Starting Sub-Metrics Call 1 (Spotify route)...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, critique);
       critique.subMetricsCall1 = subMetricsCall1;
@@ -1848,7 +1841,7 @@ app.post("/api/critique-spotify", async (req, res) => {
       critique.subMetricsCall1Failed = true;
     }
 
-    let verifiedChordSummary: string | undefined = undefined;
+    let inferredChordSummary: string | undefined = undefined;
     try {
       console.log("[Chord/Key] Starting direct Gemini chord/key analysis (Spotify route)...");
       const chordKeyAnalysis = await performChordKeyAnalysis(audioPart);
@@ -1856,7 +1849,7 @@ app.post("/api/critique-spotify", async (req, res) => {
       critique.chordKeyAnalysisFailed = false;
       if (chordKeyAnalysis?.keySignature && chordKeyAnalysis?.chordsUsed?.length > 0) {
         const chordList = chordKeyAnalysis.chordsUsed.map((c: any) => `${c.chord} (${c.romanNumeral})`).join(", ");
-        verifiedChordSummary = `Key: ${chordKeyAnalysis.keySignature}. Chord vocabulary used: ${chordList}. (Note: this is the song's overall key and chord vocabulary, not a timed section-by-section progression.)`;
+        inferredChordSummary = `Key: ${chordKeyAnalysis.keySignature}. Chord vocabulary used: ${chordList}. (Note: this is the song's overall key and chord vocabulary, not a timed section-by-section progression.)`;
       }
     } catch (subErr: any) {
       console.error("[Chord/Key] Failed (Spotify route), continuing without it:", subErr.message || subErr);
@@ -1865,7 +1858,7 @@ app.post("/api/critique-spotify", async (req, res) => {
 
     try {
       console.log("[Call 2] Starting Sub-Metrics Call 2 (Spotify route)...");
-      const subMetricsCall2 = await performSubMetricsCall2(audioPart, critique, verifiedChordSummary);
+      const subMetricsCall2 = await performSubMetricsCall2(audioPart, critique, inferredChordSummary);
       critique.subMetricsCall2 = subMetricsCall2;
       critique.subMetricsCall2Failed = false;
     } catch (subErr: any) {
