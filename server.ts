@@ -274,6 +274,12 @@ DO NOT CONFIDENTLY ASSERT UNVERIFIABLE PRODUCTION TECHNIQUES: Never state as fac
 SCORING METHOD - MANDATORY:
 Do NOT start from a baseline of 100 and subtract downward. That method mathematically guarantees that clean but unexceptional work ends at or near 100, which is precisely the inflation the master calibration above exists to prevent. Instead, start from the evidence-supported band: clean, competent, professional execution with nothing demonstrably exceptional is 82-88. From there, move UPWARD only for specific, demonstrated excellence that you name in your commentary, and move DOWNWARD for specific, real problems you actually identify in the audio. Your final score must be the direct result of the evidence you actually describe, in BOTH directions - every point above 88 traceable to named excellence, and every point below 82 traceable to a named problem. Never manufacture a flaw in order to justify a lower number, and never treat the mere absence of a flaw as grounds for a higher one. For tracks that exhibit clean, professional, genre-correct execution with no audible technical flaws, do not manufacture deductions - score them at the 82-88 professional band per the master calibration above and validate their commercial fitness, reserving 89 and above for the specific, nameable evidence of excellence that the calibration requires. Do not pick a score first and write text to match it afterward - the commentary must be the reason for the score, not a description of it after the fact.
 
+PRODUCTION INDEX EVIDENCE DISCIPLINE - MANDATORY:
+The three Production Index children (aestheticDesign, spaceAndDensity, paletteCohesion) must be scored from what is actually audible in THIS file, not from assumptions imported from the provisional genre label. Genre can help establish what choices are stylistically normal, but it is NEVER evidence that a named instrument, sample, synth, drum, room, or production technique is actually present. If the audio does not clearly support a source-level claim, use broader result-based language instead.
+A track that is clean, coherent, and genre-compatible but otherwise ordinary belongs at 82-88 on these Production Index children. Do not award 89+ simply because the track sounds pleasant, uncluttered, warm, cohesive, or stylistically appropriate. Scores of 89+ require a specific, audible, above-average production achievement that would remain impressive even if the genre label were hidden.
+Conversely, do not penalize a track merely because its arrangement is sparse, acoustic, orchestral, vintage, mono-leaning, or otherwise unlike a modern pop production. Judge the craft actually demonstrated in the recording.
+When the prior-pass genre classification appears inconsistent with the audible instrumentation, DO NOT force the Production Index commentary to fit that genre. Score the audible production evidence first and let the genre mismatch remain a separate classification issue.
+
 FIELD DEFINITIONS:
 - dynamicVariety: measures whether the song's energy and intensity shift meaningfully across its runtime (verse-to-chorus lift, breakdowns, builds), rather than remaining flat and static throughout.
 CRITICAL DIRECTIVE - DO NOT ASSUME GENERIC POP ARRANGEMENT TROPES: many genres, especially disco-revival, dance-pop, and minimalist pop, achieve their dynamic contrast by STRIPPING BACK the arrangement in the pre-chorus or bridge (removing layers, thinning the mix) and then releasing into a chorus that feels bigger by comparison - not by adding distortion or density specifically at the chorus. Do not default to describing "increased density and distorted synths in the chorus" as a generic, assumed pattern - this is a common hallucinated trope that may directly contradict what the actual arrangement does. Listen to what specifically happens in THIS track's sections and describe that, not a reusable description that could apply to any commercial pop song.
@@ -307,7 +313,7 @@ RUBRIC ANCHOR FOR AESTHETIC DESIGN: this metric sits inside Production Index, pa
 
 AESTHETIC DESIGN CALIBRATION EXAMPLES:
 - Example landing at 97: 'The production combines a heavily saturated, tape-warped drum bus with an unusually dry, close-mic'd vocal that sits almost uncomfortably forward in the mix - a specific, identifiable sonic signature that would be recognizable even with the vocals removed.'
-- Example landing at 92: 'The production is clean, professional, and textbook-correct for the genre - well-balanced reverb, standard stereo-widened guitars, conventional vocal compression. Nothing here would sound out of place on dozens of similar releases, and nothing about the execution falls short of professional genre standards.'
+- Example landing at 86: 'The production is clean, professional, and textbook-correct for the genre - balanced spatial treatment, conventional but competent sound choices, and no audible amateurish flaw. Nothing falls short of professional standards, but nothing is specifically distinctive enough to justify the above-average band.'
 - Example landing at 78: 'Generally well-tracked, but the secondary arpeggiated synth utilizes a harsh, unshaped stock preset whose plastic digital character feels out of place against the warm analog rhythm section.'
 - Example landing at 65: 'The production relies on default-sounding presets and a poorly-controlled loudness-war master that introduces audible pumping - a genuine technical shortcoming, not simply a lack of distinctiveness.'
 
@@ -329,7 +335,7 @@ CROSS-REFERENCE WITH MEASURED SPECTRAL DISTRIBUTION: When 'Measured Spectral Ban
 
 SPACE & DENSITY CALIBRATION EXAMPLES:
 - Example landing at 97: 'Masterful arrangement economy. Verses maintain generous negative space with a dry, intimate vocal and sparse percussion, allowing the chorus to introduce stacked stereo synths and guitars that explode with immense scale while retaining surgical separation.'
-- Example landing at 92: 'Clean commercial arrangement. Elements are distributed across dedicated stereo and frequency pockets; backing pads and rhythm tracks leave clear center-stage breathing room for the vocal to command full attention.'
+- Example landing at 86: 'Clean professional arrangement. The track maintains useful breathing room and avoids obvious crowding, but the spatial handling is conventional rather than demonstrably exceptional. This is successful professional execution, not automatic evidence for a 90+ score.'
 - Example landing at 78: 'Good foundational balance, but the final chorus accumulates competing rhythm elements and synth pads in the 800Hz-2kHz zone that fight for the exact same acoustic space, slightly masking the vocal.'
 - Example landing at 62: 'Persistent, structural crowding throughout. Too many sustained polyphonic elements play continuously without dynamic breathing room or sectional thinning, fatiguing the listener.'
 
@@ -351,7 +357,7 @@ True incoherence happens when elements within the same section clash in room aco
 
 PALETTE COHESION CALIBRATION EXAMPLES:
 - Example landing at 98: 'Flawless timbral synergy. Every drum transient, analog synth pad, and vocal reverb shares the same warm, cohesive spatial signature, creating an immersive and unified sonic world.'
-- Example landing at 92: 'Cohesive commercial sound selection. The drums, bass, and key layers speak the same modern production language with consistent room imaging and complementary frequency profiles.'
+- Example landing at 86: 'Cohesive professional sound selection. The audible elements share a consistent tonal and spatial character with no distracting outlier, but the cohesion is conventional rather than distinctively above the professional norm.'
 - Example landing at 76: 'Mostly cohesive, but the snare sample carries an unusually dry, boxy acoustic character that stands apart awkwardly from the lush, expansive reverb applied to the lead vocals and synths.'
 - Example landing at 55: 'Disjointed sound palette. Elements sound like disparate sample packs pasted together with contradictory room dimensions and clashing production eras.'
 
@@ -978,7 +984,21 @@ function reconcileParentScores(parsedCritique: any): void {
       [c1Ready.paletteCohesion?.score, 25],
     ]);
     if (production !== null && parsedCritique.scores) {
-      parsedCritique.scores.overallProduction = production;
+      // Production Index represents the combined strength of three different production
+      // dimensions. One standout child should not pull the aggregate into the 89+ band
+      // when the other two are merely professional-standard. Require a majority of the
+      // Production Index weight to carry genuine above-average evidence before the parent
+      // itself can be called above-average.
+      const productionChildren = [
+        { score: c1Ready.aestheticDesign?.score, weight: 40 },
+        { score: c1Ready.spaceAndDensity?.score, weight: 35 },
+        { score: c1Ready.paletteCohesion?.score, weight: 25 },
+      ].filter(x => typeof x.score === "number") as Array<{ score: number; weight: number }>;
+      const aboveAverageWeight = productionChildren
+        .filter(x => x.score >= 89)
+        .reduce((sum, x) => sum + x.weight, 0);
+      parsedCritique.scores.overallProduction =
+        production > 88 && aboveAverageWeight < 50 ? 88 : production;
     }
 
     // sibilanceShaving can now be genuinely N/A (an instrumental has no vocal sibilance
