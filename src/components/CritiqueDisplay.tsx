@@ -55,6 +55,7 @@ export function ScoreCircle({
   glowColor = "rgba(59, 130, 246, 0.4)",
   extraGlow = false,
   style,
+  applicable = true,
 }: {
   score: number;
   size?: number;
@@ -63,10 +64,14 @@ export function ScoreCircle({
   glowColor?: string;
   extraGlow?: boolean;
   style?: React.CSSProperties;
+  applicable?: boolean;
 }) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (score / 100) * circumference;
+  // A genuinely not-applicable metric carries a 0 placeholder. Drawing that as a 0-score
+  // ring would read as a catastrophic failure rather than "this does not apply", so the
+  // ring is left empty and the value renders as N/A.
+  const offset = applicable ? circumference - (score / 100) * circumference : circumference;
 
   return (
     <div className="relative flex items-center justify-center animate-fadeIn" style={{ width: size, height: size, ...style }}>
@@ -120,8 +125,8 @@ export function ScoreCircle({
         />
       </svg>
       {/* In-ring text */}
-      <span className="absolute font-mono font-black text-white text-center select-none" style={{ fontSize: size * 0.28 }}>
-        {score}
+      <span className="absolute font-mono font-black text-white text-center select-none" style={{ fontSize: applicable ? size * 0.28 : size * 0.22 }}>
+        {applicable ? score : "N/A"}
       </span>
     </div>
   );
@@ -332,11 +337,15 @@ interface PQMetricCardProps {
   desc: string;
   improve: string;
   idx: number;
+  // A genuinely not-applicable metric (e.g. Lyrical Impact on an instrumental) carries a
+  // 0 placeholder. Rendering that as a real 0 reads as a catastrophic failure instead of
+  // "this does not apply", so the card shows N/A and an empty bar.
+  applicable?: boolean;
 }
 
-function PQMetricCard({ label, score, desc, improve, idx }: PQMetricCardProps) {
+function PQMetricCard({ label, score, desc, improve, idx, applicable = true }: PQMetricCardProps) {
   const [expanded, setExpanded] = React.useState(false);
-  const pct = score;
+  const pct = applicable ? score : 0;
   const gradientColor = pct >= 80 ? "#268cff" : pct >= 60 ? "#59ffce" : pct >= 40 ? "#c5f63f" : "#a3d55a";
   const endY = 62 - (pct * 0.52);
 
@@ -347,7 +356,7 @@ function PQMetricCard({ label, score, desc, improve, idx }: PQMetricCardProps) {
     >
       <div className="flex justify-between items-center">
         <span className="text-[13px] font-mono font-bold text-slate-300 uppercase tracking-wide">{label}</span>
-        <span className="text-[12px] font-mono font-black" style={{ color: gradientColor }}>{pct} / 100</span>
+        <span className="text-[12px] font-mono font-black" style={{ color: gradientColor }}>{applicable ? `${pct} / 100` : "N/A"}</span>
       </div>
       <div className="w-full overflow-visible" style={{ height: "64px" }}>
         <svg width="100%" height="64" viewBox="0 0 200 64" preserveAspectRatio="none" style={{ display: "block" }}>
@@ -1313,11 +1322,19 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     (critique?.scores?.overallProduction ?? 75) * 0.6 +
     (critique?.mixQuality?.score ?? 75) * 0.4
   );
-  const compositionalScore = Math.round(
-    (critique?.arrangement?.flowScore ?? 75) * 0.4 +
-    (critique?.musicTheory?.score ?? 75) * 0.3 +
-    (critique?.lyricalImpact?.score ?? 75) * 0.3
-  );
+  // Lyrical Impact can be genuinely N/A (an instrumental has no lyrics to judge). Its 0
+  // placeholder must not take 30% of this composite - exclude it and renormalize the
+  // remaining weights, the same rule the backend now applies to parent scores.
+  const compositionalScore = (() => {
+    const lyricalApplies = critique?.lyricalImpact?.applicable !== false;
+    const parts: Array<[number, number]> = [
+      [critique?.arrangement?.flowScore ?? 75, 0.4],
+      [critique?.musicTheory?.score ?? 75, 0.3],
+    ];
+    if (lyricalApplies) parts.push([critique?.lyricalImpact?.score ?? 75, 0.3]);
+    const totalWeight = parts.reduce((s, [, w]) => s + w, 0);
+    return Math.round(parts.reduce((s, [v, w]) => s + v * w, 0) / totalWeight);
+  })();
 
   React.useEffect(() => {
     if (expandedMetric) {
@@ -1479,6 +1496,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       name: "Vocal Tracking",
       subtitle: "Vocal Chain Engineering",
       score: critique?.performance?.vocalScore ?? 75,
+      // Genuinely N/A on an instrumental - the backend now marks this parent
+      // applicable:false rather than leaving a stale score behind it.
+      applicable: critique?.performance?.vocalApplicable !== false,
       colorClass: "stroke-purple-500",
       bgClass: "from-purple-500/5 to-slate-900 border-white/5",
       isGold: false,
@@ -1570,6 +1590,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       name: "Lyrical Impact",
       subtitle: "Lyrical Depth & Phrasing Core",
       score: lyricsScore,
+      applicable: critique?.lyricalImpact?.applicable !== false,
       colorClass: "stroke-cyan-400",
       hoverText: "Checks lyric clarity and cliché levels - whether the message lands clearly and whether the phrasing feels fresh rather than overused.",
       subParams: [
@@ -7184,6 +7205,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                                     idx={idx}
                                     label={m.label.replace("\n", " ")}
                                     score={m.score}
+                                    applicable={(m as any).applicable !== false}
                                     desc={m.desc}
                                     improve={m.improve}
                                   />
