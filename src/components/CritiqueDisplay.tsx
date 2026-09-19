@@ -635,10 +635,22 @@ export function computeCategoryScores(critique: any) {
         ((critique?.performance?.instrumentalScore ?? 75) * (0.20 / 0.70))
       );
 
+  // Structural Engagement uses the qualitative craft judgments from Call 2 when available.
+  // DSP describes WHAT happened (range, peak position, build magnitude); those raw values
+  // do not by themselves prove that the dynamics or climax were musically well-shaped.
+  const dynamicModulationQualityScore =
+    critique?.subMetricsCall2?.acousticTension?.dynamicModulation?.score ??
+    critique?.liveMetrics?.calculatedDynamicModulationScore ??
+    75;
+  const climaxTrajectoryQualityScore =
+    critique?.subMetricsCall2?.acousticTension?.climaxTrajectory?.score ??
+    critique?.liveMetrics?.calculatedClimaxTrajectoryScore ??
+    75;
+
   const scoreCompositionalDepth = Math.round(
     ((critique?.arrangement?.flowScore ?? 75) * 0.40) +
-    ((critique?.liveMetrics?.calculatedDynamicModulationScore ?? 75) * 0.30) +
-    ((critique?.liveMetrics?.calculatedClimaxTrajectoryScore ?? 75) * 0.30)
+    (dynamicModulationQualityScore * 0.30) +
+    (climaxTrajectoryQualityScore * 0.30)
   );
 
   return {
@@ -673,6 +685,18 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const [isCompletionRateExpanded, setIsCompletionRateExpanded] = useState(false);
   const [isLoudnessComplianceExpanded, setIsLoudnessComplianceExpanded] = useState(false);
   const liveMetrics = critique?.liveMetrics;
+
+  // Dynamic Modulation and Climax Trajectory are quality judgments, not raw-measurement
+  // meters. Prefer the independent Call 2 craft score; retain the old DSP-derived score
+  // only as a fallback for older saved analyses that do not contain Call 2 sub-metrics.
+  const dynamicModulationQualityScore: number | null =
+    critique?.subMetricsCall2?.acousticTension?.dynamicModulation?.score ??
+    liveMetrics?.calculatedDynamicModulationScore ??
+    null;
+  const climaxTrajectoryQualityScore: number | null =
+    critique?.subMetricsCall2?.acousticTension?.climaxTrajectory?.score ??
+    liveMetrics?.calculatedClimaxTrajectoryScore ??
+    null;
 
   React.useEffect(() => {
     if (critique?.liveMetrics) {
@@ -1395,7 +1419,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     // basis rather than averaging two meaningless placeholders together.
     dnaDensityFallback = Math.round(parentFlowScore);
   }
-  const dnaDensityScore = critique?.subMetricsCall2?.songwritingDensity?.score ?? Math.max(0, Math.min(100, dnaDensityFallback));
+  const songwritingDensityMetric = critique?.subMetricsCall2?.songwritingDensity;
+  const songwritingDensityChildren = [
+    songwritingDensityMetric?.vocalPocketing,
+    songwritingDensityMetric?.poeticBrevity,
+  ].filter(Boolean);
+  const dnaDensityApplicable =
+    songwritingDensityMetric?.applicable !== false &&
+    !(songwritingDensityChildren.length > 0 && songwritingDensityChildren.every((child: any) => child?.applicable === false));
+  const dnaDensityScore = dnaDensityApplicable
+    ? (songwritingDensityMetric?.score ?? Math.max(0, Math.min(100, dnaDensityFallback)))
+    : 0;
 
   // Composite N/A handling. Each of the three components can legitimately be marked
   // not-applicable (an instrumental has no lyric-dependent songwriting density, for
@@ -1407,7 +1441,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const dnaComponents = [
     { score: dnaMelodicScore, applicable: critique?.subMetricsCall2?.melodicHooks?.applicable !== false },
     { score: dnaTensionScore, applicable: critique?.subMetricsCall2?.acousticTension?.applicable !== false },
-    { score: dnaDensityScore, applicable: critique?.subMetricsCall2?.songwritingDensity?.applicable !== false },
+    { score: dnaDensityScore, applicable: dnaDensityApplicable },
   ].filter(x => x.applicable && typeof x.score === "number");
   const dnaScore = dnaComponents.length > 0
     ? Math.round(dnaComponents.reduce((s, x) => s + x.score, 0) / dnaComponents.length)
@@ -1570,6 +1604,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       name: "Lyrics Analysis",
       subtitle: "Lyrical Velocity & Word Placement Balance",
       score: dnaDensityScore,
+      applicable: dnaDensityApplicable,
       colorClass: "stroke-indigo-400",
       bgClass: "from-indigo-400/5 to-slate-900 border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.05)]",
       isGold: false,
@@ -1817,7 +1852,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       {
         id: "dynamicmod",
         name: "Dynamic Modulation",
-        score: liveMetrics?.calculatedDynamicModulationScore ?? 75,
+        score: dynamicModulationQualityScore ?? 75,
         feedback: liveMetrics?.calculatedDynamicRangeDb != null
           ? `${liveMetrics.calculatedDynamicRangeDb} dB of measured dynamic range between the track's quietest and loudest sustained sections (85th pct: ${liveMetrics?.calculatedDynamicHighPercentileDb ?? "--"} dB, 15th pct: ${liveMetrics?.calculatedDynamicLowPercentileDb ?? "--"} dB).`
           : "Real dynamic range data unavailable for this track.",
@@ -1826,7 +1861,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       {
         id: "climax",
         name: "Climax Trajectory",
-        score: liveMetrics?.calculatedClimaxTrajectoryScore ?? 75,
+        score: climaxTrajectoryQualityScore ?? 75,
         feedback: liveMetrics?.calculatedClimaxPositionRatio != null
           ? `Peak energy lands at ${Math.round(liveMetrics.calculatedClimaxPositionRatio * 100)}% through the track, with a ${liveMetrics?.calculatedClimaxBuildDb ?? "--"} dB build from the opening baseline.`
           : "Real climax trajectory data unavailable for this track.",
@@ -1867,7 +1902,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         addAggRow(colors, group.agg, aggScoreMap[group.agg] ?? null, "");
         lastAgg = group.agg;
       }
-      addCoreRow(colors, m.name, m.score, (m.feedback || "").replace(/\n/g, " ").replace(/(\d+\s*)?[+-]\s*\d+\s*points?:\s*/gi, ""));
+      const coreExportScore = m.applicable === false ? "N/A" : m.score;
+      addCoreRow(colors, m.name, coreExportScore, (m.feedback || "").replace(/\n/g, " ").replace(/(\d+\s*)?[+-]\s*\d+\s*points?:\s*/gi, ""));
       (m.subParams || []).forEach((param: any, idx: number) => {
         const realSub = getRealSubMetric(critique, m.id, idx);
         const subScore = realSub ? realSub.score : getSubScore(m.score, idx, m.subParams.length, m.id);
@@ -2325,9 +2361,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           textClassLight: "text-emerald-400"
         }
       : neonOriginal;
+    const metricApplicable = metric.applicable !== false;
+    const metricDisplayScore = metricApplicable && typeof metric.score === "number" ? metric.score : 0;
     const radius = 38;
     const circumference = 2 * Math.PI * radius;
-    const strokeDashoffset = circumference - (metric.score / 100) * circumference;
+    const strokeDashoffset = circumference - (metricDisplayScore / 100) * circumference;
 
     return (
       <div 
@@ -2383,7 +2421,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     stroke={neon.color}
                     strokeWidth="7"
                     strokeDasharray={2 * Math.PI * 30}
-                    strokeDashoffset={2 * Math.PI * 30 - (metric.score / 100) * 2 * Math.PI * 30}
+                    strokeDashoffset={2 * Math.PI * 30 - (metricDisplayScore / 100) * 2 * Math.PI * 30}
                     strokeLinecap="round"
                     style={{
                       filter: `blur(1.5px) drop-shadow(0 0 4px ${neon.glow})`,
@@ -2398,7 +2436,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     stroke="#ffffff"
                     strokeWidth="3"
                     strokeDasharray={2 * Math.PI * 30}
-                    strokeDashoffset={2 * Math.PI * 30 - (metric.score / 100) * 2 * Math.PI * 30}
+                    strokeDashoffset={2 * Math.PI * 30 - (metricDisplayScore / 100) * 2 * Math.PI * 30}
                     strokeLinecap="round"
                   />
                 </>
@@ -2411,13 +2449,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   stroke={neon.color}
                   strokeWidth="5.5"
                   strokeDasharray={2 * Math.PI * 30}
-                  strokeDashoffset={2 * Math.PI * 30 - (metric.score / 100) * 2 * Math.PI * 30}
+                  strokeDashoffset={2 * Math.PI * 30 - (metricDisplayScore / 100) * 2 * Math.PI * 30}
                   strokeLinecap="round"
                 />
               )}
             </svg>
             <span className="absolute font-mono text-xl font-black text-white">
-              {metric.score}
+              {metricApplicable ? metric.score : "N/A"}
             </span>
           </div>
 
@@ -7719,7 +7757,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </AnimatePresence>
         </div>
 
-        {/* Card: Dynamic Modulation — new card built from scratch (liveMetrics.calculatedDynamicModulationScore) */}
+        {/* Card: Dynamic Modulation — quality score from Call 2; live DSP shown as evidence */}
         <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-6">
           <button
             onClick={() => setExpandedMetric(expandedMetric === "dynamicmod" ? null : "dynamicmod")}
@@ -7759,8 +7797,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   expandedMetric === "dynamicmod" ? "border-rose-500/15" : "border-white/5"
                 }`}>
                   <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
-                    Measures real loudness contrast between the song's quietest and loudest sustained sections — the difference that keeps a listener locked in rather than tuning out.
-                    <span className="block mt-1 text-rose-500/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Measures loud-quiet contrast across the song, driving 30% of Structural Engagement.</span>
+                    Judges how effectively the song shapes loud/quiet contrast across its structure. The measured dB range is evidence of contrast, not automatic proof of better dynamic craft.
+                    <span className="block mt-1 text-rose-500/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Craft score + measured loud/quiet evidence, driving 30% of Structural Engagement.</span>
                   </p>
                   <span
                     style={{ paddingTop: "2px" }}
@@ -7775,9 +7813,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               </div>
 
               <div className="flex-shrink-0 flex items-center justify-center">
-                {liveMetrics?.calculatedDynamicModulationScore != null ? (
+                {dynamicModulationQualityScore != null ? (
                   <ScoreCircle
-                    score={liveMetrics.calculatedDynamicModulationScore}
+                    score={dynamicModulationQualityScore}
                     size={110}
                     strokeWidth={7}
                     color={expandedMetric === "dynamicmod" ? "#f43f5e" : "rgba(244, 63, 94, 0.45)"}
@@ -7820,27 +7858,27 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               if (dRangeDb != null) {
                 if (dRangeDb <= 3) {
                   dmTier = { 
-                    label: "FLAT / HEAVILY COMPRESSED", 
+                    label: "LOW DYNAMIC CONTRAST", 
                     color: "text-[#ffba00]", 
                     bg: "bg-[#ffba00]/10", 
                     border: "border-[#ffba00]/20",
-                    desc: "Very low dynamic contrast (<3 dB) throughout the song. Common in hard dance or hyper-limited masters, but risks listener fatigue."
+                    desc: "Less than 3 dB of sustained loud/quiet contrast. This is a descriptive measurement; it can be intentional in dense or highly limited styles and is not automatically a quality defect."
                   };
                 } else if (dRangeDb <= 10) {
                   dmTier = { 
-                    label: "COMMERCIAL SWEET SPOT", 
+                    label: "MODERATE DYNAMIC CONTRAST", 
                     color: "text-emerald-400", 
                     bg: "bg-emerald-500/10", 
                     border: "border-emerald-500/20",
-                    desc: "Optimal contrast (3–10 dB) between verses and choruses. Gives choruses clear impact while retaining strong streaming loudness."
+                    desc: "3–10 dB of sustained loud/quiet contrast. Common across many commercial productions; whether it is effective depends on how the arrangement uses that contrast."
                   };
                 } else {
                   dmTier = { 
-                    label: "WIDE DYNAMIC ARC", 
+                    label: "WIDE DYNAMIC CONTRAST", 
                     color: "text-cyan-400", 
                     bg: "bg-cyan-500/10", 
                     border: "border-cyan-500/20",
-                    desc: "Expansive dynamic variation (>10 dB). Ideal for acoustic, orchestral, cinematic, or expressive ballads with deep dynamic breathing room."
+                    desc: "More than 10 dB of sustained loud/quiet contrast. Common in acoustic, orchestral, cinematic and other expressive material, but the amount alone does not establish superior craft."
                   };
                 }
               }
@@ -8229,7 +8267,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
           </AnimatePresence>
         </div>
 
-        {/* Card: Climax Trajectory — new card built from scratch (liveMetrics.calculatedClimaxTrajectoryScore) */}
+        {/* Card: Climax Trajectory — quality score from Call 2; live DSP shown as evidence */}
         <div className="flex flex-col w-full gap-4" id="sidebar-link-compositional-7">
           <button
             onClick={() => setExpandedMetric(expandedMetric === "climax" ? null : "climax")}
@@ -8269,8 +8307,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   expandedMetric === "climax" ? "border-teal-500/15" : "border-white/5"
                 }`}>
                   <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
-                    Measures whether the song's energy genuinely builds toward a later peak, rather than front-loading its most intense moment early with nothing left to climb toward.
-                    <span className="block mt-1 text-teal-500/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Tracks whether the song genuinely builds toward a late peak, driving 30% of Structural Engagement.</span>
+                    Judges how effectively the song's energy trajectory supports its structure. Peak timing and build magnitude are measured evidence, not automatic proof that a later or larger climax is better.
+                    <span className="block mt-1 text-teal-500/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Craft score + measured peak evidence, driving 30% of Structural Engagement.</span>
                   </p>
                   <span
                     style={{ paddingTop: "2px" }}
@@ -8285,9 +8323,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               </div>
 
               <div className="flex-shrink-0 flex items-center justify-center">
-                {liveMetrics?.calculatedClimaxTrajectoryScore != null ? (
+                {climaxTrajectoryQualityScore != null ? (
                   <ScoreCircle
-                    score={liveMetrics.calculatedClimaxTrajectoryScore}
+                    score={climaxTrajectoryQualityScore}
                     size={110}
                     strokeWidth={7}
                     color={expandedMetric === "climax" ? "#14b8a6" : "rgba(20, 184, 166, 0.45)"}
@@ -8307,7 +8345,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             {expandedMetric === "climax" && (() => {
               const posRatio = liveMetrics?.calculatedClimaxPositionRatio ?? null;
               const buildDb = liveMetrics?.calculatedClimaxBuildDb ?? null;
-              const climaxScore = liveMetrics?.calculatedClimaxTrajectoryScore ?? 75;
+              const climaxScore = climaxTrajectoryQualityScore ?? 75;
               const rawEnvelope = liveMetrics?.calculatedEnergyEnvelope ?? null;
 
               const envelopePoints: number[] = (rawEnvelope && rawEnvelope.length >= 4)
@@ -8328,15 +8366,15 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     color: "text-amber-400", 
                     bg: "bg-amber-500/10", 
                     border: "border-amber-500/25",
-                    desc: "Peak arrives before 55% of the song elapsed. The track may exhaust its energy early, risking listener drop-off in later sections."
+                    desc: "Peak arrives before 55% of the song elapsed. This is a front-loaded energy shape; whether it works depends on the composition and intended arc."
                   };
                 } else if (posRatio <= 0.90) {
                   posTier = { 
-                    label: "IDEAL BUILD ZONE ★", 
+                    label: "LATE-BUILD PEAK ZONE", 
                     color: "text-teal-400", 
                     bg: "bg-teal-500/10", 
                     border: "border-teal-500/25",
-                    desc: "Peak lands perfectly in the 55%–90% sweet spot, giving verses time to build tension before delivering the ultimate sonic payoff."
+                    desc: "Peak lands between 55% and 90% of runtime. This confirms a later energy peak, but timing alone does not prove that the climax is musically effective."
                   };
                 } else {
                   posTier = { 
@@ -8344,7 +8382,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     color: "text-amber-400", 
                     bg: "bg-amber-500/10", 
                     border: "border-amber-500/25",
-                    desc: "Peak lands in the final 10% of runtime. May feel abrupt without sufficient resolution or cool-down."
+                    desc: "Peak lands in the final 10% of runtime. This is a very late peak shape; its effectiveness depends on whether the composition provides an intentional resolution."
                   };
                 }
               }
@@ -8363,7 +8401,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     color: "text-amber-400", 
                     bg: "bg-amber-500/10", 
                     border: "border-amber-500/25",
-                    desc: "Less than 2.0 dB increase over the intro third. The track stays dynamically flat rather than building excitement."
+                    desc: "Less than 2.0 dB increase over the opening baseline. The measured energy build is small; this can still be intentional in restrained material."
                   };
                 } else if (buildDb < 5) {
                   magTier = { 
@@ -8371,7 +8409,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     color: "text-blue-400", 
                     bg: "bg-blue-500/10", 
                     border: "border-blue-500/25",
-                    desc: "Healthy 2.0–5.0 dB energy accumulation, providing noticeable lift without overpowering earlier sections."
+                    desc: "A 2.0–5.0 dB energy increase into the measured peak. This confirms a moderate build; the quality score separately judges how effectively that build functions musically."
                   };
                 } else {
                   magTier = { 
@@ -8379,7 +8417,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     color: "text-teal-400", 
                     bg: "bg-teal-500/10", 
                     border: "border-teal-500/25",
-                    desc: "5.0+ dB dynamic surge into the peak, producing high emotional payoff and impactful contrast."
+                    desc: "A 5.0+ dB energy increase into the measured peak. This confirms a large build, but large magnitude alone does not establish emotional payoff or superior craft."
                   };
                 }
               }
@@ -10959,4 +10997,3 @@ function StereoAzimuthVisualizer({ activeTab, onActiveTabChange, refMode, isPlay
     </div>
   );
 }
-
