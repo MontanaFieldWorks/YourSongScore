@@ -8307,8 +8307,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   expandedMetric === "climax" ? "border-teal-500/15" : "border-white/5"
                 }`}>
                   <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
-                    Measures whether the song's energy genuinely builds toward a later peak, rather than front-loading its most intense moment early with nothing left to climb toward.
-                    <span className="block mt-1 text-teal-500/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Tracks whether the song genuinely builds toward a late peak, driving 30% of Structural Engagement.</span>
+                    Judges how effectively the song's energy trajectory supports its structure. Peak timing and build magnitude are measured evidence, not automatic proof that a later or larger climax is better.
+                    <span className="block mt-1 text-teal-500/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Craft score + measured peak evidence, driving 30% of Structural Engagement.</span>
                   </p>
                   <span
                     style={{ paddingTop: "2px" }}
