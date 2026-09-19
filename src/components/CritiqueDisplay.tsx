@@ -1379,7 +1379,22 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     dnaDensityFallback = Math.round(parentFlowScore);
   }
   const dnaDensityScore = critique?.subMetricsCall2?.songwritingDensity?.score ?? Math.max(0, Math.min(100, dnaDensityFallback));
-  const dnaScore = Math.round((dnaMelodicScore + dnaTensionScore + dnaDensityScore) / 3);
+
+  // Composite N/A handling. Each of the three components can legitimately be marked
+  // not-applicable (an instrumental has no lyric-dependent songwriting density, for
+  // example). A not-applicable component carries a 0 placeholder, so averaging all three
+  // unconditionally treats "this does not exist" as "this scored zero". That produced a
+  // real, visible defect: an instrumental reported Songwriting Quality 59 from
+  // (89 + 89 + 0) / 3, understating it by 30 points. Exclude N/A components and average
+  // only what genuinely applies.
+  const dnaComponents = [
+    { score: dnaMelodicScore, applicable: critique?.subMetricsCall2?.melodicHooks?.applicable !== false },
+    { score: dnaTensionScore, applicable: critique?.subMetricsCall2?.acousticTension?.applicable !== false },
+    { score: dnaDensityScore, applicable: critique?.subMetricsCall2?.songwritingDensity?.applicable !== false },
+  ].filter(x => x.applicable && typeof x.score === "number");
+  const dnaScore = dnaComponents.length > 0
+    ? Math.round(dnaComponents.reduce((s, x) => s + x.score, 0) / dnaComponents.length)
+    : 0;
 
   // Metric definitions dictionary for breakdowns and hover states
   const METRICS_LIST = [
