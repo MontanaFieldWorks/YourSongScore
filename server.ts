@@ -1316,10 +1316,6 @@ Return the best genre/subgenre plus a short evidence summary.`;
       console.log(`[GenreRecheck] Correcting ${genre} / ${subgenre} -> ${verifiedGenre} / ${verifiedSubgenre}. Evidence: ${verified.rationale}`);
       parsedCritique.vibe.genre = verifiedGenre;
       parsedCritique.vibe.subgenre = verifiedSubgenre;
-      const evidenceNote = `Genre verification: ${verified.dominantInstrumentation}; ${verified.formCharacter}. ${verified.rationale}`;
-      parsedCritique.vibe.aesthetic = parsedCritique.vibe.aesthetic
-        ? `${parsedCritique.vibe.aesthetic} | ${evidenceNote}`
-        : evidenceNote;
     } else {
       console.log("[GenreRecheck] Focused verification confirmed the original instrumental-folk classification.");
     }
