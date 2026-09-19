@@ -59,6 +59,14 @@ THE CALIBRATION ANCHOR: when a specific metric is executed to a competent profes
 
 ENTERING 89+ REQUIRES POSITIVE EVIDENCE: something specific and above-average that you point to and name in your commentary. The mere ABSENCE of an identifiable flaw is NOT sufficient to reach 89 - absence of flaw is exactly what the 82-88 band already represents. This does not license inventing flaws to justify a lower number (that violates the instruction above); it means the honest default for clean, professional, unremarkable work is the mid-to-high 80s, and anything higher must be earned with evidence you can state.
 
+SOURCE-LEVEL CLAIMS REQUIRE SOURCE-LEVEL EVIDENCE - MANDATORY: you are analysing a finished stereo mix, not isolated stems. You therefore CANNOT verify which individual instruments are present, nor how two specific sources interact. Do not make confident source-specific claims - about separation, masking, EQ placement, frequency pockets, sidechaining or interaction between named elements - unless you can genuinely hear that both sources exist in this recording.
+Concretely: do not state that "the kick and bass occupy distinct frequency pockets" on a track where you cannot actually identify a kick drum and a bass; do not describe "synth pads" and "arpeggiated synths" in one part of your analysis while describing the same track as acoustic guitar and piano in another; do not attribute a result to a specific processing technique you cannot hear being applied. These were real, observed failures on an orchestral track that contains neither a kick drum nor synths.
+When the evidence does not support a source-level claim, either describe the audible RESULT in broader terms that you can genuinely support ("the low end stays defined and does not blur"), or say plainly that the elements cannot be separated confidently from a stereo mix. Broader, accurate language is always preferable to specific, invented detail. Before naming any instrument or interaction in your commentary, confirm you are describing something you actually hear rather than something the genre would typically contain.
+
+GENRE COMPATIBILITY vs DEMONSTRATED CRAFT - MANDATORY, GOVERNS EVERY METRIC: genre compatibility removes a penalty; demonstrated craft earns the high score. These are two different things and must never be collapsed into one. When a production choice is appropriate, intentional and conventional for the genre, that fact means it is NOT A FLAW - so do not deduct for it. It does NOT, by itself, mean the choice was executed with above-average skill. Genre appropriateness alone therefore belongs at 82-88, the professional band; reaching 89 or above requires identifiable evidence of above-average execution that you name in your commentary.
+The same distinction applies to raw measurements. A measured characteristic being large, wide, loud, dynamic, consistent or tightly gridded is evidence about WHAT the audio contains - never proof that it was expertly crafted. A completely unmastered render can legitimately show a very wide dynamic range simply because nothing has been done to restrain it: that is the absence of processing, not mastery of dynamics. Likewise an untouched file can show high stereo width, high timbral consistency or perfect grid alignment for reasons that have nothing to do with skill. Interpret every measurement in context and judge whether the result reflects deliberate, skilled control, rather than converting a high number directly into a high score.
+Summarised as one rule to apply everywhere: absence of a problem, compatibility with the genre, and a large raw measurement each get you to 82-88. Only demonstrated, nameable craft gets you above it.
+
 PRECEDENCE OVER THE PER-METRIC RUBRICS BELOW - MANDATORY: many individual metric rubrics further down describe their top band as "90-100". Read that phrase as naming "the top band" conceptually, NOT as a literal instruction to award 90 or more. The calibration above governs the actual number in every case. Concretely: meeting the standard a rubric describes, cleanly and with no flaw, places the metric at 82-88; exceeding that standard with specific, nameable, above-average evidence is what earns 89 and above. Where a rubric states that some characteristic "must score 90-100", or that a genre-typical trait must not be penalised, its real intent is that the characteristic IS NOT A FLAW and must not drag the score downward - honour that intent by scoring at the professional-standard band or above and never treating it as a defect, but do NOT convert "this is not a flaw" into automatic evidence of excellence. Those genre-fairness rules exist to prevent unfair deductions, not to manufacture inflated scores.
 
 ANTI-CLUSTERING - MANDATORY: do not favour habitual anchor values. Select the score the evidence warrants, and use the full width of each band - values ending in 1, 3, 6 and 7 are exactly as legitimate as those ending in 0 or 5. Two different metrics on the same track, or the same metric on two very different tracks, should rarely land on the identical number unless the underlying evidence is genuinely identical.`;
@@ -245,7 +253,7 @@ const SUBMETRICS_SCHEMA_1 = {
     aestheticDesign: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     spaceAndDensity: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     mudPrevention: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-    sibilanceShaving: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    sibilanceShaving: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
     lowEndDivision: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     midrangeSpacing: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     stereoWidth: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
@@ -738,7 +746,11 @@ HANDLING TRACKS WITHOUT VOCALS OR LYRICS - MANDATORY: several fields include an 
 
 ELEMENT-LEVEL ABSENCE (a track that HAS vocals but lacks a specific element) - MANDATORY: the rule above covers whole tracks with no vocals at all. This rule covers the far more common case where the track has a lead vocal, but one specific thing a sub-metric measures is simply not present. The governing principle is identical and absolute: THE ABSENCE OF SOMETHING IS NEVER EVIDENCE THAT IT WAS DONE WELL. A metric measuring how well multiple elements fit together cannot be scored highly when there is only one element - there is no fit to evaluate, so the honest answer is "not applicable", never "perfect".
 
-The specific case this most affects is vocalLayerFit. If the track genuinely has a single lead vocal with no backing harmonies, no doubling, and no stacked vocal layers, set vocalLayerFit.applicable to false with a 0 placeholder score, exactly as described above. Do NOT score it 90-100 on the reasoning that nothing is clashing or nothing is misaligned - an absence of layers is an absence of evidence, not evidence of excellence. This was a real, observed failure: seven separate professional tracks each received a perfect 100 for vocalLayerFit accompanied by commentary stating the track had no backing harmonies at all, which is exactly the reasoning this instruction forbids.
+Two specific cases this affects:
+
+SIBILANCE SHAVING: this metric evaluates the control of VOCAL SIBILANCE specifically - harsh "s", "t" and "sh" energy from a sung or spoken performance. If the track has no vocals, or no sibilant vocal source at all, there is no sibilance to control: set sibilanceShaving.applicable to false with a 0 placeholder. Do NOT award a high score on the reasoning that no harsh sibilance is present - that is the absence of the thing being measured, not evidence it was expertly managed. This was a real, observed failure: an instrumental orchestral track scored 98 here with commentary stating the track contains no vocals. Note also that general high-frequency harshness from cymbals, strings or synths is NOT sibilance and belongs to the other spectral metrics, not this one - do not repurpose this metric to comment on non-vocal high end.
+
+The other case this most affects is vocalLayerFit. If the track genuinely has a single lead vocal with no backing harmonies, no doubling, and no stacked vocal layers, set vocalLayerFit.applicable to false with a 0 placeholder score, exactly as described above. Do NOT score it 90-100 on the reasoning that nothing is clashing or nothing is misaligned - an absence of layers is an absence of evidence, not evidence of excellence. This was a real, observed failure: seven separate professional tracks each received a perfect 100 for vocalLayerFit accompanied by commentary stating the track had no backing harmonies at all, which is exactly the reasoning this instruction forbids.
 
 BEFORE declaring that layering is absent, listen carefully and be genuinely confident. Backing harmonies, octave doubling, and stacked vocal layers are extremely common and are often mixed subtly underneath the lead rather than being obvious. Incorrectly claiming a track has no vocal layering is a factual error about the audio, and it is a costly one, because it also wrongly triggers the not-applicable path above. If layering is present at all - even quietly, even only in the choruses - vocalLayerFit IS applicable and must be scored on how well those layers actually sit against the lead.
 
@@ -844,14 +856,56 @@ function validateGenrePair(parsedCritique: any): void {
   }
 }
 
+// ---------------------------------------------------------------------------
+// UNIVERSAL APPLICABILITY PROPAGATION
+// One shared rule for every parent score in the system, so applicability never has
+// to be patched metric-by-metric again:
+//   - NO children applicable   -> the parent itself becomes NOT APPLICABLE
+//   - SOME children applicable -> exclude the others and RENORMALIZE the weights
+//   - ALL children applicable  -> ordinary weighted average
+// A not-applicable field carries a 0 placeholder, and 0 is a number, so any naive
+// average silently treats "this does not exist" as "this scored zero". That produced
+// a real, visible defect: an instrumental track reported Songwriting Quality 59 from
+// (89 + 89 + 0) / 3, understating it by 30 points. It also allowed a parent to keep
+// its earlier unaided score when every child underneath it was N/A.
+// ---------------------------------------------------------------------------
+type ParentResult = { score: number | null; applicable: boolean };
+
+function isApplicable(sub: any): boolean {
+  return !(sub && sub.applicable === false);
+}
+
+// Computes a parent from (child, weight) pairs, honouring applicability throughout.
+// Returns applicable:false when there is nothing real left to average.
+function computeParent(pairs: Array<[any, number]>): ParentResult {
+  const usable = pairs.filter(([sub]) => isApplicable(sub) && typeof sub?.score === "number");
+  const anyChildPresent = pairs.some(([sub]) => sub && typeof sub?.score === "number");
+  if (usable.length === 0) {
+    // Every child that exists is N/A -> the parent is N/A too. If no children were
+    // returned at all, we simply have no basis to recompute and leave the parent alone.
+    return { score: null, applicable: !anyChildPresent };
+  }
+  const totalWeight = usable.reduce((s, [, w]) => s + w, 0);
+  const weightedSum = usable.reduce((s, [sub, w]) => s + (sub.score as number) * w, 0);
+  return { score: Math.round(weightedSum / totalWeight), applicable: true };
+}
+
+// Writes a computed parent onto the target object, including its applicability.
+// When the parent is N/A it is marked applicable:false with a 0 placeholder rather
+// than being left holding a stale score from the earlier unaided pass.
+function applyParent(target: any, field: string, result: ParentResult): void {
+  if (!target) return;
+  if (!result.applicable) {
+    target[field] = 0;
+    target.applicable = false;
+    return;
+  }
+  if (result.score !== null) target[field] = result.score;
+}
+
 function reconcileParentScores(parsedCritique: any): void {
-  // Returns a sub-metric's score ONLY when it genuinely applies to this track.
-  // A not-applicable field carries a 0 placeholder, and 0 is a number - so without this
-  // guard weightedAvg would average that placeholder in as if it were a real result,
-  // silently dragging the parent score down and overriding the prompt's own instruction
-  // to reweight across applicable metrics only.
   const appScore = (sub: any): number | undefined =>
-    (sub && sub.applicable === false) ? undefined : sub?.score;
+    isApplicable(sub) ? sub?.score : undefined;
 
   const weightedAvg = (pairs: Array<[number | undefined, number]>): number | null => {
     const validPairs = pairs.filter(([score]) => typeof score === "number");
@@ -878,13 +932,11 @@ function reconcileParentScores(parsedCritique: any): void {
   }
 
   if (c2Ready?.melodicHooks) {
-    const melodicHooksScore = weightedAvg([
-      [c2Ready.melodicHooks.intervalMemory?.score, 50],
-      [appScore(c2Ready.melodicHooks.syllabicPlacement), 50],
+    const melodicHooksResult = computeParent([
+      [c2Ready.melodicHooks.intervalMemory, 50],
+      [c2Ready.melodicHooks.syllabicPlacement, 50],
     ]);
-    if (melodicHooksScore !== null) {
-      parsedCritique.subMetricsCall2.melodicHooks.score = melodicHooksScore;
-    }
+    applyParent(parsedCritique.subMetricsCall2.melodicHooks, "score", melodicHooksResult);
   }
 
   if (c2Ready?.acousticTension) {
@@ -898,13 +950,14 @@ function reconcileParentScores(parsedCritique: any): void {
   }
 
   if (c2Ready?.songwritingDensity) {
-    const songwritingDensityScore = weightedAvg([
-      [appScore(c2Ready.songwritingDensity.vocalPocketing), 50],
-      [appScore(c2Ready.songwritingDensity.poeticBrevity), 50],
+    // Both children are lyric-dependent. On an instrumental both are N/A, so this parent
+    // must itself become N/A - it was reporting 0, which then got averaged into the
+    // Songwriting Quality composite as though it were a real score of zero.
+    const songwritingDensityResult = computeParent([
+      [c2Ready.songwritingDensity.vocalPocketing, 50],
+      [c2Ready.songwritingDensity.poeticBrevity, 50],
     ]);
-    if (songwritingDensityScore !== null) {
-      parsedCritique.subMetricsCall2.songwritingDensity.score = songwritingDensityScore;
-    }
+    applyParent(parsedCritique.subMetricsCall2.songwritingDensity, "score", songwritingDensityResult);
   }
 
   // Engagement Power (formerly MIX/MASTER INTEGRITY) - now combines Call 1 and Call 3 data
@@ -961,13 +1014,22 @@ function reconcileParentScores(parsedCritique: any): void {
       parsedCritique.arrangement.flowScore = flow;
     }
 
-    const vocal = weightedAvg([
-      [appScore(c3.vocalTrackingSubs?.pitchAccuracy), 40],
-      [appScore(c3.vocalTrackingSubs?.dynamicDelivery), 35],
-      [appScore(c3.vocalTrackingSubs?.vocalLayerFit), 25],
+    // Routed through the universal mechanism: if every vocal sub-metric is N/A (a genuine
+    // instrumental), the parent vocalScore becomes N/A too rather than keeping the score
+    // the earlier unaided pass guessed. Previously this parent reported 82 while all three
+    // of its children were N/A.
+    const vocal = computeParent([
+      [c3.vocalTrackingSubs?.pitchAccuracy, 40],
+      [c3.vocalTrackingSubs?.dynamicDelivery, 35],
+      [c3.vocalTrackingSubs?.vocalLayerFit, 25],
     ]);
-    if (vocal !== null && parsedCritique.performance) {
-      parsedCritique.performance.vocalScore = vocal;
+    if (parsedCritique.performance) {
+      if (!vocal.applicable) {
+        parsedCritique.performance.vocalScore = 0;
+        parsedCritique.performance.vocalApplicable = false;
+      } else if (vocal.score !== null) {
+        parsedCritique.performance.vocalScore = vocal.score;
+      }
     }
 
     // All four instrumentalStagingSubs contribute at 25% each, matching the weights the
@@ -984,13 +1046,13 @@ function reconcileParentScores(parsedCritique: any): void {
       parsedCritique.performance.instrumentalScore = instrumental;
     }
 
-    const lyrical = weightedAvg([
-      [appScore(c3.lyricalImpactSubs?.meaningClarity), 50],
-      [appScore(c3.lyricalImpactSubs?.clicheAvoidance), 50],
+    // Same universal treatment: both children N/A (no lyrics) -> the parent is N/A,
+    // not a stale 82 inherited from the first pass.
+    const lyrical = computeParent([
+      [c3.lyricalImpactSubs?.meaningClarity, 50],
+      [c3.lyricalImpactSubs?.clicheAvoidance, 50],
     ]);
-    if (lyrical !== null && parsedCritique.lyricalImpact) {
-      parsedCritique.lyricalImpact.score = lyrical;
-    }
+    applyParent(parsedCritique.lyricalImpact, "score", lyrical);
 
     const theory = weightedAvg([
       [c3.musicTheorySubs?.chordDynamics?.score, 40],
