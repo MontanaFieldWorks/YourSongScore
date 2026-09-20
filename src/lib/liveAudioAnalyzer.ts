@@ -1748,22 +1748,22 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     dynamicHighPercentileDb = parseFloat(highP.toFixed(1));
     dynamicLowPercentileDb = parseFloat(lowP.toFixed(1));
 
-    // Reworked from a straight linear ramp across the whole 3-10dB sweet spot (which meant
-    // landing dead-center in the zone the UI itself calls "ideal" only ever scored 60, a
-    // real contradiction between the score and the "Commercial Sweet Spot" badge shown
-    // next to it). Now a proper plateau: 3dB and 10dB (the sweet spot's own edges) both
-    // score 80, ramping up to a genuine 100 plateau spanning 5-10dB - not just a single
-    // midpoint - so landing solidly in the zone the app calls ideal actually scores like it.
-    if (dynamicRangeDb <= 0) {
-      dynamicModulationScore = 0;
-    } else if (dynamicRangeDb <= 3) {
-      dynamicModulationScore = Math.round((dynamicRangeDb / 3) * 80);
-    } else if (dynamicRangeDb <= 5) {
-      dynamicModulationScore = Math.round(80 + ((dynamicRangeDb - 3) / 2) * 20);
-    } else if (dynamicRangeDb <= 10) {
-      dynamicModulationScore = 100;
+    // DSP FALLBACK ONLY — this is NOT the user-facing quality judgment when Call 2 succeeds.
+    // The measured percentile range tells us how much sustained loud/quiet contrast exists,
+    // but cannot tell us whether that contrast is artistically well-shaped. Keep this
+    // fallback deliberately conservative: clearly flat material can score lower, while
+    // healthy-to-wide movement rises only into the professional band and NEVER earns 89+
+    // from raw magnitude alone. Also never penalize a very wide range simply for being wide.
+    if (dynamicRangeDb <= 0.5) {
+      dynamicModulationScore = 65;
+    } else if (dynamicRangeDb <= 2) {
+      dynamicModulationScore = Math.round(65 + ((dynamicRangeDb - 0.5) / 1.5) * 15);
+    } else if (dynamicRangeDb <= 4) {
+      dynamicModulationScore = Math.round(80 + ((dynamicRangeDb - 2) / 2) * 5);
     } else {
-      dynamicModulationScore = Math.round(Math.max(50, 100 - ((dynamicRangeDb - 10) / 10) * 50));
+      dynamicModulationScore = Math.round(
+        Math.min(88, 85 + Math.min(1, (dynamicRangeDb - 4) / 8) * 3)
+      );
     }
 
     // Climax Trajectory: find the peak of a lightly smoothed envelope (3-window moving
@@ -1780,42 +1780,46 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     }
     climaxPositionRatio = parseFloat((peakIdx / (smoothed.length - 1)).toFixed(2));
 
-    // Position score: rewards the peak landing in the back half without sitting at the
-    // very last instant (which reads more like an abrupt cutoff than a resolved climax).
+    // DSP FALLBACK ONLY — peak timing is a structural characteristic, not proof that the
+    // climax was musically effective. Treat most plausible peak locations as broadly
+    // professional evidence, reserve lower values for genuinely front-loaded/extreme-edge
+    // shapes, and never let timing alone create a 90+ quality score.
     let positionScore: number;
-    if (climaxPositionRatio >= 0.55 && climaxPositionRatio <= 0.9) {
-      positionScore = 100;
-    } else if (climaxPositionRatio < 0.55) {
-      positionScore = Math.max(0, Math.round((climaxPositionRatio / 0.55) * 100));
+    if (climaxPositionRatio < 0.1) {
+      positionScore = 72;
+    } else if (climaxPositionRatio < 0.25) {
+      positionScore = Math.round(72 + ((climaxPositionRatio - 0.1) / 0.15) * 8);
+    } else if (climaxPositionRatio <= 0.9) {
+      positionScore = 84;
+    } else if (climaxPositionRatio <= 0.97) {
+      positionScore = 82;
     } else {
-      positionScore = Math.max(0, Math.round(100 - ((climaxPositionRatio - 0.9) / 0.1) * 40));
+      positionScore = 78;
     }
 
-    // Magnitude score: rewards a real, substantial build - not just a late but trivial bump.
-    // Reworked from a straight linear ramp to 6dB (which meant a build the card's own copy
-    // calls "healthy" only scored a middling 42, dragging the blended score down to 71 for
-    // a song correctly described as landing "perfectly" in the ideal zone with a "healthy"
-    // build). Now a proper plateau: 3-5dB (the range the card's own text already calls
-    // healthy) scores a genuine 100, ramping up from 0 at 2dB, and gently tapering above
-    // 5dB rather than being treated as equally weak as having no build at all.
+    // Build magnitude is also descriptive evidence only. A larger rise confirms a stronger
+    // measurable build, but it does not prove superior emotional payoff. Rise into the
+    // professional band as evidence increases, cap at 88, and never taper downward merely
+    // because a cinematic/orchestral piece has a very large dynamic build.
     const firstThirdCount = Math.max(1, Math.floor(smoothed.length / 3));
     const openingAvgDb = smoothed.slice(0, firstThirdCount).reduce((a, b) => a + b, 0) / firstThirdCount;
     const buildDb = smoothed[peakIdx] - openingAvgDb;
     climaxBuildDb = parseFloat(buildDb.toFixed(1));
     let magnitudeScore: number;
     if (buildDb <= 0) {
-      magnitudeScore = 0;
+      magnitudeScore = 68;
     } else if (buildDb <= 2) {
-      magnitudeScore = Math.round((buildDb / 2) * 80);
-    } else if (buildDb <= 3) {
-      magnitudeScore = Math.round(80 + (buildDb - 2) * 20);
+      magnitudeScore = Math.round(68 + (buildDb / 2) * 12);
     } else if (buildDb <= 5) {
-      magnitudeScore = 100;
+      magnitudeScore = Math.round(80 + ((buildDb - 2) / 3) * 6);
     } else {
-      magnitudeScore = Math.round(Math.max(70, 100 - ((buildDb - 5) / 10) * 30));
+      magnitudeScore = Math.round(
+        Math.min(88, 86 + Math.min(1, (buildDb - 5) / 10) * 2)
+      );
     }
 
-    climaxTrajectoryScore = Math.round(positionScore * 0.5 + magnitudeScore * 0.5);
+    climaxTrajectoryScore = Math.round(positionScore * 0.35 + magnitudeScore * 0.65);
+    climaxTrajectoryScore = Math.min(88, climaxTrajectoryScore);
   }
 
   return {
