@@ -1836,6 +1836,41 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       "SONGWRITING QUALITY": dnaScore,
     };
 
+    // Aggregate report rows must carry an auditable explanation rather than a blank
+    // Commentary cell. Keep this explanation strictly arithmetic and source-grounded:
+    // it describes only the scores used to build the aggregate and cannot invent
+    // instruments, sections, production techniques, or other audio facts.
+    const songwritingQualityParts = [
+      {
+        label: "Melodic Hooks",
+        score: dnaMelodicScore,
+        applicable: critique?.subMetricsCall2?.melodicHooks?.applicable !== false,
+      },
+      {
+        label: "Dynamic Tension & Release",
+        score: dnaTensionScore,
+        applicable: critique?.subMetricsCall2?.acousticTension?.applicable !== false,
+      },
+      {
+        label: "Lyrics Analysis",
+        score: dnaDensityScore,
+        applicable: dnaDensityApplicable,
+      },
+    ].filter(part => part.applicable && typeof part.score === "number");
+
+    const aggNoteMap: Record<string, string> = {
+      "COMMERCIAL IMPACT":
+        `Weighted aggregate: Engagement Power ${critique?.scores?.commercialReadiness ?? 75} (80%) + ` +
+        `Production Index ${critique?.scores?.overallProduction ?? 75} (20%) = ${aggScoreMap["COMMERCIAL IMPACT"]}.`,
+      "PRODUCTION QUALITY": "",
+      "SONGWRITING QUALITY": songwritingQualityParts.length > 0
+        ? `Average of applicable components: ${songwritingQualityParts
+            .map(part => `${part.label} ${part.score}`)
+            .join("; ")} = ${aggScoreMap["SONGWRITING QUALITY"]}. ` +
+          `${dnaDensityApplicable ? "All listed components were included." : "Lyrics Analysis was N/A and excluded from the average."}`
+        : "No applicable songwriting components were available for this track.",
+    };
+
     // Structural Engagement's three cards live outside METRICS_LIST/AUX_METRICS_LIST (built
     // as standalone hero cards elsewhere in this file, not part of that array-driven system),
     // so they're built here directly from their real data sources rather than added to those
@@ -1899,7 +1934,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         lastAgg = "";
       }
       if (group.agg && group.agg !== lastAgg) {
-        addAggRow(colors, group.agg, aggScoreMap[group.agg] ?? null, "");
+        addAggRow(colors, group.agg, aggScoreMap[group.agg] ?? null, aggNoteMap[group.agg] ?? "");
         lastAgg = group.agg;
       }
       const coreExportScore = m.applicable === false ? "N/A" : m.score;
@@ -1909,11 +1944,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         const subScore = realSub ? realSub.score : getSubScore(m.score, idx, m.subParams.length, m.id);
         const fallbackWarning = realSub ? "" : getFallbackWarning(critique, m.id);
         const subText = (fallbackWarning) + (realSub ? realSub.commentary : getSubScoreExplanationText(param.name, subScore));
-        // A genuinely not-applicable sub-metric exports as "N/A", never as its placeholder
-        // number. Exporting the placeholder would reproduce in the spreadsheet exactly the
-        // problem the applicable flag exists to prevent - a meaningless score presented as
-        // if it were a real measurement of something that was never there to measure.
-        const exportScore = realSub?.applicable === false ? "N/A" : subScore;
+        // A parent-level N/A must propagate to every child. Some model responses correctly
+        // mark the parent metric not applicable while child placeholders still carry score 0
+        // without their own applicable flag. Checking only the child would export that 0 as a
+        // real failure. Either parent or child N/A therefore exports as N/A.
+        const exportScore = m.applicable === false || realSub?.applicable === false ? "N/A" : subScore;
         addSubRow(param.name, exportScore, (subText || "").replace(/\n/g, " ").replace(/(\d+\s*)?[+-]\s*\d+\s*points?:\s*/gi, ""));
       });
     });
