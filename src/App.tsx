@@ -1183,6 +1183,11 @@ export default function App() {
           formData.append("melodicStaging", String(earlyLiveMetrics?.calculatedMelodicStagingScore ?? ""));
           formData.append("instrumentalWarmth", String(earlyLiveMetrics?.calculatedInstrumentalWarmthScore ?? ""));
           formData.append("vocalDynamics", String(earlyLiveMetrics?.calculatedVocalDynamicsScore ?? ""));
+          formData.append("productionFinishCrestFactorDb", String(earlyLiveMetrics?.calculatedCrestFactorDb ?? ""));
+          formData.append("productionFinishLufs", String(earlyLiveMetrics?.calculatedLufs ?? ""));
+          formData.append("productionFinishSubPct", String(earlyLiveMetrics?.calculatedFinishSubPct ?? ""));
+          formData.append("productionFinishMidPct", String(earlyLiveMetrics?.calculatedFinishMidPct ?? ""));
+          formData.append("productionFinishAirPct", String(earlyLiveMetrics?.calculatedFinishAirPct ?? ""));
           formData.append("subBassBandEnergy", String(earlyLiveMetrics?.calculatedSubBassBandEnergy ?? ""));
           formData.append("bassBandEnergy", String(earlyLiveMetrics?.calculatedBassBandEnergy ?? ""));
           formData.append("lowMidsBandEnergy", String(earlyLiveMetrics?.calculatedLowMidsBandEnergy ?? ""));
@@ -1250,6 +1255,11 @@ export default function App() {
               melodicStaging: earlyLiveMetrics?.calculatedMelodicStagingScore ?? null,
               instrumentalWarmth: earlyLiveMetrics?.calculatedInstrumentalWarmthScore ?? null,
               vocalDynamics: earlyLiveMetrics?.calculatedVocalDynamicsScore ?? null,
+              productionFinishCrestFactorDb: earlyLiveMetrics?.calculatedCrestFactorDb ?? null,
+              productionFinishLufs: earlyLiveMetrics?.calculatedLufs ?? null,
+              productionFinishSubPct: earlyLiveMetrics?.calculatedFinishSubPct ?? null,
+              productionFinishMidPct: earlyLiveMetrics?.calculatedFinishMidPct ?? null,
+              productionFinishAirPct: earlyLiveMetrics?.calculatedFinishAirPct ?? null,
               subBassBandEnergy: earlyLiveMetrics?.calculatedSubBassBandEnergy ?? null,
               bassBandEnergy: earlyLiveMetrics?.calculatedBassBandEnergy ?? null,
               lowMidsBandEnergy: earlyLiveMetrics?.calculatedLowMidsBandEnergy ?? null,
