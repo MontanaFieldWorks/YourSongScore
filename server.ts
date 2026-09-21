@@ -138,57 +138,6 @@ const GENRE_RECHECK_SCHEMA = {
   required: ["genre", "subgenre", "hasVocals", "dominantInstrumentation", "formCharacter", "rationale"],
 };
 
-const SOURCE_CLASS_VALUES = [
-  "vocal",
-  "acoustic_guitar",
-  "electric_guitar",
-  "piano_keys",
-  "orchestral_strings",
-  "brass",
-  "woodwinds",
-  "drum_kit",
-  "electronic_percussion",
-  "bass_instrument",
-  "synthesizer",
-  "plucked_pitched_layer",
-  "sustained_harmonic_layer",
-  "transient_rhythmic_layer",
-  "other_pitched_layer",
-  "other_unpitched_layer",
-] as const;
-
-const SOURCE_GROUNDING_SCHEMA = {
-  type: Type.OBJECT,
-  properties: {
-    hasVocals: { type: Type.BOOLEAN },
-    ensembleCharacter: {
-      type: Type.STRING,
-      enum: [
-        "orchestral_classical",
-        "acoustic_song",
-        "rock_band",
-        "electronic_production",
-        "hiphop_rnb",
-        "hybrid",
-        "solo_or_duo",
-        "uncertain",
-      ],
-    },
-    sources: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          sourceClass: { type: Type.STRING, enum: SOURCE_CLASS_VALUES },
-          confidence: { type: Type.INTEGER },
-        },
-        required: ["sourceClass", "confidence"],
-      },
-    },
-  },
-  required: ["hasVocals", "ensembleCharacter", "sources"],
-};
-
 // Response Schema for Structured AI Output
 const CRITIQUE_SCHEMA = {
   type: Type.OBJECT,
@@ -504,8 +453,6 @@ async function performSubMetricsCall1(
     : "not available";
 
   const contextSummary = `
-${buildSourceGroundingDirective(parsedCritique?.sourceGrounding)}
-
 Qualitative context from the earlier analysis pass (descriptive only - NO parent scores are given to you deliberately):
 The parent category scores are intentionally withheld here. Your sub-metric scores are used to RECOMPUTE those parent scores, so being shown the earlier numbers would make this analysis gravitate back toward that first unaided impression instead of independently determining the result from the evidence. Score each sub-metric on its own merits from the audio, the measurements below, and the descriptive notes - never toward any prior number.
 - Engagement Power notes: ${parsedCritique?.mixQuality?.dominanceIssues}
@@ -692,8 +639,6 @@ async function performSubMetricsCall2(
   melodySummary?: string
 ): Promise<any> {
   const contextSummary = `
-${buildSourceGroundingDirective(parsedCritique?.sourceGrounding)}
-
 Qualitative context from the earlier analysis pass (descriptive only - NO parent scores are given to you deliberately):
 The parent category scores are intentionally withheld here. Your sub-metric scores are used to RECOMPUTE those parent scores, so being shown the earlier numbers would make this analysis gravitate back toward that first unaided impression instead of independently determining the result from the evidence. Score each sub-metric on its own merits from the audio, the measurements below, and the descriptive notes - never toward any prior number.
 - Composition Flow notes: ${parsedCritique?.arrangement?.transitionsAndArc}
@@ -884,8 +829,6 @@ async function performSubMetricsCall3(
   measuredVocalDynamics?: number
 ): Promise<any> {
   const contextSummary = `
-${buildSourceGroundingDirective(parsedCritique?.sourceGrounding)}
-
 Qualitative context from the earlier analysis pass (descriptive only - NO parent scores are given to you deliberately):
 The parent category scores are intentionally withheld here. Your sub-metric scores are used to RECOMPUTE those parent scores, so being shown the earlier numbers would make this analysis gravitate back toward that first unaided impression instead of independently determining the result from the evidence. Score each sub-metric on its own merits from the audio, the measurements below, and the descriptive notes - never toward any prior number.
 - Composition Flow notes (DESCRIPTIVE CONTEXT ONLY; do not treat any section labels here as ground truth - verify form directly from the audio): ${parsedCritique?.arrangement?.transitionsAndArc}
@@ -1332,79 +1275,6 @@ async function generateContentWithRetry(params: {
   throw new Error("Gemini invocation failed after all retries.");
 }
 
-async function performSourceGrounding(audioPart: any): Promise<any> {
-  const prompt = `CONSERVATIVE SOURCE GROUNDING - AUDIO ONLY.
-
-Listen to the full recording and identify only source classes that are genuinely audible.
-
-FALSE POSITIVES ARE WORSE THAN OMISSIONS. Confidence means confidence that the SOURCE CLASS ITSELF is actually audible, not that it would be typical for a genre. Assign confidence >=85 only when the source identity is unmistakable from the recording.
-
-Critical rules:
-- Do not identify or guess the artist, song, era, or genre.
-- Do not infer instruments from style conventions.
-- Synthetic/mockup timbres can resemble acoustic guitar, piano, strings, or synths. If the exact source is ambiguous, use a GENERIC class such as plucked_pitched_layer or sustained_harmonic_layer instead of guessing a named instrument.
-- A generic class is preferred to an incorrect specific class.
-- Do not force every class to appear. Return only genuinely audible sources.
-- For an instrumental, hasVocals must be false.
-
-Return only the structured JSON requested.`;
-
-  const response = await generateContentWithRetry({
-    model: "gemini-2.5-flash",
-    contents: { parts: [audioPart, { text: prompt }] },
-    config: {
-      systemInstruction: "You are a conservative audio source verifier. Your only job is to prevent unsupported source/instrument claims. Prefer uncertainty and generic source roles over a false specific identification.",
-      responseMimeType: "application/json",
-      responseSchema: SOURCE_GROUNDING_SCHEMA,
-      temperature: 0,
-    },
-  }, 4);
-
-  return JSON.parse(response.text);
-}
-
-function buildSourceGroundingDirective(sourceGrounding: any): string {
-  if (!sourceGrounding || !Array.isArray(sourceGrounding.sources)) {
-    return `SOURCE GROUNDING: no verified source inventory is available. Do not make specific instrument/source claims; use role-based audible language instead.`;
-  }
-
-  const labels: Record<string, string> = {
-    vocal: "vocal",
-    acoustic_guitar: "acoustic guitar",
-    electric_guitar: "electric guitar",
-    piano_keys: "piano/keyboard",
-    orchestral_strings: "orchestral strings",
-    brass: "brass",
-    woodwinds: "woodwinds",
-    drum_kit: "drum kit",
-    electronic_percussion: "electronic percussion",
-    bass_instrument: "bass instrument",
-    synthesizer: "synthesizer",
-    plucked_pitched_layer: "plucked pitched layer (exact instrument unverified)",
-    sustained_harmonic_layer: "sustained harmonic layer (exact instrument unverified)",
-    transient_rhythmic_layer: "transient rhythmic layer (exact source unverified)",
-    other_pitched_layer: "other pitched layer (exact instrument unverified)",
-    other_unpitched_layer: "other unpitched layer (exact source unverified)",
-  };
-
-  const confirmed = sourceGrounding.sources
-    .filter((item: any) =>
-      item &&
-      typeof item.sourceClass === "string" &&
-      Number(item.confidence) >= 85
-    )
-    .map((item: any) => labels[item.sourceClass] || item.sourceClass);
-
-  const confirmedText = confirmed.length > 0 ? confirmed.join(", ") : "none";
-
-  return `SOURCE GROUNDING - HARD CONSTRAINT:
-A separate conservative audio-only verification pass produced this >=85-confidence source list: ${confirmedText}.
-Ensemble character: ${sourceGrounding.ensembleCharacter || "uncertain"}.
-Vocal presence from the source verifier: ${sourceGrounding.hasVocals === true ? "present" : sourceGrounding.hasVocals === false ? "absent" : "uncertain"}.
-
-You may name a SPECIFIC instrument/source in commentary only if that specific class appears in the >=85-confidence list above. Generic entries such as "plucked pitched layer" or "sustained harmonic layer" DO NOT authorize you to rename them as guitar, piano, strings, synth, or any other exact source. When a desired source name is not explicitly confirmed, describe the audible role instead (lead melodic layer, sustained harmonic layer, low-frequency foundation, transient rhythmic layer, wide background texture, etc.). Never override this list based on genre expectations or your own later guess.`;
-}
-
 async function verifyInstrumentalGenreIfNeeded(
   audioPart: any,
   parsedCritique: any,
@@ -1768,17 +1638,6 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       userInstruction += `\n\n- Genre Identification Directive: No explicit, valid genre metadata tag was found in the audio container. You MUST perform a deep acoustic and stylistic analysis of the track's drum/beat structures, lead instrumentation, tempo/timing, harmonic mood, production era, and vocal delivery to identify the core genre and subgenre. You MUST select genre and subgenre ONLY from this exact taxonomy - do not invent a label outside this list, and ensure the subgenre you choose genuinely belongs to the genre you selected:\n${GENRE_TAXONOMY_TEXT}\n\nFor Rap / Hip-Hop specifically, base your subgenre choice on regional production style, vocal delivery, and beat construction - do not default to a common archetype out of habit if the track's actual sonic signature points to a different regional style within the list above. The taxonomy DOES now have a dedicated "Folk / Singer-Songwriter" genre (Folk Rock, Contemporary Folk, Singer-Songwriter, Traditional Folk) - use it for genuinely acoustic, folk-rooted or singer-songwriter material rather than routing such tracks into Alternative or Country. Country's "Americana" subgenre remains correct only for material with a genuine country/roots-country character, not for folk generally. The Rock genre also now includes "Punk / Post-Punk", "Progressive Rock / Art Rock", "New Wave / Power Pop" and "Psychedelic Rock" - use these for material that genuinely belongs to those styles instead of defaulting it into modern radio-format labels like "Active Rock" or "Modern Rock", which describe contemporary commercial rock formats rather than those distinct styles. Note that several labels in this taxonomy are radio/chart FORMAT names (Active Rock, Triple A, Mainstream Top 40, Airplay categories); do not assign an older or stylistically distinct recording to a modern format label merely because no other option looks familiar - choose the label that matches the music's actual style. Equally, several labels carry playlist-framing qualifiers such as "Revival", "Catalog" or "Heritage" (for example "Shoegaze / Dream Pop Revival", "Grunge / 90s Alternative Catalog", "Funk / R&B Heritage Catalog"). Those qualifiers describe how the style is packaged for listeners today; they do NOT mean the label is reserved for later revival acts or excludes the artists who originated the style. A foundational, original-era recording of a style belongs under that style's label - a definitive early shoegaze record is "Shoegaze / Dream Pop Revival", not a generic rock format label - so never rule out the stylistically correct option merely because its name contains one of these words. Do not default to R&B, Funk, or Pop for quiet acoustic material just because it is calm or vintage-sounding; those genres require their own real, defining sonic characteristics (groove-driven rhythm, syncopated basslines, vocal runs/melisma for R&B; a clear dance/backbeat pulse for Funk) to be genuinely present, not just an old recording era. IMPORTANT DISTINCTION - do not confuse "acoustic pop/folk/singer-songwriter" with a genuinely orchestral or classical composition just because both may use acoustic instruments like piano or guitar. A track belongs in Classical, not Alternative, if it shows real, identifiable classical/orchestral characteristics: primarily orchestral or classical instrumentation (strings, brass, woodwinds, solo piano, or similar) functioning as the composition's core voice rather than an accompaniment layer; the absence of a consistent pop/rock rhythm section (drum kit, bass guitar) driving a groove; and a through-composed, thematic, or classical formal structure (theme and variation, sonata-like development, or similar) rather than a verse-chorus pop song structure. A quiet solo piano or acoustic guitar performance of an actual song with lyrics, verses, and a chorus belongs in Folk / Singer-Songwriter (or Alternative/Americana where that genuinely fits better) as described above - but an instrumental orchestral or classical composition should be identified as Classical, using its real subgenres (Traditional Classical, Classical Crossover), even if it happens to feature acoustic instruments some pop genres also use. When nothing fits perfectly, choose the closest reasonable match to the track's actual instrumentation and rhythmic character, not the most tonally similar-sounding label. Check the frequency range structures and arrangement styles to see what type of playlist it fits best.`;
     }
 
-    let sourceGrounding: any = null;
-    try {
-      console.log("[SourceGrounding] Starting conservative audio source verification...");
-      sourceGrounding = await performSourceGrounding(audioPart);
-      userInstruction += `\n\n${buildSourceGroundingDirective(sourceGrounding)}`;
-      console.log("[SourceGrounding] Verification completed:", JSON.stringify(sourceGrounding));
-    } catch (groundErr: any) {
-      console.log("[SourceGrounding] Verification failed; using source-neutral fallback:", groundErr?.message || groundErr);
-      userInstruction += `\n\n${buildSourceGroundingDirective(null)}`;
-    }
-
     const parsedCritique = await performCritiqueAnalysis(
       [
         audioPart,
@@ -1787,7 +1646,6 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       SYSTEM_PROMPT,
       threeX
     );
-    parsedCritique.sourceGrounding = sourceGrounding;
 
     try {
 
@@ -2010,17 +1868,6 @@ app.post("/api/critique-url", async (req, res) => {
       userInstruction += `\n\n- Genre Identification Directive: No explicit, valid genre metadata tag was found in the audio container. You MUST perform a deep acoustic and stylistic analysis of the track's drum/beat structures, lead instrumentation, tempo/timing, harmonic mood, production era, and vocal delivery to identify the core genre and subgenre. You MUST select genre and subgenre ONLY from this exact taxonomy - do not invent a label outside this list, and ensure the subgenre you choose genuinely belongs to the genre you selected:\n${GENRE_TAXONOMY_TEXT}\n\nFor Rap / Hip-Hop specifically, base your subgenre choice on regional production style, vocal delivery, and beat construction - do not default to a common archetype out of habit if the track's actual sonic signature points to a different regional style within the list above. The taxonomy DOES now have a dedicated "Folk / Singer-Songwriter" genre (Folk Rock, Contemporary Folk, Singer-Songwriter, Traditional Folk) - use it for genuinely acoustic, folk-rooted or singer-songwriter material rather than routing such tracks into Alternative or Country. Country's "Americana" subgenre remains correct only for material with a genuine country/roots-country character, not for folk generally. The Rock genre also now includes "Punk / Post-Punk", "Progressive Rock / Art Rock", "New Wave / Power Pop" and "Psychedelic Rock" - use these for material that genuinely belongs to those styles instead of defaulting it into modern radio-format labels like "Active Rock" or "Modern Rock", which describe contemporary commercial rock formats rather than those distinct styles. Note that several labels in this taxonomy are radio/chart FORMAT names (Active Rock, Triple A, Mainstream Top 40, Airplay categories); do not assign an older or stylistically distinct recording to a modern format label merely because no other option looks familiar - choose the label that matches the music's actual style. Equally, several labels carry playlist-framing qualifiers such as "Revival", "Catalog" or "Heritage" (for example "Shoegaze / Dream Pop Revival", "Grunge / 90s Alternative Catalog", "Funk / R&B Heritage Catalog"). Those qualifiers describe how the style is packaged for listeners today; they do NOT mean the label is reserved for later revival acts or excludes the artists who originated the style. A foundational, original-era recording of a style belongs under that style's label - a definitive early shoegaze record is "Shoegaze / Dream Pop Revival", not a generic rock format label - so never rule out the stylistically correct option merely because its name contains one of these words. Do not default to R&B, Funk, or Pop for quiet acoustic material just because it is calm or vintage-sounding; those genres require their own real, defining sonic characteristics (groove-driven rhythm, syncopated basslines, vocal runs/melisma for R&B; a clear dance/backbeat pulse for Funk) to be genuinely present, not just an old recording era. IMPORTANT DISTINCTION - do not confuse "acoustic pop/folk/singer-songwriter" with a genuinely orchestral or classical composition just because both may use acoustic instruments like piano or guitar. A track belongs in Classical, not Alternative, if it shows real, identifiable classical/orchestral characteristics: primarily orchestral or classical instrumentation (strings, brass, woodwinds, solo piano, or similar) functioning as the composition's core voice rather than an accompaniment layer; the absence of a consistent pop/rock rhythm section (drum kit, bass guitar) driving a groove; and a through-composed, thematic, or classical formal structure (theme and variation, sonata-like development, or similar) rather than a verse-chorus pop song structure. A quiet solo piano or acoustic guitar performance of an actual song with lyrics, verses, and a chorus belongs in Folk / Singer-Songwriter (or Alternative/Americana where that genuinely fits better) as described above - but an instrumental orchestral or classical composition should be identified as Classical, using its real subgenres (Traditional Classical, Classical Crossover), even if it happens to feature acoustic instruments some pop genres also use. When nothing fits perfectly, choose the closest reasonable match to the track's actual instrumentation and rhythmic character, not the most tonally similar-sounding label. Check the frequency range structures and arrangement styles to see what type of playlist it fits best.`;
     }
 
-    let sourceGrounding: any = null;
-    try {
-      console.log("[SourceGrounding] Starting conservative audio source verification (URL route)...");
-      sourceGrounding = await performSourceGrounding(audioPart);
-      userInstruction += `\n\n${buildSourceGroundingDirective(sourceGrounding)}`;
-      console.log("[SourceGrounding] Verification completed (URL route):", JSON.stringify(sourceGrounding));
-    } catch (groundErr: any) {
-      console.log("[SourceGrounding] Verification failed (URL route); using source-neutral fallback:", groundErr?.message || groundErr);
-      userInstruction += `\n\n${buildSourceGroundingDirective(null)}`;
-    }
-
     const parsedCritique = await performCritiqueAnalysis(
       [
         audioPart,
@@ -2029,7 +1876,6 @@ app.post("/api/critique-url", async (req, res) => {
       SYSTEM_PROMPT,
       !!threeX
     );
-    parsedCritique.sourceGrounding = sourceGrounding;
 
     try {
 
