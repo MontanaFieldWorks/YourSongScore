@@ -160,9 +160,9 @@ const CRITIQUE_SCHEMA = {
         frequencyBalance: {
           type: Type.OBJECT,
           properties: {
-            lowEnd: { type: Type.STRING, description: "Bass, kick relationship and sub-bass clarity critique." },
-            midrange: { type: Type.STRING, description: "Vocals presence, guitars, synths, and clarity critique." },
-            highEnd: { type: Type.STRING, description: "Air, sibilance, cymbals, crispness, and brightness details." },
+            lowEnd: { type: Type.STRING, description: "Low-frequency balance, weight, masking, definition, and sub-bass clarity. Describe audible results; name a source only when its identity is unmistakable." },
+            midrange: { type: Type.STRING, description: "Midrange focus, masking, articulation, separation, and clarity. Describe audible roles rather than guessing guitars, keys, synths, or other sources." },
+            highEnd: { type: Type.STRING, description: "Upper-frequency balance, air, harshness, transient brightness, and sibilance where vocals actually exist. Describe audible results rather than assuming cymbals or other sources." },
           },
           required: ["lowEnd", "midrange", "highEnd"],
         },
@@ -177,7 +177,7 @@ const CRITIQUE_SCHEMA = {
         vocalsCritique: { type: Type.STRING, description: "Detailed guide on vocals: pitch accuracy, timing, breath control, emotional delivery, tuning and vocal chain effects." },
         vocalApplicable: { type: Type.BOOLEAN, description: "False if the track is a genuine instrumental with no vocals - see mandatory instructions on handling tracks without vocals or lyrics." },
         instrumentalScore: { type: Type.INTEGER, description: "Backing performance and instrumentation score out of 100." },
-        instrumentationCritique: { type: Type.STRING, description: "Critique of instrumental track layout: tightness, organic vibe, synth programming quality, drums pacing, energy transmission." },
+        instrumentationCritique: { type: Type.STRING, description: "Critique of instrumental arrangement and execution: timing, articulation, layering, spatial placement, dynamics, and energy transmission. If exact instrument identity is uncertain, use source-neutral roles such as plucked melodic layer, sustained harmonic layer, transient rhythmic layer, low-frequency foundation, or orchestral ensemble." },
       },
       required: ["vocalScore", "vocalsCritique", "vocalApplicable", "instrumentalScore", "instrumentationCritique"],
     },
@@ -955,6 +955,74 @@ function applyParent(target: any, field: string, result: ParentResult): void {
   if (result.score !== null) target[field] = result.score;
 }
 
+function enforceClassicalInstrumentalSourceNeutrality(parsedCritique: any): void {
+  const genre = String(parsedCritique?.vibe?.genre ?? "").trim();
+  const subgenre = String(parsedCritique?.vibe?.subgenre ?? "").trim();
+  const noVocals = parsedCritique?.performance?.vocalApplicable === false;
+  const noLyrics = parsedCritique?.lyricalImpact?.applicable === false;
+  const classicalInstrumental = genre === "Classical" && noVocals && noLyrics;
+  if (!classicalInstrumental) return;
+
+  const replacements: Array<[RegExp, string]> = [
+    [/\bacoustic guitars?\b/gi, "plucked melodic layer"],
+    [/\belectric guitars?\b/gi, "plucked melodic layer"],
+    [/\bbass guitars?\b/gi, "low-frequency foundation"],
+    [/\bguitars?\b/gi, "plucked melodic layer"],
+    [/\bgrand pianos?\b/gi, "pitched melodic layer"],
+    [/\bpianos?\b/gi, "pitched melodic layer"],
+    [/\bkeyboards?\b/gi, "pitched harmonic layer"],
+    [/\bsynth(?:esizer)? pads?\b/gi, "sustained harmonic layer"],
+    [/\bsynthesizers?\b/gi, "sustained harmonic layer"],
+    [/\bsynths?\b/gi, "sustained harmonic layer"],
+    [/\bdrum kits?\b/gi, "transient rhythmic layer"],
+    [/\bdrums?\b/gi, "transient rhythmic layer"],
+    [/\bkicks?\b/gi, "low-frequency transient"],
+    [/\bsnares?\b/gi, "midrange transient"],
+    [/\bcymbals?\b/gi, "high-frequency transient"],
+    [/\bviolins?\b/gi, "orchestral ensemble"],
+    [/\bviolas?\b/gi, "orchestral ensemble"],
+    [/\bcellos?\b/gi, "orchestral ensemble"],
+    [/\bdouble bass(?:es)?\b/gi, "orchestral low-frequency foundation"],
+    [/\bstrings?\b/gi, "orchestral ensemble"],
+    [/\bbrass\b/gi, "orchestral ensemble"],
+    [/\bwoodwinds?\b/gi, "orchestral ensemble"],
+    [/\bflutes?\b/gi, "orchestral ensemble"],
+    [/\bclarinets?\b/gi, "orchestral ensemble"],
+    [/\boboes?\b/gi, "orchestral ensemble"],
+    [/\bbassoons?\b/gi, "orchestral ensemble"],
+    [/\bhorns?\b/gi, "orchestral ensemble"],
+    [/\btrumpets?\b/gi, "orchestral ensemble"],
+    [/\btrombones?\b/gi, "orchestral ensemble"],
+  ];
+
+  const neutralize = (text: string): string => {
+    let out = text;
+    for (const [pattern, replacement] of replacements) out = out.replace(pattern, replacement);
+    return out;
+  };
+
+  const walk = (value: any): any => {
+    if (typeof value === "string") return neutralize(value);
+    if (Array.isArray(value)) return value.map(walk);
+    if (value && typeof value === "object") {
+      for (const key of Object.keys(value)) value[key] = walk(value[key]);
+    }
+    return value;
+  };
+
+  walk(parsedCritique);
+
+  if (parsedCritique?.performance?.instrumentationCritique) {
+    parsedCritique.performance.instrumentationCritique =
+      `Source-neutral orchestral assessment: ${parsedCritique.performance.instrumentationCritique}`;
+  }
+
+  if (parsedCritique?.vibe) {
+    parsedCritique.vibe.genre = genre;
+    parsedCritique.vibe.subgenre = subgenre;
+  }
+}
+
 function reconcileParentScores(parsedCritique: any): void {
   const appScore = (sub: any): number | undefined =>
     isApplicable(sub) ? sub?.score : undefined;
@@ -1717,6 +1785,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 
     validateGenrePair(parsedCritique);
     reconcileParentScores(parsedCritique);
+    enforceClassicalInstrumentalSourceNeutrality(parsedCritique);
 
     res.json({ critique: parsedCritique });
   } catch (error: any) {
@@ -1943,6 +2012,7 @@ app.post("/api/critique-url", async (req, res) => {
 
     validateGenrePair(parsedCritique);
     reconcileParentScores(parsedCritique);
+    enforceClassicalInstrumentalSourceNeutrality(parsedCritique);
 
     res.json({ critique: parsedCritique });
   } catch (error: any) {
@@ -2114,6 +2184,7 @@ app.post("/api/critique-spotify", async (req, res) => {
 
     validateGenrePair(critique);
     reconcileParentScores(critique);
+    enforceClassicalInstrumentalSourceNeutrality(critique);
 
     res.json({
       critique,
