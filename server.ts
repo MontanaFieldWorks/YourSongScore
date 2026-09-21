@@ -334,7 +334,7 @@ SCORE ANCHORS:
 - 70-81: functional design with a real, audible weakness such as an underdeveloped texture, inconsistent spatial treatment, distracting tonal mismatch, or a design choice that weakens the intended presentation. Name the actual audible problem; do not infer a source.
 - Below 70: substantial production-design failure: multiple audible choices conflict, the sound world feels poorly controlled or incoherent, or the presentation repeatedly undermines the composition.
 
-MANDATORY 89+ GATE: before awarding 89 or above, answer internally: "What exact audible production-design decision on THIS recording proves above-average craft?" If the answer is only genre fit, cleanliness, lack of clashes, timbral consistency, balanced frequency response, generic praise, OR merely that the arrangement grows from sparse to dense / builds to a climax / adds layers over time, the score MUST remain 82-88. Arrangement development is evidence for composition and structural engagement; by itself it is not proof of exceptional production design. For 89+, identify a specifically sonic treatment or transformation (spatial, tonal, dynamic, transient, ambience, width, depth, or another audible production decision) that demonstrates above-average control. If the answer depends on an instrument or production technique that cannot be confidently identified, the score MUST remain 82-88 rather than inventing evidence.
+MANDATORY 89+ GATE: before awarding 89 or above, answer internally: "What exact audible production-design decision on THIS recording proves above-average craft?" If the answer is only genre fit, cleanliness, lack of clashes, timbral consistency, balanced frequency response, or generic praise, the score MUST remain 82-88. If the answer depends on an instrument or production technique that cannot be confidently identified, the score MUST remain 82-88 rather than inventing evidence.
 
 MEASUREMENT CROSS-CHECK: a high timbral-consistency value may support the conclusion that the sound world is uniform, but uniformity alone is not design excellence. A balanced spectral profile may support translation, but balance alone is not a distinctive aesthetic. Stereo width and dynamic movement may support an intentional design only when the audible arrangement clearly uses them purposefully. Conversely, a measurement that reveals a real technical limitation may reduce the score if that limitation audibly weakens the intended aesthetic rather than serving it.
 
@@ -453,10 +453,11 @@ async function performSubMetricsCall1(
     : "not available";
 
   const contextSummary = `
-INDEPENDENT DOWNSTREAM SCORING CONTEXT:
-The parent category scores are intentionally withheld here. Your sub-metric scores are used to RECOMPUTE those parent scores, so being shown the earlier numbers would make this analysis gravitate back toward that first unaided impression instead of independently determining the result from the evidence.
-The earlier pass's free-text Mix Balance / Production descriptions are ALSO deliberately withheld. Real validation showed that one mistaken source guess in that prose (for example, calling an orchestral layer an acoustic guitar or synth) could contaminate every downstream production metric. Re-listen to the audio independently and use the objective measurements below. Do not inherit, reconstruct, or assume any instrument identity from a prior pass.
+Qualitative context from the earlier analysis pass (descriptive only - NO parent scores are given to you deliberately):
+The parent category scores are intentionally withheld here. Your sub-metric scores are used to RECOMPUTE those parent scores, so being shown the earlier numbers would make this analysis gravitate back toward that first unaided impression instead of independently determining the result from the evidence. Score each sub-metric on its own merits from the audio, the measurements below, and the descriptive notes - never toward any prior number.
+- Engagement Power notes: ${parsedCritique?.mixQuality?.dominanceIssues}
 - Genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
+- Mix Balance Quality frequency notes: low end: ${parsedCritique?.mixQuality?.frequencyBalance?.lowEnd}, midrange: ${parsedCritique?.mixQuality?.frequencyBalance?.midrange}, high end: ${parsedCritique?.mixQuality?.frequencyBalance?.highEnd}
 - Song Title uniqueness classification: ${parsedCritique?.titleSearchability?.uniquenessLevel}
 - Measured Stereo Phase Correlation: ${measuredStereoCorrelation !== undefined && measuredStereoCorrelation !== null ? measuredStereoCorrelation : "not available"}
 - Measured Sibilance Severity Score: ${measuredSibilanceSeverity !== undefined && measuredSibilanceSeverity !== null ? measuredSibilanceSeverity : "not available"}
@@ -842,8 +843,6 @@ The parent category scores are intentionally withheld here. Your sub-metric scor
 - Measured Instrumental Warmth Score: ${measuredInstrumentalWarmth !== undefined && measuredInstrumentalWarmth !== null ? measuredInstrumentalWarmth : 'not available'}
 - Measured Vocal Dynamics Score: ${measuredVocalDynamics !== undefined && measuredVocalDynamics !== null ? measuredVocalDynamics : 'not available'}
 
-SOURCE-NAMING DISCIPLINE FOR THIS PASS: no earlier instrument inventory is being supplied as ground truth. Name an instrument only when its identity is genuinely clear in the audio. When identity is uncertain, use role-based audible language such as "lead melodic layer", "sustained harmonic layer", "low-frequency foundation", "transient percussion", or "wide background texture" rather than guessing piano, guitar, synth, strings, bass, or drums. A correct broad description is better than a specific invented source.
-
 CONSISTENCY REQUIREMENT: Your meaningClarity sub-score and commentary MUST be consistent with the parent Lyrical Impact's meaning classification shown above - if the parent was classified "Clear", do not describe the lyrics as abstract, dream-like, or oblique in your sub-commentary, and vice versa. Similarly, your chordDynamics score should be consistent with the Harmonic Intrigue score shown above (both describe overlapping harmonic content) - do not score chordDynamics dramatically higher than Harmonic Intrigue unless your commentary specifically identifies a distinct, real reason for the difference (e.g. Harmonic Intrigue addresses novelty/complexity while Chord Dynamics addresses functional/dynamic use of chords - these can differ, but only for a specific, stated reason, not by default).
 
 FORM & STRUCTURE INDEPENDENCE: formAndStructure is NOT a proxy for harmonic complexity, chord count, genre modernity, or pop-song conformity. Score the effectiveness of the form itself. A harmonically simple piece can have excellent structure; a harmonically complex piece can have weak structure. Do not let chordDynamics or harmonicVariety mechanically pull formAndStructure up or down.
@@ -1079,39 +1078,6 @@ function reconcileParentScores(parsedCritique: any): void {
     ]);
     if (mixBalance !== null && parsedCritique.mixQuality) {
       parsedCritique.mixQuality.score = mixBalance;
-
-      // The original all-purpose pass can make a wrong source guess and then repeat it
-      // throughout the parent Mix Balance prose. Once Call 1 has independently rescored
-      // the evidence, rebuild the visible parent commentary from those child results so
-      // stale first-pass instrument claims cannot survive into the final report.
-      const joinCommentary = (...parts: any[]) =>
-        parts
-          .map(part => typeof part?.commentary === "string" ? part.commentary.trim() : "")
-          .filter(Boolean)
-          .join(" ");
-
-      if (parsedCritique.mixQuality.frequencyBalance) {
-        parsedCritique.mixQuality.frequencyBalance.lowEnd =
-          joinCommentary(c1Ready.mudPrevention, c1Ready.lowEndDivision) ||
-          parsedCritique.mixQuality.frequencyBalance.lowEnd;
-        parsedCritique.mixQuality.frequencyBalance.midrange =
-          joinCommentary(c1Ready.midrangeSpacing) ||
-          parsedCritique.mixQuality.frequencyBalance.midrange;
-
-        const highEndCommentary = appScore(c1Ready.sibilanceShaving) !== undefined
-          ? joinCommentary(c1Ready.sibilanceShaving)
-          : "";
-        parsedCritique.mixQuality.frequencyBalance.highEnd =
-          highEndCommentary ||
-          joinCommentary(c1Ready.spectralMatch) ||
-          parsedCritique.mixQuality.frequencyBalance.highEnd;
-      }
-
-      parsedCritique.mixQuality.stereoField =
-        joinCommentary(c1Ready.stereoWidth) || parsedCritique.mixQuality.stereoField;
-      parsedCritique.mixQuality.dominanceIssues =
-        joinCommentary(c1Ready.spectralMatch, c1Ready.spaceAndDensity) ||
-        parsedCritique.mixQuality.dominanceIssues;
     }
 
     const searchability = weightedAvg([
@@ -1166,23 +1132,6 @@ function reconcileParentScores(parsedCritique: any): void {
     ]);
     if (instrumental !== null && parsedCritique.performance) {
       parsedCritique.performance.instrumentalScore = instrumental;
-
-      // Same anti-contamination rule as Mix Balance: after the focused instrumental
-      // sub-pass has listened again, use those findings for the parent description
-      // instead of preserving source guesses from the initial general-purpose pass.
-      const stagingCommentary = [
-        c3.instrumentalStagingSubs?.timelineGridCohesion?.commentary,
-        c3.instrumentalStagingSubs?.transientPunch?.commentary,
-        c3.instrumentalStagingSubs?.melodicStaging?.commentary,
-        c3.instrumentalStagingSubs?.instrumentalWarmth?.commentary,
-      ]
-        .filter((part: any) => typeof part === "string" && part.trim().length > 0)
-        .map((part: string) => part.trim())
-        .join(" ");
-
-      if (stagingCommentary) {
-        parsedCritique.performance.instrumentationCritique = stagingCommentary;
-      }
     }
 
     // Same universal treatment: both children N/A (no lyrics) -> the parent is N/A,
