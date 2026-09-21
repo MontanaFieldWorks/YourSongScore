@@ -466,6 +466,8 @@ The parent category scores are intentionally withheld here. Your sub-metric scor
 - Measured Mud Band Evidence (150-400Hz - the range this metric is specifically about): ${mudEvidenceSummary}
 - Measured Midrange Evidence (400Hz-4kHz - the range Midrange Spacing is specifically about): ${midrangeEvidenceSummary}
 - Measured Low-End Evidence (for Low-End Division): ${lowEndEvidenceSummary}
+- Production Finish Cross-Check: ${parsedCritique?.productionFinishEvidence?.summary || "not available"}
+IMPORTANT: when the Production Finish Cross-Check reports a numeric ceiling, it is a deterministic multi-signal guardrail calibrated against the frozen regression benchmark. Do not describe the track as reference-level, master-level, or top-tier production/mix execution above that ceiling. A single flag never creates a ceiling.
 IMPORTANT ON THE THREE EVIDENCE LINES ABOVE: these are real, objective DSP measurements - not a "mud score," "spacing score," or "separation score" on their own, and none of them should be treated as a single definitive verdict. Combine what these measurements suggest with what you actually hear and with genre context to reach your own scored judgment for mudPrevention, midrangeSpacing, and lowEndDivision - the measurements are evidence to reason with, not a formula to plug into a scoring equation, and no fixed numeric threshold should be treated as a hard pass/fail line.
 
 Listen to the actual audio again and generate specific, evidence-based sub-metric scores and commentary for each of the 12 required fields, consistent with the above context but grounded in what you actually hear this time.
@@ -955,6 +957,59 @@ function applyParent(target: any, field: string, result: ParentResult): void {
   if (result.score !== null) target[field] = result.score;
 }
 
+function buildProductionFinishEvidence(values: {
+  crestFactorDb?: number;
+  integratedLufs?: number;
+  subPct?: number;
+  midPct?: number;
+  airPct?: number;
+}): any {
+  const finite = (v: any): v is number => typeof v === "number" && Number.isFinite(v);
+  const flags: string[] = [];
+  const spectralFlags: string[] = [];
+
+  // Calibrated against the frozen 17-song regression set. These are deliberately
+  // extreme-outlier thresholds, not genre taste targets. In that benchmark all 15
+  // professional masters triggered zero of these five flags; the second user track
+  // triggered one; the raw/unmixed Braden export triggered all five.
+  if (finite(values.crestFactorDb) && values.crestFactorDb > 18.5) flags.push("very high crest factor");
+  if (finite(values.integratedLufs) && values.integratedLufs < -14.2) flags.push("very low integrated loudness");
+  if (finite(values.subPct) && values.subPct < 0.15) {
+    flags.push("extremely low sub-band energy");
+    spectralFlags.push("sub");
+  }
+  if (finite(values.midPct) && values.midPct > 32) {
+    flags.push("extreme mid-band concentration");
+    spectralFlags.push("mid");
+  }
+  if (finite(values.airPct) && values.airPct < 0.35) {
+    flags.push("extremely low air-band energy");
+    spectralFlags.push("air");
+  }
+
+  let ceiling: number | null = null;
+  // A single unusual measurement is never enough to suppress a score. The ceiling only
+  // activates when at least two independent spectral outliers occur together and the
+  // total pattern contains three or more extreme signals.
+  if (spectralFlags.length >= 2 && flags.length >= 5) ceiling = 80;
+  else if (spectralFlags.length >= 2 && flags.length === 4) ceiling = 84;
+  else if (spectralFlags.length >= 2 && flags.length === 3) ceiling = 88;
+
+  const fmt = (v: number | undefined, digits = 2) => finite(v) ? v.toFixed(digits) : "N/A";
+  const summary = ceiling !== null
+    ? `Multi-signal production-finish outlier pattern detected: crest ${fmt(values.crestFactorDb, 1)} dB, loudness ${fmt(values.integratedLufs, 1)} LUFS, relative sub ${fmt(values.subPct)}%, mid ${fmt(values.midPct)}%, air ${fmt(values.airPct)}%. ${flags.length} independent extreme signals constrain production/mix scores to a maximum of ${ceiling}.`
+    : `Production-finish cross-check: ${flags.length} extreme signal${flags.length === 1 ? "" : "s"} detected; no multi-signal score ceiling applied.`;
+
+  return {
+    ...values,
+    flags,
+    flagCount: flags.length,
+    spectralFlagCount: spectralFlags.length,
+    ceiling,
+    summary,
+  };
+}
+
 function enforceClassicalInstrumentalSourceNeutrality(parsedCritique: any): void {
   const genre = String(parsedCritique?.vibe?.genre ?? "").trim();
   const subgenre = String(parsedCritique?.vibe?.subgenre ?? "").trim();
@@ -974,6 +1029,7 @@ function enforceClassicalInstrumentalSourceNeutrality(parsedCritique: any): void
     [/\bsynth(?:esizer)? pads?\b/gi, "sustained harmonic layer"],
     [/\bsynthesizers?\b/gi, "sustained harmonic layer"],
     [/\bsynths?\b/gi, "sustained harmonic layer"],
+    [/\bpads?\b/gi, "sustained harmonic layer"],
     [/\bdrum kits?\b/gi, "transient rhythmic layer"],
     [/\bdrums?\b/gi, "transient rhythmic layer"],
     [/\bkicks?\b/gi, "low-frequency transient"],
@@ -1038,6 +1094,25 @@ function reconcileParentScores(parsedCritique: any): void {
   const c1Ready = (parsedCritique.subMetricsCall1 && !parsedCritique.subMetricsCall1Failed) ? parsedCritique.subMetricsCall1 : null;
   const c2Ready = (parsedCritique.subMetricsCall2 && !parsedCritique.subMetricsCall2Failed) ? parsedCritique.subMetricsCall2 : null;
   const c3Ready = (parsedCritique.subMetricsCall3 && !parsedCritique.subMetricsCall3Failed) ? parsedCritique.subMetricsCall3 : null;
+
+  const finishEvidence = parsedCritique?.productionFinishEvidence;
+  const finishCeiling =
+    typeof finishEvidence?.ceiling === "number" && Number.isFinite(finishEvidence.ceiling)
+      ? finishEvidence.ceiling
+      : null;
+
+  if (c1Ready && finishCeiling !== null) {
+    if (c1Ready.aestheticDesign && typeof c1Ready.aestheticDesign.score === "number" && c1Ready.aestheticDesign.score > finishCeiling) {
+      c1Ready.aestheticDesign.score = finishCeiling;
+      c1Ready.aestheticDesign.commentary =
+        `The sound world can still be coherent, but the objective production-finish profile does not support a reference-level production-design score. ${finishEvidence.summary}`;
+    }
+    if (c1Ready.spectralMatch && typeof c1Ready.spectralMatch.score === "number" && c1Ready.spectralMatch.score > finishCeiling) {
+      c1Ready.spectralMatch.score = finishCeiling;
+      c1Ready.spectralMatch.commentary =
+        `The spectrum contains multiple independent extreme outliers relative to the calibrated commercial-master corridor, so a top-tier spectral-match score is not supported. ${finishEvidence.summary}`;
+    }
+  }
 
   if (c2Ready?.artisticAnalysis) {
     const artisticAlignmentScore = weightedAvg([
@@ -1130,8 +1205,12 @@ function reconcileParentScores(parsedCritique: any): void {
       const aboveAverageWeight = productionChildren
         .filter(x => x.score >= 89)
         .reduce((sum, x) => sum + x.weight, 0);
-      parsedCritique.scores.overallProduction =
+      let reconciledProduction =
         production > 88 && aboveAverageWeight < 50 ? 88 : production;
+      if (finishCeiling !== null) {
+        reconciledProduction = Math.min(reconciledProduction, finishCeiling);
+      }
+      parsedCritique.scores.overallProduction = reconciledProduction;
     }
 
     // sibilanceShaving can now be genuinely N/A (an instrumental has no vocal sibilance
@@ -1145,7 +1224,12 @@ function reconcileParentScores(parsedCritique: any): void {
       [c1Ready.stereoWidth?.score, 15],
     ]);
     if (mixBalance !== null && parsedCritique.mixQuality) {
-      parsedCritique.mixQuality.score = mixBalance;
+      parsedCritique.mixQuality.score =
+        finishCeiling !== null ? Math.min(mixBalance, finishCeiling) : mixBalance;
+      if (finishCeiling !== null) {
+        parsedCritique.mixQuality.dominanceIssues =
+          `Objective production-finish cross-check limits the final Mix Balance rating despite otherwise usable local balance judgments. ${finishEvidence.summary}`;
+      }
     }
 
     const searchability = weightedAvg([
@@ -1672,6 +1756,22 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       ? parseFloat(req.body.midrangeFlux)
       : undefined;
 
+    const productionFinishCrestFactorDb = (req.body.productionFinishCrestFactorDb !== undefined && req.body.productionFinishCrestFactorDb !== null && req.body.productionFinishCrestFactorDb !== "")
+      ? parseFloat(req.body.productionFinishCrestFactorDb)
+      : undefined;
+    const productionFinishLufs = (req.body.productionFinishLufs !== undefined && req.body.productionFinishLufs !== null && req.body.productionFinishLufs !== "")
+      ? parseFloat(req.body.productionFinishLufs)
+      : undefined;
+    const productionFinishSubPct = (req.body.productionFinishSubPct !== undefined && req.body.productionFinishSubPct !== null && req.body.productionFinishSubPct !== "")
+      ? parseFloat(req.body.productionFinishSubPct)
+      : undefined;
+    const productionFinishMidPct = (req.body.productionFinishMidPct !== undefined && req.body.productionFinishMidPct !== null && req.body.productionFinishMidPct !== "")
+      ? parseFloat(req.body.productionFinishMidPct)
+      : undefined;
+    const productionFinishAirPct = (req.body.productionFinishAirPct !== undefined && req.body.productionFinishAirPct !== null && req.body.productionFinishAirPct !== "")
+      ? parseFloat(req.body.productionFinishAirPct)
+      : undefined;
+
     const bandEnergies = (subBassBandEnergy !== undefined || bassBandEnergy !== undefined || lowMidsBandEnergy !== undefined) ? {
       subBass: subBassBandEnergy,
       bass: bassBandEnergy,
@@ -1686,6 +1786,13 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
     } : undefined;
     const mudEvidence = (mudFlatness !== undefined || mudFlux !== undefined) ? { flatness: mudFlatness, flux: mudFlux } : undefined;
     const midrangeEvidence = (midrangeFlatness !== undefined || midrangeFlux !== undefined) ? { flatness: midrangeFlatness, flux: midrangeFlux } : undefined;
+    const productionFinishEvidence = buildProductionFinishEvidence({
+      crestFactorDb: productionFinishCrestFactorDb,
+      integratedLufs: productionFinishLufs,
+      subPct: productionFinishSubPct,
+      midPct: productionFinishMidPct,
+      airPct: productionFinishAirPct,
+    });
 
     const chordProgressionSummary = req.body.chordProgressionSummary || undefined;
     const melodySummary = req.body.melodySummary || undefined;
@@ -1714,6 +1821,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       SYSTEM_PROMPT,
       threeX
     );
+    parsedCritique.productionFinishEvidence = productionFinishEvidence;
 
     try {
 
@@ -1866,6 +1974,22 @@ app.post("/api/critique-url", async (req, res) => {
       ? parseFloat(req.body.midrangeFlux)
       : undefined;
 
+    const productionFinishCrestFactorDb = (req.body.productionFinishCrestFactorDb !== undefined && req.body.productionFinishCrestFactorDb !== null && req.body.productionFinishCrestFactorDb !== "")
+      ? parseFloat(req.body.productionFinishCrestFactorDb)
+      : undefined;
+    const productionFinishLufs = (req.body.productionFinishLufs !== undefined && req.body.productionFinishLufs !== null && req.body.productionFinishLufs !== "")
+      ? parseFloat(req.body.productionFinishLufs)
+      : undefined;
+    const productionFinishSubPct = (req.body.productionFinishSubPct !== undefined && req.body.productionFinishSubPct !== null && req.body.productionFinishSubPct !== "")
+      ? parseFloat(req.body.productionFinishSubPct)
+      : undefined;
+    const productionFinishMidPct = (req.body.productionFinishMidPct !== undefined && req.body.productionFinishMidPct !== null && req.body.productionFinishMidPct !== "")
+      ? parseFloat(req.body.productionFinishMidPct)
+      : undefined;
+    const productionFinishAirPct = (req.body.productionFinishAirPct !== undefined && req.body.productionFinishAirPct !== null && req.body.productionFinishAirPct !== "")
+      ? parseFloat(req.body.productionFinishAirPct)
+      : undefined;
+
     const bandEnergies = (subBassBandEnergy !== undefined || bassBandEnergy !== undefined || lowMidsBandEnergy !== undefined) ? {
       subBass: subBassBandEnergy,
       bass: bassBandEnergy,
@@ -1880,6 +2004,13 @@ app.post("/api/critique-url", async (req, res) => {
     } : undefined;
     const mudEvidence = (mudFlatness !== undefined || mudFlux !== undefined) ? { flatness: mudFlatness, flux: mudFlux } : undefined;
     const midrangeEvidence = (midrangeFlatness !== undefined || midrangeFlux !== undefined) ? { flatness: midrangeFlatness, flux: midrangeFlux } : undefined;
+    const productionFinishEvidence = buildProductionFinishEvidence({
+      crestFactorDb: productionFinishCrestFactorDb,
+      integratedLufs: productionFinishLufs,
+      subPct: productionFinishSubPct,
+      midPct: productionFinishMidPct,
+      airPct: productionFinishAirPct,
+    });
 
     if (!ai) {
       return res.status(500).json({ error: "Gemini API Client is not configured." });
@@ -1945,6 +2076,7 @@ app.post("/api/critique-url", async (req, res) => {
       SYSTEM_PROMPT,
       !!threeX
     );
+    parsedCritique.productionFinishEvidence = productionFinishEvidence;
 
     try {
 
