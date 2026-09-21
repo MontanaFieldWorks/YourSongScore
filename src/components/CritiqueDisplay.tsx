@@ -1484,7 +1484,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ],
       callout: "This Metric identifies key genre structures and creative arrangements that influence modern playlist curators.",
       description: "Evaluates whether your creative sonic layout, sound synthesis, sampling, and background orchestration fit your aesthetic genre target.",
-      feedback: `Core genre profile: ${critique?.vibe?.genre ?? "N/A"}. Subgenre: ${critique?.vibe?.subgenre ?? "N/A"}. Aesthetic blueprint style: ${critique?.vibe?.aesthetic ?? "N/A"}.`
+      feedback: critique?.productionFinishEvidence?.summary
+        ? `Core genre profile: ${critique?.vibe?.genre ?? "N/A"}. Subgenre: ${critique?.vibe?.subgenre ?? "N/A"}. Aesthetic blueprint style: ${critique?.vibe?.aesthetic ?? "N/A"}. Production finish cross-check: ${critique.productionFinishEvidence.summary}`
+        : `Core genre profile: ${critique?.vibe?.genre ?? "N/A"}. Subgenre: ${critique?.vibe?.subgenre ?? "N/A"}. Aesthetic blueprint style: ${critique?.vibe?.aesthetic ?? "N/A"}.`
     },
     {
       id: "readiness",
