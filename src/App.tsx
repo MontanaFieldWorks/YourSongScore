@@ -409,6 +409,77 @@ export default function App() {
     return critique;
   };
 
+  // Final production-finish guardrail runs on the same liveMetrics object that feeds
+  // Engineering Studio, eliminating the separate client->server evidence handoff.
+  const applyProductionFinishGuardrail = (critique: CritiqueData, liveMetrics: any): CritiqueData => {
+    if (!critique || !liveMetrics) return critique;
+    const finite = (v: any): v is number => typeof v === "number" && Number.isFinite(v);
+    const crest = finite(liveMetrics.calculatedCrestFactorDb)
+      ? liveMetrics.calculatedCrestFactorDb
+      : (finite(liveMetrics.calculatedTruePeak) && finite(liveMetrics.calculatedRmsDbfs)
+          ? liveMetrics.calculatedTruePeak - liveMetrics.calculatedRmsDbfs
+          : undefined);
+    const lufs = finite(liveMetrics.calculatedLufs) ? liveMetrics.calculatedLufs : undefined;
+    const subPct = finite(liveMetrics.calculatedFinishSubPct) ? liveMetrics.calculatedFinishSubPct : undefined;
+    const midPct = finite(liveMetrics.calculatedFinishMidPct) ? liveMetrics.calculatedFinishMidPct : undefined;
+    const airPct = finite(liveMetrics.calculatedFinishAirPct) ? liveMetrics.calculatedFinishAirPct : undefined;
+
+    const flags: string[] = [];
+    const spectralFlags: string[] = [];
+    if (finite(crest) && crest > 18.5) flags.push("very high crest factor");
+    if (finite(lufs) && lufs < -14.2) flags.push("very low integrated loudness");
+    if (finite(subPct) && subPct < 0.15) { flags.push("extremely low sub-band energy"); spectralFlags.push("sub"); }
+    if (finite(midPct) && midPct > 32) { flags.push("extreme mid-band concentration"); spectralFlags.push("mid"); }
+    if (finite(airPct) && airPct < 0.35) { flags.push("extremely low air-band energy"); spectralFlags.push("air"); }
+
+    let ceiling: number | null = null;
+    if (spectralFlags.length >= 2 && flags.length >= 5) ceiling = 80;
+    else if (spectralFlags.length >= 2 && flags.length === 4) ceiling = 84;
+    else if (spectralFlags.length >= 2 && flags.length === 3) ceiling = 88;
+
+    const fmt = (v: number | undefined, digits = 2) => finite(v) ? v.toFixed(digits) : "N/A";
+    const summary =
+      `crest ${fmt(crest, 1)} dB; loudness ${fmt(lufs, 1)} LUFS; relative sub ${fmt(subPct)}%; mid ${fmt(midPct)}%; air ${fmt(airPct)}%; ` +
+      `${flags.length} extreme signal${flags.length === 1 ? "" : "s"} detected` +
+      (ceiling !== null ? `; production/mix ceiling ${ceiling}.` : "; no multi-signal score ceiling applied.");
+
+    critique.productionFinishEvidence = {
+      crestFactorDb: crest,
+      integratedLufs: lufs,
+      subPct,
+      midPct,
+      airPct,
+      flags,
+      flagCount: flags.length,
+      spectralFlagCount: spectralFlags.length,
+      ceiling,
+      summary,
+    };
+
+    if (ceiling === null) return critique;
+
+    const call1 = critique.subMetricsCall1;
+    if (call1?.aestheticDesign && typeof call1.aestheticDesign.score === "number" && call1.aestheticDesign.score > ceiling) {
+      call1.aestheticDesign.score = ceiling;
+      call1.aestheticDesign.commentary =
+        `The audible design may still be coherent, but the measured production-finish profile does not support a reference-level production-design score. ${summary}`;
+    }
+    if (call1?.spectralMatch && typeof call1.spectralMatch.score === "number" && call1.spectralMatch.score > ceiling) {
+      call1.spectralMatch.score = ceiling;
+      call1.spectralMatch.commentary =
+        `Multiple independent spectral/mastering outliers prevent a top-tier spectral-match rating. ${summary}`;
+    }
+    if (critique.scores && typeof critique.scores.overallProduction === "number") {
+      critique.scores.overallProduction = Math.min(critique.scores.overallProduction, ceiling);
+    }
+    if (critique.mixQuality && typeof critique.mixQuality.score === "number") {
+      critique.mixQuality.score = Math.min(critique.mixQuality.score, ceiling);
+      critique.mixQuality.dominanceIssues =
+        `Objective production-finish cross-check constrains the final Mix Balance rating. ${summary}`;
+    }
+    return critique;
+  };
+
   React.useEffect(() => {
     if (genreMode === "manual" && selectedMainGenre) {
       setExtractedGenre(selectedMainGenre + (selectedSubGenre ? ` (${selectedSubGenre})` : ""));
@@ -855,6 +926,7 @@ export default function App() {
       const overriddenCritique = applyGenreOverride(data.critique);
       if (liveMetrics) {
         overriddenCritique.liveMetrics = liveMetrics;
+        applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
       }
 
       if (overriddenCritique.liveMetrics) {
@@ -973,6 +1045,7 @@ export default function App() {
       const overriddenCritique = applyGenreOverride(data.critique);
       if (liveMetrics) {
         overriddenCritique.liveMetrics = liveMetrics;
+        applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
       }
 
       if (overriddenCritique.liveMetrics) {
@@ -1050,6 +1123,9 @@ export default function App() {
       }
       if (sample.bpm) {
         overriddenCritique.liveMetrics.calculatedBpm = sample.bpm;
+      }
+      if (liveMetrics) {
+        applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
       }
 
       if (overriddenCritique.liveMetrics) {
@@ -1309,6 +1385,9 @@ export default function App() {
       const overriddenFinalCritique = applyGenreOverride(finalCritique);
       if (liveMetrics) {
         overriddenFinalCritique.liveMetrics = liveMetrics;
+      }
+      if (overriddenFinalCritique.liveMetrics) {
+        applyProductionFinishGuardrail(overriddenFinalCritique, overriddenFinalCritique.liveMetrics);
       }
 
       const updatedTrack: StoredTrack = {
