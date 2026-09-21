@@ -65,6 +65,11 @@ export interface LiveAudioMetrics {
   calculatedLufs: number;
   calculatedTruePeak: number;
   calculatedLra: number;
+  calculatedRmsDbfs?: number;
+  calculatedCrestFactorDb?: number;
+  calculatedFinishSubPct?: number;
+  calculatedFinishMidPct?: number;
+  calculatedFinishAirPct?: number;
   calculatedStereoCorrelation: number;
   calculatedBpm: number;
   calculatedKey: string;
@@ -156,6 +161,18 @@ export interface CritiqueData {
   subMetricsCall1?: any;
   subMetricsCall2?: any;
   subMetricsCall3?: any;
+  productionFinishEvidence?: {
+    crestFactorDb?: number;
+    integratedLufs?: number;
+    subPct?: number;
+    midPct?: number;
+    airPct?: number;
+    flags: string[];
+    flagCount: number;
+    spectralFlagCount: number;
+    ceiling: number | null;
+    summary: string;
+  };
   chordKeyAnalysis?: { keySignature: string; chordsUsed: { chord: string; romanNumeral: string }[] };
   chordKeyAnalysisFailed?: boolean;
   subMetricsCall1Failed?: boolean;
