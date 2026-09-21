@@ -172,21 +172,32 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   const ch0 = audioBuffer.getChannelData(0);
   const ch1 = numChannels > 1 ? audioBuffer.getChannelData(1) : ch0;
 
-  // 1. Calculate True Peak of the full buffer
+  // 1. Calculate peak plus full-track RMS/crest for the production-finish cross-check.
+  // RMS uses the stereo mid signal while peak uses the maximum channel sample, matching
+  // the frozen 17-song benchmark harness used to calibrate this diagnostic.
   let maxAbsSample = 0;
-  // Sub-sample slightly for speed/efficiency (scan every 2nd sample)
+  let finishRmsSum = 0;
+  let finishRmsCount = 0;
+  // Sub-sample slightly for speed/efficiency (scan every 2nd sample).
   for (let i = 0; i < len; i += 2) {
-    const val0 = Math.abs(ch0[i]);
+    const raw0 = ch0[i] || 0;
+    const raw1 = numChannels > 1 ? (ch1[i] || 0) : raw0;
+    const val0 = Math.abs(raw0);
+    const val1 = Math.abs(raw1);
     if (val0 > maxAbsSample) maxAbsSample = val0;
-    
-    if (numChannels > 1) {
-      const val1 = Math.abs(ch1[i]);
-      if (val1 > maxAbsSample) maxAbsSample = val1;
-    }
+    if (val1 > maxAbsSample) maxAbsSample = val1;
+
+    const mid = (raw0 + raw1) * 0.5;
+    finishRmsSum += mid * mid;
+    finishRmsCount++;
   }
   let truePeak = 20 * Math.log10(maxAbsSample || 0.0001);
   if (truePeak < -60) truePeak = -60;
   if (truePeak > 3.0) truePeak = 3.0; // soft cap clipping
+
+  const finishRms = Math.sqrt(finishRmsSum / Math.max(1, finishRmsCount));
+  const finishRmsDbfs = 20 * Math.log10(finishRms || 0.0001);
+  const finishCrestFactorDb = truePeak - finishRmsDbfs;
 
   // 2. Compute K-Weighted integrated Loudness (LUFS approximation)
   // RLB / K-Filter coefficients for high shelf (pre-filter) and high pass filter stages
@@ -1484,6 +1495,18 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     { min: 4000, max: 8000 },  // Presence
     { min: 8000, max: 20000 }  // Air
   ];
+
+  // Separate, relative-energy bands used only by the production-finish cross-check.
+  // These ranges intentionally match the frozen 17-song benchmark harness exactly.
+  const finishBandRanges = [
+    { min: 20, max: 60 },      // sub
+    { min: 60, max: 250 },     // bass
+    { min: 250, max: 500 },    // low-mid
+    { min: 500, max: 2000 },   // mid
+    { min: 2000, max: 6000 },  // presence
+    { min: 6000, max: 11000 }  // air
+  ];
+  const finishBandPowerSums = new Float64Array(6);
   
   const bandNumFrames = Math.floor((len - bandFftSize) / bandFftSize);
   const bandFrameStep = Math.max(1, Math.floor(bandNumFrames / 200));
@@ -1509,12 +1532,20 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
       const freq = k * binHz;
       const re = bandComplexOut[2 * k];
       const im = bandComplexOut[2 * k + 1];
-      const magnitude = Math.sqrt(re * re + im * im);
+      const power = re * re + im * im;
+      const magnitude = Math.sqrt(power);
       
       for (let b = 0; b < 6; b++) {
         if (freq >= bandRanges[b].min && freq < bandRanges[b].max) {
           bandSums[b] += magnitude;
           bandCounts[b]++;
+          break;
+        }
+      }
+
+      for (let b = 0; b < 6; b++) {
+        if (freq >= finishBandRanges[b].min && freq < finishBandRanges[b].max) {
+          finishBandPowerSums[b] += power;
           break;
         }
       }
@@ -1531,6 +1562,12 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     let score = ((db - bandDbFloor) / (bandDbCeiling - bandDbFloor)) * 100;
     bandEnergies[b] = Math.max(0, Math.min(100, Math.round(score)));
   }
+
+  const finishBandTotal = Array.from(finishBandPowerSums).reduce((sum, value) => sum + value, 0) || 1;
+  const finishBandPct = Array.from(finishBandPowerSums).map(value => (100 * value) / finishBandTotal);
+  const finishSubPct = finishBandPct[0];
+  const finishMidPct = finishBandPct[3];
+  const finishAirPct = finishBandPct[5];
 
   // DSP evidence package for Mud Prevention / Midrange Spacing / Low-End Division,
   // built per the agreed approach: real, multi-signal observations (not a single
@@ -1826,6 +1863,11 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
     calculatedLufs: parseFloat(lufsValue.toFixed(1)),
     calculatedTruePeak: parseFloat(truePeak.toFixed(2)),
     calculatedLra: lra,
+    calculatedRmsDbfs: parseFloat(finishRmsDbfs.toFixed(2)),
+    calculatedCrestFactorDb: parseFloat(finishCrestFactorDb.toFixed(2)),
+    calculatedFinishSubPct: parseFloat(finishSubPct.toFixed(3)),
+    calculatedFinishMidPct: parseFloat(finishMidPct.toFixed(3)),
+    calculatedFinishAirPct: parseFloat(finishAirPct.toFixed(3)),
     calculatedStereoCorrelation: correlation,
     calculatedBpm: detectedBpm,
     calculatedKey: estimatedKeyName,
