@@ -35,7 +35,7 @@ import { safeLocalStorage } from "./lib/safeStorage";
 import UploadSection from "./components/UploadSection";
 import SpotifySection from "./components/SpotifySection";
 import SamplesSection from "./components/SamplesSection";
-import CritiqueDisplay, { computeCategoryScores } from "./components/CritiqueDisplay";
+import CritiqueDisplay, { computeCategoryScores, getGenreLoudnessBucket } from "./components/CritiqueDisplay";
 import CritiqueSummary from "./components/CritiqueSummary";
 import DefinitionsPage from "./components/DefinitionsPage";
 import MetaDataGenerator from "./components/MetaDataGenerator";
@@ -543,6 +543,52 @@ export default function App() {
         critique.scores.commercialReadiness = Math.round(
           valid.reduce((sum, [score, weight]) => sum + (score as number) * weight, 0) / totalWeight
         );
+      }
+    }
+
+    // Production Index is a creative-production score, but a severely flattened final
+    // delivery should not be able to remain in the same band as an otherwise identical
+    // well-finished master. Apply a measured, genre-aware modifier to the parent ONLY;
+    // keep Aesthetic Design / Space & Density / Palette Cohesion independent so we do
+    // not manufacture identical child scores.
+    let dynamicFinishPenalty = 0;
+    const masteringBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+    if (finite(measuredDynamicRange) && finite(measuredLra) && masteringBucket?.lraMin) {
+      const lraRatio = measuredLra / masteringBucket.lraMin;
+      const compressionTolerant =
+        masteringBucket.key === "hiphop" || masteringBucket.key === "highEnergyRock";
+
+      if (!compressionTolerant) {
+        if (measuredDynamicRange <= 1.5 && lraRatio < 0.55) {
+          dynamicFinishPenalty = 10;
+        } else if (measuredDynamicRange <= 2.2 && lraRatio < 0.60) {
+          dynamicFinishPenalty = 7;
+        }
+      } else if (measuredDynamicRange <= 1.0 && lraRatio < 0.45) {
+        // Dense hip-hop / EDM / punk masters are common and must not be punished merely
+        // for being compressed. Only an extreme dual-signal collapse earns a small modifier.
+        dynamicFinishPenalty = 6;
+      }
+    }
+
+    if (critique.productionFinishEvidence) {
+      critique.productionFinishEvidence.dynamicRangeDb = measuredDynamicRange;
+      critique.productionFinishEvidence.lra = measuredLra;
+      critique.productionFinishEvidence.dynamicFinishPenalty = dynamicFinishPenalty;
+    }
+
+    if (
+      dynamicFinishPenalty > 0 &&
+      critique.scores &&
+      typeof critique.scores.overallProduction === "number"
+    ) {
+      const creativeProductionScore = critique.scores.overallProduction;
+      critique.scores.overallProduction = Math.max(0, creativeProductionScore - dynamicFinishPenalty);
+
+      if (critique.productionFinishEvidence) {
+        critique.productionFinishEvidence.creativeProductionScore = creativeProductionScore;
+        critique.productionFinishEvidence.summary +=
+          ` Severe genre-inappropriate dynamic flattening is also present (${measuredDynamicRange?.toFixed(1)} dB sustained range; ${measuredLra?.toFixed(1)} LU LRA versus a ${masteringBucket.lraMin}+ LU genre floor). Production Index technical-finish modifier: -${dynamicFinishPenalty} points, from ${creativeProductionScore} to ${critique.scores.overallProduction}.`;
       }
     }
 
