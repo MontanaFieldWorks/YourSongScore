@@ -96,10 +96,13 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
     return Math.min(100, Math.max(15, Math.round(bandEnergy)));
   };
 
+  // This strip is descriptive only: the bar height is an absolute energy indicator,
+  // not a validated quality score. Avoid defect language here; calibrated multi-signal
+  // DSP evidence is what is allowed to lower Mix Balance / Spectral Match.
   const getBandStatus = (height: number) => {
-    if (height < 45) return "deficient";
-    if (height > 85) return "overload";
-    return "optimal";
+    if (height < 45) return "low relative";
+    if (height > 85) return "high relative";
+    return "mid range";
   };
 
   const subBassHeight = getBandHeight(critique.liveMetrics?.calculatedSubBassBandEnergy, 35);
@@ -642,7 +645,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
                         transition={{ duration: 0.15 }}
                         className="absolute right-full top-0 mr-2 z-50 w-64 text-[12px] font-['Inter'] text-white leading-relaxed p-3 bg-purple-950/95 border border-purple-500/20 rounded-lg shadow-2xl backdrop-blur-sm pointer-events-none"
                       >
-                        Shows how your song's sound is balanced across the full range of frequencies, from deep bass to bright highs, flagging any areas that are too weak or too overloaded.
+                        Shows relative energy across the frequency spectrum. High or low bars describe the tonal profile only; they are not, by themselves, proof of a mix defect. Mix-score corrections use the calibrated multi-signal DSP checks in the full report.
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -652,21 +655,21 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               {/* 6-Band Graphic Equalizer Visualization */}
               <div className="grid grid-cols-6 gap-2 bg-black/40 border border-white/5 rounded-xl px-3 pt-[6px] pb-[12px] items-end h-40">
                 {bands.map((band, i) => {
-                  const isOverload = band.status === "overload";
-                  const isDeficient = band.status === "deficient";
+                  const isHighRelative = band.status === "high relative";
+                  const isLowRelative = band.status === "low relative";
 
                   let barBgClass = "bg-gradient-to-t from-blue-500/50 to-indigo-500/80";
                   let badgeClass = "bg-blue-500/10 text-blue-400 border border-blue-500/15";
                   let textClass = "text-blue-400";
 
-                  if (isOverload) {
-                    barBgClass = "bg-gradient-to-t from-purple-500/80 to-red-500 shadow-[0_0_12px_rgba(239,68,68,0.4)] animate-pulse";
-                    badgeClass = "bg-red-500/10 text-red-400 border border-red-500/15";
-                    textClass = "text-red-400 font-extrabold";
-                  } else if (isDeficient) {
+                  if (isHighRelative) {
+                    barBgClass = "bg-gradient-to-t from-blue-500/60 to-amber-400/80";
+                    badgeClass = "bg-amber-500/10 text-amber-300 border border-amber-500/15";
+                    textClass = "text-amber-300 font-semibold";
+                  } else if (isLowRelative) {
                     barBgClass = "bg-slate-800/40 border border-white/5";
-                    badgeClass = "bg-slate-800/50 text-slate-500 border border-slate-700/30";
-                    textClass = "text-slate-500";
+                    badgeClass = "bg-slate-800/50 text-slate-400 border border-slate-700/30";
+                    textClass = "text-slate-400";
                   }
 
                   return (
