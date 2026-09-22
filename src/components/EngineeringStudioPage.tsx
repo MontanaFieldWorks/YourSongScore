@@ -899,8 +899,11 @@ const generateHarmonicNodes = () => {
                       const coreMidVal = critique?.liveMetrics?.calculatedCoreMidsBandEnergy ?? 56;
                       const presenceVal = critique?.liveMetrics?.calculatedPresenceBandEnergy ?? 50;
                       const airVal = critique?.liveMetrics?.calculatedAirBandEnergy ?? 46;
+                      // Descriptive comparison to the genre target only. These labels
+                      // are not standalone mix-quality verdicts; calibrated multi-signal
+                      // evidence is what is allowed to reduce Mix Balance scores.
                       const getStatus = (v: number, ideal: number) =>
-                        v > ideal + 15 ? "Peak" : v > ideal + 7 ? "Slight Peak" : v < ideal - 15 ? "Deficit" : v < ideal - 7 ? "Slight Deficit" : "Nominal";
+                        v > ideal + 15 ? "Above Target" : v > ideal + 7 ? "Slightly Above" : v < ideal - 15 ? "Below Target" : v < ideal - 7 ? "Slightly Below" : "Near Target";
                       const bands = [
                         { band: "Sub-Bass", r: "20-64Hz", val: subBassVal, status: getStatus(subBassVal, ideals[0]), color: "from-blue-600 to-blue-400" },
                         { band: "Bass", r: "64-250Hz", val: bassCorridorVal, status: getStatus(bassCorridorVal, ideals[1]), color: "from-indigo-600 to-indigo-400" },
