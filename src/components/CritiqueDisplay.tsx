@@ -1738,7 +1738,55 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ws.getCell(coord).font = { name: "Calibri", size: 10, bold: false };
     });
 
-    const headerRow = ws.getRow(9);
+    // Export the same four headline scores shown on the Analysis Summary screen.
+    // This is deliberately sourced from computeCategoryScores() so the spreadsheet and
+    // UI cannot silently drift apart during validation.
+    const summaryScores = computeCategoryScores(critique);
+    const summaryRows = [
+      ["STREAMING READINESS", summaryScores.streamingReadiness, "SONIC SOUNDPRINT", summaryScores.sonicSoundprint],
+      ["STRUCTURAL ENGAGEMENT", summaryScores.compositionalDepth, "COMPOSITIONAL DEPTH", critique?.musicTheory?.score ?? 75],
+    ];
+
+    ws.mergeCells("B8:G8");
+    ws.getCell("B8").value = "SUMMARY SCORES — SAME VALUES SHOWN ON THE ANALYSIS SUMMARY SCREEN";
+    ws.getCell("B8").font = { name: "Calibri", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+    ws.getCell("B8").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F172A" } };
+    ws.getCell("B8").alignment = { horizontal: "left", vertical: "middle" };
+    ws.getCell("B8").border = fullBorder;
+    ws.getRow(8).height = 22;
+
+    summaryRows.forEach((rowValues, rowOffset) => {
+      const rowNum = 9 + rowOffset;
+      const row = ws.getRow(rowNum);
+      row.height = 22;
+
+      const pairs = [
+        { labelCol: 2, scoreCol: 3, label: rowValues[0] as string, score: rowValues[1] as number },
+        { labelCol: 5, scoreCol: 6, label: rowValues[2] as string, score: rowValues[3] as number },
+      ];
+
+      pairs.forEach(({ labelCol, scoreCol, label, score }) => {
+        const labelCell = row.getCell(labelCol);
+        const scoreCell = row.getCell(scoreCol);
+        labelCell.value = label;
+        scoreCell.value = score;
+
+        labelCell.font = { name: "Calibri", size: 10, bold: true };
+        scoreCell.font = { name: "Calibri", size: 12, bold: true };
+        labelCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
+        scoreCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF8FAFC" } };
+        labelCell.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+        scoreCell.alignment = { horizontal: "center", vertical: "middle" };
+        labelCell.border = fullBorder;
+        scoreCell.border = fullBorder;
+      });
+    });
+
+    ws.getCell("G9").value = "Compositional Depth is the value-added card and is not part of the overall summary score.";
+    ws.getCell("G9").font = { name: "Calibri", size: 9, italic: true, color: { argb: "FF64748B" } };
+    ws.getCell("G9").alignment = { vertical: "middle", wrapText: true };
+
+    const headerRow = ws.getRow(13);
     headerRow.height = 36;
     const headers = ["Category", "Agg. Metric", "Core Metric", "Sub-Metric", "Score", "Commentary"];
     headers.forEach((h, i) => {
@@ -1750,7 +1798,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       cell.border = fullBorder;
     });
 
-    let currentRow = 10;
+    let currentRow = 14;
 
     const addCategoryRow = (name: string) => {
       const row = ws.getRow(currentRow);
