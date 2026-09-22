@@ -2181,7 +2181,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     engSectionHeader(engRow, "FREQUENCY BALANCE (6-BAND ENERGY)");
     engRow += 1;
 
-    ["Band", "Frequency Range", "Energy Level", "Status"].forEach((h, i) => {
+    ["Band", "Frequency Range", "Energy Level", "Vs Genre Target"].forEach((h, i) => {
       const cell = wsEngineering.getCell(engRow, i + 2);
       cell.value = h;
       cell.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
@@ -2203,7 +2203,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     const presenceVal = lm?.calculatedPresenceBandEnergy ?? 50;
     const airVal = lm?.calculatedAirBandEnergy ?? 50;
     const getBandStatus = (v: number, ideal: number) =>
-      v > ideal + 15 ? "PEAK" : v > ideal + 7 ? "SLIGHT PEAK" : v < ideal - 15 ? "DEFICIT" : v < ideal - 7 ? "SLIGHT DEFICIT" : "NOMINAL";
+      v > ideal + 15 ? "ABOVE TARGET" : v > ideal + 7 ? "SLIGHTLY ABOVE" : v < ideal - 15 ? "BELOW TARGET" : v < ideal - 7 ? "SLIGHTLY BELOW" : "NEAR TARGET";
 
     const bandRows = [
       { band: "Sub-Bass", range: "20-64Hz", val: subBassVal, ideal: ideals[0] },
@@ -2226,7 +2226,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       wsEngineering.getCell(engRow, 4).font = { name: "Calibri", size: 10 };
       wsEngineering.getCell(engRow, 4).border = fullBorder;
       wsEngineering.getCell(engRow, 5).value = status;
-      wsEngineering.getCell(engRow, 5).font = { name: "Calibri", size: 10, bold: true, color: { argb: status === "NOMINAL" ? "FF1ED760" : "FFF59E0B" } };
+      wsEngineering.getCell(engRow, 5).font = { name: "Calibri", size: 10, bold: true, color: { argb: status === "NEAR TARGET" ? "FF1ED760" : "FFF59E0B" } };
       wsEngineering.getCell(engRow, 5).border = fullBorder;
       engRow += 1;
     });
