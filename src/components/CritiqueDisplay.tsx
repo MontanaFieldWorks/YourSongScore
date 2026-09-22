@@ -403,20 +403,37 @@ const GENRE_LOUDNESS_BUCKETS: Record<string, { label: string; lufsMin: number; l
 };
 
 export function getGenreLoudnessBucket(genre?: string, subgenre?: string): { key: string } & typeof GENRE_LOUDNESS_BUCKETS[string] {
-  const text = `${genre || ""} ${subgenre || ""}`.toLowerCase();
+  const genreText = (genre || "").toLowerCase().trim();
+  const subgenreText = (subgenre || "").toLowerCase().trim();
+  const text = `${genreText} ${subgenreText}`;
   const hasAny = (words: string[]) => words.some(w => text.includes(w));
 
-  if (hasAny(["hip hop", "hip-hop", "trap", "rap", "edm", "electronic", "dance", "dubstep", "house", "techno", "drill"])) {
+  // Prefer the app's top-level taxonomy over substring matching. In particular,
+  // Pop / Rhythm-Pop / Dance-pop is still POP; the old generic "dance" substring
+  // incorrectly routed it into the Hip-Hop/EDM mastering bucket.
+  if (genreText === "rap / hip-hop" || genreText === "dance / electronic") {
     return { key: "hiphop", ...GENRE_LOUDNESS_BUCKETS.hiphop };
   }
-  if (hasAny(["punk", "metal", "grunge", "hardcore", "metalcore", "industrial", "nu metal", "nu-metal"])) {
+  if (
+    genreText === "rock" &&
+    hasAny(["punk", "metal", "grunge", "hardcore", "metalcore", "industrial", "nu metal", "nu-metal"])
+  ) {
     return { key: "highEnergyRock", ...GENRE_LOUDNESS_BUCKETS.highEnergyRock };
   }
-  if (hasAny(["classical", "jazz", "ambient", "orchestral", "instrumental", "cinematic", "chamber"])) {
+  if (genreText === "classical" || genreText === "jazz" || hasAny(["ambient", "orchestral", "cinematic", "chamber"])) {
     return { key: "classical", ...GENRE_LOUDNESS_BUCKETS.classical };
   }
-  if (hasAny(["indie", "acoustic", "singer-songwriter", "singer songwriter", "americana", "folk", "dream pop", "shoegaze"])) {
+  if (
+    genreText === "folk / singer-songwriter" ||
+    hasAny(["indie", "acoustic", "singer-songwriter", "singer songwriter", "americana", "folk", "dream pop", "shoegaze"])
+  ) {
     return { key: "indie", ...GENRE_LOUDNESS_BUCKETS.indie };
+  }
+
+  // Fallback for legacy/free-text data. Deliberately omit generic "dance" so
+  // "dance-pop" cannot be mistaken for EDM.
+  if (hasAny(["hip hop", "hip-hop", "trap", "rap", "edm", "electronic", "dubstep", "house", "techno", "drill"])) {
+    return { key: "hiphop", ...GENRE_LOUDNESS_BUCKETS.hiphop };
   }
   return { key: "mainstream", ...GENRE_LOUDNESS_BUCKETS.mainstream };
 }
