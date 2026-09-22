@@ -17,22 +17,38 @@ const getGenreIcon = (genre: string, className = "w-4 h-4") => {
 
 const GENRE_LOUDNESS_BUCKETS: Record<string, { label: string; lufsMin: number; lufsMax: number; lraMin: number; lraMax: number | null }> = {
   hiphop: { label: "Hip-Hop / Trap / EDM", lufsMin: -10, lufsMax: -7, lraMin: 4, lraMax: 8 },
+  highEnergyRock: { label: "Punk / Metal / Hardcore", lufsMin: -9, lufsMax: -6, lraMin: 4, lraMax: 9 },
   mainstream: { label: "Pop / Rock / Country", lufsMin: -12, lufsMax: -9, lraMin: 6, lraMax: 12 },
   indie: { label: "Indie / Acoustic / Singer-Songwriter", lufsMin: -14, lufsMax: -11, lraMin: 10, lraMax: 15 },
   classical: { label: "Classical / Jazz / Folk / Ambient", lufsMin: -18, lufsMax: -14, lraMin: 15, lraMax: null },
 };
 
 function getGenreLoudnessBucket(genre?: string, subgenre?: string): { key: string } & typeof GENRE_LOUDNESS_BUCKETS[string] {
-  const text = `${genre || ""} ${subgenre || ""}`.toLowerCase();
+  const genreText = (genre || "").toLowerCase().trim();
+  const subgenreText = (subgenre || "").toLowerCase().trim();
+  const text = `${genreText} ${subgenreText}`;
   const hasAny = (words: string[]) => words.some(w => text.includes(w));
-  if (hasAny(["hip hop", "hip-hop", "trap", "rap", "edm", "electronic", "dance", "dubstep", "house", "techno", "drill"])) {
+
+  if (genreText === "rap / hip-hop" || genreText === "dance / electronic") {
     return { key: "hiphop", ...GENRE_LOUDNESS_BUCKETS.hiphop };
   }
-  if (hasAny(["classical", "jazz", "ambient", "orchestral", "instrumental", "cinematic", "chamber"])) {
+  if (
+    genreText === "rock" &&
+    hasAny(["punk", "metal", "grunge", "hardcore", "metalcore", "industrial", "nu metal", "nu-metal"])
+  ) {
+    return { key: "highEnergyRock", ...GENRE_LOUDNESS_BUCKETS.highEnergyRock };
+  }
+  if (genreText === "classical" || genreText === "jazz" || hasAny(["ambient", "orchestral", "cinematic", "chamber"])) {
     return { key: "classical", ...GENRE_LOUDNESS_BUCKETS.classical };
   }
-  if (hasAny(["indie", "acoustic", "singer-songwriter", "singer songwriter", "americana", "folk", "dream pop", "shoegaze"])) {
+  if (
+    genreText === "folk / singer-songwriter" ||
+    hasAny(["indie", "acoustic", "singer-songwriter", "singer songwriter", "americana", "folk", "dream pop", "shoegaze"])
+  ) {
     return { key: "indie", ...GENRE_LOUDNESS_BUCKETS.indie };
+  }
+  if (hasAny(["hip hop", "hip-hop", "trap", "rap", "edm", "electronic", "dubstep", "house", "techno", "drill"])) {
+    return { key: "hiphop", ...GENRE_LOUDNESS_BUCKETS.hiphop };
   }
   return { key: "mainstream", ...GENRE_LOUDNESS_BUCKETS.mainstream };
 }
