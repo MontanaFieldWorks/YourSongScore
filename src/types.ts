@@ -171,6 +171,10 @@ export interface CritiqueData {
     flagCount: number;
     spectralFlagCount: number;
     ceiling: number | null;
+    dynamicRangeDb?: number;
+    lra?: number;
+    dynamicFinishPenalty?: number;
+    creativeProductionScore?: number;
     summary: string;
   };
   chordKeyAnalysis?: { keySignature: string; chordsUsed: { chord: string; romanNumeral: string }[] };
