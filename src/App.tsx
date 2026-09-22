@@ -456,9 +456,98 @@ export default function App() {
       summary,
     };
 
-    if (ceiling === null) return critique;
+    // Dynamics-specific guardrail: measured sustained contrast constrains only the
+    // metrics that explicitly claim to measure dynamic movement. It does NOT declare the
+    // whole production "bad" because some professional genres intentionally use dense,
+    // low-range masters. This prevents a flat delivered master from receiving 90+ for
+    // Dynamic Variety / Dynamic Modulation while preserving unrelated artistic scores.
+    const measuredDynamicRange = finite(liveMetrics.calculatedDynamicRangeDb)
+      ? liveMetrics.calculatedDynamicRangeDb
+      : undefined;
+    const measuredLra = finite(liveMetrics.calculatedLra)
+      ? liveMetrics.calculatedLra
+      : undefined;
+
+    const dynamicRangeCap = (() => {
+      if (!finite(measuredDynamicRange)) return null;
+      if (measuredDynamicRange <= 0.5) return 65;
+      if (measuredDynamicRange <= 2) {
+        return Math.round(65 + ((measuredDynamicRange - 0.5) / 1.5) * 15);
+      }
+      if (measuredDynamicRange <= 4) {
+        return Math.round(80 + ((measuredDynamicRange - 2) / 2) * 5);
+      }
+      return null;
+    })();
+
+    const lraCap = (() => {
+      if (!finite(measuredLra)) return null;
+      if (measuredLra <= 2) return 72;
+      if (measuredLra <= 3) return 78;
+      if (measuredLra <= 4) return 82;
+      if (measuredLra <= 6) return 86;
+      return null;
+    })();
+
+    const caps = [dynamicRangeCap, lraCap].filter((v): v is number => typeof v === "number");
+    const modulationCap = caps.length > 0 ? Math.min(...caps) : null;
+    const varietyCap = modulationCap !== null ? Math.min(86, modulationCap + 7) : null;
 
     const call1 = critique.subMetricsCall1;
+    const call2 = critique.subMetricsCall2;
+    const call3 = critique.subMetricsCall3;
+
+    if (modulationCap !== null && call2?.acousticTension?.dynamicModulation) {
+      const metric = call2.acousticTension.dynamicModulation;
+      if (typeof metric.score === "number" && metric.score > modulationCap) {
+        metric.score = modulationCap;
+        metric.commentary =
+          `The delivered audio has only ${finite(measuredDynamicRange) ? measuredDynamicRange.toFixed(1) + " dB" : "limited"} sustained loud/quiet contrast` +
+          `${finite(measuredLra) ? " and " + measuredLra.toFixed(1) + " LU LRA" : ""}. The arrangement may still create perceived lift, but the master itself is dynamically constrained, so a top-band Dynamic Modulation score is not supported.`;
+      }
+    }
+
+    if (varietyCap !== null && call1?.dynamicVariety) {
+      const metric = call1.dynamicVariety;
+      if (typeof metric.score === "number" && metric.score > varietyCap) {
+        metric.score = varietyCap;
+        metric.commentary =
+          `Sectional arrangement changes may still be audible, but the delivered audio shows only ${finite(measuredDynamicRange) ? measuredDynamicRange.toFixed(1) + " dB" : "limited"} sustained loud/quiet contrast` +
+          `${finite(measuredLra) ? " and " + measuredLra.toFixed(1) + " LU LRA" : ""}. That limits how much actual dynamic variety survives in the final master.`;
+      }
+    }
+
+    // Recompute the two affected parents after the measured caps are applied.
+    if (call2?.acousticTension) {
+      const dm = call2.acousticTension.dynamicModulation?.score;
+      const ct = call2.acousticTension.climaxTrajectory?.score;
+      if (typeof dm === "number" && typeof ct === "number") {
+        call2.acousticTension.score = Math.round((dm + ct) / 2);
+      }
+    }
+
+    if (critique.scores) {
+      const hook = call3?.compositionFlowSubs?.hookPlacement?.score;
+      const dyn = call1?.dynamicVariety?.score;
+      const spectral = call1?.spectralMatch?.score;
+      const transitions = call3?.compositionFlowSubs?.sectionalContrast?.score;
+      const weighted: Array<[number | undefined, number]> = [
+        [hook, 60],
+        [dyn, 20],
+        [spectral, 10],
+        [transitions, 10],
+      ];
+      const valid = weighted.filter(([score]) => typeof score === "number");
+      if (valid.length > 0) {
+        const totalWeight = valid.reduce((sum, [, weight]) => sum + weight, 0);
+        critique.scores.commercialReadiness = Math.round(
+          valid.reduce((sum, [score, weight]) => sum + (score as number) * weight, 0) / totalWeight
+        );
+      }
+    }
+
+    if (ceiling === null) return critique;
+
     if (call1?.aestheticDesign && typeof call1.aestheticDesign.score === "number" && call1.aestheticDesign.score > ceiling) {
       call1.aestheticDesign.score = ceiling;
       call1.aestheticDesign.commentary =
