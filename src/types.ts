@@ -177,6 +177,20 @@ export interface CritiqueData {
     creativeProductionScore?: number;
     summary: string;
   };
+  mixBalanceEvidence?: {
+    mudFlux?: number;
+    midrangeFlatness?: number;
+    bassEnergy?: number;
+    lowMidEnergy?: number;
+    coreMidEnergy?: number;
+    airEnergy?: number;
+    relativeAirPct?: number;
+    signals: string[];
+    mudCap: number | null;
+    midrangeCap: number | null;
+    spectralCap: number | null;
+    summary: string;
+  };
   chordKeyAnalysis?: { keySignature: string; chordsUsed: { chord: string; romanNumeral: string }[] };
   chordKeyAnalysisFailed?: boolean;
   subMetricsCall1Failed?: boolean;
