@@ -174,6 +174,10 @@ export interface CritiqueData {
     dynamicRangeDb?: number;
     lra?: number;
     dynamicFinishPenalty?: number;
+    peakToLoudnessRatio?: number;
+    brickwallFinishPenalty?: number;
+    technicalFinishPenalty?: number;
+    transientPunchCap?: number;
     creativeProductionScore?: number;
     summary: string;
   };
