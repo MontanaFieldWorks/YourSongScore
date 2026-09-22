@@ -638,7 +638,7 @@ export function computeCategoryScores(critique: any) {
   const loudnessComplianceScore = ((lufsPass ? 100 : 50) + (lraPass ? 100 : 50)) / 2;
 
   const vocalApplicable = critique?.performance?.vocalApplicable !== false; // default true if field absent (older saved critiques)
-  const scoreSonicSoundprint = vocalApplicable
+  const sonicCreativeBase = vocalApplicable
     ? Math.round(
         ((critique?.mixQuality?.score ?? 75) * 0.50) +
         ((critique?.performance?.vocalScore ?? 75) * 0.30) +
@@ -651,6 +651,18 @@ export function computeCategoryScores(critique: any) {
         ((critique?.mixQuality?.score ?? 75) * (0.50 / 0.70)) +
         ((critique?.performance?.instrumentalScore ?? 75) * (0.20 / 0.70))
       );
+
+  // Sonic Soundprint is specifically the delivered sonic/engineering headline. Preserve
+  // the creative mix/performance base, then reflect only the validated technical-finish
+  // penalty already established by the production guardrails. Do not use raw loudness-
+  // target misses here: legitimate professional masters in the frozen benchmark often sit
+  // outside those broad genre windows.
+  const technicalFinishPenalty =
+    critique?.productionFinishEvidence?.technicalFinishPenalty ??
+    critique?.productionFinishEvidence?.dynamicFinishPenalty ??
+    0;
+  const sonicFinishAdjustment = Math.round(Math.max(0, technicalFinishPenalty) * 0.80);
+  const scoreSonicSoundprint = Math.max(0, sonicCreativeBase - sonicFinishAdjustment);
 
   // Structural Engagement uses the qualitative craft judgments from Call 2 when available.
   // DSP describes WHAT happened (range, peak position, build magnitude); those raw values
