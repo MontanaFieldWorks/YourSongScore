@@ -1787,19 +1787,26 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
 
     // DSP FALLBACK ONLY — this is NOT the user-facing quality judgment when Call 2 succeeds.
     // The measured percentile range tells us how much sustained loud/quiet contrast exists,
-    // but cannot tell us whether that contrast is artistically well-shaped. Keep this
-    // fallback deliberately conservative: clearly flat material can score lower, while
-    // healthy-to-wide movement rises only into the professional band and NEVER earns 89+
-    // from raw magnitude alone. Also never penalize a very wide range simply for being wide.
+    // but cannot tell us whether that contrast is artistically well-shaped. The fallback
+    // therefore preserves discrimination at the compressed end while still capping wide
+    // material at 88: low-range masters may fall into the 70s, healthy range climbs into
+    // the low/mid-80s, and additional width above the professional band is never rewarded
+    // beyond 88 or penalized for being wide.
     if (dynamicRangeDb <= 0.5) {
       dynamicModulationScore = 65;
     } else if (dynamicRangeDb <= 2) {
-      dynamicModulationScore = Math.round(65 + ((dynamicRangeDb - 0.5) / 1.5) * 15);
+      dynamicModulationScore = Math.round(65 + ((dynamicRangeDb - 0.5) / 1.5) * 5);
+    } else if (dynamicRangeDb <= 3) {
+      dynamicModulationScore = Math.round(70 + (dynamicRangeDb - 2) * 5);
     } else if (dynamicRangeDb <= 4) {
-      dynamicModulationScore = Math.round(80 + ((dynamicRangeDb - 2) / 2) * 5);
+      dynamicModulationScore = Math.round(75 + (dynamicRangeDb - 3) * 4);
+    } else if (dynamicRangeDb <= 6) {
+      dynamicModulationScore = Math.round(79 + ((dynamicRangeDb - 4) / 2) * 4);
+    } else if (dynamicRangeDb <= 9) {
+      dynamicModulationScore = Math.round(83 + ((dynamicRangeDb - 6) / 3) * 3);
     } else {
       dynamicModulationScore = Math.round(
-        Math.min(88, 85 + Math.min(1, (dynamicRangeDb - 4) / 8) * 3)
+        Math.min(88, 86 + Math.min(1, (dynamicRangeDb - 9) / 3) * 2)
       );
     }
 
