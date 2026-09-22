@@ -517,6 +517,158 @@ export default function App() {
       }
     }
 
+    // Phase 2D — measured Mix Balance grounding.
+    // These thresholds were checked against the frozen 15-professional-master reference
+    // set using the exact browser DSP formulas. None of those masters cross these gates;
+    // the deliberately muddy/dark degradation controls do. The goal is therefore NOT to
+    // punish a naturally warm/dark genre signature, but to stop clear multi-signal mix
+    // anomalies from being overwritten by an optimistic model judgment.
+    const mudFlux = finite(liveMetrics.calculatedMudFlux) ? liveMetrics.calculatedMudFlux : undefined;
+    const midrangeFlatness = finite(liveMetrics.calculatedMidrangeFlatness) ? liveMetrics.calculatedMidrangeFlatness : undefined;
+    const bassBandEnergy = finite(liveMetrics.calculatedBassBandEnergy) ? liveMetrics.calculatedBassBandEnergy : undefined;
+    const lowMidBandEnergy = finite(liveMetrics.calculatedLowMidsBandEnergy) ? liveMetrics.calculatedLowMidsBandEnergy : undefined;
+    const coreMidBandEnergy = finite(liveMetrics.calculatedCoreMidsBandEnergy) ? liveMetrics.calculatedCoreMidsBandEnergy : undefined;
+    const airBandEnergy = finite(liveMetrics.calculatedAirBandEnergy) ? liveMetrics.calculatedAirBandEnergy : undefined;
+    const relativeAirPct = finite(liveMetrics.calculatedFinishAirPct) ? liveMetrics.calculatedFinishAirPct : undefined;
+
+    let mudCap: number | null = null;
+    if (finite(mudFlux) && mudFlux >= 70) {
+      mudCap = 68;
+    } else if (finite(mudFlux) && mudFlux >= 58) {
+      mudCap = 74;
+    } else if (
+      finite(bassBandEnergy) && finite(lowMidBandEnergy) &&
+      bassBandEnergy > 87 && lowMidBandEnergy > 72
+    ) {
+      mudCap = 78;
+    }
+
+    let midrangeCap: number | null = null;
+    if (finite(midrangeFlatness) && midrangeFlatness <= 0.40) {
+      midrangeCap = 72;
+    } else if (finite(midrangeFlatness) && midrangeFlatness < 0.45) {
+      midrangeCap = 76;
+    } else if (
+      finite(midrangeFlatness) && finite(mudFlux) &&
+      midrangeFlatness < 0.48 && mudFlux >= 58
+    ) {
+      midrangeCap = 80;
+    }
+
+    const mixSignals: string[] = [];
+    if (finite(mudFlux) && mudFlux >= 58) {
+      mixSignals.push(`elevated 150–400 Hz flux (${mudFlux.toFixed(1)})`);
+    }
+    if (finite(midrangeFlatness) && midrangeFlatness < 0.45) {
+      mixSignals.push(`collapsed midrange spectral structure (flatness ${midrangeFlatness.toFixed(3)})`);
+    }
+    if (
+      finite(bassBandEnergy) && finite(lowMidBandEnergy) &&
+      bassBandEnergy > 87 && lowMidBandEnergy > 72
+    ) {
+      mixSignals.push(`extreme bass/low-mid magnitude pair (${bassBandEnergy}/${lowMidBandEnergy})`);
+    }
+    if (finite(lowMidBandEnergy) && lowMidBandEnergy > 75) {
+      mixSignals.push(`extreme low-mid magnitude (${lowMidBandEnergy})`);
+    }
+    if (finite(relativeAirPct) && relativeAirPct < 0.50) {
+      mixSignals.push(`very low relative air energy (${relativeAirPct.toFixed(2)}%)`);
+    }
+    if (
+      finite(midrangeFlatness) && finite(coreMidBandEnergy) &&
+      midrangeFlatness < 0.45 && coreMidBandEnergy <= 50
+    ) {
+      mixSignals.push(`midrange clarity collapse (${coreMidBandEnergy} core-mid energy)`);
+    }
+    if (
+      finite(airBandEnergy) && airBandEnergy < 22 &&
+      ((finite(mudFlux) && mudFlux >= 58) || (finite(midrangeFlatness) && midrangeFlatness < 0.45))
+    ) {
+      mixSignals.push(`dark-spectrum collapse (${airBandEnergy} air energy)`);
+    }
+
+    let spectralCap: number | null = null;
+    if (mixSignals.length >= 5) spectralCap = 68;
+    else if (mixSignals.length === 4) spectralCap = 72;
+    else if (mixSignals.length === 3) spectralCap = 76;
+    else if (mixSignals.length === 2) spectralCap = 82;
+    else if (mixSignals.length === 1) spectralCap = 86;
+
+    const appliedMixCaps: string[] = [];
+    if (mudCap !== null && call1?.mudPrevention && typeof call1.mudPrevention.score === "number" && call1.mudPrevention.score > mudCap) {
+      call1.mudPrevention.score = mudCap;
+      call1.mudPrevention.commentary =
+        `Measured low-mid evidence does not support a top-band Mud Prevention score. 150–400 Hz spectral flux is ${finite(mudFlux) ? mudFlux.toFixed(1) : "N/A"}` +
+        `${finite(bassBandEnergy) && finite(lowMidBandEnergy) ? `; bass/low-mid energy is ${bassBandEnergy}/${lowMidBandEnergy}` : ""}. The score reflects the measured congestion risk rather than genre warmth alone.`;
+      appliedMixCaps.push(`Mud Prevention ≤ ${mudCap}`);
+    }
+
+    if (midrangeCap !== null && call1?.midrangeSpacing && typeof call1.midrangeSpacing.score === "number" && call1.midrangeSpacing.score > midrangeCap) {
+      call1.midrangeSpacing.score = midrangeCap;
+      call1.midrangeSpacing.commentary =
+        `Measured midrange structure does not support a top-band spacing score. Midrange flatness is ${finite(midrangeFlatness) ? midrangeFlatness.toFixed(3) : "N/A"}` +
+        `${finite(coreMidBandEnergy) ? ` with core-mid energy ${coreMidBandEnergy}` : ""}; this indicates reduced spectral distinction through the central mix range.`;
+      appliedMixCaps.push(`Midrange Spacing ≤ ${midrangeCap}`);
+    }
+
+    if (spectralCap !== null && call1?.spectralMatch && typeof call1.spectralMatch.score === "number" && call1.spectralMatch.score > spectralCap) {
+      call1.spectralMatch.score = spectralCap;
+      call1.spectralMatch.commentary =
+        `The measured spectrum contains ${mixSignals.length} independent outlier signal${mixSignals.length === 1 ? "" : "s"} relative to the calibrated professional-master reference set: ${mixSignals.join("; ")}. A top-band Spectral Match score is therefore not supported.`;
+      appliedMixCaps.push(`Spectral Match ≤ ${spectralCap}`);
+    }
+
+    const mixEvidenceSummary =
+      `Mix evidence: mud flux ${finite(mudFlux) ? mudFlux.toFixed(1) : "N/A"}; midrange flatness ${finite(midrangeFlatness) ? midrangeFlatness.toFixed(3) : "N/A"}; ` +
+      `bass/low-mid/core-mid/air energy ${finite(bassBandEnergy) ? bassBandEnergy : "N/A"}/${finite(lowMidBandEnergy) ? lowMidBandEnergy : "N/A"}/${finite(coreMidBandEnergy) ? coreMidBandEnergy : "N/A"}/${finite(airBandEnergy) ? airBandEnergy : "N/A"}; ` +
+      `relative air ${finite(relativeAirPct) ? relativeAirPct.toFixed(2) + "%" : "N/A"}. ` +
+      (appliedMixCaps.length > 0 ? `Measured corrections: ${appliedMixCaps.join(", ")}.` : "No calibrated mix correction applied.");
+
+    critique.mixBalanceEvidence = {
+      mudFlux,
+      midrangeFlatness,
+      bassEnergy: bassBandEnergy,
+      lowMidEnergy: lowMidBandEnergy,
+      coreMidEnergy: coreMidBandEnergy,
+      airEnergy: airBandEnergy,
+      relativeAirPct,
+      signals: mixSignals,
+      mudCap,
+      midrangeCap,
+      spectralCap,
+      summary: mixEvidenceSummary,
+    };
+
+    // Recompute Mix Balance from the corrected children. N/A children are excluded and
+    // the remaining weights renormalize, matching the server-side parent calculation.
+    if (call1 && critique.mixQuality) {
+      const mixParts: Array<{ metric: any; weight: number }> = [
+        { metric: call1.mudPrevention, weight: 25 },
+        { metric: call1.midrangeSpacing, weight: 25 },
+        { metric: call1.lowEndDivision, weight: 20 },
+        { metric: call1.sibilanceShaving, weight: 15 },
+        { metric: call1.stereoWidth, weight: 15 },
+      ];
+      let mixWeighted = 0;
+      let mixWeight = 0;
+      for (const part of mixParts) {
+        if (
+          part.metric?.applicable !== false &&
+          typeof part.metric?.score === "number" &&
+          Number.isFinite(part.metric.score)
+        ) {
+          mixWeighted += part.metric.score * part.weight;
+          mixWeight += part.weight;
+        }
+      }
+      if (mixWeight > 0) {
+        critique.mixQuality.score = Math.round(mixWeighted / mixWeight);
+      }
+      if (appliedMixCaps.length > 0) {
+        critique.mixQuality.dominanceIssues = mixEvidenceSummary;
+      }
+    }
+
     // Recompute the two affected parents after the measured caps are applied.
     if (call2?.acousticTension) {
       const dm = call2.acousticTension.dynamicModulation?.score;
