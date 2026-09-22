@@ -1493,14 +1493,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       colorClass: "stroke-amber-500",
       bgClass: "from-amber-500/5 to-slate-900 border-white/5",
       isGold: false,
-      hoverText: "Measures overall creative direction, instrument selection, and acoustic landscape cohesion.",
+      hoverText: "Measures overall creative direction, instrument selection, and acoustic landscape cohesion, with a measured technical-finish modifier when the delivered master shows a severe objective production defect.",
       subParams: [
         { name: "Aesthetic Design (40%)", desc: "Appropriateness of instrumentation compared to leading professional releases." },
         { name: "Space & Density (35%)", desc: "Use of negative space vs crowded tracks, avoiding instrument overload." },
         { name: "Palette Cohesion (25%)", desc: "How well instrument textures, keys, and synths support the soundstage." }
       ],
       callout: "This Metric identifies key genre structures and creative arrangements that influence modern playlist curators.",
-      description: "Evaluates whether your creative sonic layout, sound synthesis, sampling, and background orchestration fit your aesthetic genre target.",
+      description: "Evaluates whether the creative sonic layout and acoustic landscape fit the aesthetic genre target. The three child metrics judge creative production craft; the parent Production Index may also receive a separately documented technical-finish modifier when objective audio measurements show a severe production defect.",
       feedback: critique?.productionFinishEvidence?.summary
         ? `Core genre profile: ${critique?.vibe?.genre ?? "N/A"}. Subgenre: ${critique?.vibe?.subgenre ?? "N/A"}. Aesthetic blueprint style: ${critique?.vibe?.aesthetic ?? "N/A"}. Production finish cross-check: ${critique.productionFinishEvidence.summary}`
         : `Core genre profile: ${critique?.vibe?.genre ?? "N/A"}. Subgenre: ${critique?.vibe?.subgenre ?? "N/A"}. Aesthetic blueprint style: ${critique?.vibe?.aesthetic ?? "N/A"}.`
