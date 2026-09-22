@@ -698,11 +698,9 @@ export default function App() {
       }
     }
 
-    // Production Index is a creative-production score, but a severely flattened final
-    // delivery should not be able to remain in the same band as an otherwise identical
-    // well-finished master. Apply a measured, genre-aware modifier to the parent ONLY;
-    // keep Aesthetic Design / Space & Density / Palette Cohesion independent so we do
-    // not manufacture identical child scores.
+    // Production Index is a creative-production score, but severe measured finish defects
+    // must be allowed to lower the delivered-master result. Keep separate defect families
+    // independent, then use the strongest technical penalty rather than stacking them.
     let dynamicFinishPenalty = 0;
     const masteringBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
     if (finite(measuredDynamicRange) && finite(measuredLra) && masteringBucket?.lraMin) {
@@ -717,30 +715,101 @@ export default function App() {
           dynamicFinishPenalty = 7;
         }
       } else if (measuredDynamicRange <= 1.0 && lraRatio < 0.45) {
-        // Dense hip-hop / EDM / punk masters are common and must not be punished merely
-        // for being compressed. Only an extreme dual-signal collapse earns a small modifier.
         dynamicFinishPenalty = 6;
       }
     }
+
+    const measuredPlr =
+      finite(liveMetrics.calculatedTruePeak) && finite(liveMetrics.calculatedLufs)
+        ? liveMetrics.calculatedTruePeak - liveMetrics.calculatedLufs
+        : undefined;
+
+    // Brickwall/clipping family. Calibrated against the frozen professional-master set:
+    // professional controls can legitimately reach PLR ~5 with healthy LRA, so PLR alone
+    // is NOT a defect. The gate requires both very low PLR and collapsed loudness range.
+    let brickwallFinishPenalty = 0;
+    let transientPunchCap: number | null = null;
+    if (finite(measuredPlr) && finite(measuredLra)) {
+      if (measuredPlr <= 3.5 && measuredLra <= 3.5) {
+        brickwallFinishPenalty = 12;
+        transientPunchCap = 72;
+      } else if (measuredPlr <= 4.5 && measuredLra <= 4.0) {
+        brickwallFinishPenalty = 9;
+        transientPunchCap = 76;
+      } else if (measuredPlr <= 5.0 && measuredLra <= 3.5) {
+        brickwallFinishPenalty = 6;
+        transientPunchCap = 80;
+      }
+    }
+
+    if (
+      transientPunchCap !== null &&
+      call3?.instrumentalStagingSubs?.transientPunch &&
+      typeof call3.instrumentalStagingSubs.transientPunch.score === "number" &&
+      call3.instrumentalStagingSubs.transientPunch.score > transientPunchCap
+    ) {
+      call3.instrumentalStagingSubs.transientPunch.score = transientPunchCap;
+      call3.instrumentalStagingSubs.transientPunch.commentary =
+        `The delivered master shows severe peak-density/brickwall evidence (PLR ${finite(measuredPlr) ? measuredPlr.toFixed(1) : "N/A"} dB; LRA ${finite(measuredLra) ? measuredLra.toFixed(1) : "N/A"} LU). Even if individual hits remain audible, the final master does not preserve enough transient headroom to support a top-band Transient Punch score.`;
+    }
+
+    // Recompute Instrumental Staging if one child was constrained.
+    if (call3?.instrumentalStagingSubs && critique.performance) {
+      const instSubs = call3.instrumentalStagingSubs;
+      const instParts = [
+        instSubs.timelineGridCohesion,
+        instSubs.transientPunch,
+        instSubs.melodicStaging,
+        instSubs.instrumentalWarmth,
+      ].filter((metric: any) =>
+        metric?.applicable !== false &&
+        typeof metric?.score === "number" &&
+        Number.isFinite(metric.score)
+      );
+      if (instParts.length > 0) {
+        critique.performance.instrumentalScore = Math.round(
+          instParts.reduce((sum: number, metric: any) => sum + metric.score, 0) / instParts.length
+        );
+      }
+    }
+
+    const technicalFinishPenalty = Math.max(dynamicFinishPenalty, brickwallFinishPenalty);
 
     if (critique.productionFinishEvidence) {
       critique.productionFinishEvidence.dynamicRangeDb = measuredDynamicRange;
       critique.productionFinishEvidence.lra = measuredLra;
       critique.productionFinishEvidence.dynamicFinishPenalty = dynamicFinishPenalty;
+      critique.productionFinishEvidence.peakToLoudnessRatio = measuredPlr;
+      critique.productionFinishEvidence.brickwallFinishPenalty = brickwallFinishPenalty;
+      critique.productionFinishEvidence.technicalFinishPenalty = technicalFinishPenalty;
+      critique.productionFinishEvidence.transientPunchCap = transientPunchCap ?? undefined;
     }
 
     if (
-      dynamicFinishPenalty > 0 &&
+      technicalFinishPenalty > 0 &&
       critique.scores &&
       typeof critique.scores.overallProduction === "number"
     ) {
       const creativeProductionScore = critique.scores.overallProduction;
-      critique.scores.overallProduction = Math.max(0, creativeProductionScore - dynamicFinishPenalty);
+      critique.scores.overallProduction = Math.max(0, creativeProductionScore - technicalFinishPenalty);
 
       if (critique.productionFinishEvidence) {
         critique.productionFinishEvidence.creativeProductionScore = creativeProductionScore;
+
+        const reasons: string[] = [];
+        if (dynamicFinishPenalty > 0) {
+          reasons.push(
+            `genre-inappropriate dynamic flattening (${finite(measuredDynamicRange) ? measuredDynamicRange.toFixed(1) : "N/A"} dB sustained range; ${finite(measuredLra) ? measuredLra.toFixed(1) : "N/A"} LU LRA)`
+          );
+        }
+        if (brickwallFinishPenalty > 0) {
+          reasons.push(
+            `severe brickwall/peak-density evidence (PLR ${finite(measuredPlr) ? measuredPlr.toFixed(1) : "N/A"} dB; LRA ${finite(measuredLra) ? measuredLra.toFixed(1) : "N/A"} LU)`
+          );
+        }
+
         critique.productionFinishEvidence.summary +=
-          ` Severe genre-inappropriate dynamic flattening is also present (${measuredDynamicRange?.toFixed(1)} dB sustained range; ${measuredLra?.toFixed(1)} LU LRA versus a ${masteringBucket.lraMin}+ LU genre floor). Production Index technical-finish modifier: -${dynamicFinishPenalty} points, from ${creativeProductionScore} to ${critique.scores.overallProduction}.`;
+          ` Technical-finish modifier: -${technicalFinishPenalty} points for ${reasons.join(" plus ")}, from ${creativeProductionScore} to ${critique.scores.overallProduction}.`;
       }
     }
 
