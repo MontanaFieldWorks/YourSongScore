@@ -140,7 +140,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
       strokeColor: "#34d399",
       trackColor: "rgba(52, 211, 153, 0.1)",
       textColor: "text-emerald-400",
-      tags: ["Mix Quality", "Loudness Compliance", "Vocal Performance"]
+      tags: ["Mix Quality", "Production Finish", "Vocal Performance"]
     },
     {
       title: "STRUCTURAL ENGAGEMENT",
