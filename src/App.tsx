@@ -725,12 +725,13 @@ export default function App() {
         : undefined;
 
     // Brickwall/clipping family. Calibrated against the frozen professional-master set:
-    // professional controls can legitimately reach PLR ~5 with healthy LRA, so PLR alone
-    // is NOT a defect. The gate requires both very low PLR and collapsed loudness range.
+    // the lowest professional PLR in that set is ~6.7 dB. An EXTREMELY low PLR (<=3.5)
+    // is therefore sufficient evidence by itself; less-extreme PLR values still require
+    // collapsed LRA so naturally dense professional masters are not falsely penalized.
     let brickwallFinishPenalty = 0;
     let transientPunchCap: number | null = null;
     if (finite(measuredPlr) && finite(measuredLra)) {
-      if (measuredPlr <= 3.5 && measuredLra <= 3.5) {
+      if (measuredPlr <= 3.5) {
         brickwallFinishPenalty = 12;
         transientPunchCap = 72;
       } else if (measuredPlr <= 4.5 && measuredLra <= 4.0) {
