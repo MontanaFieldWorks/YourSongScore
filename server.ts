@@ -1530,6 +1530,79 @@ Return the single best genre/subgenre plus concise evidence describing the domin
   }
 }
 
+async function verifyInstrumentalFolkVsClassicalIfNeeded(
+  audioPart: any,
+  parsedCritique: any,
+  hasExplicitGenreMetadata: boolean
+): Promise<void> {
+  if (hasExplicitGenreMetadata) return;
+
+  const genre = String(parsedCritique?.vibe?.genre ?? "").trim();
+  const subgenre = String(parsedCritique?.vibe?.subgenre ?? "").trim();
+  const noVocals = parsedCritique?.performance?.vocalApplicable === false;
+  const noLyrics = parsedCritique?.lyricalImpact?.applicable === false;
+
+  // A second, narrower check protects instrumental orchestral works from being routed into
+  // Folk simply because the first genre-only pass hears "organic", "acoustic", or "gentle".
+  // Genuine instrumental folk remains allowed; this verifier only resolves the ambiguity.
+  if (!(noVocals && noLyrics && genre === "Folk / Singer-Songwriter")) return;
+
+  try {
+    const context = `INSTRUMENTAL GENRE TIE-BREAKER - LISTEN AGAIN TO THE FULL AUDIO.
+The current classification is "${genre}" / "${subgenre}", but the track has NO VOCALS and NO LYRICS.
+
+Resolve whether this is genuinely Folk/Singer-Songwriter or whether the music is better represented elsewhere in the taxonomy, especially Classical.
+
+Do NOT classify from mood words such as "gentle", "organic", "warm", "melancholic", or "acoustic". Those are not genre evidence.
+
+Use these distinctions:
+- FOLK / SINGER-SONGWRITER: a roots/acoustic song idiom is dominant - clear strumming/picking language, folk-derived groove or pulse, roots instrumentation, and a song-like/strophic framework even when instrumental.
+- CLASSICAL / CLASSICAL CROSSOVER: orchestral/classical ensemble language is dominant - strings/brass/woodwinds/piano or blended orchestral texture, no rock/pop rhythm section driving a groove, and thematic/through-composed/developmental form rather than a folk-song framework.
+- ROCK or another family remains possible if the rhythm-section language and arrangement clearly support it.
+
+Do not invent instruments. If individual sources are uncertain, describe the audible role broadly (orchestral ensemble, sustained harmonic layer, plucked melodic layer, transient rhythmic layer).
+
+Choose ONLY from this taxonomy:
+${GENRE_TAXONOMY_TEXT}
+
+Return the best genre/subgenre plus concise evidence.`;
+
+    const response = await generateContentWithRetry({
+      model: "gemini-2.5-flash",
+      contents: { parts: [audioPart, { text: context }] },
+      config: {
+        systemInstruction: "You are an audio-only genre tie-breaker for instrumental music. Distinguish roots/folk idiom from orchestral/classical idiom using instrumentation, rhythmic foundation, and form. Do not identify the recording.",
+        responseMimeType: "application/json",
+        responseSchema: GENRE_RECHECK_SCHEMA,
+        temperature: 0,
+      },
+    }, 4);
+
+    if (!response.text) return;
+    const verified = JSON.parse(response.text);
+    const candidate = { vibe: { genre: verified.genre, subgenre: verified.subgenre } };
+    validateGenrePair(candidate);
+
+    const verifiedGenre = candidate.vibe.genre;
+    const verifiedSubgenre = candidate.vibe.subgenre;
+    const pairIsValid =
+      Array.isArray((GENRE_MAP as Record<string, string[]>)[verifiedGenre]) &&
+      (GENRE_MAP as Record<string, string[]>)[verifiedGenre].includes(verifiedSubgenre);
+
+    if (!pairIsValid || verified.hasVocals === true) return;
+
+    if (verifiedGenre !== genre || verifiedSubgenre !== subgenre) {
+      console.log(`[GenreTieBreaker] Correcting instrumental ${genre} / ${subgenre} -> ${verifiedGenre} / ${verifiedSubgenre}. Evidence: ${verified.rationale}`);
+      parsedCritique.vibe.genre = verifiedGenre;
+      parsedCritique.vibe.subgenre = verifiedSubgenre;
+    } else {
+      console.log(`[GenreTieBreaker] Confirmed instrumental ${genre} / ${subgenre}.`);
+    }
+  } catch (err: any) {
+    console.log("[GenreTieBreaker] Verification failed; keeping current classification:", err?.message || err);
+  }
+}
+
 async function performCritiqueAnalysis(
   contentsInput: any,
   systemInstruction: string,
@@ -1858,6 +1931,8 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
     validateGenrePair(parsedCritique);
     await verifyGenreIfNeeded(audioPart, parsedCritique, !!metaGenre);
     validateGenrePair(parsedCritique);
+    await verifyInstrumentalFolkVsClassicalIfNeeded(audioPart, parsedCritique, !!metaGenre);
+    validateGenrePair(parsedCritique);
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
@@ -2119,6 +2194,8 @@ app.post("/api/critique-url", async (req, res) => {
     // analysis could be computed against an invalid pair and merely relabelled afterwards.
     validateGenrePair(parsedCritique);
     await verifyGenreIfNeeded(audioPart, parsedCritique, !!metaGenre);
+    validateGenrePair(parsedCritique);
+    await verifyInstrumentalFolkVsClassicalIfNeeded(audioPart, parsedCritique, !!metaGenre);
     validateGenrePair(parsedCritique);
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
