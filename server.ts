@@ -617,14 +617,21 @@ Do NOT attempt to describe section-by-section progressions, timestamps, verse/ch
 
 Output strictly valid JSON matching the provided schema, with no conversational text.`;
 
-async function performChordKeyAnalysis(audioPart: any): Promise<any> {
+async function performChordKeyAnalysis(audioPart: any, detectedKey?: string): Promise<any> {
+  const chordKeyPrompt = detectedKey
+    ? `${CHORD_KEY_ANALYSIS_PROMPT}
+
+AUTHORITATIVE TONAL CENTER FROM THE APP'S VALIDATED KEY DETECTOR: "${detectedKey}".
+Do NOT independently replace this key with another tonic or mode. Return keySignature exactly as "${detectedKey}" and analyze the chord vocabulary/Roman-numeral functions relative to that supplied tonal center. If the harmony sounds ambiguous, reflect that uncertainty in chord interpretation rather than declaring a different absolute key.`
+    : CHORD_KEY_ANALYSIS_PROMPT;
+
   const response = await generateContentWithRetry({
     model: "gemini-2.5-flash",
     contents: {
       parts: [audioPart],
     },
     config: {
-      systemInstruction: CHORD_KEY_ANALYSIS_PROMPT,
+      systemInstruction: chordKeyPrompt,
       responseMimeType: "application/json",
       responseSchema: CHORD_KEY_ANALYSIS_SCHEMA,
       temperature: 0.1,
@@ -1806,6 +1813,9 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       airPct: productionFinishAirPct,
     });
 
+    const detectedKey = typeof req.body.detectedKey === "string" && req.body.detectedKey.trim()
+      ? req.body.detectedKey.trim()
+      : undefined;
     const chordProgressionSummary = req.body.chordProgressionSummary || undefined;
     const melodySummary = req.body.melodySummary || undefined;
 
@@ -1813,6 +1823,9 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
     if (metaGenre) {
       userInstruction += `\n\n[EMBEDDED FILE METADATA CONTEXT]`;
       userInstruction += `\n- Embedded Genre: "${metaGenre}". This is the explicit, ground-truth genre file tag. Analyze and score the track relative to this specific genre/style.`;
+    }
+    if (detectedKey) {
+      userInstruction += `\n\n[AUTHORITATIVE DETECTED KEY]\nThe app's validated audio key detector reports "${detectedKey}". For Music Theory Analysis, use this as the report's single tonal-center reference. Do NOT declare a different absolute key elsewhere in the report. If the harmony sounds ambiguous, modal, or locally tonicizes another center, describe that as harmonic ambiguity or local color while keeping "${detectedKey}" as the report's stated detected key.`;
     }
     userInstruction += `\n\n[BLIND AUDITION MODE]\nYou are NOT being given the track title or artist name for the purposes of judging performance, mix quality, artistic merit, or any category other than Song Title Searchability. Evaluate all other categories exactly as you would an anonymous submission with zero cultural context. Do not attempt to guess or identify the artist or song for those categories. Score strictly on what you hear.`;
     if (metaTitle && metaTitle.trim().length > 0) {
@@ -1856,7 +1869,8 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
     let inferredChordSummary: string | undefined = undefined;
     try {
       console.log("[Chord/Key] Starting direct Gemini chord/key analysis...");
-      const chordKeyAnalysis = await performChordKeyAnalysis(audioPart);
+      const chordKeyAnalysis = await performChordKeyAnalysis(audioPart, detectedKey);
+      if (detectedKey && chordKeyAnalysis) chordKeyAnalysis.keySignature = detectedKey;
       parsedCritique.chordKeyAnalysis = chordKeyAnalysis;
       parsedCritique.chordKeyAnalysisFailed = false;
       console.log("[Chord/Key] Direct Gemini chord/key analysis completed successfully.");
@@ -1918,6 +1932,9 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 app.post("/api/critique-url", async (req, res) => {
   try {
     const { url, threeX, metaTitle, metaArtist, metaGenre: rawMetaGenre, chromagramImage, rhythmImage, spectrogramImage, stereoCorrelation: rawStereoCorrelation, sibilanceSeverity: rawSibilanceSeverity, timbralConsistency: rawTimbralConsistency, gridCohesion: rawGridCohesion, transientPunch: rawTransientPunch, melodicStaging: rawMelodicStaging, instrumentalWarmth: rawInstrumentalWarmth, vocalDynamics: rawVocalDynamics } = req.body;
+    const detectedKey = typeof req.body.detectedKey === "string" && req.body.detectedKey.trim()
+      ? req.body.detectedKey.trim()
+      : undefined;
     const chordProgressionSummary = req.body.chordProgressionSummary || undefined;
     const melodySummary = req.body.melodySummary || undefined;
     const metaGenre = isPlaceholderGenre(rawMetaGenre) ? "" : rawMetaGenre;
@@ -2069,6 +2086,9 @@ app.post("/api/critique-url", async (req, res) => {
       userInstruction += `\n\n[EMBEDDED FILE METADATA CONTEXT]`;
       userInstruction += `\n- Embedded Genre: "${metaGenre}". This is the explicit, ground-truth genre file tag. Analyze and score the track relative to this specific genre/style.`;
     }
+    if (detectedKey) {
+      userInstruction += `\n\n[AUTHORITATIVE DETECTED KEY]\nThe app's validated audio key detector reports "${detectedKey}". For Music Theory Analysis, use this as the report's single tonal-center reference. Do NOT declare a different absolute key elsewhere in the report. If the harmony sounds ambiguous, modal, or locally tonicizes another center, describe that as harmonic ambiguity or local color while keeping "${detectedKey}" as the report's stated detected key.`;
+    }
     userInstruction += `\n\n[BLIND AUDITION MODE]\nYou are NOT being given the track title or artist name for the purposes of judging performance, mix quality, artistic merit, or any category other than Song Title Searchability. Evaluate all other categories exactly as you would an anonymous submission with zero cultural context. Do not attempt to guess or identify the artist or song for those categories. Score strictly on what you hear.`;
     if (metaTitle && metaTitle.trim().length > 0) {
       userInstruction += `\n\n[TITLE PROVIDED FOR SEARCHABILITY SCORING ONLY]\nThe user has provided this exact song title: "${metaTitle.trim()}". Use this exact title ONLY to score the Song Title Searchability category (SEO Uniqueness and SEO Discoverability). Do not use this title to identify, guess, or recognize the actual commercial artist or recording - continue blind audition mode for every other category.`;
@@ -2110,7 +2130,8 @@ app.post("/api/critique-url", async (req, res) => {
     let inferredChordSummary: string | undefined = undefined;
     try {
       console.log("[Chord/Key] Starting direct Gemini chord/key analysis (URL route)...");
-      const chordKeyAnalysis = await performChordKeyAnalysis(audioPart);
+      const chordKeyAnalysis = await performChordKeyAnalysis(audioPart, detectedKey);
+      if (detectedKey && chordKeyAnalysis) chordKeyAnalysis.keySignature = detectedKey;
       parsedCritique.chordKeyAnalysis = chordKeyAnalysis;
       parsedCritique.chordKeyAnalysisFailed = false;
       if (chordKeyAnalysis?.keySignature && chordKeyAnalysis?.chordsUsed?.length > 0) {
