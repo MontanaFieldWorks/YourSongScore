@@ -1634,6 +1634,7 @@ export default function App() {
           formData.append("mudFlux", String(earlyLiveMetrics?.calculatedMudFlux ?? ""));
           formData.append("midrangeFlatness", String(earlyLiveMetrics?.calculatedMidrangeFlatness ?? ""));
           formData.append("midrangeFlux", String(earlyLiveMetrics?.calculatedMidrangeFlux ?? ""));
+          formData.append("detectedKey", earlyLiveMetrics?.calculatedKey || "");
           formData.append("chordProgressionSummary", chordProgressionSummary || "");
           formData.append("melodySummary", melodySummary || "");
           
@@ -1706,6 +1707,7 @@ export default function App() {
               mudFlux: earlyLiveMetrics?.calculatedMudFlux ?? null,
               midrangeFlatness: earlyLiveMetrics?.calculatedMidrangeFlatness ?? null,
               midrangeFlux: earlyLiveMetrics?.calculatedMidrangeFlux ?? null,
+              detectedKey: earlyLiveMetrics?.calculatedKey ?? null,
               chordProgressionSummary: chordProgressionSummary,
               melodySummary: melodySummary
             }),
