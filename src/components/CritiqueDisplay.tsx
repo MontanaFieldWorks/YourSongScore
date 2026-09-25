@@ -2363,7 +2363,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       const fieldName = call3Entry.fields[index];
       const data = parentData && fieldName ? parentData[fieldName] : null;
       if (data && typeof data.score === "number") {
-        return { score: data.score, commentary: data.commentary || "" };
+        return { score: data.score, commentary: data.commentary || "", applicable: data.applicable };
       }
     }
     return null;
