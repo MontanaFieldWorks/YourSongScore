@@ -1243,6 +1243,21 @@ export default function App() {
     if (extractedArtist) formData.append("metaArtist", extractedArtist);
     if (extractedGenre) formData.append("metaGenre", extractedGenre);
 
+    // Compute the validated key BEFORE server analysis so Music Theory uses the same
+    // tonal center the final report will display. Reuse these metrics after the server
+    // returns so this does not add a second DSP pass.
+    let preAnalysisLiveMetrics: any = null;
+    try {
+      const audioBuffer = await decodeAudioFile(selectedFile);
+      preAnalysisLiveMetrics = analyzeAudioBuffer(audioBuffer);
+      await applyRealKeyDetection(audioBuffer, preAnalysisLiveMetrics);
+      if (preAnalysisLiveMetrics?.calculatedKey) {
+        formData.append("detectedKey", preAnalysisLiveMetrics.calculatedKey);
+      }
+    } catch (errAnalyz) {
+      console.warn("Could not compute pre-analysis key; theory will proceed without an authoritative key:", errAnalyz);
+    }
+
     try {
       // Step A: Upload and trigger Gemini analysis
       setLoadingStatus(threeXMode ? "Multi-pass analysis starting up..." : "Gemini is listening to your transients and harmonics...");
@@ -1270,15 +1285,17 @@ export default function App() {
 
       const data = await res.json();
       setLoadingStatus("Running live local programmatic audio frequency audit...");
-      let liveMetrics;
-      try {
-        const audioBuffer = await decodeAudioFile(selectedFile);
-        liveMetrics = analyzeAudioBuffer(audioBuffer);
-        await applyRealKeyDetection(audioBuffer, liveMetrics);
-        console.log("[App] Live Metrics analyzed:", liveMetrics);
-      } catch (errAnalyz) {
-        console.warn("Could not decode audio files client-side, falling back:", errAnalyz);
+      let liveMetrics = preAnalysisLiveMetrics;
+      if (!liveMetrics) {
+        try {
+          const audioBuffer = await decodeAudioFile(selectedFile);
+          liveMetrics = analyzeAudioBuffer(audioBuffer);
+          await applyRealKeyDetection(audioBuffer, liveMetrics);
+        } catch (errAnalyz) {
+          console.warn("Could not decode audio files client-side, falling back:", errAnalyz);
+        }
       }
+      if (liveMetrics) console.log("[App] Live Metrics analyzed:", liveMetrics);
 
       const overriddenCritique = applyGenreOverride(data.critique);
       if (liveMetrics) {
