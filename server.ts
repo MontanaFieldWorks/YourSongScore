@@ -1134,6 +1134,44 @@ function reconcileParentScores(parsedCritique: any): void {
   }
 
   if (c2Ready?.artisticAnalysis) {
+    // Artistic Alignment is a high-level judgment, so require corroboration from several
+    // independently-scored dimensions before allowing it into the exceptional bands.
+    // This prevents the model from saying "everything works together" and giving every
+    // track 91-95 even when the rest of the report only shows ordinary coherence.
+    const alignmentMetric = c2Ready.artisticAnalysis.artisticAlignment;
+    if (alignmentMetric && typeof alignmentMetric.score === "number") {
+      const performanceSupport =
+        parsedCritique?.performance?.vocalApplicable === false
+          ? parsedCritique?.performance?.instrumentalScore
+          : parsedCritique?.performance?.vocalScore;
+
+      const supportScores = [
+        c1Ready?.aestheticDesign?.score,
+        parsedCritique?.arrangement?.flowScore,
+        c2Ready.artisticAnalysis.atmosphericDepth?.score,
+        c2Ready.artisticAnalysis.paletteSynergy?.score,
+        performanceSupport,
+      ].filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+
+      const aboveAverageSupportCount = supportScores.filter(v => v >= 89).length;
+      let reconciledAlignment = alignmentMetric.score;
+
+      // 89-90 requires at least three independent above-average supports.
+      if (reconciledAlignment >= 89 && aboveAverageSupportCount < 3) {
+        reconciledAlignment = Math.min(reconciledAlignment, 88);
+      }
+      // 91-94 requires at least four.
+      if (reconciledAlignment >= 91 && aboveAverageSupportCount < 4) {
+        reconciledAlignment = Math.min(reconciledAlignment, 90);
+      }
+      // 95+ requires all five dimensions to independently support that claim.
+      if (reconciledAlignment >= 95 && aboveAverageSupportCount < 5) {
+        reconciledAlignment = Math.min(reconciledAlignment, 94);
+      }
+
+      alignmentMetric.score = reconciledAlignment;
+    }
+
     const artisticAlignmentScore = weightedAvg([
       [c2Ready.artisticAnalysis.artisticAlignment?.score, 30],
       [c2Ready.artisticAnalysis.harmonicIntrigue?.score, 30],
