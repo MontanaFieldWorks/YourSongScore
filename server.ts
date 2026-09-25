@@ -1437,50 +1437,54 @@ async function generateContentWithRetry(params: {
   throw new Error("Gemini invocation failed after all retries.");
 }
 
-async function verifyInstrumentalGenreIfNeeded(
+async function verifyGenreIfNeeded(
   audioPart: any,
   parsedCritique: any,
   hasExplicitGenreMetadata: boolean
 ): Promise<void> {
+  // Trusted embedded genre metadata remains authoritative. For blind uploads, run a
+  // dedicated genre-only second listen: the first critique pass has too many simultaneous
+  // tasks and the 17-song regression set showed broad-family routing errors even after the
+  // taxonomy itself was expanded.
   if (hasExplicitGenreMetadata) return;
 
-  const genre = String(parsedCritique?.vibe?.genre ?? "").trim();
-  const subgenre = String(parsedCritique?.vibe?.subgenre ?? "").trim();
-  const noVocals = parsedCritique?.performance?.vocalApplicable === false;
-  const noLyrics = parsedCritique?.lyricalImpact?.applicable === false;
-
-  // This verifier is deliberately narrow. Instrumental folk exists, so we do NOT ban
-  // Folk / Singer-Songwriter for instrumentals. We only re-check the combination that has
-  // repeatedly proven unstable: no vocals/no lyrics + a vocal-centric folk classification.
-  const vocalCentricFolk =
-    genre === "Folk / Singer-Songwriter" &&
-    (subgenre === "Singer-Songwriter" || subgenre === "Contemporary Folk");
-
-  if (!(noVocals && noLyrics && vocalCentricFolk)) return;
+  const originalGenre = String(parsedCritique?.vibe?.genre ?? "").trim();
+  const originalSubgenre = String(parsedCritique?.vibe?.subgenre ?? "").trim();
 
   try {
-    console.log(`[GenreRecheck] Instrumental track was classified as ${genre} / ${subgenre}; running focused genre verification before sub-metrics.`);
+    console.log(`[GenreRecheck] Running independent genre-only verification for ${originalGenre} / ${originalSubgenre} before sub-metrics.`);
 
-    const context = `FOCUSED GENRE VERIFICATION - LISTEN TO THE AUDIO AGAIN.
-The first pass classified this track as "${genre}" / "${subgenre}", but the same pass also determined that the track has NO VOCALS and NO LYRICS. Re-evaluate the genre from the audio itself before any downstream scoring uses that label.
+    const context = `INDEPENDENT GENRE VERIFICATION - LISTEN TO THE FULL AUDIO AGAIN.
+Ignore any earlier genre label. Classify this recording from audible evidence only. Do not identify the artist or song, and do not use title, filename, reputation, era knowledge, or metadata.
 
-This is NOT an instruction to force Classical. Instrumental folk is real. Decide from the actual dominant instrumentation, rhythmic foundation, and form.
+Use a TWO-STAGE DECISION:
+1. Choose the BROAD GENRE FAMILY from the dominant rhythmic language, instrumentation/timbre, vocal delivery, production character, and song form.
+2. Only after the broad family is chosen, select the most appropriate SUBGENRE that belongs to that family.
 
-Critical distinction:
-- Folk / Singer-Songwriter requires genuine folk/song idiom: acoustic-song structure, folk-rooted picking/strumming/fiddle/banjo or comparable roots vocabulary, and usually a song-form foundation even when instrumental.
-- Classical / Classical Crossover is appropriate when orchestral/classical instrumentation is the core voice (strings, brass, woodwinds, piano or orchestral ensemble), there is no pop/rock rhythm section driving the piece, and the form is thematic/through-composed/developmental rather than verse-chorus songwriting.
-- Do not infer genre from mood alone. "Melancholic", "organic", "warm", or "acoustic" are not sufficient evidence for folk.
-- Do not invent instruments. Report the dominant instrumentation you can actually hear.
-- Choose ONLY from this taxonomy and make sure the subgenre belongs to the selected genre:
+Do not let one superficial trait decide the family. Acoustic texture alone does not make Folk; distorted guitars alone do not make Grunge; rhythmic vocals or heavy bass alone do not make Hip-Hop.
+
+Important family distinctions:
+- ROCK vs FOLK: a rock backbeat, electric-band language, power-chord/riff behavior, or rock vocal phrasing outweighs isolated acoustic passages. Folk requires a genuinely roots/acoustic song idiom.
+- PROGRESSIVE / ART ROCK: extended development, unusual sectional design, thematic transformation, meter/form ambition, or long instrumental architecture can distinguish it from ordinary Rock or Folk.
+- ELECTRONIC / DANCE vs HIP-HOP: if electronic sound design, drops, synth/bass architecture, or dance-derived beat construction drives the track, keep it in Electronic even if some rhythmic or urban traits are present.
+- POP vs FOLK: polished pop songwriting, electronic production, hook-first arrangement, and contemporary pop vocal treatment should not be routed to Folk merely because the texture is sparse or acoustic in places.
+- NEW WAVE / POWER POP vs GRUNGE: bright/tight guitar tone, concise melodic hooks, clipped backbeat, and pop-forward arrangement favor New Wave/Power Pop; heavy sludgy texture, detuning, and grunge-era alternative language favor Grunge.
+- FOLK ROCK vs MAINSTREAM POP: acoustic/roots instrumentation, close vocal harmony, and folk-derived song form can remain Folk Rock even when the recording is commercially polished.
+- SHOEGAZE / DREAM POP: dense washed guitar layers, blurred attacks, sustained harmonic haze, and vocals embedded into the texture should not be reduced to generic Modern/Alternative Rock.
+- CLASSICAL: orchestral/classical instrumentation and thematic or through-composed form without a pop/rock rhythm-section foundation should remain Classical rather than Folk or Alternative.
+
+Radio-format labels such as Active Rock, Triple A, and Mainstream Top 40 are fallback format descriptors, not substitutes for a more specific stylistic label already present in the taxonomy.
+
+Choose ONLY from this taxonomy and ensure the subgenre belongs to the selected genre:
 ${GENRE_TAXONOMY_TEXT}
 
-Return the best genre/subgenre plus a short evidence summary.`;
+Return the single best genre/subgenre plus concise evidence describing the dominant instrumentation, rhythm/form character, and why the chosen family fits better than nearby alternatives.`;
 
     const response = await generateContentWithRetry({
       model: "gemini-2.5-flash",
       contents: { parts: [audioPart, { text: context }] },
       config: {
-        systemInstruction: "You are a conservative music-genre verifier. Resolve only the genre classification from audible evidence. Do not score production, composition, or commercial quality. Do not identify the artist or song.",
+        systemInstruction: "You are a conservative, audio-only music genre classifier. Make the broad-family decision first, then subgenre. Do not score quality and do not identify the recording.",
         responseMimeType: "application/json",
         responseSchema: GENRE_RECHECK_SCHEMA,
         temperature: 0,
@@ -1498,20 +1502,18 @@ Return the best genre/subgenre plus a short evidence summary.`;
       Array.isArray((GENRE_MAP as Record<string, string[]>)[verifiedGenre]) &&
       (GENRE_MAP as Record<string, string[]>)[verifiedGenre].includes(verifiedSubgenre);
 
-    if (!pairIsValid || verified.hasVocals === true) {
-      console.log("[GenreRecheck] Verification returned inconsistent evidence; keeping the original genre.");
+    if (!pairIsValid) {
+      console.log("[GenreRecheck] Verification returned an invalid genre/subgenre pair; keeping the original classification.");
       return;
     }
 
-    // A focused second listen is more reliable for this contradiction than the original
-    // one-pass label. Apply it before Calls 1-3 so the wrong genre cannot contaminate
-    // production, arrangement, or theory interpretation.
-    if (verifiedGenre !== genre || verifiedSubgenre !== subgenre) {
-      console.log(`[GenreRecheck] Correcting ${genre} / ${subgenre} -> ${verifiedGenre} / ${verifiedSubgenre}. Evidence: ${verified.rationale}`);
-      parsedCritique.vibe.genre = verifiedGenre;
-      parsedCritique.vibe.subgenre = verifiedSubgenre;
+    parsedCritique.vibe.genre = verifiedGenre;
+    parsedCritique.vibe.subgenre = verifiedSubgenre;
+
+    if (verifiedGenre !== originalGenre || verifiedSubgenre !== originalSubgenre) {
+      console.log(`[GenreRecheck] Correcting ${originalGenre} / ${originalSubgenre} -> ${verifiedGenre} / ${verifiedSubgenre}. Evidence: ${verified.rationale}`);
     } else {
-      console.log("[GenreRecheck] Focused verification confirmed the original instrumental-folk classification.");
+      console.log(`[GenreRecheck] Independent verification confirmed ${verifiedGenre} / ${verifiedSubgenre}.`);
     }
   } catch (err: any) {
     // Genre verification is a guardrail, not a new single point of failure.
@@ -1839,7 +1841,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
     // Calls 1-3 are genre-aware, so validating only at the end meant the entire detailed
     // analysis could be computed against an invalid pair and merely relabelled afterwards.
     validateGenrePair(parsedCritique);
-    await verifyInstrumentalGenreIfNeeded(audioPart, parsedCritique, !!metaGenre);
+    await verifyGenreIfNeeded(audioPart, parsedCritique, !!metaGenre);
     validateGenrePair(parsedCritique);
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
@@ -2094,7 +2096,7 @@ app.post("/api/critique-url", async (req, res) => {
     // Calls 1-3 are genre-aware, so validating only at the end meant the entire detailed
     // analysis could be computed against an invalid pair and merely relabelled afterwards.
     validateGenrePair(parsedCritique);
-    await verifyInstrumentalGenreIfNeeded(audioPart, parsedCritique, !!metaGenre);
+    await verifyGenreIfNeeded(audioPart, parsedCritique, !!metaGenre);
     validateGenrePair(parsedCritique);
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
