@@ -926,6 +926,9 @@ export default function Dashboard({
   // Divide tracks into categories
   const analyzedTracks = tracks.filter((t) => t.status === "analyzed");
   const pendingTracks = tracks.filter((t) => t.status === "pending_analysis");
+  const selectedBatchCount = internalBatchResults.filter(
+    (result) => result.status === "complete" && result.selected && result.critique && result.trackInfo
+  ).length;
 
   return (
     <div className="w-full text-slate-100 flex flex-col gap-6" id="dashboard-system-container">
@@ -1683,6 +1686,117 @@ export default function Dashboard({
                 </div>
               )}
             </div>
+
+            {internalBatchResults.length > 0 && (
+              <div
+                className="bg-[#13161C] border border-amber-500/15 rounded-3xl p-6 shadow-xl flex flex-col gap-4 text-left"
+                id="internal-batch-results"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 border-b border-white/5 pb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-amber-400" />
+                      <h3 className="text-sm font-semibold text-white tracking-tight">Internal Batch Results</h3>
+                      <span className="text-[9px] uppercase tracking-widest font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                        Temporary
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      QA-only session results. These songs are not saved to the Locker or Firebase.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={exportSelectedBatchReports}
+                    disabled={batchExporting || selectedBatchCount === 0}
+                    className="sm:ml-auto px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 text-[10px] uppercase font-extrabold tracking-widest rounded-xl transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>{batchExporting ? "Building ZIP..." : `Download Selected Excel Reports (${selectedBatchCount})`}</span>
+                  </button>
+                </div>
+
+                {(batchExportProgress || batchExportError) && (
+                  <div className={`text-[10px] font-mono px-3 py-2 rounded-xl border ${
+                    batchExportError
+                      ? "text-red-300 bg-red-950/20 border-red-500/20"
+                      : "text-slate-400 bg-[#0A0B0E] border-white/5"
+                  }`}>
+                    {batchExportError || batchExportProgress}
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2 max-h-[520px] overflow-y-auto pr-1">
+                  {internalBatchResults.map((result) => {
+                    const isComplete = result.status === "complete" && !!result.critique && !!result.trackInfo;
+                    return (
+                      <div
+                        key={result.id}
+                        className="bg-[#0A0B0E] border border-white/5 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3"
+                      >
+                        <label className="flex items-center gap-3 flex-1 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={isComplete ? result.selected : false}
+                            disabled={!isComplete}
+                            onChange={(e) => onToggleInternalBatchResult?.(result.id, e.target.checked)}
+                            className="w-4 h-4 accent-amber-500 disabled:opacity-30"
+                            aria-label={`Select ${result.fileName} for ZIP export`}
+                          />
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-slate-200 truncate">
+                              {result.trackInfo?.name || result.fileName}
+                            </div>
+                            <div className="text-[9px] font-mono mt-1">
+                              {result.status === "complete" && (
+                                <span className="text-emerald-400">
+                                  COMPLETE • {result.critique?.vibe?.genre || "Genre unavailable"}
+                                  {result.critique?.vibe?.subgenre ? ` / ${result.critique.vibe.subgenre}` : ""}
+                                </span>
+                              )}
+                              {result.status === "running" && <span className="text-amber-400">ANALYZING…</span>}
+                              {result.status === "queued" && <span className="text-slate-500">QUEUED</span>}
+                              {result.status === "failed" && (
+                                <span className="text-red-400">FAILED • {result.error || "Analysis failed"}</span>
+                              )}
+                            </div>
+                          </div>
+                        </label>
+
+                        {isComplete && (
+                          <button
+                            type="button"
+                            onClick={() => onLoadCritique(result.critique!, result.trackInfo!, "summary")}
+                            className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-all text-[10px] font-bold uppercase cursor-pointer flex items-center justify-center gap-1 shrink-0 border border-white/10"
+                          >
+                            <span>See Summary</span>
+                            <ChevronRight className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {batchExportCurrent?.critique && batchExportCurrent.trackInfo && (
+              <div className="hidden" aria-hidden="true">
+                <CritiqueDisplay
+                  critique={batchExportCurrent.critique}
+                  trackInfo={batchExportCurrent.trackInfo}
+                  onClear={() => {}}
+                  onReportBuilderReady={(builder) => {
+                    const resolve = batchBuilderResolverRef.current;
+                    if (resolve) {
+                      batchBuilderResolverRef.current = null;
+                      resolve(builder);
+                    }
+                  }}
+                />
+              </div>
+            )}
 
             {/* Back Button */}
             <div className="flex justify-start">
