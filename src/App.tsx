@@ -2466,6 +2466,19 @@ export default function App() {
                 result.id === id ? { ...result, selected } : result
               ));
             }}
+            onLoadInternalBatchSummary={(crit, tInfo) => {
+              if (localFileBlobUrl && localFileBlobUrl.startsWith("blob:")) {
+                URL.revokeObjectURL(localFileBlobUrl);
+              }
+              setLocalFileBlobUrl(null);
+              setActiveUploadFile(null);
+              pendingViewOverride.current = "summary";
+              // Batch validation must display the stored blind-analysis result exactly as
+              // produced; do not apply any manual genre override from the normal UI.
+              setCritiqueResult({ critique: crit, trackInfo: tInfo });
+              setViewingDashboard(false);
+              window.scrollTo({ top: 0, behavior: "auto" });
+            }}
           />
         ) : viewingAboutPage ? (
           <WhatIsPage 
