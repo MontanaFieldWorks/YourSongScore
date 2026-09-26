@@ -1403,9 +1403,9 @@ export default function App() {
     const formData = new FormData();
     formData.append("audio", file);
     formData.append("threeX", threeXMode ? "true" : "false");
-    // Keep genre fully blind. The filename is used as the temporary report title only.
-    formData.append("metaTitle", cleanName);
-    formData.append("metaArtist", "Internal Batch Test");
+    // Keep the benchmark analysis fully blind: do not pass filename/title/artist or
+    // embedded genre metadata into Gemini. The local filename is used only after analysis
+    // as the temporary UI/report label. SEO therefore reports N/A in batch mode by design.
     formData.append("chromagramImage", chromagramImage || "");
     formData.append("rhythmImage", rhythmImage || "");
     formData.append("spectrogramImage", spectrogramImage || "");
