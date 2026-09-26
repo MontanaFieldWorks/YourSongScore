@@ -2928,7 +2928,7 @@ export default function App() {
                     <div className="flex flex-col gap-4">
                       <UploadSection
                         onFileSelect={handleFileSelect}
-                        disabled={loading}
+                        disabled={loading || internalBatchRunning}
                         selectedFile={selectedFile}
                       />
                       
@@ -3024,6 +3024,7 @@ export default function App() {
                       onClick={handleStartReview}
                       disabled={
                         loading ||
+                        internalBatchRunning ||
                         (!queuedTrack && (
                           (activeSource === "upload" && !selectedFile) ||
                           (activeSource === "spotify" && !spotifyUrl)
@@ -3065,6 +3066,62 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            {INTERNAL_BATCH_ENABLED && (
+              <div className="mt-4 bg-[#101217] border border-amber-500/15 rounded-2xl p-4" id="internal-batch-uploader">
+                <input
+                  ref={internalBatchInputRef}
+                  type="file"
+                  multiple
+                  accept="audio/*,.mp3,.wav,.flac,.aac,.m4a"
+                  className="hidden"
+                  onChange={(e) => handleInternalBatchFiles(e.target.files)}
+                />
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex-1 text-left">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] uppercase font-mono font-extrabold tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                        Internal QA
+                      </span>
+                      <span className="text-xs font-bold text-slate-200">Batch Analyzer</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Temporary sequential test runner. Batch songs are never added to the real Locker.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => internalBatchInputRef.current?.click()}
+                      disabled={loading || internalBatchRunning}
+                      className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 text-[10px] uppercase font-extrabold tracking-widest rounded-xl transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      <PackageOpen className="w-3.5 h-3.5" />
+                      <span>Internal Use Batch Upload</span>
+                    </button>
+                    {internalBatchRunning && (
+                      <button
+                        type="button"
+                        onClick={stopInternalBatch}
+                        className="px-3 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-300 text-[10px] uppercase font-bold rounded-xl border border-red-500/20 cursor-pointer"
+                      >
+                        Stop Batch
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {(internalBatchRunning || internalBatchMessage) && (
+                  <div className="mt-3 bg-[#0A0B0E] border border-white/5 rounded-xl px-3 py-2 text-[10px] font-mono text-slate-400">
+                    {internalBatchRunning
+                      ? `${internalBatchProgress.completed} / ${internalBatchProgress.total} completed${internalBatchProgress.current ? ` • analyzing ${internalBatchProgress.current}` : ""}`
+                      : internalBatchMessage}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Sandbox selection widgets */}
             <div className="mt-4">
