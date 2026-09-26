@@ -1494,6 +1494,85 @@ async function generateContentWithRetry(params: {
   throw new Error("Gemini invocation failed after all retries.");
 }
 
+async function verifyInstrumentalGenreIfNeeded(
+  audioPart: any,
+  parsedCritique: any,
+  hasExplicitGenreMetadata: boolean
+): Promise<void> {
+  if (hasExplicitGenreMetadata) return;
+
+  const genre = String(parsedCritique?.vibe?.genre ?? "").trim();
+  const subgenre = String(parsedCritique?.vibe?.subgenre ?? "").trim();
+  const noVocals = parsedCritique?.performance?.vocalApplicable === false;
+  const noLyrics = parsedCritique?.lyricalImpact?.applicable === false;
+
+  // Generic consistency guardrail restored from the Sep. 19 build that produced the
+  // correct Sep. 24 Braden classification. This is not song-specific: it only fires
+  // when the report says there are no vocals/lyrics but nevertheless chooses a
+  // vocal-centric Folk/Singer-Songwriter subtype.
+  const vocalCentricFolk =
+    genre === "Folk / Singer-Songwriter" &&
+    (subgenre === "Singer-Songwriter" || subgenre === "Contemporary Folk");
+
+  if (!(noVocals && noLyrics && vocalCentricFolk)) return;
+
+  try {
+    console.log(`[GenreConsistency] Instrumental track classified as ${genre} / ${subgenre}; running focused consistency verification.`);
+
+    const context = `FOCUSED GENRE CONSISTENCY VERIFICATION - LISTEN TO THE AUDIO AGAIN.
+The first pass classified this track as "${genre}" / "${subgenre}", but the same pass also determined that the track has NO VOCALS and NO LYRICS. Re-evaluate the genre from the audio itself before downstream scoring uses that label.
+
+This is NOT an instruction to force Classical. Instrumental folk is real. Decide from the actual dominant instrumentation, rhythmic foundation, and form.
+
+Critical distinction:
+- Folk / Singer-Songwriter requires genuine folk/song idiom: acoustic-song structure, folk-rooted picking/strumming/fiddle/banjo or comparable roots vocabulary, and usually a song-form foundation even when instrumental.
+- Classical / Classical Crossover is appropriate when orchestral/classical instrumentation is the core voice (strings, brass, woodwinds, piano or orchestral ensemble), there is no pop/rock rhythm section driving the piece, and the form is thematic/through-composed/developmental rather than verse-chorus songwriting.
+- Do not infer genre from mood alone. "Melancholic", "organic", "warm", or "acoustic" are not sufficient evidence for folk.
+- Do not invent instruments. Report the dominant instrumentation you can actually hear.
+- Choose ONLY from this taxonomy and make sure the subgenre belongs to the selected genre:
+${GENRE_TAXONOMY_TEXT}
+
+Return the best genre/subgenre plus a short evidence summary.`;
+
+    const response = await generateContentWithRetry({
+      model: "gemini-2.5-flash",
+      contents: { parts: [audioPart, { text: context }] },
+      config: {
+        systemInstruction: "You are a conservative music-genre verifier. Resolve only the genre classification from audible evidence. Do not score production, composition, or commercial quality. Do not identify the artist or song.",
+        responseMimeType: "application/json",
+        responseSchema: GENRE_RECHECK_SCHEMA,
+        temperature: 0,
+      },
+    }, 4);
+
+    if (!response.text) return;
+    const verified = JSON.parse(response.text);
+    const candidate = { vibe: { genre: verified.genre, subgenre: verified.subgenre } };
+    validateGenrePair(candidate);
+
+    const verifiedGenre = candidate.vibe.genre;
+    const verifiedSubgenre = candidate.vibe.subgenre;
+    const pairIsValid =
+      Array.isArray((GENRE_MAP as Record<string, string[]>)[verifiedGenre]) &&
+      (GENRE_MAP as Record<string, string[]>)[verifiedGenre].includes(verifiedSubgenre);
+
+    if (!pairIsValid || verified.hasVocals === true) {
+      console.log("[GenreConsistency] Verification returned inconsistent evidence; keeping the original genre.");
+      return;
+    }
+
+    if (verifiedGenre !== genre || verifiedSubgenre !== subgenre) {
+      console.log(`[GenreConsistency] Correcting ${genre} / ${subgenre} -> ${verifiedGenre} / ${verifiedSubgenre}. Evidence: ${verified.rationale}`);
+      parsedCritique.vibe.genre = verifiedGenre;
+      parsedCritique.vibe.subgenre = verifiedSubgenre;
+    } else {
+      console.log("[GenreConsistency] Focused verification confirmed the original instrumental-folk classification.");
+    }
+  } catch (err: any) {
+    console.log("[GenreConsistency] Verification failed; continuing with the original classification:", err?.message || err);
+  }
+}
+
 async function performCritiqueAnalysis(
   contentsInput: any,
   systemInstruction: string,
@@ -1820,6 +1899,8 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
     // Calls 1-3 are genre-aware, so validating only at the end meant the entire detailed
     // analysis could be computed against an invalid pair and merely relabelled afterwards.
     validateGenrePair(parsedCritique);
+    await verifyInstrumentalGenreIfNeeded(audioPart, parsedCritique, !!metaGenre);
+    validateGenrePair(parsedCritique);
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
@@ -2079,6 +2160,8 @@ app.post("/api/critique-url", async (req, res) => {
     // Validate the genre/subgenre pair BEFORE any sub-metric analysis runs. All of
     // Calls 1-3 are genre-aware, so validating only at the end meant the entire detailed
     // analysis could be computed against an invalid pair and merely relabelled afterwards.
+    validateGenrePair(parsedCritique);
+    await verifyInstrumentalGenreIfNeeded(audioPart, parsedCritique, !!metaGenre);
     validateGenrePair(parsedCritique);
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
