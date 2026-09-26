@@ -1754,7 +1754,7 @@ export default function Dashboard({
                               {result.status === "complete" && (
                                 <span className="text-emerald-400">
                                   COMPLETE • {result.critique?.vibe?.genre || "Genre unavailable"}
-                                  {result.critique?.vibe?.subgenre ? ` / ${result.critique.vibe.subgenre}` : ""}
+                                  {result.critique?.vibe?.subgenre ? ` / ${result.critique?.vibe?.subgenre}` : ""}
                                 </span>
                               )}
                               {result.status === "running" && <span className="text-amber-400">ANALYZING…</span>}
