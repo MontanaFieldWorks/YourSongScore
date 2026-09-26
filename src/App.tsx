@@ -3146,7 +3146,7 @@ export default function App() {
             <div className="mt-4">
               <SamplesSection
                 onSelectSample={handleSelectSample}
-                disabled={loading}
+                disabled={loading || internalBatchRunning}
                 selectedId={selectedSampleId}
               />
             </div>
