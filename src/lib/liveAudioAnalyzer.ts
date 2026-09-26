@@ -161,16 +161,27 @@ export async function decodeAudioUrl(url: string): Promise<AudioBuffer> {
  * Performs high-precision, real programmatic audio analysis on any AudioBuffer.
  */
 export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
-  const sampleRate = audioBuffer.sampleRate;
-  const numChannels = audioBuffer.numberOfChannels;
-  const duration = audioBuffer.duration;
-  const len = audioBuffer.length;
-
-  console.log(`[LiveAnalyzer] Analyzing buffer: channels=${numChannels}, rate=${sampleRate}Hz, duration=${duration.toFixed(2)}s`);
-
-  // Extract raw channel data
   const ch0 = audioBuffer.getChannelData(0);
-  const ch1 = numChannels > 1 ? audioBuffer.getChannelData(1) : ch0;
+  const ch1 = audioBuffer.numberOfChannels > 1 ? audioBuffer.getChannelData(1) : ch0;
+  return analyzePcmData(audioBuffer.sampleRate, audioBuffer.numberOfChannels, ch0, ch1);
+}
+
+/**
+ * Pure PCM version of the live analyzer. This contains the exact same analysis math as
+ * analyzeAudioBuffer(), but accepts plain Float32Array channels so the temporary batch
+ * runner can execute it inside a Web Worker without blocking the browser UI thread.
+ */
+export function analyzePcmData(
+  sampleRate: number,
+  numChannels: number,
+  ch0: Float32Array,
+  ch1Input?: Float32Array
+): LiveAudioMetrics {
+  const duration = ch0.length / sampleRate;
+  const len = ch0.length;
+  const ch1 = numChannels > 1 && ch1Input ? ch1Input : ch0;
+
+  console.log(`[LiveAnalyzer] Analyzing PCM: channels=${numChannels}, rate=${sampleRate}Hz, duration=${duration.toFixed(2)}s`);
 
   // 1. Calculate peak plus full-track RMS/crest for the production-finish cross-check.
   // RMS uses the stereo mid signal while peak uses the maximum channel sample, matching
