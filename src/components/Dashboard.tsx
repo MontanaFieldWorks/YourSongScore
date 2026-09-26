@@ -136,6 +136,7 @@ interface DashboardProps {
   knownCurrentUser: UserProfile | null;
   internalBatchResults?: InternalBatchResult[];
   onToggleInternalBatchResult?: (id: string, selected: boolean) => void;
+  onLoadInternalBatchSummary?: (critique: CritiqueData, trackInfo: { name: string; artist: string; hasAudio: boolean; coverArt?: string; id?: string }) => void;
 }
 
 export default function Dashboard({ 
@@ -154,7 +155,8 @@ export default function Dashboard({
   onRegisterLocalTrackFile,
   knownCurrentUser,
   internalBatchResults = [],
-  onToggleInternalBatchResult
+  onToggleInternalBatchResult,
+  onLoadInternalBatchSummary
 }: DashboardProps) {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(knownCurrentUser);
   const [loading, setLoading] = useState(false);
@@ -1767,7 +1769,13 @@ export default function Dashboard({
                         {isComplete && (
                           <button
                             type="button"
-                            onClick={() => onLoadCritique(result.critique!, result.trackInfo!, "summary")}
+                            onClick={() => {
+                              if (onLoadInternalBatchSummary) {
+                                onLoadInternalBatchSummary(result.critique!, result.trackInfo!);
+                              } else {
+                                onLoadCritique(result.critique!, result.trackInfo!, "summary");
+                              }
+                            }}
                             className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-all text-[10px] font-bold uppercase cursor-pointer flex items-center justify-center gap-1 shrink-0 border border-white/10"
                           >
                             <span>See Summary</span>
