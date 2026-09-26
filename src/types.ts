@@ -216,6 +216,16 @@ export interface CritiqueResponse {
   trackInfo?: TrackInfo;
 }
 
+export interface InternalBatchResult {
+  id: string;
+  fileName: string;
+  status: "queued" | "running" | "complete" | "failed";
+  selected: boolean;
+  critique?: CritiqueData;
+  trackInfo?: TrackInfo;
+  error?: string;
+}
+
 export interface SampleSong {
   id: string;
   title: string;
