@@ -14,9 +14,9 @@ self.onmessage = (event: MessageEvent<{
       new Float32Array(ch0),
       ch1 ? new Float32Array(ch1) : undefined
     );
-    (self as DedicatedWorkerGlobalScope).postMessage({ ok: true, metrics });
+    (self as any).postMessage({ ok: true, metrics });
   } catch (error: any) {
-    (self as DedicatedWorkerGlobalScope).postMessage({
+    (self as any).postMessage({
       ok: false,
       error: error?.message || "Batch DSP worker failed.",
     });
