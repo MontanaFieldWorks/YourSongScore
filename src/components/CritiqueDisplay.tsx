@@ -265,6 +265,7 @@ interface CritiqueDisplayProps {
   onOpenArConsult?: () => void;
   onNavigateToRabbitHole?: () => void;
   onNavigateToEngineeringStudio?: () => void;
+  onReportBuilderReady?: (builder: () => Promise<Uint8Array>) => void;
 }
 
 export const REPRESENTATIVES = [
@@ -693,7 +694,7 @@ export function computeCategoryScores(critique: any) {
   };
 }
 
-export default function CritiqueDisplay({ critique, trackInfo, onClear, localFileBlobUrl, onViewDefinition, onOpenArConsult, onNavigateToRabbitHole, onNavigateToEngineeringStudio }: CritiqueDisplayProps) {
+export default function CritiqueDisplay({ critique, trackInfo, onClear, localFileBlobUrl, onViewDefinition, onOpenArConsult, onNavigateToRabbitHole, onNavigateToEngineeringStudio, onReportBuilderReady }: CritiqueDisplayProps) {
   const [activeTab, setActiveTab] = useState<"mix" | "execution" | "arrangement" | "azimuth">("mix");
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioRef] = useState(() => new Audio());
@@ -1700,7 +1701,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     }
   ];
 
-  const downloadFullReport = async () => {
+  const buildFullReportBuffer = async (): Promise<Uint8Array> => {
     const workbook = new ExcelJS.Workbook();
     const ws = workbook.addWorksheet("YSS Full Report", { views: [{ showGridLines: false }] });
     const wsEchoNest = workbook.addWorksheet("Echo Nest Scorecard", { views: [{ showGridLines: false }] });
@@ -2244,7 +2245,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    return buffer instanceof Uint8Array
+      ? new Uint8Array(buffer)
+      : new Uint8Array(buffer as ArrayBuffer);
+  };
+
+  const downloadFullReport = async () => {
+    const bytes = await buildFullReportBuffer();
+    const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -2255,6 +2263,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
+
+  useEffect(() => {
+    if (onReportBuilderReady) {
+      onReportBuilderReady(buildFullReportBuffer);
+    }
+  }, [critique, trackInfo, onReportBuilderReady]);
 
   const getFilteredMetrics = (cat: "mainstream" | "artistic" | "dna" | "sandbox" | "spotify" | "azimuth" | "blueprints" | "architecture" | "recommender" | null = activeCategory) => {
     if (cat === "mainstream") {
