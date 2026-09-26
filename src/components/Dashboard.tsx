@@ -12,10 +12,11 @@ import {
   fetchUserTracks, saveUserTrack, updateTrackFields,
   loginOrRegisterBypass, deleteUserTrack, uploadConvertedAudio
 } from "../firebase";
-import { StoredTrack, UserProfile, CritiqueData } from "../types";
+import { StoredTrack, UserProfile, CritiqueData, InternalBatchResult } from "../types";
 import { decodeAudioUrl, analyzeAudioBuffer } from "../lib/liveAudioAnalyzer";
 import { saveLocalFile } from "../lib/localFileCache";
-import { computeCategoryScores } from "./CritiqueDisplay";
+import CritiqueDisplay, { computeCategoryScores } from "./CritiqueDisplay";
+import { buildStoredZip } from "../lib/zipStore";
 
 // Existing helper representing analyzeAudioFile
 async function analyzeAudioFile(url: string) {
@@ -133,6 +134,8 @@ interface DashboardProps {
   onClearAutoStart?: () => void;
   onRegisterLocalTrackFile?: (trackId: string, file: File) => void;
   knownCurrentUser: UserProfile | null;
+  internalBatchResults?: InternalBatchResult[];
+  onToggleInternalBatchResult?: (id: string, selected: boolean) => void;
 }
 
 export default function Dashboard({ 
@@ -149,7 +152,9 @@ export default function Dashboard({
   overrideThreeXMode,
   onClearAutoStart,
   onRegisterLocalTrackFile,
-  knownCurrentUser
+  knownCurrentUser,
+  internalBatchResults = [],
+  onToggleInternalBatchResult
 }: DashboardProps) {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(knownCurrentUser);
   const [loading, setLoading] = useState(false);
@@ -169,6 +174,13 @@ export default function Dashboard({
   const [editingTrackName, setEditingTrackName] = useState<string>("");
   const [editingTrackArtist, setEditingTrackArtist] = useState<string>("");
   const [deletingTrackId, setDeletingTrackId] = useState<string | null>(null);
+
+  // Temporary internal batch-export state. Batch critiques never enter the real Locker.
+  const [batchExportCurrent, setBatchExportCurrent] = useState<InternalBatchResult | null>(null);
+  const [batchExporting, setBatchExporting] = useState(false);
+  const [batchExportProgress, setBatchExportProgress] = useState("");
+  const [batchExportError, setBatchExportError] = useState<string | null>(null);
+  const batchBuilderResolverRef = useRef<((builder: () => Promise<Uint8Array>) => void) | null>(null);
 
   // WAV Converter State
   const [converting, setConverting] = useState(false);
