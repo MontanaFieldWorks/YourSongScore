@@ -222,7 +222,7 @@ export interface InternalBatchResult {
   status: "queued" | "running" | "complete" | "failed";
   selected: boolean;
   critique?: CritiqueData;
-  trackInfo?: TrackInfo;
+  trackInfo?: TrackInfo & { hasAudio: boolean };
   error?: string;
 }
 
