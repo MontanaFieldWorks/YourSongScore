@@ -2460,6 +2460,12 @@ export default function App() {
             overrideThreeXMode={threeXMode}
             onClearAutoStart={() => setAutoStartTrack(null)}
             onRegisterLocalTrackFile={(trackId, file) => setLocalTrackFiles(prev => ({ ...prev, [trackId]: file }))}
+            internalBatchResults={internalBatchResults}
+            onToggleInternalBatchResult={(id, selected) => {
+              setInternalBatchResults((prev) => prev.map((result) =>
+                result.id === id ? { ...result, selected } : result
+              ));
+            }}
           />
         ) : viewingAboutPage ? (
           <WhatIsPage 
