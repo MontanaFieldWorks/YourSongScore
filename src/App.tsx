@@ -1365,6 +1365,191 @@ export default function App() {
     }
   };
 
+  const analyzeInternalBatchFile = async (file: File, signal: AbortSignal): Promise<InternalBatchResult> => {
+    const cleanName = file.name.replace(/\.[^/.]+$/, "");
+    const audioBuffer = await decodeAudioFile(file);
+    const liveMetrics = analyzeAudioBuffer(audioBuffer);
+    await applyRealKeyDetection(audioBuffer, liveMetrics);
+
+    const chromagramImage = liveMetrics?.timeResolvedChromagram ? renderChromagramImage(liveMetrics) : null;
+    const rhythmImage = liveMetrics?.onsetRhythmTimeline ? renderRhythmImage(liveMetrics) : null;
+    const spectrogramImage = liveMetrics?.timeResolvedSpectrogram ? renderSpectrogramImage(liveMetrics) : null;
+
+    let chordProgressionSummary: string | null = null;
+    if (liveMetrics?.detectedChordProgressionNamed?.length > 0) {
+      chordProgressionSummary = liveMetrics.detectedChordProgressionNamed
+        .map((seg: any) => `${seg.name} (${seg.startTimeSec}s-${seg.endTimeSec}s)`)
+        .join(" -> ");
+    }
+
+    let melodySummary: string | null = null;
+    if (liveMetrics?.detectedMelodyNotes?.notes?.length > 0) {
+      const notesList = liveMetrics.detectedMelodyNotes.notes
+        .slice(0, 60)
+        .map((n: any) => {
+          const noteNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+          const name = noteNames[((n.midiNote % 12) + 12) % 12] + (Math.floor(n.midiNote / 12) - 1);
+          return `${name}@${n.startTimeSec.toFixed(2)}s`;
+        })
+        .join(", ");
+      melodySummary =
+        `${liveMetrics.detectedMelodyNotes.notes.length} discrete pitched notes detected. ` +
+        `Interval breakdown: ${liveMetrics.detectedMelodyNotes.totalSteps} steps, ` +
+        `${liveMetrics.detectedMelodyNotes.totalLeaps} leaps, ${liveMetrics.detectedMelodyNotes.totalRepeats} repeats ` +
+        `(step-to-leap ratio: ${liveMetrics.detectedMelodyNotes.stepToLeapRatio.toFixed(2)}). ` +
+        `Sample of detected notes with timestamps: ${notesList}`;
+    }
+
+    const formData = new FormData();
+    formData.append("audio", file);
+    formData.append("threeX", threeXMode ? "true" : "false");
+    // Keep genre fully blind. The filename is used as the temporary report title only.
+    formData.append("metaTitle", cleanName);
+    formData.append("metaArtist", "Internal Batch Test");
+    formData.append("chromagramImage", chromagramImage || "");
+    formData.append("rhythmImage", rhythmImage || "");
+    formData.append("spectrogramImage", spectrogramImage || "");
+    formData.append("stereoCorrelation", String(liveMetrics?.calculatedStereoCorrelation ?? ""));
+    formData.append("sibilanceSeverity", String(liveMetrics?.calculatedSibilanceSeverityScore ?? ""));
+    formData.append("timbralConsistency", String(liveMetrics?.calculatedTimbralConsistencyScore ?? ""));
+    formData.append("gridCohesion", String(liveMetrics?.calculatedGridCohesionScore ?? ""));
+    formData.append("transientPunch", String(liveMetrics?.calculatedTransientPunchScore ?? ""));
+    formData.append("melodicStaging", String(liveMetrics?.calculatedMelodicStagingScore ?? ""));
+    formData.append("instrumentalWarmth", String(liveMetrics?.calculatedInstrumentalWarmthScore ?? ""));
+    formData.append("vocalDynamics", String(liveMetrics?.calculatedVocalDynamicsScore ?? ""));
+    formData.append("productionFinishCrestFactorDb", String(liveMetrics?.calculatedCrestFactorDb ?? ""));
+    formData.append("productionFinishLufs", String(liveMetrics?.calculatedLufs ?? ""));
+    formData.append("productionFinishSubPct", String(liveMetrics?.calculatedFinishSubPct ?? ""));
+    formData.append("productionFinishMidPct", String(liveMetrics?.calculatedFinishMidPct ?? ""));
+    formData.append("productionFinishAirPct", String(liveMetrics?.calculatedFinishAirPct ?? ""));
+    formData.append("subBassBandEnergy", String(liveMetrics?.calculatedSubBassBandEnergy ?? ""));
+    formData.append("bassBandEnergy", String(liveMetrics?.calculatedBassBandEnergy ?? ""));
+    formData.append("lowMidsBandEnergy", String(liveMetrics?.calculatedLowMidsBandEnergy ?? ""));
+    formData.append("coreMidsBandEnergy", String(liveMetrics?.calculatedCoreMidsBandEnergy ?? ""));
+    formData.append("presenceBandEnergy", String(liveMetrics?.calculatedPresenceBandEnergy ?? ""));
+    formData.append("airBandEnergy", String(liveMetrics?.calculatedAirBandEnergy ?? ""));
+    formData.append("subBassCorrelation", String(liveMetrics?.calculatedSubBassCorrelation ?? ""));
+    formData.append("subBassCrestFactor", String(liveMetrics?.calculatedSubBassCrestFactor ?? ""));
+    formData.append("bassCrestFactor", String(liveMetrics?.calculatedBassCrestFactor ?? ""));
+    formData.append("mudFlatness", String(liveMetrics?.calculatedMudFlatness ?? ""));
+    formData.append("mudFlux", String(liveMetrics?.calculatedMudFlux ?? ""));
+    formData.append("midrangeFlatness", String(liveMetrics?.calculatedMidrangeFlatness ?? ""));
+    formData.append("midrangeFlux", String(liveMetrics?.calculatedMidrangeFlux ?? ""));
+    formData.append("detectedKey", liveMetrics?.calculatedKey || "");
+    formData.append("chordProgressionSummary", chordProgressionSummary || "");
+    formData.append("melodySummary", melodySummary || "");
+
+    const res = await fetch("/api/critique-file", {
+      method: "POST",
+      body: formData,
+      signal,
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `Analysis failed with HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const critique: CritiqueData = data.critique;
+    critique.liveMetrics = liveMetrics;
+    applyProductionFinishGuardrail(critique, liveMetrics);
+
+    return {
+      id: "",
+      fileName: file.name,
+      status: "complete",
+      selected: true,
+      critique,
+      trackInfo: {
+        name: cleanName,
+        artist: "Internal Batch Test",
+        hasAudio: false,
+      },
+    };
+  };
+
+  const handleInternalBatchFiles = async (fileList: FileList | null) => {
+    if (!fileList || internalBatchRunning) return;
+
+    const files = Array.from(fileList);
+    const validFiles = files.filter((file) => {
+      const lower = file.name.toLowerCase();
+      const supported = file.type.startsWith("audio/") || lower.endsWith(".mp3") || lower.endsWith(".wav") || lower.endsWith(".flac") || lower.endsWith(".aac") || lower.endsWith(".m4a");
+      return supported && file.size <= 15 * 1024 * 1024;
+    });
+
+    if (validFiles.length === 0) {
+      setInternalBatchMessage("No supported audio files under the 15 MB per-file limit were selected.");
+      return;
+    }
+
+    internalBatchStopRef.current = false;
+    setInternalBatchRunning(true);
+    setInternalBatchMessage(null);
+
+    const batchSeed: InternalBatchResult[] = validFiles.map((file, index) => ({
+      id: `batch_${Date.now()}_${index}`,
+      fileName: file.name,
+      status: "queued",
+      selected: true,
+    }));
+    setInternalBatchResults(batchSeed);
+    setInternalBatchProgress({ completed: 0, total: validFiles.length, current: "" });
+
+    let attempted = 0;
+    for (let i = 0; i < validFiles.length; i++) {
+      if (internalBatchStopRef.current) break;
+
+      const file = validFiles[i];
+      const id = batchSeed[i].id;
+      setInternalBatchProgress({ completed: attempted, total: validFiles.length, current: file.name });
+      setInternalBatchResults((prev) => prev.map((r) => r.id === id ? { ...r, status: "running" } : r));
+
+      const controller = new AbortController();
+      internalBatchAbortRef.current = controller;
+
+      try {
+        const completed = await analyzeInternalBatchFile(file, controller.signal);
+        setInternalBatchResults((prev) => prev.map((r) =>
+          r.id === id ? { ...completed, id, selected: true } : r
+        ));
+      } catch (err: any) {
+        const stopped = internalBatchStopRef.current || err?.name === "AbortError";
+        setInternalBatchResults((prev) => prev.map((r) =>
+          r.id === id
+            ? { ...r, status: "failed", selected: false, error: stopped ? "Stopped by user." : (err?.message || "Analysis failed.") }
+            : r
+        ));
+        if (stopped) {
+          attempted++;
+          setInternalBatchProgress({ completed: attempted, total: validFiles.length, current: "" });
+          break;
+        }
+      }
+
+      attempted++;
+      setInternalBatchProgress({ completed: attempted, total: validFiles.length, current: "" });
+    }
+
+    internalBatchAbortRef.current = null;
+    setInternalBatchRunning(false);
+    setInternalBatchMessage(
+      internalBatchStopRef.current
+        ? `Batch stopped after ${attempted} of ${validFiles.length} file(s). Completed results remain available in the Locker.`
+        : `Batch complete: ${attempted} of ${validFiles.length} file(s) processed. Open the Locker to review summaries or download the ZIP.`
+    );
+
+    if (internalBatchInputRef.current) {
+      internalBatchInputRef.current.value = "";
+    }
+  };
+
+  const stopInternalBatch = () => {
+    internalBatchStopRef.current = true;
+    internalBatchAbortRef.current?.abort();
+  };
+
   const handleSpotifySubmit = async (customUrl?: string) => {
     const targetUrl = customUrl || spotifyUrl;
     if (!targetUrl) return;
