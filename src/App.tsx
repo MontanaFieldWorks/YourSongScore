@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import jsmediatags from "jsmediatags";
 import { parseWavFile } from "./lib/wavParser";
-import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile } from "./types";
+import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile, InternalBatchResult } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
 
 // Runs the new, validated essentia.js key detection and overwrites the old,
@@ -75,6 +75,17 @@ export default function App() {
   const [localFileBlobUrl, setLocalFileBlobUrl] = useState<string | null>(null);
   const [spotifyUrl, setSpotifyUrl] = useState("");
   const [selectedSampleId, setSelectedSampleId] = useState<string | undefined>(undefined);
+
+  // Temporary internal QA batch runner. It is intentionally session-only and does not
+  // write batch songs into Firebase or the user's real Locker.
+  const INTERNAL_BATCH_ENABLED = true;
+  const [internalBatchResults, setInternalBatchResults] = useState<InternalBatchResult[]>([]);
+  const [internalBatchRunning, setInternalBatchRunning] = useState(false);
+  const [internalBatchProgress, setInternalBatchProgress] = useState({ completed: 0, total: 0, current: "" });
+  const [internalBatchMessage, setInternalBatchMessage] = useState<string | null>(null);
+  const internalBatchInputRef = React.useRef<HTMLInputElement>(null);
+  const internalBatchStopRef = React.useRef(false);
+  const internalBatchAbortRef = React.useRef<AbortController | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState("");
