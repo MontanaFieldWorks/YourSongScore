@@ -3,6 +3,7 @@ import jsmediatags from "jsmediatags";
 import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile, InternalBatchResult } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
+import { analyzeAudioBufferInWorker } from "./lib/batchAudioWorker";
 
 // Runs the new, validated essentia.js key detection and overwrites the old,
 // confirmed-unreliable chroma-based key on the given liveMetrics object in place.
@@ -1368,7 +1369,16 @@ export default function App() {
   const analyzeInternalBatchFile = async (file: File, signal: AbortSignal): Promise<InternalBatchResult> => {
     const cleanName = file.name.replace(/\.[^/.]+$/, "");
     const audioBuffer = await decodeAudioFile(file);
-    const liveMetrics = analyzeAudioBuffer(audioBuffer);
+
+    // The full-track DSP analyzer is CPU-heavy and synchronous. For batch mode only,
+    // run the exact same PCM math in a Web Worker so React/the browser UI stays responsive.
+    const liveMetrics = await analyzeAudioBufferInWorker(audioBuffer, signal);
+
+    // Essentia's validated key extractor currently depends on the browser-side WASM
+    // loader, so it remains on the main thread. Yield once before it starts so progress
+    // and Stop Batch controls paint immediately after the DSP worker finishes.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    if (signal.aborted) throw new DOMException("Batch analysis stopped.", "AbortError");
     await applyRealKeyDetection(audioBuffer, liveMetrics);
 
     const chromagramImage = liveMetrics?.timeResolvedChromagram ? renderChromagramImage(liveMetrics) : null;
