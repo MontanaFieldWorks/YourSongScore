@@ -868,6 +868,61 @@ export default function Dashboard({
     }
   };
 
+  const exportSelectedBatchReports = async () => {
+    const selected = internalBatchResults.filter(
+      (result) => result.status === "complete" && result.selected && result.critique && result.trackInfo
+    );
+    if (selected.length === 0 || batchExporting) return;
+
+    setBatchExporting(true);
+    setBatchExportError(null);
+    const zipEntries: { name: string; data: Uint8Array }[] = [];
+
+    try {
+      for (let i = 0; i < selected.length; i++) {
+        const result = selected[i];
+        setBatchExportProgress(`Building report ${i + 1} / ${selected.length}: ${result.trackInfo!.name}`);
+
+        const builder = await new Promise<() => Promise<Uint8Array>>((resolve) => {
+          batchBuilderResolverRef.current = resolve;
+          setBatchExportCurrent(result);
+        });
+
+        const bytes = await builder();
+        const safeName = (result.trackInfo!.name || result.fileName || `Batch_${i + 1}`)
+          .replace(/[^a-z0-9]+/gi, "_")
+          .replace(/^_+|_+$/g, "") || `Batch_${i + 1}`;
+        zipEntries.push({
+          name: `${String(i + 1).padStart(2, "0")}_${safeName}_YSS_Report.xlsx`,
+          data: bytes,
+        });
+        setBatchExportCurrent(null);
+        batchBuilderResolverRef.current = null;
+      }
+
+      setBatchExportProgress("Creating ZIP archive...");
+      const zipBytes = buildStoredZip(zipEntries);
+      const blob = new Blob([zipBytes], { type: "application/zip" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `YSS_Internal_Batch_Reports_${stamp}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setBatchExportProgress(`${zipEntries.length} report(s) downloaded.`);
+    } catch (err: any) {
+      console.error("Internal batch ZIP export failed:", err);
+      setBatchExportError(err?.message || "Batch report export failed.");
+    } finally {
+      batchBuilderResolverRef.current = null;
+      setBatchExportCurrent(null);
+      setBatchExporting(false);
+    }
+  };
+
   // Divide tracks into categories
   const analyzedTracks = tracks.filter((t) => t.status === "analyzed");
   const pendingTracks = tracks.filter((t) => t.status === "pending_analysis");
