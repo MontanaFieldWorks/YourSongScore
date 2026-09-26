@@ -567,9 +567,21 @@ You are ALSO judging two additional standalone values, moodValence and speechine
 - speechiness: how much the vocal delivery resembles spoken word/rap versus sung melody. This score must be calibrated to match Spotify's own real-world speechiness distribution, which is much more compressed than intuition suggests — fully sung melodic vocals score very low (0-8), even for emotionally intense or rhythmically dense vocal deliveries; talk-heavy tracks with substantial spoken passages mixed with singing score moderate (15-40); pure rap or spoken-word tracks score high (40-90); instrumental tracks with no vocals score near 0. Do not score a clearly, fully sung vocal performance above 8 just because it feels rhythmic, urgent, or lyrically dense — rhythmic phrasing and lyrical density in sung vocals do not indicate spoken word.
 - acousticness: judge this by genuinely listening for organic, non-electric instrumentation (acoustic guitar, piano, real strings, unplugged drums) versus synthetic/electric/processed sound (synths, distorted electric guitars, drum machines, heavy digital processing). A solo acoustic guitar and vocal performance should score very high (80-100) even if the recording is naturally bright/treble-heavy - acoustic instruments are often bright, and brightness alone does NOT mean "not acoustic." A heavily electronic or distorted-electric-guitar-driven track should score low (0-20). Judge this from genuine timbral/instrumental character, not from bass-to-treble energy ratio. This is a spectrum from fully synthetic/electric (0) to fully organic/acoustic (100) - a track blending both (e.g. acoustic guitar over a programmed beat) should land genuinely in the middle based on the real proportion of organic vs synthetic content you actually hear, not defaulted to one extreme.
 - moodTags: provide exactly 5 single-or-two-word descriptive mood/vibe tags for this specific track (e.g. "Anthemic", "Melancholic", "Late Night", "Euphoric", "Defiant"). These should genuinely describe THIS song's actual mood and energy as you hear it - do not default to generic rock-coded words if they don't fit; a pop, R&B, folk, or electronic track should get tags that genuinely suit its real character.
-- artisticAlignment (part of artisticAnalysis): judges execution conviction and INTERNAL CREATIVE COHERENCE - not popularity, polish, genre correctness, or whether the analyst personally likes the aesthetic. Do not assume that a professionally produced track is automatically artistically aligned, and do not treat "nothing obviously clashes" as evidence of exceptional alignment. Begin from the professional/neutral band and move only when the audio supplies evidence.
-  SCORE BANDS: 82-88 = coherent professional execution: the main elements generally belong together, but the alignment is ordinary rather than exceptional. 89-94 = clearly above-average alignment and requires at least THREE independent, specific observations from different dimensions (for example arrangement/form, performance/vocal delivery, timbral/production palette, dynamics) that all reinforce the same identifiable artistic identity. 95-100 = rare reference-level unity where nearly every major decision reinforces one unusually distinctive identity; generic statements such as "all elements work together" are not sufficient evidence. 70-81 = mixed alignment: mostly coherent but at least one meaningful element pulls against the dominant identity, feels generic relative to the rest, or weakens the intended world. Below 70 = multiple substantial contradictions between arrangement, performance, palette, or production direction.
-  COMMENTARY RULE: for any score of 89 or above, explicitly name the identity and at least three separate supporting observations. If the commentary cannot supply three independent pieces of evidence, the score must remain 88 or below. A rough recording can still score highly if its creative choices are unusually unified; a pristine commercial master can score in the 70s or 80s if the artistic signals are mixed or generic. Genre compatibility removes a mismatch penalty but does not itself earn a high Artistic Alignment score.
+- artisticAlignment (part of artisticAnalysis): judges execution conviction and INTERNAL CREATIVE COHERENCE - not popularity, polish, genre correctness, technical finish, or whether the analyst personally likes the aesthetic.
+
+  IMPORTANT METRIC-SPECIFIC CALIBRATION OVERRIDE: for Artistic Alignment ONLY, do NOT use the global 82-88 "professional-standard" band as the default. Technical professionalism is not the thing being measured here. A track can be flawlessly produced yet artistically ordinary, and a rough demo can be artistically unified. The neutral starting point for this metric is approximately 76-80: coherent enough to function, but not yet evidence of a distinctive or unusually unified artistic identity.
+
+  SCORE BANDS:
+  - 95-100: rare, signature-level artistic unity. Nearly every major decision across arrangement/form, performance, timbre/palette, dynamics, and production perspective reinforces one unusually specific identity. This should be exceptional even among strong commercial releases.
+  - 90-94: clearly exceptional alignment. The commentary MUST identify the artistic identity and at least THREE independent, specific observations from different dimensions that reinforce it. Mere polish, genre authenticity, or "everything works together" is insufficient.
+  - 83-89: strong, clearly coherent identity with specific supporting choices, but the result is still conventional, partly generic, or contains ordinary compromises.
+  - 76-82: competent/ordinary coherence. The elements generally belong together and nothing meaningfully fights the song, but there is limited evidence of a distinctive, unusually unified artistic world. THIS is the correct default for a solid professional track.
+  - 70-75: mixed evidence. The dominant identity is understandable, but one or more meaningful elements feel generic, undercommitted, or pull in a different direction.
+  - Below 70: multiple substantial artistic contradictions or an unclear identity across major dimensions.
+
+  DISTINCTIVENESS VS COHERENCE: coherence alone does NOT justify 90+. A conventional set of compatible choices can be perfectly coherent and still belong in the high 70s or 80s. Scores above 90 require both coherence AND unusually specific identity. Conversely, roughness, lack of mastering, sparse instrumentation, or unconventional form must not lower the score unless those characteristics actually conflict with the artistic identity.
+
+  COMMENTARY RULE: explicitly separate what establishes the identity from what merely sounds competent. For 90+, name the identity and at least three independent supporting observations. If the evidence is generic ("consistent", "cohesive", "elements work together") without specific cross-dimensional examples, score 82 or below. Genre compatibility removes a mismatch penalty but never earns a high score by itself.
 
 - atmosphericDepth (part of artisticAnalysis): judges the sense of sonic space, dimension, and immersive atmosphere - does the production create a genuine feeling of depth and place, or does it feel flat and two-dimensional? This is distinct from stereoWidth (left-right spread) - atmosphericDepth is about front-to-back depth, reverb/space usage, and the sense of an environment the listener is inside. RUBRIC ANCHOR: a score of 90-100 requires a genuine, deliberate sense of dimensional space - specific elements audibly sit at different depths (close/dry vs distant/reverberant), creating real immersion. A score of 70-89 applies to a competently produced track with reasonable space but no particularly distinctive or immersive atmospheric choices - this is a normal, non-penalized outcome for straightforward, present-forward production. Below 70 is reserved for a mix that genuinely feels flat and one-dimensional, with no meaningful sense of depth or space at all - name the specific lack (e.g. no audible reverb tail anywhere, everything sitting at identical apparent distance).
 
@@ -1144,44 +1156,10 @@ function reconcileParentScores(parsedCritique: any): void {
   }
 
   if (c2Ready?.artisticAnalysis) {
-    // Artistic Alignment is a high-level judgment, so require corroboration from several
-    // independently-scored dimensions before allowing it into the exceptional bands.
-    // This prevents the model from saying "everything works together" and giving every
-    // track 91-95 even when the rest of the report only shows ordinary coherence.
-    const alignmentMetric = c2Ready.artisticAnalysis.artisticAlignment;
-    if (alignmentMetric && typeof alignmentMetric.score === "number") {
-      const performanceSupport =
-        parsedCritique?.performance?.vocalApplicable === false
-          ? parsedCritique?.performance?.instrumentalScore
-          : parsedCritique?.performance?.vocalScore;
-
-      const supportScores = [
-        c1Ready?.aestheticDesign?.score,
-        parsedCritique?.arrangement?.flowScore,
-        c2Ready.artisticAnalysis.atmosphericDepth?.score,
-        c2Ready.artisticAnalysis.paletteSynergy?.score,
-        performanceSupport,
-      ].filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-
-      const aboveAverageSupportCount = supportScores.filter(v => v >= 89).length;
-      let reconciledAlignment = alignmentMetric.score;
-
-      // 89-90 requires at least three independent above-average supports.
-      if (reconciledAlignment >= 89 && aboveAverageSupportCount < 3) {
-        reconciledAlignment = Math.min(reconciledAlignment, 88);
-      }
-      // 91-94 requires at least four.
-      if (reconciledAlignment >= 91 && aboveAverageSupportCount < 4) {
-        reconciledAlignment = Math.min(reconciledAlignment, 90);
-      }
-      // 95+ requires all five dimensions to independently support that claim.
-      if (reconciledAlignment >= 95 && aboveAverageSupportCount < 5) {
-        reconciledAlignment = Math.min(reconciledAlignment, 94);
-      }
-
-      alignmentMetric.score = reconciledAlignment;
-    }
-
+    // Artistic Alignment now uses its own metric-specific calibration in the analysis
+    // prompt. Do not post-process it with a cap based on other high-scoring metrics:
+    // those metrics can be technically excellent while the artistic identity remains
+    // ordinary, and using them as a gate simply reproduces score compression indirectly.
     const artisticAlignmentScore = weightedAvg([
       [c2Ready.artisticAnalysis.artisticAlignment?.score, 30],
       [c2Ready.artisticAnalysis.harmonicIntrigue?.score, 30],
