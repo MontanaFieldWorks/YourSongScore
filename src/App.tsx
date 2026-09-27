@@ -82,7 +82,14 @@ export default function App() {
   const INTERNAL_BATCH_ENABLED = true;
   const [internalBatchResults, setInternalBatchResults] = useState<InternalBatchResult[]>([]);
   const [internalBatchRunning, setInternalBatchRunning] = useState(false);
-  const [internalBatchProgress, setInternalBatchProgress] = useState({ completed: 0, total: 0, current: "" });
+  const [internalBatchProgress, setInternalBatchProgress] = useState({
+    completed: 0,
+    total: 0,
+    current: "",
+    percent: 0,
+    stage: "Idle",
+    elapsedSeconds: 0,
+  });
   const [internalBatchMessage, setInternalBatchMessage] = useState<string | null>(null);
   const internalBatchInputRef = React.useRef<HTMLInputElement>(null);
   const internalBatchStopRef = React.useRef(false);
@@ -1366,20 +1373,33 @@ export default function App() {
     }
   };
 
-  const analyzeInternalBatchFile = async (file: File, signal: AbortSignal): Promise<InternalBatchResult> => {
+  const analyzeInternalBatchFile = async (
+    file: File,
+    signal: AbortSignal,
+    onProgress: (percent: number, stage: string, elapsedSeconds?: number) => void
+  ): Promise<InternalBatchResult> => {
     const cleanName = file.name.replace(/\.[^/.]+$/, "");
+    const startedAt = Date.now();
+    const elapsed = () => Math.floor((Date.now() - startedAt) / 1000);
+
+    onProgress(4, "Decoding audio", elapsed());
     const audioBuffer = await decodeAudioFile(file);
+    onProgress(12, "Audio decoded", elapsed());
 
     // The full-track DSP analyzer is CPU-heavy and synchronous. For batch mode only,
     // run the exact same PCM math in a Web Worker so React/the browser UI stays responsive.
+    onProgress(15, "Running local DSP analysis", elapsed());
     const liveMetrics = await analyzeAudioBufferInWorker(audioBuffer, signal);
+    onProgress(43, "Local DSP complete", elapsed());
 
     // Essentia's validated key extractor currently depends on the browser-side WASM
     // loader, so it remains on the main thread. Yield once before it starts so progress
     // and Stop Batch controls paint immediately after the DSP worker finishes.
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     if (signal.aborted) throw new DOMException("Batch analysis stopped.", "AbortError");
+    onProgress(46, "Detecting key", elapsed());
     await applyRealKeyDetection(audioBuffer, liveMetrics);
+    onProgress(55, "Preparing AI evidence", elapsed());
 
     const chromagramImage = liveMetrics?.timeResolvedChromagram ? renderChromagramImage(liveMetrics) : null;
     const rhythmImage = liveMetrics?.onsetRhythmTimeline ? renderRhythmImage(liveMetrics) : null;
@@ -1449,11 +1469,55 @@ export default function App() {
     formData.append("chordProgressionSummary", chordProgressionSummary || "");
     formData.append("melodySummary", melodySummary || "");
 
-    const res = await fetch("/api/critique-file", {
-      method: "POST",
-      body: formData,
-      signal,
-    });
+    // The server/Gemini phase previously had no upper bound: one request that never
+    // resolved could hold an entire sequential batch forever. Keep the user's Stop Batch
+    // signal, but give each individual AI request its own watchdog so a stuck song fails
+    // cleanly and the batch can continue.
+    const BATCH_SERVER_TIMEOUT_MS = 8 * 60 * 1000;
+    const requestController = new AbortController();
+    let timedOut = false;
+    const abortFromUser = () => requestController.abort();
+    signal.addEventListener("abort", abortFromUser, { once: true });
+
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      requestController.abort();
+    }, BATCH_SERVER_TIMEOUT_MS);
+
+    const heartbeatStarted = Date.now();
+    onProgress(62, "AI analysis — waiting for server", elapsed());
+    const heartbeatId = window.setInterval(() => {
+      const serverElapsed = Date.now() - heartbeatStarted;
+      // Stage estimate only: the endpoint is not streaming sub-call progress. Move gradually
+      // toward 92% while the request is alive, then let the watchdog decide if it is stuck.
+      const estimated = Math.min(92, 62 + Math.floor((serverElapsed / BATCH_SERVER_TIMEOUT_MS) * 30));
+      onProgress(estimated, "AI analysis — waiting for server", elapsed());
+    }, 5000);
+
+    let res: Response;
+    try {
+      res = await fetch("/api/critique-file", {
+        method: "POST",
+        body: formData,
+        signal: requestController.signal,
+      });
+    } catch (err: any) {
+      if (timedOut) {
+        const timeoutError = new Error("AI analysis exceeded the 8-minute batch timeout.");
+        timeoutError.name = "BatchTimeoutError";
+        throw timeoutError;
+      }
+      if (signal.aborted) {
+        throw new DOMException("Batch analysis stopped.", "AbortError");
+      }
+      throw err;
+    } finally {
+      window.clearTimeout(timeoutId);
+      window.clearInterval(heartbeatId);
+      signal.removeEventListener("abort", abortFromUser);
+    }
+
+    onProgress(95, "AI response received", elapsed());
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
@@ -1461,9 +1525,11 @@ export default function App() {
     }
 
     const data = await res.json();
+    onProgress(98, "Finalizing report", elapsed());
     const critique: CritiqueData = data.critique;
     critique.liveMetrics = liveMetrics;
     applyProductionFinishGuardrail(critique, liveMetrics);
+    onProgress(100, "Complete", elapsed());
 
     return {
       id: "",
@@ -1505,7 +1571,14 @@ export default function App() {
       selected: true,
     }));
     setInternalBatchResults(batchSeed);
-    setInternalBatchProgress({ completed: 0, total: validFiles.length, current: "" });
+    setInternalBatchProgress({
+      completed: 0,
+      total: validFiles.length,
+      current: "",
+      percent: 0,
+      stage: "Queued",
+      elapsedSeconds: 0,
+    });
 
     let attempted = 0;
     for (let i = 0; i < validFiles.length; i++) {
@@ -1513,14 +1586,34 @@ export default function App() {
 
       const file = validFiles[i];
       const id = batchSeed[i].id;
-      setInternalBatchProgress({ completed: attempted, total: validFiles.length, current: file.name });
+      setInternalBatchProgress({
+        completed: attempted,
+        total: validFiles.length,
+        current: file.name,
+        percent: 1,
+        stage: "Starting",
+        elapsedSeconds: 0,
+      });
       setInternalBatchResults((prev) => prev.map((r) => r.id === id ? { ...r, status: "running" } : r));
 
       const controller = new AbortController();
       internalBatchAbortRef.current = controller;
 
       try {
-        const completed = await analyzeInternalBatchFile(file, controller.signal);
+        const completed = await analyzeInternalBatchFile(
+          file,
+          controller.signal,
+          (percent, stage, elapsedSeconds = 0) => {
+            setInternalBatchProgress({
+              completed: attempted,
+              total: validFiles.length,
+              current: file.name,
+              percent,
+              stage,
+              elapsedSeconds,
+            });
+          }
+        );
         setInternalBatchResults((prev) => prev.map((r) =>
           r.id === id ? { ...completed, id, selected: true } : r
         ));
@@ -1533,13 +1626,27 @@ export default function App() {
         ));
         if (stopped) {
           attempted++;
-          setInternalBatchProgress({ completed: attempted, total: validFiles.length, current: "" });
+          setInternalBatchProgress({
+            completed: attempted,
+            total: validFiles.length,
+            current: "",
+            percent: 0,
+            stage: "Between songs",
+            elapsedSeconds: 0,
+          });
           break;
         }
       }
 
       attempted++;
-      setInternalBatchProgress({ completed: attempted, total: validFiles.length, current: "" });
+      setInternalBatchProgress({
+            completed: attempted,
+            total: validFiles.length,
+            current: "",
+            percent: 0,
+            stage: "Between songs",
+            elapsedSeconds: 0,
+          });
     }
 
     internalBatchAbortRef.current = null;
