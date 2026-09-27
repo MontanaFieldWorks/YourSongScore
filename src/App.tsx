@@ -2588,10 +2588,24 @@ export default function App() {
             onClearAutoStart={() => setAutoStartTrack(null)}
             onRegisterLocalTrackFile={(trackId, file) => setLocalTrackFiles(prev => ({ ...prev, [trackId]: file }))}
             internalBatchResults={internalBatchResults}
+            internalBatchRunning={internalBatchRunning}
             onToggleInternalBatchResult={(id, selected) => {
               setInternalBatchResults((prev) => prev.map((result) =>
                 result.id === id ? { ...result, selected } : result
               ));
+            }}
+            onDeleteAllInternalBatchResults={() => {
+              if (internalBatchRunning) return;
+              setInternalBatchResults([]);
+              setInternalBatchMessage(null);
+              setInternalBatchProgress({
+                completed: 0,
+                total: 0,
+                current: "",
+                percent: 0,
+                stage: "Idle",
+                elapsedSeconds: 0,
+              });
             }}
             onLoadInternalBatchSummary={(crit, tInfo) => {
               if (localFileBlobUrl && localFileBlobUrl.startsWith("blob:")) {
