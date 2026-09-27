@@ -3250,10 +3250,51 @@ export default function App() {
                 </div>
 
                 {(internalBatchRunning || internalBatchMessage) && (
-                  <div className="mt-3 bg-[#0A0B0E] border border-white/5 rounded-xl px-3 py-2 text-[10px] font-mono text-slate-400">
-                    {internalBatchRunning
-                      ? `${internalBatchProgress.completed} / ${internalBatchProgress.total} completed${internalBatchProgress.current ? ` • analyzing ${internalBatchProgress.current}` : ""}`
-                      : internalBatchMessage}
+                  <div className="mt-3 bg-[#0A0B0E] border border-white/5 rounded-xl px-3 py-3 text-[10px] font-mono text-slate-400">
+                    {internalBatchRunning ? (() => {
+                      const total = Math.max(1, internalBatchProgress.total);
+                      const overallPercent = Math.min(
+                        100,
+                        Math.round(
+                          ((internalBatchProgress.completed + (internalBatchProgress.percent / 100)) / total) * 100
+                        )
+                      );
+                      const mins = Math.floor(internalBatchProgress.elapsedSeconds / 60);
+                      const secs = internalBatchProgress.elapsedSeconds % 60;
+                      const elapsedLabel = `${mins}:${String(secs).padStart(2, "0")}`;
+
+                      return (
+                        <div className="flex flex-col gap-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                            <span>
+                              {internalBatchProgress.completed} / {internalBatchProgress.total} completed
+                              {internalBatchProgress.current ? ` • ${internalBatchProgress.current}` : ""}
+                            </span>
+                            <span className="text-amber-400 font-bold">
+                              SONG {internalBatchProgress.percent}% • BATCH {overallPercent}%
+                            </span>
+                          </div>
+
+                          <div className="w-full h-2 bg-neutral-900 rounded-full overflow-hidden border border-white/5">
+                            <div
+                              className="h-full bg-amber-500 transition-[width] duration-500"
+                              style={{ width: `${internalBatchProgress.percent}%` }}
+                            />
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-slate-500">
+                            <span>Stage: {internalBatchProgress.stage}</span>
+                            <span>Elapsed: {elapsedLabel}</span>
+                          </div>
+
+                          {internalBatchProgress.stage.includes("waiting for server") && (
+                            <div className="text-[9px] text-slate-600">
+                              Server progress is estimated between responses. If no response arrives within 8:00, this song will be marked failed and the batch will continue automatically.
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })() : internalBatchMessage}
                   </div>
                 )}
               </div>
