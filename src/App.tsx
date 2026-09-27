@@ -1598,6 +1598,14 @@ export default function App() {
 
       const controller = new AbortController();
       internalBatchAbortRef.current = controller;
+      const songStartedAt = Date.now();
+      const elapsedTicker = window.setInterval(() => {
+        setInternalBatchProgress((prev) =>
+          prev.current === file.name
+            ? { ...prev, elapsedSeconds: Math.floor((Date.now() - songStartedAt) / 1000) }
+            : prev
+        );
+      }, 1000);
 
       try {
         const completed = await analyzeInternalBatchFile(
@@ -1636,6 +1644,8 @@ export default function App() {
           });
           break;
         }
+      } finally {
+        window.clearInterval(elapsedTicker);
       }
 
       attempted++;
