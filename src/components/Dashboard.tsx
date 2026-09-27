@@ -135,7 +135,9 @@ interface DashboardProps {
   onRegisterLocalTrackFile?: (trackId: string, file: File) => void;
   knownCurrentUser: UserProfile | null;
   internalBatchResults?: InternalBatchResult[];
+  internalBatchRunning?: boolean;
   onToggleInternalBatchResult?: (id: string, selected: boolean) => void;
+  onDeleteAllInternalBatchResults?: () => void;
   onLoadInternalBatchSummary?: (critique: CritiqueData, trackInfo: { name: string; artist: string; hasAudio: boolean; coverArt?: string; id?: string }) => void;
 }
 
@@ -155,7 +157,9 @@ export default function Dashboard({
   onRegisterLocalTrackFile,
   knownCurrentUser,
   internalBatchResults = [],
+  internalBatchRunning = false,
   onToggleInternalBatchResult,
+  onDeleteAllInternalBatchResults,
   onLoadInternalBatchSummary
 }: DashboardProps) {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(knownCurrentUser);
@@ -1708,15 +1712,38 @@ export default function Dashboard({
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={exportSelectedBatchReports}
-                    disabled={batchExporting || selectedBatchCount === 0}
-                    className="sm:ml-auto px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 text-[10px] uppercase font-extrabold tracking-widest rounded-xl transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>{batchExporting ? "Building ZIP..." : `Download Selected Excel Reports (${selectedBatchCount})`}</span>
-                  </button>
+                  <div className="sm:ml-auto flex flex-col sm:flex-row gap-2">
+                    <button
+                      type="button"
+                      onClick={exportSelectedBatchReports}
+                      disabled={batchExporting || selectedBatchCount === 0}
+                      className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 text-[10px] uppercase font-extrabold tracking-widest rounded-xl transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>{batchExporting ? "Building ZIP..." : `Download Selected Excel Reports (${selectedBatchCount})`}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (internalBatchRunning || batchExporting) return;
+                        const confirmed = window.confirm(
+                          "Delete all temporary Internal Batch Results? This will not affect the real Locker, Firebase, or any ZIP files already downloaded."
+                        );
+                        if (!confirmed) return;
+                        setBatchExportProgress("");
+                        setBatchExportError(null);
+                        setBatchExportCurrent(null);
+                        onDeleteAllInternalBatchResults?.();
+                      }}
+                      disabled={internalBatchRunning || batchExporting || internalBatchResults.length === 0}
+                      className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-300 text-[10px] uppercase font-extrabold tracking-widest rounded-xl border border-red-500/20 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      title="Clear all temporary batch results"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete All</span>
+                    </button>
+                  </div>
                 </div>
 
                 {(batchExportProgress || batchExportError) && (
