@@ -1214,8 +1214,12 @@ function buildProductionFinishEvidence(values: {
 function enforceClassicalInstrumentalSourceNeutrality(parsedCritique: any): void {
   const genre = String(parsedCritique?.vibe?.genre ?? "").trim();
   const subgenre = String(parsedCritique?.vibe?.subgenre ?? "").trim();
-  const noVocals = parsedCritique?.performance?.vocalApplicable === false;
-  const noLyrics = parsedCritique?.lyricalImpact?.applicable === false;
+  const noVocals =
+    parsedCritique?.performance?.vocalApplicable === false ||
+    blindGenreClassification?.hasVocals === false;
+  const noLyrics =
+    parsedCritique?.lyricalImpact?.applicable === false ||
+    blindGenreClassification?.hasVocals === false;
   const classicalInstrumental = genre === "Classical" && noVocals && noLyrics;
   if (!classicalInstrumental) return;
 
@@ -1645,7 +1649,8 @@ async function generateContentWithRetry(params: {
 async function verifyInstrumentalGenreIfNeeded(
   audioPart: any,
   parsedCritique: any,
-  hasExplicitGenreMetadata: boolean
+  hasExplicitGenreMetadata: boolean,
+  blindGenreClassification?: BlindGenreClassification | null
 ): Promise<void> {
   if (hasExplicitGenreMetadata) return;
 
@@ -2074,7 +2079,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       parsedCritique.vibe.subgenre = blindGenreClassification.subgenre;
     }
     validateGenrePair(parsedCritique);
-    await verifyInstrumentalGenreIfNeeded(audioPart, parsedCritique, !!metaGenre);
+    await verifyInstrumentalGenreIfNeeded(audioPart, parsedCritique, !!metaGenre, blindGenreClassification);
     validateGenrePair(parsedCritique);
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
@@ -2348,7 +2353,7 @@ app.post("/api/critique-url", async (req, res) => {
       parsedCritique.vibe.subgenre = blindGenreClassification.subgenre;
     }
     validateGenrePair(parsedCritique);
-    await verifyInstrumentalGenreIfNeeded(audioPart, parsedCritique, !!metaGenre);
+    await verifyInstrumentalGenreIfNeeded(audioPart, parsedCritique, !!metaGenre, blindGenreClassification);
     validateGenrePair(parsedCritique);
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
