@@ -1660,8 +1660,15 @@ async function verifyInstrumentalGenreIfNeeded(
   const vocalCentricFolk =
     genre === "Folk / Singer-Songwriter" &&
     (subgenre === "Singer-Songwriter" || subgenre === "Contemporary Folk");
+  const instrumentalElectronic =
+    genre === "Dance / Electronic";
 
-  if (!(noVocals && noLyrics && vocalCentricFolk)) return;
+  // Two narrow instrumental contradiction checks:
+  // 1) vocal-centric Folk with no vocals/lyrics (the proven Sep. 19 guardrail);
+  // 2) instrumental Electronic, where notation/MIDI/sample-library playback can make
+  //    orchestral or acoustic writing sound synthetic and falsely suggest EDM.
+  // Genuine instrumental electronic music is allowed; this verifier can confirm it.
+  if (!(noVocals && noLyrics && (vocalCentricFolk || instrumentalElectronic))) return;
 
   try {
     console.log(`[GenreConsistency] Instrumental track classified as ${genre} / ${subgenre}; running focused consistency verification.`);
@@ -1669,13 +1676,14 @@ async function verifyInstrumentalGenreIfNeeded(
     const context = `FOCUSED GENRE CONSISTENCY VERIFICATION - LISTEN TO THE AUDIO AGAIN.
 The first pass classified this track as "${genre}" / "${subgenre}", but the same pass also determined that the track has NO VOCALS and NO LYRICS. Re-evaluate the genre from the audio itself before downstream scoring uses that label.
 
-This is NOT an instruction to force Classical. Instrumental folk is real. Decide from the actual dominant instrumentation, rhythmic foundation, and form.
+This is NOT an instruction to force Classical, Folk, or Electronic. Decide from the actual compositional idiom, dominant instrumentation/roles, rhythmic foundation, and form. Do NOT classify from rendering technology alone.
 
-Critical distinction:
+Critical distinctions:
 - Folk / Singer-Songwriter requires genuine folk/song idiom: acoustic-song structure, folk-rooted picking/strumming/fiddle/banjo or comparable roots vocabulary, and usually a song-form foundation even when instrumental.
-- Classical / Classical Crossover is appropriate when orchestral/classical instrumentation is the core voice (strings, brass, woodwinds, piano or orchestral ensemble), there is no pop/rock rhythm section driving the piece, and the form is thematic/through-composed/developmental rather than verse-chorus songwriting.
-- Do not infer genre from mood alone. "Melancholic", "organic", "warm", or "acoustic" are not sufficient evidence for folk.
-- Do not invent instruments. Report the dominant instrumentation you can actually hear.
+- Dance / Electronic requires genuinely electronic compositional language: sequenced or dance-derived pulse, electronic beat construction, synth/bass sound design as a defining compositional element, loop/drop/build architecture, or comparable electronic structure. A MIDI/notation-program/sample-library rendering of orchestral or acoustic parts is NOT electronic genre evidence by itself.
+- Classical / Classical Crossover is appropriate when orchestral/classical instrumentation is the core voice (strings, brass, woodwinds, piano or orchestral ensemble), there is no pop/rock/dance rhythm section driving the piece, and the form is thematic/through-composed/developmental rather than verse-chorus or loop/drop songwriting. Synthetic-sounding sample playback does not disqualify Classical.
+- Do not infer genre from mood alone. "Melancholic", "organic", "warm", "cinematic", "uplifting", or "synthetic" are not sufficient genre evidence.
+- Do not invent instruments. Report the dominant roles and instrumentation you can actually hear.
 - Choose ONLY from this taxonomy and make sure the subgenre belongs to the selected genre:
 ${GENRE_TAXONOMY_TEXT}
 
