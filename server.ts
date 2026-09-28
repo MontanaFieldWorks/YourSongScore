@@ -273,6 +273,25 @@ async function classifyBlindGenre(audioPart: any): Promise<BlindGenreClassificat
       ? Math.max(0, Math.min(100, Number(parsed.confidence)))
       : 0;
 
+    // Conservative acceptance gate: the new preflight should improve classification,
+    // not replace a working baseline with its own low-certainty guess. Low-confidence
+    // results fall back to the existing critique classifier and its established guardrails.
+    if (confidence < 65) {
+      console.log(`[GenrePreflight] Confidence ${confidence} is below the 65 acceptance gate; using the existing classifier instead.`);
+      return null;
+    }
+
+    // Preserve the proven instrumental safety net before the general critique even runs.
+    // A no-vocal result cannot authoritatively force a vocal-centric Folk subtype.
+    const impossibleInstrumentalFolk =
+      parsed.hasVocals === false &&
+      parsed.genre === "Folk / Singer-Songwriter" &&
+      (parsed.subgenre === "Singer-Songwriter" || parsed.subgenre === "Contemporary Folk");
+    if (impossibleInstrumentalFolk) {
+      console.log("[GenrePreflight] Instrumental/vocal-centric Folk contradiction; deferring to the existing classifier plus instrumental guardrail.");
+      return null;
+    }
+
     console.log(
       `[GenrePreflight] ${parsed.genre} / ${parsed.subgenre} (confidence ${confidence}). ` +
       `Runner-up: ${parsed.runnerUpGenre || "n/a"} / ${parsed.runnerUpSubgenre || "n/a"}. ` +
