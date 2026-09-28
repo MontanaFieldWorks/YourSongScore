@@ -220,7 +220,8 @@ FAMILY ROUTING RULES:
 - ELECTRONIC STYLE vs ELECTRONIC-SOUNDING RENDER: synthetic timbre alone is NOT evidence of Dance / Electronic. MIDI, sample-library, notation-program, or virtual-instrument playback can make acoustic/orchestral parts sound synthetic. Choose Dance / Electronic only when electronic rhythm, sequencing, synth/bass sound design, loop/drop/build behavior, or other electronic compositional language is itself structurally defining.
 - AMBIENT/DOWNTEMPO vs FOLK: slow tempo, organic samples, softness, or melancholy do not make a track Folk. If looped/electronic beat construction, sub-bass, atmospheric sampling, or studio sound-design architecture drives the piece, prefer Dance / Electronic -> Ambient / Downtempo.
 - R&B/FUNK vs POP/ROCK: R&B/Funk requires defining groove evidence such as syncopated bass/rhythm interplay, funk pocket, soul/R&B vocal language, or corresponding harmonic/rhythmic vocabulary. A strongly hook-centered verse/chorus pop song can remain Pop / Rhythm-Pop even when its bassline or guitar vocabulary is funky. Do not infer R&B/Funk from warmth, age, or one syncopated instrument alone.
-- CLASSICAL vs FOLK/ALTERNATIVE: orchestral/classical instrumentation as the core voice, no pop/rock rhythm-section foundation, and thematic/developmental/through-composed form favor Classical. Acoustic texture alone does not imply Folk.
+- LATIN vs CLASSICAL/OTHER INSTRUMENTAL: Latin Rhythm / Tropical requires defining Latin rhythmic language—such as clave-derived organization, tumbao/montuno-type groove, dembow/reggaeton pulse, clearly Latin percussion interplay, or another unmistakable Latin rhythmic foundation. Do NOT infer Latin from melodic ornament, a repeated syncopated figure, nylon/string-like timbre, bright plucked attacks, or a synthetic notation-program rendering. An instrumental without a convincing Latin rhythm section should not be routed to Latin merely because its melody feels "Spanish", dance-like, or rhythmically active.
+- CLASSICAL vs FOLK/ALTERNATIVE/RHYTHM GENRES: orchestral/classical instrumentation as the core voice, no pop/rock/dance rhythm-section foundation, and thematic/developmental/through-composed form favor Classical. Classical writing can contain ostinati, repeated rhythmic cells, syncopation, virtuosic passages, or strongly articulated attacks; those do not make it Dance, Latin, Rock, or Folk unless the defining rhythm-section/genre idiom is actually present. Acoustic or synthetic render texture alone does not determine genre.
 
 HIGH-RISK SUBGENRE CONFUSIONS:
 - MAINSTREAM HEAVY METAL vs PUNK / POST-PUNK: metal is riff-centric and high-gain, commonly with tight palm-muted/chromatic/tritone movement, precision rhythmic guitar, heavier low-end/drum attack, extended riff development, and/or lead-guitar solo language. Punk is more direct and chordal, typically simpler/shorter in harmonic-riff design; post-punk is often angular, bass-led, sparse or textural. Do not call riff-dense metal "punk" merely because it is fast/aggressive/raw.
@@ -1660,15 +1661,19 @@ async function verifyInstrumentalGenreIfNeeded(
   const vocalCentricFolk =
     genre === "Folk / Singer-Songwriter" &&
     (subgenre === "Singer-Songwriter" || subgenre === "Contemporary Folk");
-  const instrumentalElectronic =
-    genre === "Dance / Electronic";
+  const instrumentalRhythmFamily =
+    genre === "Dance / Electronic" ||
+    genre === "Latin" ||
+    genre === "Rap / Hip-Hop" ||
+    genre === "R&B";
 
-  // Two narrow instrumental contradiction checks:
+  // Narrow instrumental contradiction checks:
   // 1) vocal-centric Folk with no vocals/lyrics (the proven Sep. 19 guardrail);
-  // 2) instrumental Electronic, where notation/MIDI/sample-library playback can make
-  //    orchestral or acoustic writing sound synthetic and falsely suggest EDM.
-  // Genuine instrumental electronic music is allowed; this verifier can confirm it.
-  if (!(noVocals && noLyrics && (vocalCentricFolk || instrumentalElectronic))) return;
+  // 2) an instrumental routed into a rhythm-family genre where rendered timbre or
+  //    repeated note patterns can masquerade as a defining groove. This does NOT
+  //    force Classical: the verifier can confirm a genuine instrumental electronic,
+  //    Latin, hip-hop, or R&B/funk idiom when the rhythm evidence is actually present.
+  if (!(noVocals && noLyrics && (vocalCentricFolk || instrumentalRhythmFamily))) return;
 
   try {
     console.log(`[GenreConsistency] Instrumental track classified as ${genre} / ${subgenre}; running focused consistency verification.`);
@@ -1681,8 +1686,11 @@ This is NOT an instruction to force Classical, Folk, or Electronic. Decide from 
 Critical distinctions:
 - Folk / Singer-Songwriter requires genuine folk/song idiom: acoustic-song structure, folk-rooted picking/strumming/fiddle/banjo or comparable roots vocabulary, and usually a song-form foundation even when instrumental.
 - Dance / Electronic requires genuinely electronic compositional language: sequenced or dance-derived pulse, electronic beat construction, synth/bass sound design as a defining compositional element, loop/drop/build architecture, or comparable electronic structure. A MIDI/notation-program/sample-library rendering of orchestral or acoustic parts is NOT electronic genre evidence by itself.
-- Classical / Classical Crossover is appropriate when orchestral/classical instrumentation is the core voice (strings, brass, woodwinds, piano or orchestral ensemble), there is no pop/rock/dance rhythm section driving the piece, and the form is thematic/through-composed/developmental rather than verse-chorus or loop/drop songwriting. Synthetic-sounding sample playback does not disqualify Classical.
-- Do not infer genre from mood alone. "Melancholic", "organic", "warm", "cinematic", "uplifting", or "synthetic" are not sufficient genre evidence.
+- Latin requires unmistakable Latin rhythmic organization: clave/tumbao/montuno, dembow/reggaeton, Latin percussion interplay, or another clearly Latin groove foundation. Melodic ornament, syncopation, plucked/string-like timbre, or a phrase that merely feels "Spanish" is insufficient.
+- Rap / Hip-Hop requires actual hip-hop beat language or rap/rhythmic vocal behavior. A repeated low pattern or synthetic percussion color is insufficient by itself.
+- R&B/Funk requires genuine groove evidence: syncopated bass/rhythm-section interplay, funk pocket, soul/R&B harmonic-rhythmic language, or equivalent defining traits. Warm timbre or one syncopated line is insufficient.
+- Classical / Classical Crossover is appropriate when orchestral/classical instrumentation or instrumental writing is the core voice, there is no pop/rock/dance rhythm section driving the piece, and the form is thematic/through-composed/developmental rather than verse-chorus or loop/drop songwriting. Classical writing may include ostinati, repeated rhythmic cells, syncopation, rapid passagework, or emphatic accents. Synthetic-sounding sample playback does not disqualify Classical.
+- Do not infer genre from mood or render timbre alone. "Melancholic", "organic", "warm", "cinematic", "uplifting", "synthetic", "Spanish-sounding", or "dance-like" are not sufficient genre evidence.
 - Do not invent instruments. Report the dominant roles and instrumentation you can actually hear.
 - Choose ONLY from this taxonomy and make sure the subgenre belongs to the selected genre:
 ${GENRE_TAXONOMY_TEXT}
