@@ -86,7 +86,7 @@ You must perform a meticulous, high-fidelity sonic analysis of the track's instr
 1. Percussive Elements: Analyze the drums. Are they synthetic (e.g. trap 808s, hi-hat rolls), modern electronic/four-on-the-floor, completely acoustic/organic live kits, or absent (acoustic/ambient)?
 2. Leading Textures & Instruments: Identify if the sonic space is driven by overdriven/electric guitars, steel-string acoustic guitars, organic grand pianos, digital synthesizers, warm analog synth pads, or orchestral strings.
 3. Vocal Delivery & Phrasing: Audit the vocal approach—is it rap/rhythmic, pop/polished with pristine tuning, indie/whispered, raw/folk, soulful/belted, or cinematic?
-4. Metadata tags (if provided): If the user's file has embedded context tags specifying the Title, Artist, or Genre (e.g., in a metadata section matching the file's ID3 metatags) AND it is NOT a generic placeholder like "Unclassified / Demo" or "Demo", those tags are the absolute GROUND TRUTH. If the metadata genre tag is a generic placeholder, you MUST ignore it and perform a deep independent acoustic audit.
+4. Metadata tags (if provided): If the user's file has embedded context tags specifying the Title, Artist, or Genre (e.g., in a metadata section matching the file's ID3 metatags) AND it is NOT a generic placeholder like "Unclassified / Demo" or "Demo", those tags are the absolute GROUND TRUTH. If the metadata genre tag is a generic placeholder, you MUST ignore it and perform a deep independent acoustic audit. If the user instruction contains an [AUTHORITATIVE BLIND GENRE CLASSIFICATION] block, a dedicated upstream audio-only genre pass has already completed this task: use that exact genre/subgenre for the critique instead of reclassifying it.
 5. INSTRUMENTAL CONSISTENCY GATE: determine vocal presence BEFORE finalizing genre. If performance.vocalApplicable=false and lyricalImpact.applicable=false, do not choose a vocal-centric subgenre such as Singer-Songwriter or Contemporary Folk merely because the piece is acoustic, warm, sparse, or melancholic. Instrumental folk remains valid only when genuine folk/roots instrumentation and song idiom are audible. If orchestral/classical instrumentation is the core voice and the structure is thematic, developmental, or through-composed rather than verse/chorus based, choose Classical / Traditional Classical or Classical Crossover as appropriate.
 6. BROAD-FAMILY ROUTING DISCIPLINE: choose the broad genre family BEFORE the subgenre, using the combined evidence of rhythmic language, instrumentation/timbre, vocal delivery, production character, and form. Do not let one superficial trait decide the family. Apply these distinctions explicitly:
 - ROCK vs FOLK: a rock backbeat, electric-band language, riff/power-chord behavior, or rock vocal phrasing outweighs isolated acoustic passages. Folk requires a genuinely roots/acoustic song idiom.
@@ -147,6 +147,152 @@ const GENRE_RECHECK_SCHEMA = {
   },
   required: ["genre", "subgenre", "hasVocals", "dominantInstrumentation", "formCharacter", "rationale"],
 };
+
+
+type BlindGenreClassification = {
+  genre: string;
+  subgenre: string;
+  runnerUpGenre?: string;
+  runnerUpSubgenre?: string;
+  confidence?: number;
+  hasVocals?: boolean;
+  percussionLanguage?: string;
+  dominantInstrumentation?: string;
+  rhythmicFoundation?: string;
+  vocalCharacter?: string;
+  formCharacter?: string;
+  productionCharacter?: string;
+  decisiveEvidence?: string[];
+};
+
+const BLIND_GENRE_CLASSIFICATION_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    genre: { type: Type.STRING, enum: GENRE_ENUM_VALUES },
+    subgenre: { type: Type.STRING, enum: SUBGENRE_ENUM_VALUES },
+    runnerUpGenre: { type: Type.STRING, enum: GENRE_ENUM_VALUES },
+    runnerUpSubgenre: { type: Type.STRING, enum: SUBGENRE_ENUM_VALUES },
+    confidence: { type: Type.INTEGER },
+    hasVocals: { type: Type.BOOLEAN },
+    percussionLanguage: { type: Type.STRING },
+    dominantInstrumentation: { type: Type.STRING },
+    rhythmicFoundation: { type: Type.STRING },
+    vocalCharacter: { type: Type.STRING },
+    formCharacter: { type: Type.STRING },
+    productionCharacter: { type: Type.STRING },
+    decisiveEvidence: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+    },
+  },
+  required: [
+    "genre",
+    "subgenre",
+    "runnerUpGenre",
+    "runnerUpSubgenre",
+    "confidence",
+    "hasVocals",
+    "percussionLanguage",
+    "dominantInstrumentation",
+    "rhythmicFoundation",
+    "vocalCharacter",
+    "formCharacter",
+    "productionCharacter",
+    "decisiveEvidence",
+  ],
+};
+
+const BLIND_GENRE_CLASSIFICATION_PROMPT = `You are a dedicated audio-only music genre classifier. This is a BLIND audition: you receive raw audio only. Do not identify or guess the song, artist, release date, or cultural reputation. Do not score quality. Your entire job is to classify the audible style.
+
+MANDATORY ORDER OF OPERATIONS:
+1. AUDIBLE FEATURES FIRST. Before deciding any label, determine the percussion language, dominant instrumentation/texture, rhythmic foundation, vocal character (or absence), formal/sectional behavior, and production character.
+2. BROAD FAMILY SECOND. Choose the broad genre family from those features. A mood word such as dark, warm, melancholic, aggressive, dreamy, vintage, or atmospheric is NEVER enough to choose a family.
+3. SUBGENRE THIRD. Only after the broad family is fixed, choose a subgenre that genuinely belongs to that family.
+4. CONTRADICTION CHECK. Before returning the answer, actively ask which audible facts would make the chosen family impossible or substantially less plausible. If the runner-up explains the defining rhythm/instrumentation/form better, switch.
+5. Return a real runner-up and a 0-100 confidence estimate. Confidence is about classification certainty, not track quality.
+
+FAMILY ROUTING RULES:
+- ROCK vs FOLK: a sustained rock rhythm section, electric-guitar riff/power-chord language, amplified-band dynamics, or rock vocal phrasing outweighs an acoustic intro or occasional acoustic texture. Folk requires a genuinely roots/acoustic song idiom, not merely warmth, restraint, or singer-songwriter mood.
+- POP vs FOLK: hook-first vocal writing, polished pop phrasing, synthetic or tightly produced rhythm sections, programmed/electronic textures, or contemporary pop arrangement favor Pop. Sparse or intimate production alone does not make a track Folk.
+- POP vs ROCK/NEW WAVE: a dance/funk-derived groove, polished pop vocal center, synth/bass-driven arrangement, and repeated hook architecture can remain Pop even when guitars are present. Do not route a groove-driven pop record into Rock merely because clipped guitars or retro synth colors are audible.
+- DANCE/ELECTRONIC vs HIP-HOP: electronic sound design, drops, modulated bass, four-on-the-floor/dance-derived sequencing, or an instrumental electronic arrangement favor Dance / Electronic. Hip-Hop requires hip-hop beat language and/or rap/rhythmic vocal delivery; heavy bass alone is not hip-hop.
+- AMBIENT/DOWNTEMPO vs FOLK: slow tempo, organic samples, softness, or melancholy do not make a track Folk. If looped/electronic beat construction, sub-bass, atmospheric sampling, or studio sound-design architecture drives the piece, prefer Dance / Electronic -> Ambient / Downtempo.
+- R&B/FUNK vs POP/ROCK: R&B/Funk requires defining groove evidence such as syncopated bass/rhythm interplay, funk pocket, soul/R&B vocal language, or corresponding harmonic/rhythmic vocabulary. Do not infer it from warmth or age.
+- CLASSICAL vs FOLK/ALTERNATIVE: orchestral/classical instrumentation as the core voice, no pop/rock rhythm-section foundation, and thematic/developmental/through-composed form favor Classical. Acoustic texture alone does not imply Folk.
+
+HIGH-RISK SUBGENRE CONFUSIONS:
+- MAINSTREAM HEAVY METAL vs PUNK / POST-PUNK: metal is riff-centric and high-gain, commonly with tight palm-muted/chromatic/tritone movement, precision rhythmic guitar, heavier low-end/drum attack, extended riff development, and/or lead-guitar solo language. Punk is more direct and chordal, typically simpler/shorter in harmonic-riff design; post-punk is often angular, bass-led, sparse or textural. Do not call riff-dense metal "punk" merely because it is fast/aggressive/raw.
+- SHOEGAZE / DREAM POP: require genuinely guitar-led wash or similarly diffuse sustained harmonic layers with blurred attacks and vocals embedded into the texture. Dark atmosphere, reverb, distortion, whispery vocals, or industrial electronic texture by themselves are NOT shoegaze. Sparse electronic/sub-bass/percussive dark-pop should remain Pop or Electronic when those are the defining materials.
+- PROGRESSIVE ROCK / ART ROCK: favor extended development, unusual sectional architecture, thematic transformation, instrumental passages, meter/form ambition, or long-form narrative design. Do not downgrade this to Folk because sections are spacious or acoustic.
+- NEW WAVE / POWER POP: favor concise melodic hooks, tight/clipped guitar or synth interplay, energetic pop-rock backbeat and economical song form. Do not use it as a generic label for any older-sounding pop or rock track.
+- PSYCHEDELIC ROCK: favor studio-as-instrument color, unusual layered timbres, psychedelic harmonic/arrangement movement, nonstandard sectional transitions, or an expansive/experimental rock palette. Do not confuse those traits with New Wave merely because both can be bright and melodic.
+- DUBSTEP / FESTIVAL BASS: favor drop-centered structure, strongly modulated bass/sound-design gestures, half-time or bass-music rhythmic language and electronic build/release architecture. Do not route that to Hip-Hop solely because the beat is heavy.
+- Radio-format labels (Active Rock, Triple A, Mainstream Top 40, Airplay) are fallbacks. Prefer a specific stylistic label when the audible evidence clearly supports one.
+- "Heritage", "Catalog", and "Revival" are taxonomy packaging words, not release-date evidence. Use the style when appropriate without trying to infer age.
+
+Choose ONLY from this taxonomy, and ensure the subgenre belongs to the selected genre:
+${GENRE_TAXONOMY_TEXT}`;
+
+function normalizeGenreClassification(raw: BlindGenreClassification | null | undefined): BlindGenreClassification | null {
+  if (!raw?.genre || !raw?.subgenre) return null;
+  const candidate = { vibe: { genre: String(raw.genre).trim(), subgenre: String(raw.subgenre).trim() } };
+  validateGenrePair(candidate);
+
+  const genre = candidate.vibe.genre;
+  const subgenre = candidate.vibe.subgenre;
+  const valid =
+    Array.isArray((GENRE_MAP as Record<string, string[]>)[genre]) &&
+    (GENRE_MAP as Record<string, string[]>)[genre].includes(subgenre);
+
+  if (!valid) return null;
+  return { ...raw, genre, subgenre };
+}
+
+async function classifyBlindGenre(audioPart: any): Promise<BlindGenreClassification | null> {
+  try {
+    console.log("[GenrePreflight] Starting dedicated family-first blind genre analysis...");
+    const response = await generateContentWithRetry({
+      model: "gemini-2.5-flash",
+      contents: { parts: [audioPart] },
+      config: {
+        systemInstruction: BLIND_GENRE_CLASSIFICATION_PROMPT,
+        responseMimeType: "application/json",
+        responseSchema: BLIND_GENRE_CLASSIFICATION_SCHEMA,
+        temperature: 0,
+      },
+    }, 4);
+
+    if (!response.text) return null;
+    const parsed = normalizeGenreClassification(JSON.parse(response.text));
+    if (!parsed) {
+      console.log("[GenrePreflight] Invalid genre/subgenre pair; falling back to the normal critique classifier.");
+      return null;
+    }
+
+    const confidence = Number.isFinite(Number(parsed.confidence))
+      ? Math.max(0, Math.min(100, Number(parsed.confidence)))
+      : 0;
+
+    console.log(
+      `[GenrePreflight] ${parsed.genre} / ${parsed.subgenre} (confidence ${confidence}). ` +
+      `Runner-up: ${parsed.runnerUpGenre || "n/a"} / ${parsed.runnerUpSubgenre || "n/a"}. ` +
+      `Evidence: ${(parsed.decisiveEvidence || []).join(" | ")}`
+    );
+    return { ...parsed, confidence };
+  } catch (err: any) {
+    console.log("[GenrePreflight] Dedicated classification failed; falling back to the normal critique classifier:", err?.message || err);
+    return null;
+  }
+}
+
+function buildAuthoritativeBlindGenreInstruction(classification: BlindGenreClassification): string {
+  return `\n\n[AUTHORITATIVE BLIND GENRE CLASSIFICATION]
+A dedicated upstream AUDIO-ONLY genre pass has already completed the genre task before scoring.
+Use this exact pair throughout this report and all genre-conditioned judgments:
+- Genre: "${classification.genre}"
+- Subgenre: "${classification.subgenre}"
+Do NOT independently replace this genre/subgenre during the general critique. The upstream pass received no title, artist, release-date, or reputation context. Treat this pair as the classification context for downstream scoring. If later analysis establishes that the track is a genuine instrumental and the pair conflicts with the app's narrow instrumental-consistency guardrail, that guardrail may correct it after this pass.`;
+}
 
 // Response Schema for Structured AI Output
 const CRITIQUE_SCHEMA = {
