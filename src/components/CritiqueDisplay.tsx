@@ -1706,6 +1706,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     const ws = workbook.addWorksheet("YSS Full Report", { views: [{ showGridLines: false }] });
     const wsEchoNest = workbook.addWorksheet("Echo Nest Scorecard", { views: [{ showGridLines: false }] });
     const wsEngineering = workbook.addWorksheet("Engineering Studio", { views: [{ showGridLines: false }] });
+    const wsGenreDiagnostics = critique?.genrePipelineDiagnostics
+      ? workbook.addWorksheet("Genre Diagnostics", { views: [{ showGridLines: false }] })
+      : null;
 
     const CATS: Record<string, { dark: string; agg: string; core: string }> = {
       "STREAMING READINESS": { dark: "FF1E3A8A", agg: "FFA5B0D0", core: "FFD2D8E8" },
@@ -2243,6 +2246,122 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       wsEngineering.getCell(engRow, 5).border = fullBorder;
       engRow += 1;
     });
+
+    if (wsGenreDiagnostics && critique?.genrePipelineDiagnostics) {
+      const diag = critique.genrePipelineDiagnostics;
+      wsGenreDiagnostics.getColumn(1).width = 27;
+      wsGenreDiagnostics.getColumn(2).width = 115;
+      wsGenreDiagnostics.getColumn(3).width = 18;
+      wsGenreDiagnostics.getColumn(4).width = 18;
+
+      wsGenreDiagnostics.mergeCells("A1:D1");
+      wsGenreDiagnostics.getCell("A1").value = "TEMPORARY GENRE PIPELINE DIAGNOSTICS";
+      wsGenreDiagnostics.getCell("A1").font = { name: "Calibri", size: 14, bold: true, color: { argb: "FFFFFFFF" } };
+      wsGenreDiagnostics.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF111827" } };
+      wsGenreDiagnostics.getCell("A1").alignment = { horizontal: "left", vertical: "middle" };
+      wsGenreDiagnostics.getRow(1).height = 24;
+
+      wsGenreDiagnostics.mergeCells("A2:D2");
+      wsGenreDiagnostics.getCell("A2").value =
+        "Diagnostic only — used to determine whether a genre error begins in audio evidence extraction, broad-family ranking, top-two arbitration, or subgenre selection.";
+      wsGenreDiagnostics.getCell("A2").font = { name: "Calibri", size: 9, italic: true, color: { argb: "FF475569" } };
+      wsGenreDiagnostics.getCell("A2").alignment = { wrapText: true, vertical: "top" };
+      wsGenreDiagnostics.getRow(2).height = 32;
+
+      const section = (row: number, title: string) => {
+        wsGenreDiagnostics.mergeCells(row, 1, row, 4);
+        const cell = wsGenreDiagnostics.getCell(row, 1);
+        cell.value = title;
+        cell.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF334155" } };
+      };
+
+      const addDiagnosticRow = (row: number, label: string, value: any, scoreA?: any, scoreB?: any) => {
+        wsGenreDiagnostics.getCell(row, 1).value = label;
+        wsGenreDiagnostics.getCell(row, 1).font = { name: "Calibri", size: 10, bold: true };
+        wsGenreDiagnostics.getCell(row, 2).value =
+          Array.isArray(value) ? value.join(" | ") : (value ?? "");
+        wsGenreDiagnostics.getCell(row, 2).alignment = { wrapText: true, vertical: "top" };
+        if (scoreA !== undefined) wsGenreDiagnostics.getCell(row, 3).value = scoreA;
+        if (scoreB !== undefined) wsGenreDiagnostics.getCell(row, 4).value = scoreB;
+        [1, 2, 3, 4].forEach((col) => {
+          wsGenreDiagnostics.getCell(row, col).border = fullBorder;
+          wsGenreDiagnostics.getCell(row, col).font = {
+            ...(wsGenreDiagnostics.getCell(row, col).font || {}),
+            name: "Calibri",
+            size: 10,
+          };
+        });
+      };
+
+      let dr = 4;
+      section(dr++, "STAGE 1 — AUDIO EVIDENCE (NO GENRE LABEL ALLOWED)");
+      addDiagnosticRow(dr++, "Has Vocals", diag.evidence.hasVocals ? "Yes" : "No");
+      addDiagnosticRow(dr++, "Lead Vocal Role", diag.evidence.leadVocalRole);
+      addDiagnosticRow(dr++, "Percussion Language", diag.evidence.percussionLanguage);
+      addDiagnosticRow(dr++, "Rhythmic Foundation", diag.evidence.rhythmicFoundation);
+      addDiagnosticRow(dr++, "Dominant Instrumentation / Roles", diag.evidence.dominantInstrumentation);
+      addDiagnosticRow(dr++, "Guitar Behavior", diag.evidence.guitarBehavior);
+      addDiagnosticRow(dr++, "Orchestral / Classical Behavior", diag.evidence.orchestralClassicalBehavior);
+      addDiagnosticRow(dr++, "Electronic Compositional Behavior", diag.evidence.electronicCompositionalBehavior);
+      addDiagnosticRow(dr++, "Roots / Folk Behavior", diag.evidence.rootsFolkBehavior);
+      addDiagnosticRow(dr++, "Form", diag.evidence.formCharacter);
+      addDiagnosticRow(dr++, "Texture", diag.evidence.textureCharacter);
+      addDiagnosticRow(dr++, "Rendering vs Composition", diag.evidence.renderingVsComposition);
+      addDiagnosticRow(dr++, "Observations", diag.evidence.observations);
+
+      dr += 1;
+      section(dr++, "STAGE 2 — BROAD-FAMILY RANKING");
+      wsGenreDiagnostics.getCell(dr, 3).value = "Primary Evidence";
+      wsGenreDiagnostics.getCell(dr, 4).value = "Runner-up Evidence";
+      wsGenreDiagnostics.getCell(dr, 3).font = { bold: true };
+      wsGenreDiagnostics.getCell(dr, 4).font = { bold: true };
+      addDiagnosticRow(
+        dr++,
+        "Family Ranking",
+        `${diag.familyRanking.primaryGenre} vs ${diag.familyRanking.runnerUpGenre}`,
+        diag.familyRanking.primaryEvidence,
+        diag.familyRanking.runnerUpEvidence
+      );
+      addDiagnosticRow(dr++, "Family Rationale", diag.familyRanking.rationale || "");
+
+      dr += 1;
+      section(dr++, "STAGE 3 — GENERIC TOP-TWO ARBITRATION");
+      if (diag.arbitration) {
+        addDiagnosticRow(
+          dr++,
+          "Winner",
+          diag.arbitration.winnerGenre,
+          diag.arbitration.winnerScore,
+          diag.arbitration.loserScore
+        );
+        addDiagnosticRow(dr++, "Decisive Evidence", diag.arbitration.decisiveEvidence);
+      } else {
+        addDiagnosticRow(dr++, "Arbitration", "Not available / not run");
+      }
+
+      dr += 1;
+      section(dr++, "STAGE 4 — SUBGENRE WITHIN RESOLVED FAMILY");
+      addDiagnosticRow(
+        dr++,
+        "Subgenre",
+        `${diag.subgenre.selected}${diag.subgenre.runnerUp ? ` vs ${diag.subgenre.runnerUp}` : ""}`,
+        diag.subgenre.selectedEvidence,
+        diag.subgenre.runnerUpEvidence ?? ""
+      );
+      addDiagnosticRow(dr++, "Subgenre Rationale", diag.subgenre.rationale || "");
+
+      dr += 1;
+      section(dr++, "FINAL PIPELINE OUTPUT");
+      addDiagnosticRow(dr++, "Final Genre", diag.finalGenre);
+      addDiagnosticRow(dr++, "Final Subgenre", diag.finalSubgenre);
+
+      wsGenreDiagnostics.getCell("C3").value = "Winner / Primary";
+      wsGenreDiagnostics.getCell("D3").value = "Runner-up / Loser";
+      wsGenreDiagnostics.getCell("C3").font = { bold: true };
+      wsGenreDiagnostics.getCell("D3").font = { bold: true };
+      wsGenreDiagnostics.getRow(3).height = 18;
+    }
 
     const buffer = await workbook.xlsx.writeBuffer();
     return buffer instanceof Uint8Array
