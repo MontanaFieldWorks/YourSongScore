@@ -253,6 +253,261 @@ function normalizeGenreClassification(raw: BlindGenreClassification | null | und
   return { ...raw, genre, subgenre };
 }
 
+const ROCK_METAL_PUNK_ADJUDICATION_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    choice: { type: Type.STRING, enum: ["Mainstream Heavy Metal", "Punk / Post-Punk"] },
+    metalEvidence: { type: Type.INTEGER },
+    punkEvidence: { type: Type.INTEGER },
+    rationale: { type: Type.STRING },
+  },
+  required: ["choice", "metalEvidence", "punkEvidence", "rationale"],
+};
+
+const TEXTURAL_GENRE_ADJUDICATION_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    choice: {
+      type: Type.STRING,
+      enum: [
+        "Pop / Synthpop",
+        "Alternative / Shoegaze / Dream Pop Revival",
+        "Dance / Electronic / Ambient / Downtempo",
+      ],
+    },
+    popEvidence: { type: Type.INTEGER },
+    shoegazeEvidence: { type: Type.INTEGER },
+    downtempoEvidence: { type: Type.INTEGER },
+    rationale: { type: Type.STRING },
+  },
+  required: ["choice", "popEvidence", "shoegazeEvidence", "downtempoEvidence", "rationale"],
+};
+
+const INSTRUMENTAL_CLASSICAL_ADJUDICATION_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    decision: { type: Type.STRING, enum: ["Keep Current", "Classical"] },
+    classicalSubgenre: { type: Type.STRING, enum: ["Traditional Classical", "Classical Crossover"] },
+    classicalEvidence: { type: Type.INTEGER },
+    currentFamilyEvidence: { type: Type.INTEGER },
+    rationale: { type: Type.STRING },
+  },
+  required: ["decision", "classicalSubgenre", "classicalEvidence", "currentFamilyEvidence", "rationale"],
+};
+
+function clampGenreEvidence(value: any): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0;
+}
+
+async function adjudicateRockMetalVsPunk(
+  audioPart: any,
+  classification: BlindGenreClassification
+): Promise<BlindGenreClassification> {
+  if (
+    classification.genre !== "Rock" ||
+    !["Mainstream Heavy Metal", "Punk / Post-Punk"].includes(classification.subgenre)
+  ) return classification;
+
+  try {
+    const prompt = `A first blind audio pass placed this track in Rock / "${classification.subgenre}".
+Re-listen ONLY to resolve Mainstream Heavy Metal versus Punk / Post-Punk. Do not identify the artist or song and do not consider era or reputation.
+
+Judge the actual guitar/rhythm/form language:
+- Mainstream Heavy Metal: riff-centric high-gain writing, tight palm-muted/chromatic/tritone motion, precision rhythmic guitar, heavier low-end/drum attack, extended riff development, lead-guitar/solo vocabulary, and/or more intricate sectional riff architecture.
+- Punk / Post-Punk: more direct chordal attack, simpler/shorter riff-harmonic design, raw forward propulsion; post-punk can be angular, bass-led, sparse or textural.
+Fast, raw, aggressive energy alone is NOT evidence for Punk. Distorted guitars alone are NOT evidence for Metal.
+
+Score the audible evidence for both choices from 0-100 and pick one.`;
+
+    const response = await generateContentWithRetry({
+      model: "gemini-2.5-flash",
+      contents: { parts: [audioPart, { text: prompt }] },
+      config: {
+        systemInstruction: "You are an audio-only genre adjudicator. Resolve only the stated genre distinction from audible musical evidence.",
+        responseMimeType: "application/json",
+        responseSchema: ROCK_METAL_PUNK_ADJUDICATION_SCHEMA,
+        temperature: 0,
+      },
+    }, 4);
+
+    if (!response.text) return classification;
+    const result = JSON.parse(response.text);
+    const metal = clampGenreEvidence(result.metalEvidence);
+    const punk = clampGenreEvidence(result.punkEvidence);
+    const chosen = String(result.choice || "");
+    const currentScore = classification.subgenre === "Mainstream Heavy Metal" ? metal : punk;
+    const chosenScore = chosen === "Mainstream Heavy Metal" ? metal : punk;
+
+    // Only reverse the first pass when the re-listen is clearly stronger.
+    if (
+      chosen !== classification.subgenre &&
+      chosenScore >= 75 &&
+      chosenScore - currentScore >= 15
+    ) {
+      console.log(`[GenreAdjudicator:MetalPunk] Correcting ${classification.subgenre} -> ${chosen}. ${result.rationale || ""}`);
+      return { ...classification, genre: "Rock", subgenre: chosen };
+    }
+
+    console.log(`[GenreAdjudicator:MetalPunk] Keeping ${classification.subgenre}. Metal=${metal}, Punk=${punk}.`);
+    return classification;
+  } catch (err: any) {
+    console.log("[GenreAdjudicator:MetalPunk] Failed; keeping preflight result:", err?.message || err);
+    return classification;
+  }
+}
+
+async function adjudicateTexturalGenre(
+  audioPart: any,
+  classification: BlindGenreClassification
+): Promise<BlindGenreClassification> {
+  const currentLabel =
+    classification.genre === "Pop" && classification.subgenre === "Synthpop"
+      ? "Pop / Synthpop"
+      : classification.genre === "Alternative" && classification.subgenre === "Shoegaze / Dream Pop Revival"
+        ? "Alternative / Shoegaze / Dream Pop Revival"
+        : classification.genre === "Dance / Electronic" && classification.subgenre === "Ambient / Downtempo"
+          ? "Dance / Electronic / Ambient / Downtempo"
+          : null;
+
+  if (!currentLabel) return classification;
+
+  try {
+    const prompt = `A first blind audio pass returned "${currentLabel}".
+Re-listen ONLY to resolve these three commonly confused texture-driven styles:
+1) Pop / Synthpop
+2) Alternative / Shoegaze / Dream Pop Revival
+3) Dance / Electronic / Ambient / Downtempo
+
+Use structural evidence, not mood adjectives:
+- Pop / Synthpop: lead vocal and recurring vocal hook are structurally central; compact song sections; synth/electronic production supports a pop-song architecture.
+- Shoegaze / Dream Pop: a genuinely guitar-led or comparably diffuse harmonic wash is central; attacks blur together; sustained wall/haze texture dominates; vocals are embedded into that texture.
+- Ambient / Downtempo: atmosphere, loop/pulse, sub-bass, sampled/electronic texture, restrained beat construction, and studio sound design are more structurally dominant than either pop-hook architecture or a guitar-wall identity.
+
+Dark, dreamy, melancholic, reverberant, distorted, or intimate are NOT sufficient by themselves.
+Score evidence for all three choices from 0-100 and pick one.`;
+
+    const response = await generateContentWithRetry({
+      model: "gemini-2.5-flash",
+      contents: { parts: [audioPart, { text: prompt }] },
+      config: {
+        systemInstruction: "You are an audio-only genre adjudicator. Resolve only the stated three-way genre distinction from audible musical evidence.",
+        responseMimeType: "application/json",
+        responseSchema: TEXTURAL_GENRE_ADJUDICATION_SCHEMA,
+        temperature: 0,
+      },
+    }, 4);
+
+    if (!response.text) return classification;
+    const result = JSON.parse(response.text);
+    const scores: Record<string, number> = {
+      "Pop / Synthpop": clampGenreEvidence(result.popEvidence),
+      "Alternative / Shoegaze / Dream Pop Revival": clampGenreEvidence(result.shoegazeEvidence),
+      "Dance / Electronic / Ambient / Downtempo": clampGenreEvidence(result.downtempoEvidence),
+    };
+    const chosen = String(result.choice || "");
+    const chosenScore = scores[chosen] ?? 0;
+    const currentScore = scores[currentLabel] ?? 0;
+
+    if (chosen !== currentLabel && chosenScore >= 75 && chosenScore - currentScore >= 15) {
+      const mapping: Record<string, { genre: string; subgenre: string }> = {
+        "Pop / Synthpop": { genre: "Pop", subgenre: "Synthpop" },
+        "Alternative / Shoegaze / Dream Pop Revival": { genre: "Alternative", subgenre: "Shoegaze / Dream Pop Revival" },
+        "Dance / Electronic / Ambient / Downtempo": { genre: "Dance / Electronic", subgenre: "Ambient / Downtempo" },
+      };
+      const mapped = mapping[chosen];
+      if (mapped) {
+        console.log(`[GenreAdjudicator:Texture] Correcting ${currentLabel} -> ${chosen}. ${result.rationale || ""}`);
+        return { ...classification, ...mapped };
+      }
+    }
+
+    console.log(
+      `[GenreAdjudicator:Texture] Keeping ${currentLabel}. Pop=${scores["Pop / Synthpop"]}, Shoegaze=${scores["Alternative / Shoegaze / Dream Pop Revival"]}, Downtempo=${scores["Dance / Electronic / Ambient / Downtempo"]}.`
+    );
+    return classification;
+  } catch (err: any) {
+    console.log("[GenreAdjudicator:Texture] Failed; keeping preflight result:", err?.message || err);
+    return classification;
+  }
+}
+
+async function adjudicateInstrumentalClassical(
+  audioPart: any,
+  classification: BlindGenreClassification
+): Promise<BlindGenreClassification> {
+  const eligibleFamilies = new Set([
+    "Dance / Electronic",
+    "Latin",
+    "Folk / Singer-Songwriter",
+    "Alternative",
+  ]);
+
+  if (
+    classification.hasVocals !== false ||
+    classification.genre === "Classical" ||
+    !eligibleFamilies.has(classification.genre)
+  ) return classification;
+
+  try {
+    const prompt = `A first blind audio pass classified this NO-VOCAL instrumental as:
+"${classification.genre}" / "${classification.subgenre}".
+
+Re-listen only to answer whether this is genuinely that current genre family, or whether rendered timbre/rhythmic articulation is disguising Classical writing.
+
+Choose Classical only when the audio itself supports several of these:
+- orchestral/classical instrumental roles or ensemble behavior;
+- thematic/developmental or through-composed form rather than verse/chorus or loop/drop form;
+- no defining pop/rock/dance rhythm section;
+- melodic/counterpoint/voice-leading behavior functioning as the core structure;
+- repeated rhythmic cells, ostinati, syncopation or accented attacks that are compositional devices rather than a genre-defining groove.
+
+Keep the current genre when its defining idiom is genuinely present:
+- Electronic: sequenced/dance-derived pulse, electronic beat construction, synth/bass sound design, loop/drop/build architecture.
+- Latin: clave/tumbao/montuno, dembow/reggaeton, Latin percussion interplay or another unmistakable Latin groove.
+- Folk: genuine roots/acoustic song idiom and folk vocabulary.
+- Alternative: genuine alternative/dream/rock texture rather than simply synthetic sample playback.
+
+A MIDI, notation-program or sample-library rendering is NOT evidence of Electronic, Latin, Folk or Alternative by itself.
+Score Classical evidence and current-family evidence from 0-100.`;
+
+    const response = await generateContentWithRetry({
+      model: "gemini-2.5-flash",
+      contents: { parts: [audioPart, { text: prompt }] },
+      config: {
+        systemInstruction: "You are a conservative audio-only Classical-versus-current-family genre adjudicator. Do not identify the piece or artist.",
+        responseMimeType: "application/json",
+        responseSchema: INSTRUMENTAL_CLASSICAL_ADJUDICATION_SCHEMA,
+        temperature: 0,
+      },
+    }, 4);
+
+    if (!response.text) return classification;
+    const result = JSON.parse(response.text);
+    const classical = clampGenreEvidence(result.classicalEvidence);
+    const current = clampGenreEvidence(result.currentFamilyEvidence);
+
+    if (
+      result.decision === "Classical" &&
+      classical >= 80 &&
+      classical - current >= 15
+    ) {
+      const subgenre =
+        result.classicalSubgenre === "Classical Crossover"
+          ? "Classical Crossover"
+          : "Traditional Classical";
+      console.log(`[GenreAdjudicator:Classical] Correcting ${classification.genre} / ${classification.subgenre} -> Classical / ${subgenre}. ${result.rationale || ""}`);
+      return { ...classification, genre: "Classical", subgenre };
+    }
+
+    console.log(`[GenreAdjudicator:Classical] Keeping ${classification.genre} / ${classification.subgenre}. Classical=${classical}, Current=${current}.`);
+    return classification;
+  } catch (err: any) {
+    console.log("[GenreAdjudicator:Classical] Failed; keeping preflight result:", err?.message || err);
+    return classification;
+  }
+}
+
 async function classifyBlindGenre(audioPart: any): Promise<BlindGenreClassification | null> {
   try {
     console.log("[GenrePreflight] Starting dedicated family-first blind genre analysis...");
@@ -268,7 +523,7 @@ async function classifyBlindGenre(audioPart: any): Promise<BlindGenreClassificat
     }, 4);
 
     if (!response.text) return null;
-    const parsed = normalizeGenreClassification(JSON.parse(response.text));
+    let parsed = normalizeGenreClassification(JSON.parse(response.text));
     if (!parsed) {
       console.log("[GenrePreflight] Invalid genre/subgenre pair; falling back to the normal critique classifier.");
       return null;
@@ -279,14 +534,12 @@ async function classifyBlindGenre(audioPart: any): Promise<BlindGenreClassificat
       : 0;
 
     // Conservative acceptance gate: the new preflight should improve classification,
-    // not replace a working baseline with its own low-certainty guess. Low-confidence
-    // results fall back to the existing critique classifier and its established guardrails.
+    // not replace a working baseline with its own low-certainty guess.
     if (confidence < 65) {
       console.log(`[GenrePreflight] Confidence ${confidence} is below the 65 acceptance gate; using the existing classifier instead.`);
       return null;
     }
 
-    // Preserve the proven instrumental safety net before the general critique even runs.
     // A no-vocal result cannot authoritatively force a vocal-centric Folk subtype.
     const impossibleInstrumentalFolk =
       parsed.hasVocals === false &&
@@ -297,8 +550,18 @@ async function classifyBlindGenre(audioPart: any): Promise<BlindGenreClassificat
       return null;
     }
 
+    // Targeted adjudicators only operate inside known high-confusion taxonomy clusters.
+    // They do not have access to title/artist metadata, and they require a clear evidence
+    // margin before reversing the family-first result.
+    parsed = await adjudicateRockMetalVsPunk(audioPart, parsed);
+    parsed = await adjudicateTexturalGenre(audioPart, parsed);
+    parsed = await adjudicateInstrumentalClassical(audioPart, parsed);
+
+    parsed = normalizeGenreClassification(parsed);
+    if (!parsed) return null;
+
     console.log(
-      `[GenrePreflight] ${parsed.genre} / ${parsed.subgenre} (confidence ${confidence}). ` +
+      `[GenrePreflight] FINAL ${parsed.genre} / ${parsed.subgenre} (initial confidence ${confidence}). ` +
       `Runner-up: ${parsed.runnerUpGenre || "n/a"} / ${parsed.runnerUpSubgenre || "n/a"}. ` +
       `Evidence: ${(parsed.decisiveEvidence || []).join(" | ")}`
     );
