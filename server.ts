@@ -1916,18 +1916,14 @@ async function verifyInstrumentalGenreIfNeeded(
   audioPart: any,
   parsedCritique: any,
   hasExplicitGenreMetadata: boolean,
-  blindGenreClassification?: BlindGenreClassification | null
+  _blindGenreClassification?: BlindGenreClassification | null
 ): Promise<void> {
   if (hasExplicitGenreMetadata) return;
 
   const genre = String(parsedCritique?.vibe?.genre ?? "").trim();
   const subgenre = String(parsedCritique?.vibe?.subgenre ?? "").trim();
-  const noVocals =
-    parsedCritique?.performance?.vocalApplicable === false ||
-    blindGenreClassification?.hasVocals === false;
-  const noLyrics =
-    parsedCritique?.lyricalImpact?.applicable === false ||
-    blindGenreClassification?.hasVocals === false;
+  const noVocals = parsedCritique?.performance?.vocalApplicable === false;
+  const noLyrics = parsedCritique?.lyricalImpact?.applicable === false;
 
   // Generic consistency guardrail restored from the Sep. 19 build that produced the
   // correct Sep. 24 Braden classification. This is not song-specific: it only fires
@@ -1936,24 +1932,8 @@ async function verifyInstrumentalGenreIfNeeded(
   const vocalCentricFolk =
     genre === "Folk / Singer-Songwriter" &&
     (subgenre === "Singer-Songwriter" || subgenre === "Contemporary Folk");
-  const instrumentalRhythmFamily =
-    genre === "Dance / Electronic" ||
-    genre === "Latin" ||
-    genre === "Rap / Hip-Hop" ||
-    genre === "R&B";
-  const possibleRenderedClassicalMisroute =
-    genre === "Folk / Singer-Songwriter" ||
-    genre === "Alternative";
 
-  // Instrumental contradiction checks:
-  // 1) vocal-centric Folk with no vocals/lyrics (the proven Sep. 19 guardrail);
-  // 2) instrumental rhythm-family classifications where rendered timbre or repeated
-  //    note patterns can masquerade as a defining groove;
-  // 3) instrumental Folk/Alternative classifications, which get a conservative
-  //    Classical-vs-current-family re-listen because sample/notation renders can
-  //    disguise orchestral/classical writing. For this third case we only override
-  //    when the verifier explicitly concludes Classical.
-  if (!(noVocals && noLyrics && (vocalCentricFolk || instrumentalRhythmFamily || possibleRenderedClassicalMisroute))) return;
+  if (!(noVocals && noLyrics && vocalCentricFolk)) return;
 
   try {
     console.log(`[GenreConsistency] Instrumental track classified as ${genre} / ${subgenre}; running focused consistency verification.`);
@@ -1961,17 +1941,13 @@ async function verifyInstrumentalGenreIfNeeded(
     const context = `FOCUSED GENRE CONSISTENCY VERIFICATION - LISTEN TO THE AUDIO AGAIN.
 The first pass classified this track as "${genre}" / "${subgenre}", but the same pass also determined that the track has NO VOCALS and NO LYRICS. Re-evaluate the genre from the audio itself before downstream scoring uses that label.
 
-This is NOT an instruction to force Classical, Folk, or Electronic. Decide from the actual compositional idiom, dominant instrumentation/roles, rhythmic foundation, and form. Do NOT classify from rendering technology alone.
+This is NOT an instruction to force Classical. Instrumental folk is real. Decide from the actual dominant instrumentation, rhythmic foundation, and form.
 
-Critical distinctions:
+Critical distinction:
 - Folk / Singer-Songwriter requires genuine folk/song idiom: acoustic-song structure, folk-rooted picking/strumming/fiddle/banjo or comparable roots vocabulary, and usually a song-form foundation even when instrumental.
-- Dance / Electronic requires genuinely electronic compositional language: sequenced or dance-derived pulse, electronic beat construction, synth/bass sound design as a defining compositional element, loop/drop/build architecture, or comparable electronic structure. A MIDI/notation-program/sample-library rendering of orchestral or acoustic parts is NOT electronic genre evidence by itself.
-- Latin requires unmistakable Latin rhythmic organization: clave/tumbao/montuno, dembow/reggaeton, Latin percussion interplay, or another clearly Latin groove foundation. Melodic ornament, syncopation, plucked/string-like timbre, or a phrase that merely feels "Spanish" is insufficient.
-- Rap / Hip-Hop requires actual hip-hop beat language or rap/rhythmic vocal behavior. A repeated low pattern or synthetic percussion color is insufficient by itself.
-- R&B/Funk requires genuine groove evidence: syncopated bass/rhythm-section interplay, funk pocket, soul/R&B harmonic-rhythmic language, or equivalent defining traits. Warm timbre or one syncopated line is insufficient.
-- Classical / Classical Crossover is appropriate when orchestral/classical instrumentation or instrumental writing is the core voice, there is no pop/rock/dance rhythm section driving the piece, and the form is thematic/through-composed/developmental rather than verse-chorus or loop/drop songwriting. Classical writing may include ostinati, repeated rhythmic cells, syncopation, rapid passagework, or emphatic accents. Synthetic-sounding sample playback does not disqualify Classical.
-- Do not infer genre from mood or render timbre alone. "Melancholic", "organic", "warm", "cinematic", "uplifting", "synthetic", "Spanish-sounding", or "dance-like" are not sufficient genre evidence.
-- Do not invent instruments. Report the dominant roles and instrumentation you can actually hear.
+- Classical / Classical Crossover is appropriate when orchestral/classical instrumentation is the core voice (strings, brass, woodwinds, piano or orchestral ensemble), there is no pop/rock rhythm section driving the piece, and the form is thematic/through-composed/developmental rather than verse-chorus songwriting.
+- Do not infer genre from mood alone. "Melancholic", "organic", "warm", or "acoustic" are not sufficient evidence for folk.
+- Do not invent instruments. Report the dominant instrumentation you can actually hear.
 - Choose ONLY from this taxonomy and make sure the subgenre belongs to the selected genre:
 ${GENRE_TAXONOMY_TEXT}
 
@@ -2004,26 +1980,12 @@ Return the best genre/subgenre plus a short evidence summary.`;
       return;
     }
 
-    // For the broader instrumental Folk/Alternative safety net, be deliberately
-    // one-way: it exists only to recover clear Classical material from render-timbre
-    // confusion. Do not use this extra listen to bounce a valid instrumental Folk or
-    // Alternative track into some unrelated third family.
-    const classicalOnlyOverride =
-      possibleRenderedClassicalMisroute &&
-      !vocalCentricFolk &&
-      !instrumentalRhythmFamily;
-
-    if (classicalOnlyOverride && verifiedGenre !== "Classical") {
-      console.log("[GenreConsistency] Broader instrumental check did not conclude Classical; keeping the original genre.");
-      return;
-    }
-
     if (verifiedGenre !== genre || verifiedSubgenre !== subgenre) {
       console.log(`[GenreConsistency] Correcting ${genre} / ${subgenre} -> ${verifiedGenre} / ${verifiedSubgenre}. Evidence: ${verified.rationale}`);
       parsedCritique.vibe.genre = verifiedGenre;
       parsedCritique.vibe.subgenre = verifiedSubgenre;
     } else {
-      console.log("[GenreConsistency] Focused verification confirmed the original instrumental classification.");
+      console.log("[GenreConsistency] Focused verification confirmed the original instrumental-folk classification.");
     }
   } catch (err: any) {
     console.log("[GenreConsistency] Verification failed; continuing with the original classification:", err?.message || err);
