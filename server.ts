@@ -179,6 +179,31 @@ type BlindGenreClassification = {
   formCharacter?: string;
   productionCharacter?: string;
   decisiveEvidence?: string[];
+  diagnostics?: {
+    evidence: BlindGenreEvidence;
+    familyRanking: {
+      primaryGenre: string;
+      runnerUpGenre: string;
+      primaryEvidence: number;
+      runnerUpEvidence: number;
+      rationale?: string;
+    };
+    arbitration?: {
+      winnerGenre: string;
+      winnerScore: number;
+      loserScore: number;
+      decisiveEvidence: string[];
+    } | null;
+    subgenre: {
+      selected: string;
+      runnerUp?: string;
+      selectedEvidence: number;
+      runnerUpEvidence?: number;
+      rationale?: string;
+    };
+    finalGenre: string;
+    finalSubgenre: string;
+  };
 };
 
 const BLIND_GENRE_EVIDENCE_SCHEMA = {
@@ -425,7 +450,7 @@ async function classifySubgenreWithinFamily(
   audioPart: any,
   evidence: BlindGenreEvidence,
   genre: string
-): Promise<{ subgenre: string; runnerUpSubgenre?: string; score: number } | null> {
+): Promise<{ subgenre: string; runnerUpSubgenre?: string; score: number; runnerUpScore?: number; rationale?: string } | null> {
   const options = (GENRE_MAP as Record<string, string[]>)[genre];
   if (!Array.isArray(options) || options.length === 0) return null;
   if (options.length === 1) return { subgenre: options[0], score: 100 };
@@ -481,6 +506,8 @@ Return the best subgenre, a runner-up from the SAME family, and evidence strengt
         ? String(result.runnerUpSubgenre)
         : undefined,
       score: clampGenreEvidence(result.selectedEvidence),
+      runnerUpScore: clampGenreEvidence(result.runnerUpEvidence),
+      rationale: String(result.rationale || ""),
     };
   } catch (err: any) {
     console.log("[GenreSubgenre] Subgenre classification failed:", err?.message || err);
@@ -562,6 +589,33 @@ async function classifyBlindGenre(audioPart: any): Promise<BlindGenreClassificat
         arbitration?.decisiveEvidence?.length
           ? arbitration.decisiveEvidence
           : evidence.observations,
+      diagnostics: {
+        evidence,
+        familyRanking: {
+          primaryGenre,
+          runnerUpGenre,
+          primaryEvidence,
+          runnerUpEvidence,
+          rationale: String(ranking.rationale || ""),
+        },
+        arbitration: arbitration
+          ? {
+              winnerGenre: arbitration.genre,
+              winnerScore: arbitration.winnerScore,
+              loserScore: arbitration.loserScore,
+              decisiveEvidence: arbitration.decisiveEvidence || [],
+            }
+          : null,
+        subgenre: {
+          selected: subgenreResult.subgenre,
+          runnerUp: subgenreResult.runnerUpSubgenre,
+          selectedEvidence: subgenreResult.score,
+          runnerUpEvidence: subgenreResult.runnerUpScore,
+          rationale: subgenreResult.rationale,
+        },
+        finalGenre,
+        finalSubgenre: subgenreResult.subgenre,
+      },
     });
 
     if (!final) return null;
@@ -2317,6 +2371,9 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       threeX
     );
     parsedCritique.productionFinishEvidence = productionFinishEvidence;
+    if (blindGenreClassification?.diagnostics) {
+      parsedCritique.genrePipelineDiagnostics = blindGenreClassification.diagnostics;
+    }
 
     try {
 
@@ -2591,6 +2648,9 @@ app.post("/api/critique-url", async (req, res) => {
       !!threeX
     );
     parsedCritique.productionFinishEvidence = productionFinishEvidence;
+    if (blindGenreClassification?.diagnostics) {
+      parsedCritique.genrePipelineDiagnostics = blindGenreClassification.diagnostics;
+    }
 
     try {
 
