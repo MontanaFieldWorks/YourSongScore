@@ -1671,14 +1671,19 @@ async function verifyInstrumentalGenreIfNeeded(
     genre === "Latin" ||
     genre === "Rap / Hip-Hop" ||
     genre === "R&B";
+  const possibleRenderedClassicalMisroute =
+    genre === "Folk / Singer-Songwriter" ||
+    genre === "Alternative";
 
-  // Narrow instrumental contradiction checks:
+  // Instrumental contradiction checks:
   // 1) vocal-centric Folk with no vocals/lyrics (the proven Sep. 19 guardrail);
-  // 2) an instrumental routed into a rhythm-family genre where rendered timbre or
-  //    repeated note patterns can masquerade as a defining groove. This does NOT
-  //    force Classical: the verifier can confirm a genuine instrumental electronic,
-  //    Latin, hip-hop, or R&B/funk idiom when the rhythm evidence is actually present.
-  if (!(noVocals && noLyrics && (vocalCentricFolk || instrumentalRhythmFamily))) return;
+  // 2) instrumental rhythm-family classifications where rendered timbre or repeated
+  //    note patterns can masquerade as a defining groove;
+  // 3) instrumental Folk/Alternative classifications, which get a conservative
+  //    Classical-vs-current-family re-listen because sample/notation renders can
+  //    disguise orchestral/classical writing. For this third case we only override
+  //    when the verifier explicitly concludes Classical.
+  if (!(noVocals && noLyrics && (vocalCentricFolk || instrumentalRhythmFamily || possibleRenderedClassicalMisroute))) return;
 
   try {
     console.log(`[GenreConsistency] Instrumental track classified as ${genre} / ${subgenre}; running focused consistency verification.`);
@@ -1729,12 +1734,26 @@ Return the best genre/subgenre plus a short evidence summary.`;
       return;
     }
 
+    // For the broader instrumental Folk/Alternative safety net, be deliberately
+    // one-way: it exists only to recover clear Classical material from render-timbre
+    // confusion. Do not use this extra listen to bounce a valid instrumental Folk or
+    // Alternative track into some unrelated third family.
+    const classicalOnlyOverride =
+      possibleRenderedClassicalMisroute &&
+      !vocalCentricFolk &&
+      !instrumentalRhythmFamily;
+
+    if (classicalOnlyOverride && verifiedGenre !== "Classical") {
+      console.log("[GenreConsistency] Broader instrumental check did not conclude Classical; keeping the original genre.");
+      return;
+    }
+
     if (verifiedGenre !== genre || verifiedSubgenre !== subgenre) {
       console.log(`[GenreConsistency] Correcting ${genre} / ${subgenre} -> ${verifiedGenre} / ${verifiedSubgenre}. Evidence: ${verified.rationale}`);
       parsedCritique.vibe.genre = verifiedGenre;
       parsedCritique.vibe.subgenre = verifiedSubgenre;
     } else {
-      console.log("[GenreConsistency] Focused verification confirmed the original instrumental-folk classification.");
+      console.log("[GenreConsistency] Focused verification confirmed the original instrumental classification.");
     }
   } catch (err: any) {
     console.log("[GenreConsistency] Verification failed; continuing with the original classification:", err?.message || err);
