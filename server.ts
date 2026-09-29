@@ -1214,12 +1214,8 @@ function buildProductionFinishEvidence(values: {
 function enforceClassicalInstrumentalSourceNeutrality(parsedCritique: any): void {
   const genre = String(parsedCritique?.vibe?.genre ?? "").trim();
   const subgenre = String(parsedCritique?.vibe?.subgenre ?? "").trim();
-  const noVocals =
-    parsedCritique?.performance?.vocalApplicable === false ||
-    blindGenreClassification?.hasVocals === false;
-  const noLyrics =
-    parsedCritique?.lyricalImpact?.applicable === false ||
-    blindGenreClassification?.hasVocals === false;
+  const noVocals = parsedCritique?.performance?.vocalApplicable === false;
+  const noLyrics = parsedCritique?.lyricalImpact?.applicable === false;
   const classicalInstrumental = genre === "Classical" && noVocals && noLyrics;
   if (!classicalInstrumental) return;
 
@@ -1656,8 +1652,12 @@ async function verifyInstrumentalGenreIfNeeded(
 
   const genre = String(parsedCritique?.vibe?.genre ?? "").trim();
   const subgenre = String(parsedCritique?.vibe?.subgenre ?? "").trim();
-  const noVocals = parsedCritique?.performance?.vocalApplicable === false;
-  const noLyrics = parsedCritique?.lyricalImpact?.applicable === false;
+  const noVocals =
+    parsedCritique?.performance?.vocalApplicable === false ||
+    blindGenreClassification?.hasVocals === false;
+  const noLyrics =
+    parsedCritique?.lyricalImpact?.applicable === false ||
+    blindGenreClassification?.hasVocals === false;
 
   // Generic consistency guardrail restored from the Sep. 19 build that produced the
   // correct Sep. 24 Braden classification. This is not song-specific: it only fires
