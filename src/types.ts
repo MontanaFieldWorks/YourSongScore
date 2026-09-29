@@ -200,6 +200,45 @@ export interface CritiqueData {
   subMetricsCall1Failed?: boolean;
   subMetricsCall2Failed?: boolean;
   subMetricsCall3Failed?: boolean;
+  genrePipelineDiagnostics?: {
+    evidence: {
+      hasVocals: boolean;
+      leadVocalRole: string;
+      percussionLanguage: string;
+      rhythmicFoundation: string;
+      dominantInstrumentation: string;
+      guitarBehavior: string;
+      orchestralClassicalBehavior: string;
+      electronicCompositionalBehavior: string;
+      rootsFolkBehavior: string;
+      formCharacter: string;
+      textureCharacter: string;
+      renderingVsComposition: string;
+      observations: string[];
+    };
+    familyRanking: {
+      primaryGenre: string;
+      runnerUpGenre: string;
+      primaryEvidence: number;
+      runnerUpEvidence: number;
+      rationale?: string;
+    };
+    arbitration?: {
+      winnerGenre: string;
+      winnerScore: number;
+      loserScore: number;
+      decisiveEvidence: string[];
+    } | null;
+    subgenre: {
+      selected: string;
+      runnerUp?: string;
+      selectedEvidence: number;
+      runnerUpEvidence?: number;
+      rationale?: string;
+    };
+    finalGenre: string;
+    finalSubgenre: string;
+  };
 }
 
 export interface TrackInfo {
