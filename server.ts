@@ -165,6 +165,11 @@ type BlindGenreEvidence = {
   observations: string[];
 };
 
+type BlindGenreEvidenceAudit = BlindGenreEvidence & {
+  corrections: string[];
+  evidenceReliability: number;
+};
+
 type BlindGenreClassification = {
   genre: string;
   subgenre: string;
@@ -240,6 +245,64 @@ const BLIND_GENRE_EVIDENCE_SCHEMA = {
   ],
 };
 
+const BLIND_GENRE_EVIDENCE_AUDIT_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    hasVocals: { type: Type.BOOLEAN },
+    leadVocalRole: { type: Type.STRING },
+    percussionLanguage: { type: Type.STRING },
+    rhythmicFoundation: { type: Type.STRING },
+    dominantInstrumentation: { type: Type.STRING },
+    guitarBehavior: { type: Type.STRING },
+    orchestralClassicalBehavior: { type: Type.STRING },
+    electronicCompositionalBehavior: { type: Type.STRING },
+    rootsFolkBehavior: { type: Type.STRING },
+    formCharacter: { type: Type.STRING },
+    textureCharacter: { type: Type.STRING },
+    renderingVsComposition: { type: Type.STRING },
+    observations: { type: Type.ARRAY, items: { type: Type.STRING } },
+    corrections: { type: Type.ARRAY, items: { type: Type.STRING } },
+    evidenceReliability: { type: Type.INTEGER },
+  },
+  required: [
+    "hasVocals",
+    "leadVocalRole",
+    "percussionLanguage",
+    "rhythmicFoundation",
+    "dominantInstrumentation",
+    "guitarBehavior",
+    "orchestralClassicalBehavior",
+    "electronicCompositionalBehavior",
+    "rootsFolkBehavior",
+    "formCharacter",
+    "textureCharacter",
+    "renderingVsComposition",
+    "observations",
+    "corrections",
+    "evidenceReliability",
+  ],
+};
+
+const BLIND_GENRE_EVIDENCE_AUDIT_PROMPT = `You are the INDEPENDENT VERIFICATION PASS of a blind audio genre-analysis system.
+
+You will receive raw audio plus an UNTRUSTED first-pass evidence description. Assume any first-pass claim may be wrong. Re-listen from scratch and correct unsupported source, rhythm, vocal, and form claims.
+
+CRITICAL: DO NOT name, choose, suggest, rank, or guess any genre or subgenre. Do not identify the song, artist, era, scene, or cultural context. Your job is only to produce the most reliable source-neutral evidence description possible.
+
+STRICT VERIFICATION RULES:
+- Do not call a pitched repeating figure an "arpeggiated synth" unless the source is unmistakably synthetic. If ambiguous, say "repeating pitched/arpeggiated layer; source uncertain."
+- Do not call anything a drum machine/programmed beat unless you can actually hear unpitched kick/snare/hat/percussion behavior. Repeated pitched notes, ostinati, staccato orchestral attacks, or notation-rendered accents are NOT drums.
+- Do not call a vocal rap/spoken-word merely because phrases are clipped, low, intimate, or rhythmically delivered. Use "rap/rhythmic speech" only when speech-like pitch behavior is clearly audible.
+- Do not invent additional speakers, backing voices, gender, or vocal sections that are not clearly audible.
+- Do not infer electronic COMPOSITION from synthetic/sample-library TIMBRE. Sequencing, loop/drop/build behavior, electronic beat construction, or synth/bass sound-design behavior must be structurally audible.
+- Do not infer Classical merely from "cinematic" mood. Look for ensemble/voice-leading/counterpoint/thematic-development/through-composed behavior and the absence of a defining pop/rock/dance rhythm section.
+- When exact source identity is uncertain, describe FUNCTION instead of instrument: "sustained harmonic layer", "foreground melodic voice", "low-frequency foundation", "transient rhythmic layer", etc.
+- If the first pass made a specific source claim that you cannot verify, explicitly correct it in the corrections array.
+- Mood adjectives are not structural evidence.
+- evidenceReliability is 0-100 and should reflect how confidently the AUDIBLE STRUCTURAL FACTS—not genre—were established.
+
+Return a full corrected evidence record plus a concise list of corrections made to the first pass.`;
+
 const BLIND_GENRE_EVIDENCE_PROMPT = `You are performing the EVIDENCE PASS of a blind audio genre-analysis system.
 
 CRITICAL: DO NOT name, choose, suggest, rank, or guess any genre or subgenre. Do not identify the song, artist, release period, scene, or cultural context. Do not score quality. Your only job is to describe the audible musical evidence that a separate classifier will use later.
@@ -256,6 +319,9 @@ Listen for and report:
 - form: verse/chorus, hook-first pop form, riff/sectional rock form, loop/drop electronic form, thematic/developmental/through-composed form, or other;
 - texture: clear articulated sources versus diffuse wall/haze, sparse atmospheric bed, dense layered production, etc.;
 - most importantly, distinguish RENDERING/TIMBRE from COMPOSITIONAL IDIOM. MIDI, notation-program, sample-library, virtual-instrument, or synthetic-sounding playback does NOT by itself mean the composition is electronic. Likewise an acoustic timbre does not by itself mean Folk.
+- Never label a repeated pitched pattern as a drum machine or programmed beat. Percussion claims require clearly audible unpitched transient behavior such as kick/snare/hat/percussion.
+- Never label a vocal as rap/spoken-word unless the pitch behavior is genuinely speech-like. Do not invent additional speakers or vocalists.
+- Never call an ambiguous pitched layer a synth simply because the rendering sounds synthetic; use source-neutral functional language when uncertain.
 
 Use source-neutral language when exact instrument identity is uncertain. Mood adjectives such as dark, dreamy, melancholic, aggressive, warm, cinematic, vintage, or atmospheric are observations only and must not substitute for structural evidence.`;
 
@@ -327,8 +393,42 @@ async function extractBlindGenreEvidence(audioPart: any): Promise<BlindGenreEvid
   }
 }
 
-async function rankBlindGenreFamilies(
+async function auditBlindGenreEvidence(
   audioPart: any,
+  firstPass: BlindGenreEvidence
+): Promise<BlindGenreEvidenceAudit> {
+  try {
+    console.log("[GenreEvidence] Starting independent evidence verification pass...");
+    const firstPassText = stringifyGenreEvidence(firstPass);
+    const prompt = `UNTRUSTED FIRST-PASS EVIDENCE:
+${firstPassText}
+
+Re-listen to the raw audio and return the corrected evidence record. Do not preserve a claim merely because it appears above.`;
+
+    const response = await generateContentWithRetry({
+      model: "gemini-2.5-flash",
+      contents: { parts: [audioPart, { text: prompt }] },
+      config: {
+        systemInstruction: BLIND_GENRE_EVIDENCE_AUDIT_PROMPT,
+        responseMimeType: "application/json",
+        responseSchema: BLIND_GENRE_EVIDENCE_AUDIT_SCHEMA,
+        temperature: 0,
+      },
+    }, 4);
+
+    if (!response.text) {
+      return { ...firstPass, corrections: ["Verification pass returned no result; retained first-pass evidence."], evidenceReliability: 0 };
+    }
+    const audited = JSON.parse(response.text) as BlindGenreEvidenceAudit;
+    audited.evidenceReliability = clampGenreEvidence(audited.evidenceReliability);
+    return audited;
+  } catch (err: any) {
+    console.log("[GenreEvidence] Verification pass failed; retaining first-pass evidence:", err?.message || err);
+    return { ...firstPass, corrections: ["Verification pass failed; retained first-pass evidence."], evidenceReliability: 0 };
+  }
+}
+
+async function rankBlindGenreFamilies(
   evidence: BlindGenreEvidence
 ): Promise<any | null> {
   try {
@@ -364,9 +464,9 @@ Return the strongest family and a genuine runner-up, plus evidence strength for 
 
     const response = await generateContentWithRetry({
       model: "gemini-2.5-flash",
-      contents: { parts: [audioPart, { text: prompt }] },
+      contents: { parts: [{ text: prompt }] },
       config: {
-        systemInstruction: "You are the broad-family stage of a blind music-classification pipeline. Choose only broad families from audible structural evidence.",
+        systemInstruction: "You are the broad-family stage of a blind music-classification pipeline. Choose only broad families from the verified evidence. Do not infer new audio facts.",
         responseMimeType: "application/json",
         responseSchema: GENRE_FAMILY_RANKING_SCHEMA,
         temperature: 0,
@@ -382,7 +482,6 @@ Return the strongest family and a genuine runner-up, plus evidence strength for 
 }
 
 async function arbitrateBlindGenreFamilies(
-  audioPart: any,
   evidence: BlindGenreEvidence,
   firstGenre: string,
   secondGenre: string
@@ -401,9 +500,9 @@ A blind family-ranking pass produced exactly two finalists:
 A) ${firstGenre}
 B) ${secondGenre}
 
-Re-listen to the audio from scratch and decide ONLY between these two families. Do not introduce a third family. Do not identify the song/artist and do not infer era.
+Decide ONLY between these two families using the VERIFIED evidence below. Do not introduce a third family, do not infer new audio facts, and do not identify song/artist or era.
 
-Previously extracted evidence:
+VERIFIED evidence:
 ${evidenceText}
 
 Judge which finalist better explains the DEFINING rhythm, instrumentation/roles, vocal behavior, texture source, and form. Rendering technology is not genre: synthetic/sample-library playback must not be treated as electronic composition unless the rhythm/form/sound-design language is actually electronic. Likewise acoustic timbre alone is not Folk.
@@ -412,9 +511,9 @@ Return the winner plus separate 0-100 evidence strength for A and B and the spec
 
     const response = await generateContentWithRetry({
       model: "gemini-2.5-flash",
-      contents: { parts: [audioPart, { text: prompt }] },
+      contents: { parts: [{ text: prompt }] },
       config: {
-        systemInstruction: "You are an independent top-two genre-family arbitrator. Resolve only the two supplied broad families from audio evidence.",
+        systemInstruction: "You are an independent top-two genre-family arbitrator. Resolve only the two supplied broad families from the verified evidence; do not invent new auditory observations.",
         responseMimeType: "application/json",
         responseSchema: GENRE_FAMILY_ARBITRATION_SCHEMA,
         temperature: 0,
@@ -447,7 +546,6 @@ Return the winner plus separate 0-100 evidence strength for A and B and the spec
 }
 
 async function classifySubgenreWithinFamily(
-  audioPart: any,
   evidence: BlindGenreEvidence,
   genre: string
 ): Promise<{ subgenre: string; runnerUpSubgenre?: string; score: number; runnerUpScore?: number; rationale?: string } | null> {
@@ -477,18 +575,18 @@ ${genre}
 Do NOT reconsider or replace the broad family. Choose only among these subgenres:
 ${options.join(", ")}
 
-Re-listen to the audio and use the evidence below. Choose the subgenre whose defining musical language is most audible. Prefer a stylistically specific label over a radio-format label when the evidence supports it. Words such as Heritage, Catalog, Revival, Airplay, Mainstream, or Modern in the taxonomy are packaging/format terms and are NOT release-date evidence.
+Use only the verified evidence below. Choose the subgenre whose defining musical language is best supported. Do not invent new audio observations. Prefer a stylistically specific label over a radio-format label when the evidence supports it. Words such as Heritage, Catalog, Revival, Airplay, Mainstream, or Modern in the taxonomy are packaging/format terms and are NOT release-date evidence.
 
 AUDIBLE EVIDENCE:
 ${evidenceText}
 
-Return the best subgenre, a runner-up from the SAME family, and evidence strength for each.`;
+Return the best subgenre, a runner-up from the SAME family, and evidence strength for each on a 0-100 scale.`;
 
     const response = await generateContentWithRetry({
       model: "gemini-2.5-flash",
-      contents: { parts: [audioPart, { text: prompt }] },
+      contents: { parts: [{ text: prompt }] },
       config: {
-        systemInstruction: "You are the subgenre stage of a blind classifier. The broad family is fixed; choose only within that family.",
+        systemInstruction: "You are the subgenre stage of a blind classifier. The broad family is fixed; choose only within that family and use only the verified evidence.",
         responseMimeType: "application/json",
         responseSchema: schema,
         temperature: 0,
@@ -532,15 +630,19 @@ function normalizeGenreClassification(raw: BlindGenreClassification | null | und
 
 async function classifyBlindGenre(audioPart: any): Promise<BlindGenreClassification | null> {
   try {
-    // Stage 1 deliberately cannot name a genre.
-    const evidence = await extractBlindGenreEvidence(audioPart);
-    if (!evidence) {
+    // Stage 1A deliberately cannot name a genre.
+    const firstPassEvidence = await extractBlindGenreEvidence(audioPart);
+    if (!firstPassEvidence) {
       console.log("[GenrePipeline] Evidence pass unavailable; falling back to the existing critique classifier.");
       return null;
     }
 
-    // Stage 2 ranks only broad families.
-    const ranking = await rankBlindGenreFamilies(audioPart, evidence);
+    // Stage 1B independently audits source/rhythm/vocal claims before any genre is named.
+    const evidenceAudit = await auditBlindGenreEvidence(audioPart, firstPassEvidence);
+    const evidence: BlindGenreEvidence = evidenceAudit;
+
+    // Stage 2 ranks broad families from VERIFIED EVIDENCE ONLY — no new audio re-listen.
+    const ranking = await rankBlindGenreFamilies(evidence);
     if (!ranking?.primaryGenre) {
       console.log("[GenrePipeline] Family ranking unavailable; falling back to the existing critique classifier.");
       return null;
@@ -556,14 +658,14 @@ async function classifyBlindGenre(audioPart: any): Promise<BlindGenreClassificat
     // Stage 3 always performs the same generic top-two arbitration. There are no
     // song-specific or confusion-pair-specific adjudicators.
     const arbitration = runnerUpGenre && GENRE_ENUM_VALUES.includes(runnerUpGenre)
-      ? await arbitrateBlindGenreFamilies(audioPart, evidence, primaryGenre, runnerUpGenre)
+      ? await arbitrateBlindGenreFamilies(evidence, primaryGenre, runnerUpGenre)
       : null;
 
     const finalGenre = arbitration?.genre || primaryGenre;
     if (!GENRE_ENUM_VALUES.includes(finalGenre)) return null;
 
     // Stage 4 chooses only inside the already-resolved family.
-    const subgenreResult = await classifySubgenreWithinFamily(audioPart, evidence, finalGenre);
+    const subgenreResult = await classifySubgenreWithinFamily(evidence, finalGenre);
     if (!subgenreResult) {
       console.log("[GenrePipeline] Subgenre stage unavailable; falling back to existing classifier.");
       return null;
@@ -590,7 +692,12 @@ async function classifyBlindGenre(audioPart: any): Promise<BlindGenreClassificat
           ? arbitration.decisiveEvidence
           : evidence.observations,
       diagnostics: {
+        rawEvidence: firstPassEvidence,
         evidence,
+        evidenceAudit: {
+          corrections: evidenceAudit.corrections || [],
+          evidenceReliability: evidenceAudit.evidenceReliability,
+        },
         familyRanking: {
           primaryGenre,
           runnerUpGenre,
