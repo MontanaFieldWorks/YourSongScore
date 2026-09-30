@@ -2294,24 +2294,43 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         });
       };
 
+      const writeEvidenceBlock = (evidence: any) => {
+        addDiagnosticRow(dr++, "Has Vocals", evidence.hasVocals ? "Yes" : "No");
+        addDiagnosticRow(dr++, "Lead Vocal Role", evidence.leadVocalRole);
+        addDiagnosticRow(dr++, "Percussion Language", evidence.percussionLanguage);
+        addDiagnosticRow(dr++, "Rhythmic Foundation", evidence.rhythmicFoundation);
+        addDiagnosticRow(dr++, "Dominant Instrumentation / Roles", evidence.dominantInstrumentation);
+        addDiagnosticRow(dr++, "Guitar Behavior", evidence.guitarBehavior);
+        addDiagnosticRow(dr++, "Orchestral / Classical Behavior", evidence.orchestralClassicalBehavior);
+        addDiagnosticRow(dr++, "Electronic Compositional Behavior", evidence.electronicCompositionalBehavior);
+        addDiagnosticRow(dr++, "Roots / Folk Behavior", evidence.rootsFolkBehavior);
+        addDiagnosticRow(dr++, "Form", evidence.formCharacter);
+        addDiagnosticRow(dr++, "Texture", evidence.textureCharacter);
+        addDiagnosticRow(dr++, "Rendering vs Composition", evidence.renderingVsComposition);
+        addDiagnosticRow(dr++, "Observations", evidence.observations);
+      };
+
       let dr = 4;
-      section(dr++, "STAGE 1 — AUDIO EVIDENCE (NO GENRE LABEL ALLOWED)");
-      addDiagnosticRow(dr++, "Has Vocals", diag.evidence.hasVocals ? "Yes" : "No");
-      addDiagnosticRow(dr++, "Lead Vocal Role", diag.evidence.leadVocalRole);
-      addDiagnosticRow(dr++, "Percussion Language", diag.evidence.percussionLanguage);
-      addDiagnosticRow(dr++, "Rhythmic Foundation", diag.evidence.rhythmicFoundation);
-      addDiagnosticRow(dr++, "Dominant Instrumentation / Roles", diag.evidence.dominantInstrumentation);
-      addDiagnosticRow(dr++, "Guitar Behavior", diag.evidence.guitarBehavior);
-      addDiagnosticRow(dr++, "Orchestral / Classical Behavior", diag.evidence.orchestralClassicalBehavior);
-      addDiagnosticRow(dr++, "Electronic Compositional Behavior", diag.evidence.electronicCompositionalBehavior);
-      addDiagnosticRow(dr++, "Roots / Folk Behavior", diag.evidence.rootsFolkBehavior);
-      addDiagnosticRow(dr++, "Form", diag.evidence.formCharacter);
-      addDiagnosticRow(dr++, "Texture", diag.evidence.textureCharacter);
-      addDiagnosticRow(dr++, "Rendering vs Composition", diag.evidence.renderingVsComposition);
-      addDiagnosticRow(dr++, "Observations", diag.evidence.observations);
+      section(dr++, "STAGE 1A — RAW AUDIO EVIDENCE (NO GENRE LABEL ALLOWED)");
+      writeEvidenceBlock(diag.rawEvidence || diag.evidence);
 
       dr += 1;
-      section(dr++, "STAGE 2 — BROAD-FAMILY RANKING");
+      section(dr++, "STAGE 1B — INDEPENDENT EVIDENCE VERIFICATION");
+      writeEvidenceBlock(diag.evidence);
+      addDiagnosticRow(
+        dr++,
+        "Corrections to First Pass",
+        diag.evidenceAudit?.corrections || []
+      );
+      addDiagnosticRow(
+        dr++,
+        "Evidence Reliability",
+        "0–100 confidence in structural evidence only",
+        diag.evidenceAudit?.evidenceReliability ?? ""
+      );
+
+      dr += 1;
+      section(dr++, "STAGE 2 — BROAD-FAMILY RANKING FROM VERIFIED EVIDENCE");
       wsGenreDiagnostics.getCell(dr, 3).value = "Primary Evidence";
       wsGenreDiagnostics.getCell(dr, 4).value = "Runner-up Evidence";
       wsGenreDiagnostics.getCell(dr, 3).font = { bold: true };
@@ -2326,7 +2345,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       addDiagnosticRow(dr++, "Family Rationale", diag.familyRanking.rationale || "");
 
       dr += 1;
-      section(dr++, "STAGE 3 — GENERIC TOP-TWO ARBITRATION");
+      section(dr++, "STAGE 3 — GENERIC TOP-TWO ARBITRATION (VERIFIED EVIDENCE ONLY)");
       if (diag.arbitration) {
         addDiagnosticRow(
           dr++,
@@ -2341,7 +2360,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       }
 
       dr += 1;
-      section(dr++, "STAGE 4 — SUBGENRE WITHIN RESOLVED FAMILY");
+      section(dr++, "STAGE 4 — SUBGENRE WITHIN RESOLVED FAMILY (VERIFIED EVIDENCE ONLY)");
       addDiagnosticRow(
         dr++,
         "Subgenre",
