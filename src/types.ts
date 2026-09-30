@@ -201,6 +201,21 @@ export interface CritiqueData {
   subMetricsCall2Failed?: boolean;
   subMetricsCall3Failed?: boolean;
   genrePipelineDiagnostics?: {
+    rawEvidence: {
+      hasVocals: boolean;
+      leadVocalRole: string;
+      percussionLanguage: string;
+      rhythmicFoundation: string;
+      dominantInstrumentation: string;
+      guitarBehavior: string;
+      orchestralClassicalBehavior: string;
+      electronicCompositionalBehavior: string;
+      rootsFolkBehavior: string;
+      formCharacter: string;
+      textureCharacter: string;
+      renderingVsComposition: string;
+      observations: string[];
+    };
     evidence: {
       hasVocals: boolean;
       leadVocalRole: string;
@@ -215,6 +230,10 @@ export interface CritiqueData {
       textureCharacter: string;
       renderingVsComposition: string;
       observations: string[];
+    };
+    evidenceAudit: {
+      corrections: string[];
+      evidenceReliability: number;
     };
     familyRanking: {
       primaryGenre: string;
