@@ -298,8 +298,14 @@ STRICT VERIFICATION RULES:
 - Do not infer Classical merely from "cinematic" mood. Look for ensemble/voice-leading/counterpoint/thematic-development/through-composed behavior and the absence of a defining pop/rock/dance rhythm section.
 - When exact source identity is uncertain, describe FUNCTION instead of instrument: "sustained harmonic layer", "foreground melodic voice", "low-frequency foundation", "transient rhythmic layer", etc.
 - If source identity, rhythmic interpretation, or form is ambiguous, say so directly rather than forcing a specific instrument or production technique.
+- Treat every positive genre-bearing structural claim as something that must be affirmatively demonstrated, not inferred from timbre.
+- Repetition, exact timing, layered texture, a sustained pad-like sound, an ostinato, or narrow dynamics are NOT by themselves evidence of electronic composition. electronicCompositionalBehavior may be called present only when the audio clearly establishes an electronic organizing mechanism such as verified programmed beat language, loop/build/drop architecture, sequencing that functions as form, or unmistakable synth/bass sound-design behavior that is central to the composition.
+- A "four-on-the-floor" claim requires an audible low-frequency kick on every beat across multiple bars. A steady pulse, repeating pitched notes, syncopated/broken beats, or snare/hat regularity are insufficient.
+- For instrumental music, do not mark orchestralClassicalBehavior absent until you have actively checked for multiple interacting pitched voices, voice-leading/counterpoint, recurring thematic material that develops or transforms, sectional development, and through-composed behavior. Sample-library, notation-rendered, clipped, or synthetic-sounding articulation must not veto those compositional signs.
+- For distorted guitar, explicitly distinguish ATTACK (crisp/articulated vs blurred/smeared) and ROLE (riff/chord propulsion vs sustained harmonic wall/wash). Do not reduce a texture-first guitar wall to "riff-centric" merely because power chords or note changes are audible.
+- For vocal music, explicitly state whether the form is lead-vocal hook/verse/refrain centered. Fully programmed backing does not erase a vocal-song center of gravity.
 - Mood adjectives are not structural evidence.
-- evidenceReliability is 0-100 and should reflect how confidently the AUDIBLE STRUCTURAL FACTS—not genre—were established.
+- evidenceReliability is 0-100 and should reflect how confidently the AUDIBLE STRUCTURAL FACTS—not genre—were established. If source identity, beat type, or form remains materially uncertain, do not score reliability above 75; if the electronic-vs-developmental/classical distinction itself remains unresolved, do not score above 60.
 - auditNotes should briefly record important uncertainties or verification cautions, not genre conclusions.
 
 Return a full independent evidence record plus concise audit notes.`;
@@ -424,11 +430,12 @@ You have NOT been shown another model's evidence description. Work from the raw 
 
 Additional verification priorities:
 - A repeating pitched ostinato can create many onset spikes. Do not call those spikes drums unless broadband/unpitched percussion is actually audible and supported by the spectrogram.
-- A four-on-the-floor claim requires a genuinely regular kick pulse on each beat; do not infer it merely from a steady pulse or repeated notes.
+- A four-on-the-floor claim requires a genuinely regular low-frequency kick pulse on each beat across multiple bars; do not infer it merely from a steady pulse, repeated notes, or a regular snare/hat pattern.
 - Distorted guitar texture must be described along TWO independent axes: attack behavior (crisp/articulated vs blurred/smeared) and role (riff/chord propulsion vs sustained wall/harmonic wash).
 - For vocals, distinguish melodic singing, rhythmic singing, chant-like repetition, and genuine speech/rap without inferring genre from any one of them.
 - For form, distinguish hook/verse/refrain song architecture, riff-sectional band form, loop/build/drop form, and thematic/developmental or through-composed instrumental form.
-- "Synthetic-sounding" is a rendering observation, not proof of electronic composition.`,
+- When there are no vocals or no conventional backbeat, spend extra attention on long-range melodic development, interacting pitched voices, thematic return/transformation, and ensemble-style voice-leading before declaring classical/orchestral behavior absent.
+- "Synthetic-sounding", "pad-like", layered, quantized, or notation-rendered is a rendering observation, not proof of electronic composition.`,
         responseMimeType: "application/json",
         responseSchema: BLIND_GENRE_EVIDENCE_AUDIT_SCHEMA,
         temperature: 0,
@@ -452,7 +459,7 @@ async function rankBlindGenreFamilies(
     const evidenceText = stringifyGenreEvidence(evidence);
     const prompt = `BLIND BROAD-FAMILY CLASSIFICATION.
 
-The evidence pass below was created WITHOUT naming any genre. Re-listen to the audio and use the evidence to rank only the BROAD GENRE FAMILY. Do not choose a subgenre yet. Do not identify the song or artist and do not infer release era.
+The evidence pass below was created WITHOUT naming any genre. Use ONLY that verified evidence to rank the BROAD GENRE FAMILY. You do not have the audio at this stage, so do not invent or "re-listen" for facts that are absent from the evidence. Do not choose a subgenre yet. Do not identify the song or artist and do not infer release era.
 
 AUDIBLE EVIDENCE:
 ${evidenceText}
@@ -482,10 +489,11 @@ Decision priority:
 4. Mood is last and cannot decide the family.
 
 Important family safeguards:
-- Electronic production techniques do not automatically make the broad family Dance / Electronic. If a melodic lead vocal, recurring hook, and verse/refrain song architecture are clearly the center of gravity, Pop can remain the family even when the backing is almost entirely programmed/synthetic. Dance / Electronic should win when electronic groove, sequencing, sound-design architecture, build/drop behavior, or instrumental electronic structure is itself the defining identity.
-- A repeating pitched/arpeggiated layer is NOT evidence of electronic sequencing by itself. If the source is uncertain, there is no verified electronic beat language, and the form is thematic/developmental or otherwise non-loop-based, do not use repetition alone to choose Dance / Electronic.
-- For Rock vs Alternative, conventional riff/chord propulsion, articulated backbeat and riff-sectional form favor Rock; diffuse/smeared wall-of-sound texture, embedded vocals, dream/shoegaze texture, indie/experimental arrangement language, or texture-first guitar behavior can favor Alternative even with loud distorted guitars.
-- Classical requires classical/orchestral/chamber compositional behavior rather than "cinematic" mood. Conversely, sample-library or synthetic rendering must not disqualify Classical when thematic development, voice-leading/ensemble behavior, and non-pop/non-dance form are present.
+- Electronic production techniques do not automatically make the broad family Dance / Electronic. If a melodic lead vocal, recurring hook, and verse/refrain song architecture are clearly the center of gravity, Pop should outrank Dance / Electronic unless the evidence also verifies a defining dance-floor/club pulse, build/drop architecture, or electronic instrumental structure that organizes the song. Programmed drums + synth bass + loops alone are not enough.
+- Dance / Electronic is eligible only when electronic rhythm/form/sound-design is itself the organizing language. A repeating pitched/arpeggiated layer, sustained harmonic bed, layered arrangement, exact timing, or synthetic timbre is NOT electronic sequencing by itself.
+- For Rock vs Alternative, conventional crisp riff/chord propulsion, articulated backbeat and riff-sectional form favor Rock; diffuse/smeared wall-of-sound texture, embedded vocals, sustained harmonic wash, dream/shoegaze texture, indie/experimental arrangement language, or texture-first guitar behavior can favor Alternative even with loud distorted guitars or power chords.
+- Classical requires classical/orchestral/chamber COMPOSITIONAL behavior rather than acoustic orchestral timbre or "cinematic" mood. Conversely, sample-library, notation-rendered, clipped, electric-like, or synthetic rendering must not disqualify Classical when thematic development, interacting voices/voice-leading, ensemble behavior, and non-pop/non-dance form are present.
+- If the verified evidence itself is materially uncertain about the defining beat, source identity, or form, do not convert that uncertainty into a strong family claim; reflect it in lower evidence scores and prefer the family supported by compositional structure rather than timbre.
 
 Synthetic or sample-library rendering is NOT electronic-family evidence by itself. Acoustic timbre is NOT folk-family evidence by itself. Dark/dreamy/aggressive/cinematic mood is never enough to choose a family.
 
@@ -607,11 +615,11 @@ ${options.join(", ")}
 Use only the verified evidence below. Choose the subgenre whose DEFINING musical language is best supported. Do not invent new audio observations. Prefer a stylistically specific label over a radio-format label when the evidence supports it. Words such as Heritage, Catalog, Revival, Airplay, Mainstream, or Modern in the taxonomy are packaging/format terms and are NOT release-date evidence.
 
 Do not choose a subgenre from generic surface traits alone. Require its defining rhythm/form/texture:
-- House / Tech-House requires a clearly verified regular club/four-on-the-floor foundation; a steady pulse or electronic production alone is insufficient.
-- Trance requires a verified dance pulse plus trance-like build/release and synth/arpeggiated electronic language; an arpeggiated pitched layer alone is insufficient.
-- Ambient / Downtempo is favored for restrained, atmospheric, non-four-on-the-floor electronic pieces where texture/pulse outweigh club-drive.
-- Mainstream Heavy Metal requires metal-style riff precision/high-gain propulsion and/or extended metal lead/solo language; loud distortion alone is insufficient.
-- Shoegaze / Dream Pop Revival requires texture-first blurred/smeared guitar or harmonic wash and typically embedded vocals; heavy guitars alone are insufficient.
+- House / Tech-House requires a clearly verified club foundation with a low-frequency kick on every beat across multiple bars; a steady pulse, regular snare/hat pattern, syncopated/broken beat, or electronic production alone is insufficient.
+- Trance requires that same verified dance pulse PLUS trance-like build/release and unmistakable synth/arpeggiated electronic language; an arpeggiated pitched layer, melancholy mood, or processed vocal alone is insufficient.
+- Ambient / Downtempo is favored for restrained, atmospheric or broken/syncopated electronic pieces where texture/pulse outweigh club-drive and four-on-the-floor is not verified.
+- Mainstream Heavy Metal requires multiple metal-specific markers, not generic loud guitar: for example precise/percussive high-gain riff propulsion, metal-specific drum vocabulary, aggressive/shouted vocal behavior, and/or extended fast/technical lead-solo language. Loud distortion, power chords, energetic drums, and an emotive sung vocal by themselves are insufficient.
+- Shoegaze / Dream Pop Revival requires texture-first blurred/smeared guitar or sustained harmonic wash and usually de-emphasized/embedded vocals. Chord changes or distortion do not make the guitar "riff-centric" when the dominant role is a continuous wall/haze.
 - Progressive Rock / Art Rock requires extended/developmental or unusually sectional rock form, not merely atmosphere or length.
 - Singer-Songwriter / Folk labels require authentic roots/song idiom rather than acoustic timbre alone.
 - Traditional Classical / Classical Crossover must be decided from compositional language and presentation, not whether the rendering sounds synthetic.
