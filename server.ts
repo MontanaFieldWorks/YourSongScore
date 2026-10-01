@@ -166,7 +166,7 @@ type BlindGenreEvidence = {
 };
 
 type BlindGenreEvidenceAudit = BlindGenreEvidence & {
-  corrections: string[];
+  auditNotes: string[];
   evidenceReliability: number;
 };
 
@@ -261,7 +261,7 @@ const BLIND_GENRE_EVIDENCE_AUDIT_SCHEMA = {
     textureCharacter: { type: Type.STRING },
     renderingVsComposition: { type: Type.STRING },
     observations: { type: Type.ARRAY, items: { type: Type.STRING } },
-    corrections: { type: Type.ARRAY, items: { type: Type.STRING } },
+    auditNotes: { type: Type.ARRAY, items: { type: Type.STRING } },
     evidenceReliability: { type: Type.INTEGER },
   },
   required: [
@@ -278,14 +278,14 @@ const BLIND_GENRE_EVIDENCE_AUDIT_SCHEMA = {
     "textureCharacter",
     "renderingVsComposition",
     "observations",
-    "corrections",
+    "auditNotes",
     "evidenceReliability",
   ],
 };
 
 const BLIND_GENRE_EVIDENCE_AUDIT_PROMPT = `You are the INDEPENDENT VERIFICATION PASS of a blind audio genre-analysis system.
 
-You will receive raw audio plus an UNTRUSTED first-pass evidence description. Assume any first-pass claim may be wrong. Re-listen from scratch and correct unsupported source, rhythm, vocal, and form claims.
+You receive raw audio and may receive DSP support images. You do NOT receive the first evidence pass. Listen from scratch and produce your own source-neutral description of rhythm, source roles, vocal behavior, texture, and form.
 
 CRITICAL: DO NOT name, choose, suggest, rank, or guess any genre or subgenre. Do not identify the song, artist, era, scene, or cultural context. Your job is only to produce the most reliable source-neutral evidence description possible.
 
@@ -297,11 +297,12 @@ STRICT VERIFICATION RULES:
 - Do not infer electronic COMPOSITION from synthetic/sample-library TIMBRE. Sequencing, loop/drop/build behavior, electronic beat construction, or synth/bass sound-design behavior must be structurally audible.
 - Do not infer Classical merely from "cinematic" mood. Look for ensemble/voice-leading/counterpoint/thematic-development/through-composed behavior and the absence of a defining pop/rock/dance rhythm section.
 - When exact source identity is uncertain, describe FUNCTION instead of instrument: "sustained harmonic layer", "foreground melodic voice", "low-frequency foundation", "transient rhythmic layer", etc.
-- If the first pass made a specific source claim that you cannot verify, explicitly correct it in the corrections array.
+- If source identity, rhythmic interpretation, or form is ambiguous, say so directly rather than forcing a specific instrument or production technique.
 - Mood adjectives are not structural evidence.
 - evidenceReliability is 0-100 and should reflect how confidently the AUDIBLE STRUCTURAL FACTS—not genre—were established.
+- auditNotes should briefly record important uncertainties or verification cautions, not genre conclusions.
 
-Return a full corrected evidence record plus a concise list of corrections made to the first pass.`;
+Return a full independent evidence record plus concise audit notes.`;
 
 const BLIND_GENRE_EVIDENCE_PROMPT = `You are performing the EVIDENCE PASS of a blind audio genre-analysis system.
 
@@ -688,7 +689,7 @@ async function classifyBlindGenre(
     );
     const evidenceAudit: BlindGenreEvidenceAudit = independentEvidence || {
       ...firstPassEvidence,
-      corrections: ["Independent verification was unavailable; first-pass evidence was used as fallback."],
+      auditNotes: ["Independent verification was unavailable; first-pass evidence was used as fallback."],
       evidenceReliability: 0,
     };
     const evidence: BlindGenreEvidence = evidenceAudit;
@@ -747,7 +748,7 @@ async function classifyBlindGenre(
         rawEvidence: firstPassEvidence,
         evidence,
         evidenceAudit: {
-          corrections: evidenceAudit.corrections || [],
+          auditNotes: evidenceAudit.auditNotes || [],
           evidenceReliability: evidenceAudit.evidenceReliability,
         },
         familyRanking: {
