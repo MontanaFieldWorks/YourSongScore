@@ -452,9 +452,9 @@ export default function App() {
     if (finite(airPct) && airPct < 0.35) { flags.push("extremely low air-band energy"); spectralFlags.push("air"); }
 
     let ceiling: number | null = null;
-    if (spectralFlags.length >= 2 && flags.length >= 5) ceiling = 80;
-    else if (spectralFlags.length >= 2 && flags.length === 4) ceiling = 84;
-    else if (spectralFlags.length >= 2 && flags.length === 3) ceiling = 88;
+    if (spectralFlags.length >= 2 && flags.length >= 5) ceiling = 74;
+    else if (spectralFlags.length >= 2 && flags.length === 4) ceiling = 80;
+    else if (spectralFlags.length >= 2 && flags.length === 3) ceiling = 84;
 
     const fmt = (v: number | undefined, digits = 2) => finite(v) ? v.toFixed(digits) : "N/A";
     const summary =
@@ -835,10 +835,23 @@ export default function App() {
 
     if (ceiling === null) return critique;
 
+    const spaceDensityCeiling = Math.min(88, ceiling + 4);
+    const paletteCohesionCeiling = Math.min(88, ceiling + 8);
+
     if (call1?.aestheticDesign && typeof call1.aestheticDesign.score === "number" && call1.aestheticDesign.score > ceiling) {
       call1.aestheticDesign.score = ceiling;
       call1.aestheticDesign.commentary =
-        `The audible design may still be coherent, but the measured production-finish profile does not support a reference-level production-design score. ${summary}`;
+        `The creative direction may still be coherent, but the delivered audio shows a multi-signal production-finish outlier pattern that materially limits how fully that design is realized in the master. ${summary}`;
+    }
+    if (call1?.spaceAndDensity && typeof call1.spaceAndDensity.score === "number" && call1.spaceAndDensity.score > spaceDensityCeiling) {
+      call1.spaceAndDensity.score = spaceDensityCeiling;
+      call1.spaceAndDensity.commentary =
+        `The arrangement may retain usable separation, but the delivered spectrum is too uneven to support a 90+ space-and-density result. Extreme finish outliers indicate that apparent openness is not translating as balanced, reference-level spectral occupancy. ${summary}`;
+    }
+    if (call1?.paletteCohesion && typeof call1.paletteCohesion.score === "number" && call1.paletteCohesion.score > paletteCohesionCeiling) {
+      call1.paletteCohesion.score = paletteCohesionCeiling;
+      call1.paletteCohesion.commentary =
+        `A consistent timbral character can still be present, but consistency alone is not proof of exceptional palette craft. The severe production-finish outlier pattern prevents a top-band cohesion score for the delivered master. ${summary}`;
     }
     if (call1?.spectralMatch && typeof call1.spectralMatch.score === "number" && call1.spectralMatch.score > ceiling) {
       call1.spectralMatch.score = ceiling;
