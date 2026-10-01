@@ -232,7 +232,7 @@ export interface CritiqueData {
       observations: string[];
     };
     evidenceAudit: {
-      corrections: string[];
+      auditNotes: string[];
       evidenceReliability: number;
     };
     familyRanking: {
