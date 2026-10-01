@@ -940,7 +940,7 @@ const SUBMETRICS_SCHEMA_1 = {
     spaceAndDensity: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     mudPrevention: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     sibilanceShaving: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
-    lowEndDivision: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    lowEndDivision: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
     midrangeSpacing: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     stereoWidth: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     seoUniqueness: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
@@ -1074,6 +1074,8 @@ CRITICAL DISTINCTION: Low-mid warmth, body, and heavy harmonic density are delib
 RUBRIC ANCHOR FOR MIDRANGE SPACING: a score of 90-100 requires the midrange (roughly 500Hz to 4kHz) content to stay clearly separated between instruments at all times - lead vocals, primary hooks, and backing synths or guitars each occupy distinguishable space with no persistent clash. Real spectral flatness and flux measurements for this exact range are provided above as 'Measured Midrange Evidence' and real energy readings for the Low-Mids/Core Mids bands are in 'Measured Spectral Band Distribution' - use these as supporting evidence for how densely and how tonally this range is occupied, alongside what you actually hear; neither number alone determines whether the density represents genuine crowding or healthy, well-arranged density. A score of 70-85 applies when the mix is generally functional but has at least one identifiable moment where two or more elements genuinely overlap and blur together - name the specific elements. Below 70 is reserved for mixes with structural, persistent crowding throughout.
 
 RUBRIC ANCHOR FOR LOW-END DIVISION: a score of 90-100 requires the kick drum and bass (synth bass, 808, or bass guitar) to occupy clearly separated frequency pockets with both audible and distinct throughout - neither one masking or swallowing the other. Real sub-bass/bass temporal correlation and crest factor measurements are provided above as 'Measured Low-End Evidence' - use them as supporting evidence for how independently the sub-bass and bass regions actually behave over time, alongside what you actually hear. Low correlation can reflect deliberate, independent sound design (e.g. a modulated sub-bass in electronic genres) rather than a problem, and neither correlation nor crest factor alone proves or disproves genuine separation - judge the combination alongside the audible result. In modern dark pop, hip-hop, or synthwave, powerful low-end with sustained bass notes that underpin punchy transients represents elite low-end engineering (90-100), not an overlap problem. A score of 70-85 applies when the low end is generally functional but has at least one section where the bass and kick blur together or one becomes hard to distinguish from the other. Below 70 is reserved for a persistent, structural failure of separation - one element (most commonly the bass) is genuinely difficult to hear as a distinct part for most of the track, buried under or merged with the other low-frequency content.
+
+LOW-END DIVISION APPLICABILITY GATE - MANDATORY: this metric requires TWO distinct low-frequency roles to compare: (1) a kick-like or other low-frequency transient source and (2) a sustained bass/sub-bass foundation. If one or both roles are genuinely absent, there is no division to evaluate. Set lowEndDivision.applicable=false, use score 0 only as a placeholder, and state that the metric is not applicable because two independent low-end roles are not present. Do NOT award 90-100 because a solo/acoustic/orchestral source has a clean low end; clean low-frequency tone from a single source is not evidence of expert separation between two sources. Before marking N/A, listen carefully and confirm that a subtle kick, bass guitar, 808, synth bass, low orchestral foundation, or comparable independent role is not actually present.
 
 - sibilanceShaving: IMPORTANT - a real, precomputed sibilance severity measurement for this track will be provided in the context below as 'Measured Sibilance Severity Score'. This is a genuine, objective measurement (0-100, where 100 = no detected harsh spikes in the 5-10kHz range, lower values = more/worse detected spikes), not a guess. You MUST treat this measured value as the primary, authoritative basis for the sibilanceShaving score - use your own listening impression only as a secondary, qualitative supplement in the commentary (e.g. identifying which specific words or moments sound harsh), not as a basis for overriding what the measurement shows. RUBRIC ANCHOR: map the measured value to your score directly and consistently - measured 90-100 -> score 90-100; measured 70-89 -> score 70-89; measured 50-69 -> score 50-69; below 50 -> score below 50. Do not compress the measured value toward a "safe middle" score - a genuinely low measured value must produce a genuinely low score, even for a well-known or otherwise well-produced track. A professionally released, well-mixed track can still have real, measured sibilance issues (e.g. a mixing engineer choosing to actively de-ess a vocal is direct evidence that real sibilance existed before correction) - this is common and does not imply the whole mix is bad.
 - stereoWidth: judges the width and spatial use of the stereo field - is the mix appropriately wide (backing elements, reverbs, doubled parts spread across the stereo image) without being so wide that mono compatibility or center-focus suffers? Judge this from what you actually hear in the stereo image, not from any external measurement. IMPORTANT - a real, precomputed phase correlation measurement for this track will be provided in the context below as 'Measured Stereo Phase Correlation'. This is a genuine, objective measurement (not a guess). READ IT CORRECTLY - the physics are easy to invert: +1 means the left and right channels are identical, which is a MONO / very NARROW, dead-centre image (not a phase fault, simply an absence of width). Around 0 means the channels are highly DECORRELATED, which is a very WIDE image. Below 0 means the channels are increasingly out of phase, which is the genuine cancellation risk - a mix at negative correlation will partially or fully cancel when summed to mono. Width therefore INCREASES as the value falls from +1 toward 0, and phase risk appears only once it goes negative. Values roughly between 0.15 and 0.85 represent a healthy, wide-but-mono-safe stereo field.
@@ -1493,6 +1495,8 @@ Two specific cases this affects:
 
 SIBILANCE SHAVING: this metric evaluates the control of VOCAL SIBILANCE specifically - harsh "s", "t" and "sh" energy from a sung or spoken performance. If the track has no vocals, or no sibilant vocal source at all, there is no sibilance to control: set sibilanceShaving.applicable to false with a 0 placeholder. Do NOT award a high score on the reasoning that no harsh sibilance is present - that is the absence of the thing being measured, not evidence it was expertly managed. This was a real, observed failure: an instrumental orchestral track scored 98 here with commentary stating the track contains no vocals. Note also that general high-frequency harshness from cymbals, strings or synths is NOT sibilance and belongs to the other spectral metrics, not this one - do not repurpose this metric to comment on non-vocal high end.
 
+LOW-END DIVISION follows the same absence rule even though it is not vocal-specific. If the track does not contain both an independent low-frequency transient role and an independent sustained bass/sub-bass role, set lowEndDivision.applicable to false with a 0 placeholder. A clean low end from one acoustic, orchestral, or melodic source is not evidence of separation between two low-end elements and must never receive a high score for that reason.
+
 The other case this most affects is vocalLayerFit. If the track genuinely has a single lead vocal with no backing harmonies, no doubling, and no stacked vocal layers, set vocalLayerFit.applicable to false with a 0 placeholder score, exactly as described above. Do NOT score it 90-100 on the reasoning that nothing is clashing or nothing is misaligned - an absence of layers is an absence of evidence, not evidence of excellence. This was a real, observed failure: seven separate professional tracks each received a perfect 100 for vocalLayerFit accompanied by commentary stating the track had no backing harmonies at all, which is exactly the reasoning this instruction forbids.
 
 BEFORE declaring that layering is absent, listen carefully and be genuinely confident. Backing harmonies, octave doubling, and stacked vocal layers are extremely common and are often mixed subtly underneath the lead rather than being obvious. Incorrectly claiming a track has no vocal layering is a factual error about the audio, and it is a costly one, because it also wrongly triggers the not-applicable path above. If layering is present at all - even quietly, even only in the choruses - vocalLayerFit IS applicable and must be scored on how well those layers actually sit against the lead.
@@ -1684,9 +1688,9 @@ function buildProductionFinishEvidence(values: {
   // A single unusual measurement is never enough to suppress a score. The ceiling only
   // activates when at least two independent spectral outliers occur together and the
   // total pattern contains three or more extreme signals.
-  if (spectralFlags.length >= 2 && flags.length >= 5) ceiling = 80;
-  else if (spectralFlags.length >= 2 && flags.length === 4) ceiling = 84;
-  else if (spectralFlags.length >= 2 && flags.length === 3) ceiling = 88;
+  if (spectralFlags.length >= 2 && flags.length >= 5) ceiling = 74;
+  else if (spectralFlags.length >= 2 && flags.length === 4) ceiling = 80;
+  else if (spectralFlags.length >= 2 && flags.length === 3) ceiling = 84;
 
   const fmt = (v: number | undefined, digits = 2) => finite(v) ? v.toFixed(digits) : "N/A";
   const summary = ceiling !== null
@@ -1805,10 +1809,23 @@ function reconcileParentScores(parsedCritique: any): void {
       : null;
 
   if (c1Ready && finishCeiling !== null) {
+    const spaceDensityCeiling = Math.min(88, finishCeiling + 4);
+    const paletteCohesionCeiling = Math.min(88, finishCeiling + 8);
+
     if (c1Ready.aestheticDesign && typeof c1Ready.aestheticDesign.score === "number" && c1Ready.aestheticDesign.score > finishCeiling) {
       c1Ready.aestheticDesign.score = finishCeiling;
       c1Ready.aestheticDesign.commentary =
-        `The sound world can still be coherent, but the objective production-finish profile does not support a reference-level production-design score. ${finishEvidence.summary}`;
+        `The creative direction may still be coherent, but the delivered audio shows a multi-signal production-finish outlier pattern that materially limits how fully that design is realized in the master. ${finishEvidence.summary}`;
+    }
+    if (c1Ready.spaceAndDensity && typeof c1Ready.spaceAndDensity.score === "number" && c1Ready.spaceAndDensity.score > spaceDensityCeiling) {
+      c1Ready.spaceAndDensity.score = spaceDensityCeiling;
+      c1Ready.spaceAndDensity.commentary =
+        `The arrangement may retain usable separation, but the delivered spectrum is too uneven to support a 90+ space-and-density result. Extreme finish outliers indicate that apparent openness is not translating as balanced, reference-level spectral occupancy. ${finishEvidence.summary}`;
+    }
+    if (c1Ready.paletteCohesion && typeof c1Ready.paletteCohesion.score === "number" && c1Ready.paletteCohesion.score > paletteCohesionCeiling) {
+      c1Ready.paletteCohesion.score = paletteCohesionCeiling;
+      c1Ready.paletteCohesion.commentary =
+        `A consistent timbral character can still be present, but consistency alone is not proof of exceptional palette craft. The severe production-finish outlier pattern prevents a top-band cohesion score for the delivered master. ${finishEvidence.summary}`;
     }
     if (c1Ready.spectralMatch && typeof c1Ready.spectralMatch.score === "number" && c1Ready.spectralMatch.score > finishCeiling) {
       c1Ready.spectralMatch.score = finishCeiling;
@@ -1920,13 +1937,13 @@ function reconcileParentScores(parsedCritique: any): void {
       parsedCritique.scores.overallProduction = reconciledProduction;
     }
 
-    // sibilanceShaving can now be genuinely N/A (an instrumental has no vocal sibilance
-    // to control). Routed through appScore so its 0 placeholder is excluded and the
-    // remaining weights renormalize, rather than silently costing Mix Balance 15%.
+    // Sibilance Shaving and Low-End Division can both be genuinely N/A. Their 0
+    // placeholders must be excluded and the remaining weights renormalized rather than
+    // silently treating absence as either failure or perfect execution.
     const mixBalance = weightedAvg([
       [c1Ready.mudPrevention?.score, 25],
       [c1Ready.midrangeSpacing?.score, 25],
-      [c1Ready.lowEndDivision?.score, 20],
+      [appScore(c1Ready.lowEndDivision), 20],
       [appScore(c1Ready.sibilanceShaving), 15],
       [c1Ready.stereoWidth?.score, 15],
     ]);
