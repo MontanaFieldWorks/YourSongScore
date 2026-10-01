@@ -2319,8 +2319,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       writeEvidenceBlock(diag.evidence);
       addDiagnosticRow(
         dr++,
-        "Corrections to First Pass",
-        diag.evidenceAudit?.corrections || []
+        "Independent Audit Notes",
+        diag.evidenceAudit?.auditNotes || []
       );
       addDiagnosticRow(
         dr++,
