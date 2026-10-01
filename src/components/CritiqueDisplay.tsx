@@ -1945,7 +1945,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       "COMMERCIAL IMPACT":
         `Weighted aggregate: Engagement Power ${critique?.scores?.commercialReadiness ?? 75} (80%) + ` +
         `Production Index ${critique?.scores?.overallProduction ?? 75} (20%) = ${aggScoreMap["COMMERCIAL IMPACT"]}.`,
-      "PRODUCTION QUALITY": "",
+      "PRODUCTION QUALITY":
+        "Grouping only — no separate Production Quality score is calculated here. Use the scored Mix Balance, Vocal Tracking, Instrumental Staging, and related child metrics below.",
       "SONGWRITING QUALITY": songwritingQualityParts.length > 0
         ? `Average of applicable components: ${songwritingQualityParts
             .map(part => `${part.label} ${part.score}`)
