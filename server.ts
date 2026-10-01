@@ -395,36 +395,52 @@ async function extractBlindGenreEvidence(audioPart: any): Promise<BlindGenreEvid
 
 async function auditBlindGenreEvidence(
   audioPart: any,
-  firstPass: BlindGenreEvidence
-): Promise<BlindGenreEvidenceAudit> {
+  rhythmImagePart?: any | null,
+  spectrogramImagePart?: any | null
+): Promise<BlindGenreEvidenceAudit | null> {
   try {
-    console.log("[GenreEvidence] Starting independent evidence verification pass...");
-    const firstPassText = stringifyGenreEvidence(firstPass);
-    const prompt = `UNTRUSTED FIRST-PASS EVIDENCE:
-${firstPassText}
+    console.log("[GenreEvidence] Starting INDEPENDENT multimodal evidence verification pass...");
 
-Re-listen to the raw audio and return the corrected evidence record. Do not preserve a claim merely because it appears above.`;
+    const imageContext = `You may also receive:
+- a RHYTHM ONSET IMAGE: amber onset-energy bars across the full song, with beat-grid lines from the local DSP analyzer;
+- a SPECTROGRAM IMAGE: time-resolved energy across frequency bands.
+
+Use those images only as supporting evidence. In particular, use the spectrogram to distinguish broadband percussive transients from repeating pitched/harmonic events. Do not treat the beat grid itself as proof that a detected tempo is correct.`;
+
+    const parts: any[] = [audioPart];
+    if (rhythmImagePart) parts.push(rhythmImagePart);
+    if (spectrogramImagePart) parts.push(spectrogramImagePart);
+    parts.push({ text: imageContext });
 
     const response = await generateContentWithRetry({
       model: "gemini-2.5-flash",
-      contents: { parts: [audioPart, { text: prompt }] },
+      contents: { parts },
       config: {
-        systemInstruction: BLIND_GENRE_EVIDENCE_AUDIT_PROMPT,
+        systemInstruction: BLIND_GENRE_EVIDENCE_AUDIT_PROMPT + `
+
+INDEPENDENCE REQUIREMENT:
+You have NOT been shown another model's evidence description. Work from the raw audio and supporting DSP images only. Do not assume any instrument, percussion source, or formal interpretation unless it is independently audible/visible.
+
+Additional verification priorities:
+- A repeating pitched ostinato can create many onset spikes. Do not call those spikes drums unless broadband/unpitched percussion is actually audible and supported by the spectrogram.
+- A four-on-the-floor claim requires a genuinely regular kick pulse on each beat; do not infer it merely from a steady pulse or repeated notes.
+- Distorted guitar texture must be described along TWO independent axes: attack behavior (crisp/articulated vs blurred/smeared) and role (riff/chord propulsion vs sustained wall/harmonic wash).
+- For vocals, distinguish melodic singing, rhythmic singing, chant-like repetition, and genuine speech/rap without inferring genre from any one of them.
+- For form, distinguish hook/verse/refrain song architecture, riff-sectional band form, loop/build/drop form, and thematic/developmental or through-composed instrumental form.
+- "Synthetic-sounding" is a rendering observation, not proof of electronic composition.`,
         responseMimeType: "application/json",
         responseSchema: BLIND_GENRE_EVIDENCE_AUDIT_SCHEMA,
         temperature: 0,
       },
     }, 4);
 
-    if (!response.text) {
-      return { ...firstPass, corrections: ["Verification pass returned no result; retained first-pass evidence."], evidenceReliability: 0 };
-    }
+    if (!response.text) return null;
     const audited = JSON.parse(response.text) as BlindGenreEvidenceAudit;
     audited.evidenceReliability = clampGenreEvidence(audited.evidenceReliability);
     return audited;
   } catch (err: any) {
-    console.log("[GenreEvidence] Verification pass failed; retaining first-pass evidence:", err?.message || err);
-    return { ...firstPass, corrections: ["Verification pass failed; retained first-pass evidence."], evidenceReliability: 0 };
+    console.log("[GenreEvidence] Independent verification pass failed:", err?.message || err);
+    return null;
   }
 }
 
@@ -457,6 +473,18 @@ Use defining compositional/rhythmic evidence rather than mood or rendering timbr
 - Classical: orchestral/chamber/classical instrumental behavior, counterpoint/voice-leading, thematic/developmental or through-composed form, especially without a pop/rock/dance rhythm-section foundation.
 - Folk / Singer-Songwriter: genuine roots/acoustic song idiom, folk instrumentation/phrasing/form—not simply acoustic timbre or intimacy.
 - World Music: a defining style represented by the available World taxonomy.
+
+Decision priority:
+1. COMPOSITIONAL CENTER OF GRAVITY — what actually organizes the piece: vocal-hook/song form, band/riff form, electronic groove/sound-design form, roots-song form, or thematic/developmental instrumental form.
+2. RHYTHM LANGUAGE — only verified percussion/groove evidence, not pitched onset repetition.
+3. SOURCE ROLE / TEXTURE — what the sources do, not merely what timbre they resemble.
+4. Mood is last and cannot decide the family.
+
+Important family safeguards:
+- Electronic production techniques do not automatically make the broad family Dance / Electronic. If a melodic lead vocal, recurring hook, and verse/refrain song architecture are clearly the center of gravity, Pop can remain the family even when the backing is almost entirely programmed/synthetic. Dance / Electronic should win when electronic groove, sequencing, sound-design architecture, build/drop behavior, or instrumental electronic structure is itself the defining identity.
+- A repeating pitched/arpeggiated layer is NOT evidence of electronic sequencing by itself. If the source is uncertain, there is no verified electronic beat language, and the form is thematic/developmental or otherwise non-loop-based, do not use repetition alone to choose Dance / Electronic.
+- For Rock vs Alternative, conventional riff/chord propulsion, articulated backbeat and riff-sectional form favor Rock; diffuse/smeared wall-of-sound texture, embedded vocals, dream/shoegaze texture, indie/experimental arrangement language, or texture-first guitar behavior can favor Alternative even with loud distorted guitars.
+- Classical requires classical/orchestral/chamber compositional behavior rather than "cinematic" mood. Conversely, sample-library or synthetic rendering must not disqualify Classical when thematic development, voice-leading/ensemble behavior, and non-pop/non-dance form are present.
 
 Synthetic or sample-library rendering is NOT electronic-family evidence by itself. Acoustic timbre is NOT folk-family evidence by itself. Dark/dreamy/aggressive/cinematic mood is never enough to choose a family.
 
@@ -575,7 +603,17 @@ ${genre}
 Do NOT reconsider or replace the broad family. Choose only among these subgenres:
 ${options.join(", ")}
 
-Use only the verified evidence below. Choose the subgenre whose defining musical language is best supported. Do not invent new audio observations. Prefer a stylistically specific label over a radio-format label when the evidence supports it. Words such as Heritage, Catalog, Revival, Airplay, Mainstream, or Modern in the taxonomy are packaging/format terms and are NOT release-date evidence.
+Use only the verified evidence below. Choose the subgenre whose DEFINING musical language is best supported. Do not invent new audio observations. Prefer a stylistically specific label over a radio-format label when the evidence supports it. Words such as Heritage, Catalog, Revival, Airplay, Mainstream, or Modern in the taxonomy are packaging/format terms and are NOT release-date evidence.
+
+Do not choose a subgenre from generic surface traits alone. Require its defining rhythm/form/texture:
+- House / Tech-House requires a clearly verified regular club/four-on-the-floor foundation; a steady pulse or electronic production alone is insufficient.
+- Trance requires a verified dance pulse plus trance-like build/release and synth/arpeggiated electronic language; an arpeggiated pitched layer alone is insufficient.
+- Ambient / Downtempo is favored for restrained, atmospheric, non-four-on-the-floor electronic pieces where texture/pulse outweigh club-drive.
+- Mainstream Heavy Metal requires metal-style riff precision/high-gain propulsion and/or extended metal lead/solo language; loud distortion alone is insufficient.
+- Shoegaze / Dream Pop Revival requires texture-first blurred/smeared guitar or harmonic wash and typically embedded vocals; heavy guitars alone are insufficient.
+- Progressive Rock / Art Rock requires extended/developmental or unusually sectional rock form, not merely atmosphere or length.
+- Singer-Songwriter / Folk labels require authentic roots/song idiom rather than acoustic timbre alone.
+- Traditional Classical / Classical Crossover must be decided from compositional language and presentation, not whether the rendering sounds synthetic.
 
 AUDIBLE EVIDENCE:
 ${evidenceText}
@@ -628,7 +666,11 @@ function normalizeGenreClassification(raw: BlindGenreClassification | null | und
   return { ...raw, genre, subgenre };
 }
 
-async function classifyBlindGenre(audioPart: any): Promise<BlindGenreClassification | null> {
+async function classifyBlindGenre(
+  audioPart: any,
+  rhythmImagePart?: any | null,
+  spectrogramImagePart?: any | null
+): Promise<BlindGenreClassification | null> {
   try {
     // Stage 1A deliberately cannot name a genre.
     const firstPassEvidence = await extractBlindGenreEvidence(audioPart);
@@ -637,11 +679,21 @@ async function classifyBlindGenre(audioPart: any): Promise<BlindGenreClassificat
       return null;
     }
 
-    // Stage 1B independently audits source/rhythm/vocal claims before any genre is named.
-    const evidenceAudit = await auditBlindGenreEvidence(audioPart, firstPassEvidence);
+    // Stage 1B is genuinely independent: it never sees Stage 1A's text.
+    // It gets raw audio plus browser DSP rhythm/spectrogram images when available.
+    const independentEvidence = await auditBlindGenreEvidence(
+      audioPart,
+      rhythmImagePart,
+      spectrogramImagePart
+    );
+    const evidenceAudit: BlindGenreEvidenceAudit = independentEvidence || {
+      ...firstPassEvidence,
+      corrections: ["Independent verification was unavailable; first-pass evidence was used as fallback."],
+      evidenceReliability: 0,
+    };
     const evidence: BlindGenreEvidence = evidenceAudit;
 
-    // Stage 2 ranks broad families from VERIFIED EVIDENCE ONLY — no new audio re-listen.
+    // Stage 2 ranks broad families from INDEPENDENT VERIFIED EVIDENCE ONLY — no new audio re-listen.
     const ranking = await rankBlindGenreFamilies(evidence);
     if (!ranking?.primaryGenre) {
       console.log("[GenrePipeline] Family ranking unavailable; falling back to the existing critique classifier.");
@@ -2445,7 +2497,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
     const melodySummary = req.body.melodySummary || undefined;
 
     const blindGenreClassification = !metaGenre
-      ? await classifyBlindGenre(audioPart)
+      ? await classifyBlindGenre(audioPart, rhythmImagePart, spectrogramImagePart)
       : null;
 
     let userInstruction = "Listen to this songwriter's track and evaluate all aspects of performance, tracking, and mix distribution.";
@@ -2722,7 +2774,7 @@ app.post("/api/critique-url", async (req, res) => {
       : null;
 
     const blindGenreClassification = !metaGenre
-      ? await classifyBlindGenre(audioPart)
+      ? await classifyBlindGenre(audioPart, rhythmImagePart, spectrogramImagePart)
       : null;
 
     let userInstruction = "Analyze this songwriters track from the direct URL stream. Critically review the production and deliver feedback.";
