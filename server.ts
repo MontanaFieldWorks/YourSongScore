@@ -1756,6 +1756,15 @@ function enforceClassicalInstrumentalSourceNeutrality(parsedCritique: any): void
     [/\bhorns?\b/gi, "orchestral ensemble"],
     [/\btrumpets?\b/gi, "orchestral ensemble"],
     [/\btrombones?\b/gi, "orchestral ensemble"],
+    // Post-normalization cleanup: replacing an invented instrument name is not enough
+    // if the sentence still makes an unsupported source-count claim ("solo guitar" ->
+    // "solo foreground melodic layer"). Keep the result neutral about both identity and
+    // number of sources unless the audio analysis genuinely established them.
+    [/\b(?:solo|single) foreground melodic layer\b/gi, "rendered instrumental texture"],
+    [/\bforeground melodic layer-centric\b/gi, "instrumental-texture-centered"],
+    [/\bthe instrument's timbre\b/gi, "the rendered texture's timbral character"],
+    [/\beach note and strum\b/gi, "individual attacks and sustained tones"],
+    [/\bnotes? and strums?\b/gi, "attacks and sustained tones"],
   ];
 
   const neutralize = (text: string): string => {
