@@ -2207,29 +2207,29 @@ async function verifyInstrumentalGenreIfNeeded(
   const noVocals = parsedCritique?.performance?.vocalApplicable === false;
   const noLyrics = parsedCritique?.lyricalImpact?.applicable === false;
 
-  // Generic consistency guardrail restored from the Sep. 19 build that produced the
-  // correct Sep. 24 Braden classification. This is not song-specific: it only fires
-  // when the report says there are no vocals/lyrics but nevertheless chooses a
-  // vocal-centric Folk/Singer-Songwriter subtype.
-  const vocalCentricFolk =
-    genre === "Folk / Singer-Songwriter" &&
-    (subgenre === "Singer-Songwriter" || subgenre === "Contemporary Folk");
-
-  if (!(noVocals && noLyrics && vocalCentricFolk)) return;
+  // Generic blind-instrumental consistency guardrail. The earlier version only
+  // rechecked instrumental Folk/Singer-Songwriter results, which meant the identical
+  // underlying ambiguity could bypass verification simply by landing in Electronic,
+  // Alternative, Rock, or another family. For blind tracks with no vocals AND no lyrics,
+  // run one narrow family-level re-listen before downstream genre-aware scoring.
+  if (!(noVocals && noLyrics)) return;
 
   try {
     console.log(`[GenreConsistency] Instrumental track classified as ${genre} / ${subgenre}; running focused consistency verification.`);
 
-    const context = `FOCUSED GENRE CONSISTENCY VERIFICATION - LISTEN TO THE AUDIO AGAIN.
-The first pass classified this track as "${genre}" / "${subgenre}", but the same pass also determined that the track has NO VOCALS and NO LYRICS. Re-evaluate the genre from the audio itself before downstream scoring uses that label.
+    const context = `FOCUSED BLIND-INSTRUMENTAL GENRE CONSISTENCY VERIFICATION - LISTEN TO THE AUDIO AGAIN.
+The first pass classified this track as "${genre}" / "${subgenre}", and the same pass determined that the track has NO VOCALS and NO LYRICS. Re-evaluate the BROAD GENRE FAMILY and subgenre from the audio itself before downstream genre-aware scoring uses that label.
 
-This is NOT an instruction to force Classical. Instrumental folk is real. Decide from the actual dominant instrumentation, rhythmic foundation, and form.
+This is NOT an instruction to force Classical, Electronic, Folk, Rock, or any other family. Instrumental music exists in all of them. Resolve the family from COMPOSITIONAL LANGUAGE, rhythmic foundation, instrumentation roles, and form rather than mood or playback timbre.
 
-Critical distinction:
-- Folk / Singer-Songwriter requires genuine folk/song idiom: acoustic-song structure, folk-rooted picking/strumming/fiddle/banjo or comparable roots vocabulary, and usually a song-form foundation even when instrumental.
-- Classical / Classical Crossover is appropriate when orchestral/classical instrumentation is the core voice (strings, brass, woodwinds, piano or orchestral ensemble), there is no pop/rock rhythm section driving the piece, and the form is thematic/through-composed/developmental rather than verse-chorus songwriting.
-- Do not infer genre from mood alone. "Melancholic", "organic", "warm", or "acoustic" are not sufficient evidence for folk.
-- Do not invent instruments. Report the dominant instrumentation you can actually hear.
+Mandatory distinctions:
+- ELECTRONIC COMPOSITION vs SYNTHETIC/NOTATION RENDERING: a digital, sampled, synthetic, quantized, or highly consistent timbre does NOT by itself make the composition Dance / Electronic. Electronic requires the compositional grammar to be organized by genuinely electronic devices such as a programmed beat language, loop-based form, sequencing functioning as form, synth/bass sound-design behavior central to the writing, or build/drop architecture. A sampled or notation-rendered performance of non-electronic writing remains the genre of the underlying composition.
+- CLASSICAL / CLASSICAL CROSSOVER: favor this family when orchestral/classical ensemble roles, interacting voices, voice-leading/counterpoint, thematic development or transformation, sectional development, and through-composed behavior organize the piece, especially without a pop/rock rhythm section driving a repeating song groove. Do not require a naturalistic live-orchestra timbre; sample-library or notation-rendered playback can still be Classical.
+- FOLK / SINGER-SONGWRITER: requires genuine folk/roots instrumental vocabulary and song idiom, not merely acoustic warmth, sparseness, melancholy, or lack of vocals.
+- ROCK / ALTERNATIVE: requires a rock-derived rhythmic/instrumental language such as backbeat, riff/chord-band behavior, guitar/bass/drum roles, or texture-first alternative-rock language; do not infer it from distortion alone.
+- AMBIENT / DOWNTEMPO within Dance / Electronic still requires the piece's organizing language to be electronic. Slow tempo, sustained texture, repetition, arpeggiation, atmospheric mood, or synthetic playback alone are insufficient.
+- Do not infer genre from mood words such as "melancholic", "cinematic", "serene", "warm", "dark", or "atmospheric."
+- Do not invent instruments. Where source identity is uncertain, describe roles neutrally and decide from structure/function.
 - Choose ONLY from this taxonomy and make sure the subgenre belongs to the selected genre:
 ${GENRE_TAXONOMY_TEXT}
 
@@ -2267,7 +2267,7 @@ Return the best genre/subgenre plus a short evidence summary.`;
       parsedCritique.vibe.genre = verifiedGenre;
       parsedCritique.vibe.subgenre = verifiedSubgenre;
     } else {
-      console.log("[GenreConsistency] Focused verification confirmed the original instrumental-folk classification.");
+      console.log("[GenreConsistency] Focused blind-instrumental verification confirmed the original classification.");
     }
   } catch (err: any) {
     console.log("[GenreConsistency] Verification failed; continuing with the original classification:", err?.message || err);
