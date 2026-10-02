@@ -451,14 +451,12 @@ export default function App() {
     if (finite(midPct) && midPct > 32) { flags.push("extreme mid-band concentration"); spectralFlags.push("mid"); }
     if (finite(airPct) && airPct < 0.35) { flags.push("extremely low air-band energy"); spectralFlags.push("air"); }
 
-    // The server sees the same finish evidence before the AI sub-metric calls and is the
-    // authoritative place for the multi-signal production ceiling. Preserve that result
-    // when present so a browser bundle cannot silently replace a newer server calibration
-    // with an older client-side threshold after the response arrives.
+    // Reconcile the server's early finish evidence with the browser's final DSP result.
+    // Both use the same calibrated thresholds. If one side received incomplete evidence,
+    // keep the stricter valid measured ceiling instead of discarding it.
     const serverFinishEvidence = critique.productionFinishEvidence;
-    const hasAuthoritativeServerFinish =
+    const hasServerFinishEvidence =
       serverFinishEvidence?.source === "server" &&
-      serverFinishEvidence?.version === "production-grounding-v2" &&
       (serverFinishEvidence?.ceiling === null || typeof serverFinishEvidence?.ceiling === "number");
 
     let locallyCalculatedCeiling: number | null = null;
@@ -466,33 +464,47 @@ export default function App() {
     else if (spectralFlags.length >= 2 && flags.length === 4) locallyCalculatedCeiling = 80;
     else if (spectralFlags.length >= 2 && flags.length === 3) locallyCalculatedCeiling = 84;
 
-    const ceiling: number | null = hasAuthoritativeServerFinish
-      ? serverFinishEvidence.ceiling
-      : locallyCalculatedCeiling;
+    const serverCeiling =
+      hasServerFinishEvidence && typeof serverFinishEvidence.ceiling === "number"
+        ? serverFinishEvidence.ceiling
+        : null;
+    const candidates = [serverCeiling, locallyCalculatedCeiling]
+      .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+    const ceiling: number | null = candidates.length ? Math.min(...candidates) : null;
 
     const fmt = (v: number | undefined, digits = 2) => finite(v) ? v.toFixed(digits) : "N/A";
     const localSummary =
       `crest ${fmt(crest, 1)} dB; loudness ${fmt(lufs, 1)} LUFS; relative sub ${fmt(subPct)}%; mid ${fmt(midPct)}%; air ${fmt(airPct)}%; ` +
       `${flags.length} extreme signal${flags.length === 1 ? "" : "s"} detected` +
-      (ceiling !== null ? `; production/mix ceiling ${ceiling}.` : "; no multi-signal score ceiling applied.");
-    const summary = hasAuthoritativeServerFinish
-      ? String(serverFinishEvidence.summary || localSummary)
-      : localSummary;
+      (locallyCalculatedCeiling !== null
+        ? `; production/mix ceiling ${locallyCalculatedCeiling}.`
+        : "; no local multi-signal score ceiling applied.");
 
-    critique.productionFinishEvidence = hasAuthoritativeServerFinish
-      ? { ...serverFinishEvidence }
-      : {
-          crestFactorDb: crest,
-          integratedLufs: lufs,
-          subPct,
-          midPct,
-          airPct,
-          flags,
-          flagCount: flags.length,
-          spectralFlagCount: spectralFlags.length,
-          ceiling,
-          summary,
-        };
+    const localIsStricter =
+      locallyCalculatedCeiling !== null &&
+      (serverCeiling === null || locallyCalculatedCeiling < serverCeiling);
+    const summary =
+      localIsStricter || !hasServerFinishEvidence
+        ? localSummary
+        : String(serverFinishEvidence.summary || localSummary);
+
+    critique.productionFinishEvidence = {
+      ...(hasServerFinishEvidence ? serverFinishEvidence : {}),
+      source: "reconciled",
+      version: "production-grounding-v3",
+      crestFactorDb: finite(crest) ? crest : serverFinishEvidence?.crestFactorDb,
+      integratedLufs: finite(lufs) ? lufs : serverFinishEvidence?.integratedLufs,
+      subPct: finite(subPct) ? subPct : serverFinishEvidence?.subPct,
+      midPct: finite(midPct) ? midPct : serverFinishEvidence?.midPct,
+      airPct: finite(airPct) ? airPct : serverFinishEvidence?.airPct,
+      flags: flags.length ? flags : (serverFinishEvidence?.flags || []),
+      flagCount: flags.length ? flags.length : (serverFinishEvidence?.flagCount || 0),
+      spectralFlagCount: spectralFlags.length
+        ? spectralFlags.length
+        : (serverFinishEvidence?.spectralFlagCount || 0),
+      ceiling,
+      summary,
+    };
 
     // Dynamics-specific guardrail: measured sustained contrast constrains only the
     // metrics that explicitly claim to measure dynamic movement. It does NOT declare the
