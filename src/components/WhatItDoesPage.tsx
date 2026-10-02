@@ -811,7 +811,7 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                               <span className="text-[#46F4CD] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
                                 <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Sibilance Shaving</span>
-                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Uses a real measured sibilance score to catch harsh "S" and "T" sounds without penalizing intentionally bright vocal chains.</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Evaluates actual vocal "S", "T", and "SH" harshness by listening, with a full-mix 5-10kHz transient scan used only as supporting evidence so cymbals and other bright instruments are not mistaken for vocal sibilance.</span>
                               </div>
                             </div>
                             <div className="flex gap-2">
