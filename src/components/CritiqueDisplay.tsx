@@ -1743,6 +1743,10 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     // applied to Key this session.
     ws.getCell("E3").value = "ESTIMATED KEY:";
     ws.getCell("F3").value = critique?.liveMetrics?.calculatedKey || "N/A";
+    if (critique?.productionFinishEvidence?.version) {
+      ws.getCell("E4").value = "GROUNDING BUILD:";
+      ws.getCell("F4").value = critique.productionFinishEvidence.version;
+    }
     ws.getCell("B5").value = "GENRE:";
     ws.getCell("C5").value = critique?.vibe?.genre || "Unclassified";
     ws.getCell("B6").value = "SUBGENRE:";
