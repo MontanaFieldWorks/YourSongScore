@@ -581,6 +581,28 @@ export default function App() {
     const airBandEnergy = finite(liveMetrics.calculatedAirBandEnergy) ? liveMetrics.calculatedAirBandEnergy : undefined;
     const relativeAirPct = finite(liveMetrics.calculatedFinishAirPct) ? liveMetrics.calculatedFinishAirPct : undefined;
 
+    // Keep the parent Mix Balance narrative aligned with the same measured evidence
+    // used by the deterministic guardrails. This prevents prose such as "airy high end"
+    // or "fully clear mids" from surviving next to objective evidence that says the
+    // opposite.
+    if (critique.mixQuality?.frequencyBalance) {
+      if (finite(relativeAirPct) && relativeAirPct < 0.50) {
+        critique.mixQuality.frequencyBalance.highEnd =
+          `Measured high-frequency evidence shows very low relative air energy (${relativeAirPct.toFixed(2)}%). The delivered master is dark above the presence range, so an "airy" or extended top-end description is not supported.`;
+      }
+      if (
+        finite(midrangeFlatness) && finite(coreMidBandEnergy) &&
+        midrangeFlatness < 0.45 && coreMidBandEnergy <= 50
+      ) {
+        critique.mixQuality.frequencyBalance.midrange =
+          `Measured midrange structure is compressed into a relatively narrow spectral shape (flatness ${midrangeFlatness.toFixed(3)}; core-mid energy ${coreMidBandEnergy}). The central range is usable, but the data does not support describing it as exceptionally open or fully separated.`;
+      }
+      if (finite(subPct) && subPct < 0.15) {
+        critique.mixQuality.frequencyBalance.lowEnd =
+          `The low-frequency balance is concentrated above true sub-bass: relative sub-band energy is only ${subPct.toFixed(2)}%. The delivered master therefore lacks deep sub extension even if upper-bass/low-mid body remains audible.`;
+      }
+    }
+
     let mudCap: number | null = null;
     if (finite(mudFlux) && mudFlux >= 70) {
       mudCap = 68;
