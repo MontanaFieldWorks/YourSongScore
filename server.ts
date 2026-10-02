@@ -1699,6 +1699,8 @@ function buildProductionFinishEvidence(values: {
 
   return {
     ...values,
+    source: "server",
+    version: "production-grounding-v2",
     flags,
     flagCount: flags.length,
     spectralFlagCount: spectralFlags.length,
