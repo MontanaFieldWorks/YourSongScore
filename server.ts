@@ -971,7 +971,7 @@ SCORING METHOD - MANDATORY:
 Do NOT start from a baseline of 100 and subtract downward. That method mathematically guarantees that clean but unexceptional work ends at or near 100, which is precisely the inflation the master calibration above exists to prevent. Instead, start from the evidence-supported band: clean, competent, professional execution with nothing demonstrably exceptional is 82-88. From there, move UPWARD only for specific, demonstrated excellence that you name in your commentary, and move DOWNWARD for specific, real problems you actually identify in the audio. Your final score must be the direct result of the evidence you actually describe, in BOTH directions - every point above 88 traceable to named excellence, and every point below 82 traceable to a named problem. Never manufacture a flaw in order to justify a lower number, and never treat the mere absence of a flaw as grounds for a higher one. For tracks that exhibit clean, professional, genre-correct execution with no audible technical flaws, do not manufacture deductions - score them at the 82-88 professional band per the master calibration above and validate their commercial fitness, reserving 89 and above for the specific, nameable evidence of excellence that the calibration requires. Do not pick a score first and write text to match it afterward - the commentary must be the reason for the score, not a description of it after the fact.
 
 PRODUCTION INDEX EVIDENCE DISCIPLINE - MANDATORY:
-The three Production Index children (aestheticDesign, spaceAndDensity, paletteCohesion) must be scored from what is actually audible in THIS file, not from assumptions imported from the provisional genre label. Genre can help establish what choices are stylistically normal, but it is NEVER evidence that a named instrument, sample, synth, drum, room, or production technique is actually present. If the audio does not clearly support a source-level claim, use broader result-based language instead.
+The three Production Index children (aestheticDesign, spaceAndDensity, paletteCohesion) must be scored from what is actually audible in THIS file. No provisional genre label is supplied to this pass by design: infer stylistic intent from the audio itself rather than importing a potentially unstable classification from an earlier model pass. A genre assumption is NEVER evidence that a named instrument, sample, synth, drum, room, or production technique is actually present. If the audio does not clearly support a source-level claim, use broader result-based language instead.
 A track that is clean, coherent, and genre-compatible but otherwise ordinary belongs at 82-88 on these Production Index children. Do not award 89+ simply because the track sounds pleasant, uncluttered, warm, cohesive, or stylistically appropriate. Scores of 89+ require a specific, audible, above-average production achievement that would remain impressive even if the genre label were hidden.
 Conversely, do not penalize a track merely because its arrangement is sparse, acoustic, orchestral, vintage, mono-leaning, or otherwise unlike a modern pop production. Judge the craft actually demonstrated in the recording.
 When the prior-pass genre classification appears inconsistent with the audible instrumentation, DO NOT force the Production Index commentary to fit that genre. Score the audible production evidence first and let the genre mismatch remain a separate classification issue.
@@ -1140,12 +1140,8 @@ async function performSubMetricsCall1(
     : "not available";
 
   const contextSummary = `
-Qualitative context from the earlier analysis pass (descriptive only - NO parent scores are given to you deliberately):
-The parent category scores are intentionally withheld here. Your sub-metric scores are used to RECOMPUTE those parent scores, so being shown the earlier numbers would make this analysis gravitate back toward that first unaided impression instead of independently determining the result from the evidence. Score each sub-metric on its own merits from the audio, the measurements below, and the descriptive notes - never toward any prior number.
-- Engagement Power notes: ${parsedCritique?.mixQuality?.dominanceIssues}
-- Genre: ${parsedCritique?.vibe?.genre} / ${parsedCritique?.vibe?.subgenre}
-- Mix Balance Quality frequency notes: low end: ${parsedCritique?.mixQuality?.frequencyBalance?.lowEnd}, midrange: ${parsedCritique?.mixQuality?.frequencyBalance?.midrange}, high end: ${parsedCritique?.mixQuality?.frequencyBalance?.highEnd}
-- Song Title uniqueness classification: ${parsedCritique?.titleSearchability?.uniquenessLevel}
+STABLE BLIND PRODUCTION SCORING CONTEXT:
+This pass intentionally receives NO earlier AI-written genre label, mix prose, engagement prose, title/searchability judgment, or parent score. Those upstream outputs can vary between runs and must not become hidden inputs to technical production scoring. Infer the intended sonic language directly from THIS audio file. Score each sub-metric independently from the audio plus the objective DSP measurements below.
 - Measured Stereo Phase Correlation: ${measuredStereoCorrelation !== undefined && measuredStereoCorrelation !== null ? measuredStereoCorrelation : "not available"}
 - Measured Full-Mix 5-10kHz Transient Spike Diagnostic: ${measuredSibilanceSeverity !== undefined && measuredSibilanceSeverity !== null ? measuredSibilanceSeverity : "not available"} (SUPPORTING EVIDENCE ONLY; this is not vocal-isolated and can be driven by cymbals, guitars, snares, synth attacks, or other non-vocal transients)
 - Measured Timbral Variation/Consistency Diagnostic: ${measuredTimbralConsistency !== undefined && measuredTimbralConsistency !== null ? measuredTimbralConsistency : "not available"} (SUPPORTING EVIDENCE ONLY. This measures how stable versus varied the track's timbre is over time; variation is NOT the same as incoherence. Deliberate sectional palette changes can be highly cohesive.)
@@ -2166,6 +2162,10 @@ async function generateContentWithRetry(params: {
       const response = await ai.models.generateContent({
         ...params,
         model: currentModel,
+        config: {
+          ...(params.config || {}),
+          seed: params.config?.seed ?? 20261003,
+        },
       });
       return response;
     } catch (err: any) {
