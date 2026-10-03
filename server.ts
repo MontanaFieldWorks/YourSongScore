@@ -1056,6 +1056,8 @@ IMPORTANT - a real, precomputed timbral consistency measurement for this track i
 - Score 70-81: Generally cohesive, but contains one identifiable acoustic outlier—such as a snare sample whose boxy, dry acoustic character stands apart awkwardly from the lush, expansive reverb applied to the lead vocals and synth pads. Must name the specific outlier.
 - Below 70: Mismatched, jarring sound collage. Instruments and samples from conflicting eras and discordant acoustic environments clash noticeably, sounding disjointed.
 
+CRITICAL MEASUREMENT DISTINCTION: TIMBRAL VARIATION IS NOT PALETTE INCOHERENCE. The supplied timbral diagnostic measures change/consistency across time, not whether different timbres clash artistically. Never convert a low consistency value directly into a low Palette Cohesion score. A track may move through radically different timbres and still be exceptionally cohesive when those changes are intentional, well-transitioned, and internally related.
+
 CRITICAL DIRECTIVE FOR PALETTE COHESION: SECTIONAL CONTRAST VS. TEXTURAL INCOHERENCE:
 Sectional contrast (e.g., an intimate acoustic guitar intro leading into full electronic drums, or a breakdown featuring a solo grand piano) is musical arrangement and dynamic storytelling, NOT palette incoherence.
 True incoherence happens when elements within the same section clash in room acoustics (e.g., a completely dry, direct-injected rhythm element jarringly juxtaposed against drenched cavernous reverbs without stylistic intent) or sound like incompatible, mismatched sample pack scraps from conflicting eras.
@@ -1067,7 +1069,7 @@ PALETTE COHESION CALIBRATION EXAMPLES:
 - Example landing at 55: 'Disjointed sound palette. Elements sound like disparate sample packs pasted together with contradictory room dimensions and clashing production eras.'
 
 PALETTE COHESION - MANDATORY JUSTIFICATION STRUCTURE: before assigning a numeric score for paletteCohesion, you must first explicitly answer this question in your own reasoning: 'Can I identify an actual instrument, sample, or acoustic space that noticeably clashes with or detracts from the track's sonic world?'
-If NO: do not deduct for palette clash - score at 82-88 per the master calibration, consistent with the measured timbral consistency, and go to 89+ only where that measurement is genuinely high AND you can name what makes the palette exceptional rather than merely unproblematic. Commentary should highlight how the palette components complement each other.
+If NO: do not deduct for palette clash - score at 82-88 per the master calibration. The timbral-variation diagnostic may describe how much the sound changes over time, but it MUST NOT lower the score merely because a deliberately sectional arrangement uses contrasting timbres. Go to 89+ only when the audible palette relationships themselves are unusually well integrated or distinctive and you can name the specific evidence. Commentary should explain how simultaneously sounding elements and/or intentional transitions belong to the same sonic world.
 If YES: Commentary MUST explicitly name the clashing instrument/sample and the specific textural mismatch.
 
 FIELD DEFINITION - hookPlacement (part of compositionFlowSubs): judges whether the song's main hook/chorus arrives at an effective point in the structure - not too late to lose the listener, not so abrupt it undercuts the build. This is a genuinely significant metric - it is the single largest ingredient (60%) in the Commercial Impact score. RUBRIC ANCHOR: a score of 90-100 requires the hook to land at a genuinely well-judged moment with the preceding build (however long or short) making its arrival feel earned - name the approximate timing and why it works. A score of 70-89 applies when the hook placement is functional and reasonable but not particularly well set up or particularly fast/effective - a normal, common outcome. Below 70 is reserved for hook placement with a real, specific problem - arriving so late the song risks losing the listener first, or so abruptly that it undercuts its own impact.
@@ -1146,7 +1148,7 @@ The parent category scores are intentionally withheld here. Your sub-metric scor
 - Song Title uniqueness classification: ${parsedCritique?.titleSearchability?.uniquenessLevel}
 - Measured Stereo Phase Correlation: ${measuredStereoCorrelation !== undefined && measuredStereoCorrelation !== null ? measuredStereoCorrelation : "not available"}
 - Measured Full-Mix 5-10kHz Transient Spike Diagnostic: ${measuredSibilanceSeverity !== undefined && measuredSibilanceSeverity !== null ? measuredSibilanceSeverity : "not available"} (SUPPORTING EVIDENCE ONLY; this is not vocal-isolated and can be driven by cymbals, guitars, snares, synth attacks, or other non-vocal transients)
-- Measured Timbral Consistency Score: ${measuredTimbralConsistency !== undefined && measuredTimbralConsistency !== null ? measuredTimbralConsistency : "not available"} (Primary authoritative basis for Palette Cohesion)
+- Measured Timbral Variation/Consistency Diagnostic: ${measuredTimbralConsistency !== undefined && measuredTimbralConsistency !== null ? measuredTimbralConsistency : "not available"} (SUPPORTING EVIDENCE ONLY. This measures how stable versus varied the track's timbre is over time; variation is NOT the same as incoherence. Deliberate sectional palette changes can be highly cohesive.)
 - Measured Spectral Band Distribution: ${bandEnergySummary} (Objective frequency energy profile informing Space & Density and Spectral Match)
 - Measured Mud Band Evidence (150-400Hz - the range this metric is specifically about): ${mudEvidenceSummary}
 - Measured Midrange Evidence (400Hz-4kHz - the range Midrange Spacing is specifically about): ${midrangeEvidenceSummary}
@@ -1169,7 +1171,7 @@ IMPORTANT SPECTROGRAM INTERPRETATION RULE: Strong brightness in the low and lowe
       systemInstruction: SUBMETRIC_SYSTEM_PROMPT,
       responseMimeType: "application/json",
       responseSchema: SUBMETRICS_SCHEMA_1,
-      temperature: 0.1,
+      temperature: 0,
     },
   });
 
