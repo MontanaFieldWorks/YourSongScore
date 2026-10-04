@@ -163,6 +163,8 @@ export interface CritiqueData {
   subMetricsCall2?: any;
   subMetricsCall3?: any;
   productionFinishEvidence?: {
+    source?: string;
+    version?: string;
     crestFactorDb?: number;
     integratedLufs?: number;
     subPct?: number;
