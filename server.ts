@@ -185,7 +185,12 @@ type BlindGenreClassification = {
   productionCharacter?: string;
   decisiveEvidence?: string[];
   diagnostics?: {
+    rawEvidence: BlindGenreEvidence;
     evidence: BlindGenreEvidence;
+    evidenceAudit: {
+      auditNotes: string[];
+      evidenceReliability: number;
+    };
     familyRanking: {
       primaryGenre: string;
       runnerUpGenre: string;
