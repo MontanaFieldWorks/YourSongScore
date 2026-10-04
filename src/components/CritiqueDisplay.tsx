@@ -1747,14 +1747,18 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ws.getCell("E4").value = "GROUNDING BUILD:";
       ws.getCell("F4").value = critique.productionFinishEvidence.version;
     }
+    if (critique?.productionScoringVersion) {
+      ws.getCell("E5").value = "SCORING BUILD:";
+      ws.getCell("F5").value = critique.productionScoringVersion;
+    }
     ws.getCell("B5").value = "GENRE:";
     ws.getCell("C5").value = critique?.vibe?.genre || "Unclassified";
     ws.getCell("B6").value = "SUBGENRE:";
     ws.getCell("C6").value = critique?.vibe?.subgenre || "N/A";
-    ["B3", "B4", "B5", "B6", "E3", "E4"].forEach(coord => {
+    ["B3", "B4", "B5", "B6", "E3", "E4", "E5"].forEach(coord => {
       ws.getCell(coord).font = { name: "Calibri", size: 10, bold: true };
     });
-    ["C3", "C4", "C5", "C6", "F3", "F4"].forEach(coord => {
+    ["C3", "C4", "C5", "C6", "F3", "F4", "F5"].forEach(coord => {
       ws.getCell(coord).font = { name: "Calibri", size: 10, bold: false };
     });
 
