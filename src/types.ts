@@ -132,6 +132,7 @@ export interface LiveAudioMetrics {
 }
 
 export interface CritiqueData {
+  productionScoringVersion?: string;
   vibe: VibeCritique;
   mixQuality: MixQualityCritique;
   performance: PerformanceCritique;
