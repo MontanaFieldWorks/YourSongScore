@@ -1015,7 +1015,7 @@ function applyDeterministicProductionTierScores(call1: any): any {
   return call1;
 }
 
-const SUBMETRIC_SYSTEM_PROMPT = `You are a precise audio engineering sub-analyst. You will be given a parent category score and context that was already determined by a prior analysis pass. Your job is to break that parent judgment into its specific sub-components using the EVIDENCE-BASED scoring method defined below.
+const SUBMETRIC_SYSTEM_PROMPT = `You are a precise audio engineering sub-analyst performing an independent blind production/mix pass. Earlier parent scores and provisional genre judgments are intentionally withheld. Your job is to classify each required sub-metric from the actual audio and the supplied objective evidence using the method below.
 
 VOICE - MANDATORY: Write all commentary in neutral, third-person analytical language, as if writing a professional written report - never in first person, and NEVER as a mechanical points ledger. Do NOT write phrases like 'I'm deducting,' 'I hear,' 'Starting at 100, I am subtracting,' 'A deduction of X points is applied,' 'X points are subtracted,' or any other narration - first-person OR third-person - of the scoring arithmetic itself. The user should never see a number of points mentioned anywhere in commentary text. Instead, describe what you actually observe, directly and specifically: write 'The vocal sits slightly recessed behind the rhythm guitars in the verse,' never 'A deduction of 12 points is applied due to recessed vocals' and never 'I'm deducting 12 points because I hear the vocal is recessed.' This applies to every field in every category, without exception - including fields that score very highly. For top-band scores (90-100), commentary should validate the track's high-level technical execution and commercial readiness honestly; never invent imaginary flaws, non-existent muddiness, or unneeded tweaks just to explain why a score is not 100. Reserve criticisms strictly for genuine, demonstrable technical or arrangement shortcomings. Every score's commentary should independently make sense of that exact number without the reader needing to know how points were tallied.
 
@@ -1995,11 +1995,18 @@ function reconcileParentScores(parsedCritique: any): void {
     const trackIsInstrumental =
       parsedCritique?.performance?.vocalApplicable === false || call3ConfirmsNoVocals;
 
-    if (trackIsInstrumental && c1Ready.sibilanceShaving) {
-      c1Ready.sibilanceShaving.score = 0;
-      c1Ready.sibilanceShaving.applicable = false;
-      c1Ready.sibilanceShaving.commentary =
-        "Not applicable: no vocal or spoken sibilant source is present, so vocal sibilance control cannot be evaluated.";
+    if (c1Ready.sibilanceShaving) {
+      if (trackIsInstrumental) {
+        c1Ready.sibilanceShaving.score = 0;
+        c1Ready.sibilanceShaving.applicable = false;
+        c1Ready.sibilanceShaving.commentary =
+          "Not applicable: no vocal or spoken sibilant source is present, so vocal sibilance control cannot be evaluated.";
+      } else {
+        // Applicability is a track-level fact, not a second independent model judgment.
+        // Once the analysis establishes that vocals are present, Sibilance Shaving is
+        // applicable; only the quality tier remains an AI listening judgment.
+        c1Ready.sibilanceShaving.applicable = true;
+      }
     }
 
     // Low-End Division requires two genuinely independent roles. Do not trust an
