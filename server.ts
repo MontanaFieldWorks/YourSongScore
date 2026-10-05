@@ -935,34 +935,85 @@ const CRITIQUE_SCHEMA = {
   ],
 };
 
+const PRODUCTION_QUALITY_TIER_VALUES = [
+  "REFERENCE",
+  "EXCEPTIONAL",
+  "ABOVE_AVERAGE",
+  "PROFESSIONAL_HIGH",
+  "PROFESSIONAL",
+  "LIMITED",
+  "MATERIAL_ISSUE",
+  "SEVERE",
+];
+
+const PRODUCTION_QUALITY_TIER_SCORES: Record<string, number> = {
+  REFERENCE: 96,
+  EXCEPTIONAL: 93,
+  ABOVE_AVERAGE: 90,
+  PROFESSIONAL_HIGH: 88,
+  PROFESSIONAL: 85,
+  LIMITED: 79,
+  MATERIAL_ISSUE: 71,
+  SEVERE: 58,
+};
+
+const tierMetricProperties = {
+  qualityTier: { type: Type.STRING, enum: PRODUCTION_QUALITY_TIER_VALUES },
+  commentary: { type: Type.STRING },
+};
+
 const SUBMETRICS_SCHEMA_1 = {
   type: Type.OBJECT,
   properties: {
     spectralMatch: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
     dynamicVariety: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-    paletteCohesion: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-    aestheticDesign: { type: Type.OBJECT, description: "Quality of the track's audible sonic architecture and production design: whether the sound world feels intentionally shaped, internally coherent, and specifically realized rather than merely genre-compatible. 89+ requires a concrete, audible above-average design achievement; genre fit or absence of problems alone belongs at 82-88.", properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-    spaceAndDensity: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-    mudPrevention: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-    sibilanceShaving: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
+    paletteCohesion: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
+    aestheticDesign: { type: Type.OBJECT, description: "Quality of the track's audible sonic architecture and production design. Return a qualityTier rather than a numeric score; the server assigns the canonical score deterministically.", properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
+    spaceAndDensity: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
+    mudPrevention: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
+    sibilanceShaving: { type: Type.OBJECT, properties: { ...tierMetricProperties, applicable: { type: Type.BOOLEAN } }, required: ["qualityTier", "commentary", "applicable"] },
     lowEndDivision: {
       type: Type.OBJECT,
       properties: {
-        score: { type: Type.INTEGER },
-        commentary: { type: Type.STRING },
+        ...tierMetricProperties,
         applicable: { type: Type.BOOLEAN },
         kickLikePercussionRolePresent: { type: Type.BOOLEAN, description: "True only when an independent kick drum or genuinely drum/percussion-like low-frequency rhythmic transient role is audibly present. Piano, guitar, harp, pizzicato strings, orchestral attacks, or other pitched melodic attacks MUST be false." },
         sustainedBassRolePresent: { type: Type.BOOLEAN, description: "True only when an independent sustained bass/sub-bass role such as bass guitar, synth bass, 808/sub bass, double-bass section, or comparable dedicated low-frequency foundation is audibly present." },
       },
-      required: ["score", "commentary", "applicable", "kickLikePercussionRolePresent", "sustainedBassRolePresent"],
+      required: ["qualityTier", "commentary", "applicable", "kickLikePercussionRolePresent", "sustainedBassRolePresent"],
     },
-    midrangeSpacing: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-    stereoWidth: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    midrangeSpacing: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
+    stereoWidth: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
     seoUniqueness: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
     seoDiscoverability: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
   },
   required: ["spectralMatch", "dynamicVariety", "paletteCohesion", "aestheticDesign", "spaceAndDensity", "mudPrevention", "sibilanceShaving", "lowEndDivision", "midrangeSpacing", "stereoWidth", "seoUniqueness", "seoDiscoverability"],
 };
+
+function applyDeterministicProductionTierScores(call1: any): any {
+  const tieredMetricKeys = [
+    "paletteCohesion",
+    "aestheticDesign",
+    "spaceAndDensity",
+    "mudPrevention",
+    "sibilanceShaving",
+    "lowEndDivision",
+    "midrangeSpacing",
+    "stereoWidth",
+  ];
+
+  for (const key of tieredMetricKeys) {
+    const metric = call1?.[key];
+    if (!metric) continue;
+    const canonicalScore = PRODUCTION_QUALITY_TIER_SCORES[String(metric.qualityTier || "")];
+    if (!Number.isFinite(canonicalScore)) {
+      throw new Error(`Invalid production quality tier for ${key}: ${String(metric.qualityTier)}`);
+    }
+    metric.score = canonicalScore;
+  }
+
+  return call1;
+}
 
 const SUBMETRIC_SYSTEM_PROMPT = `You are a precise audio engineering sub-analyst. You will be given a parent category score and context that was already determined by a prior analysis pass. Your job is to break that parent judgment into its specific sub-components using the EVIDENCE-BASED scoring method defined below.
 
@@ -971,6 +1022,21 @@ VOICE - MANDATORY: Write all commentary in neutral, third-person analytical lang
 ${SCORE_CALIBRATION}
 
 DO NOT CONFIDENTLY ASSERT UNVERIFIABLE PRODUCTION TECHNIQUES: Never state as fact that a specific production method was used - sampled versus real acoustic drums, auto-tune or pitch-correction software, a specific plugin or piece of hardware - unless the audio evidence is genuinely, audibly unambiguous (e.g. a clearly robotic, quantized, inhuman vocal is real evidence of heavy pitch-correction; a rigidly identical, zero-variance drum pattern is real evidence of programming or sampling). When you cannot genuinely distinguish the method, describe the audible RESULT instead of guessing the technique: write 'the drums sound tight and consistent' rather than 'well-chosen drum samples,' and write 'the vocal pitch is remarkably precise and stable' rather than 'auto-tuning is consistently applied.' This matters especially for older or vintage recordings, where confidently attributing a modern production technique (auto-tune, digital sampling) can be not just unverifiable but chronologically impossible - when in doubt about a recording's era or technology, describe what you hear, not what likely produced it.
+
+DETERMINISTIC TIER SCORING - MANDATORY FOR PRODUCTION/MIX CHILDREN:
+For paletteCohesion, aestheticDesign, spaceAndDensity, mudPrevention, sibilanceShaving, lowEndDivision, midrangeSpacing, and stereoWidth, you are NOT authorized to choose an exact numeric score. Return only qualityTier plus evidence-based commentary (and the existing applicability/role booleans where required). The server converts the tier into a canonical numeric score deterministically after your response.
+
+Choose the tier from the audible evidence, not from a desired number:
+- REFERENCE: rare reference-level execution with multiple independent, specific pieces of evidence.
+- EXCEPTIONAL: unmistakably exceptional execution with specific evidence clearly beyond normal professional work.
+- ABOVE_AVERAGE: a concrete, nameable strength that is demonstrably better than the normal professional standard.
+- PROFESSIONAL_HIGH: notably strong and well-controlled professional execution, but not enough evidence to claim a truly above-average/exceptional achievement.
+- PROFESSIONAL: clean, competent, release-ready execution with no material defect and no specific evidence of standout excellence. THIS is the correct default for problem-free commercial work.
+- LIMITED: a real, audible but limited weakness that does not structurally compromise the metric.
+- MATERIAL_ISSUE: a recurring or substantial technical weakness that clearly compromises the metric.
+- SEVERE: persistent structural failure or plainly unacceptable execution for the metric.
+
+TIER CONSISTENCY RULE: commentary is the evidence for the tier. If the commentary merely says that two elements are clear, controlled, distinct, balanced, cohesive, or free of masking, that supports PROFESSIONAL or PROFESSIONAL_HIGH — not ABOVE_AVERAGE or higher. ABOVE_AVERAGE+ requires an explicit, specific achievement beyond simple absence of problems. Likewise, LIMITED or below requires a named audible weakness. Do not vary the tier simply to create numerical variety.
 
 SCORING METHOD - MANDATORY:
 Do NOT start from a baseline of 100 and subtract downward. That method mathematically guarantees that clean but unexceptional work ends at or near 100, which is precisely the inflation the master calibration above exists to prevent. Instead, start from the evidence-supported band: clean, competent, professional execution with nothing demonstrably exceptional is 82-88. From there, move UPWARD only for specific, demonstrated excellence that you name in your commentary, and move DOWNWARD for specific, real problems you actually identify in the audio. Your final score must be the direct result of the evidence you actually describe, in BOTH directions - every point above 88 traceable to named excellence, and every point below 82 traceable to a named problem. Never manufacture a flaw in order to justify a lower number, and never treat the mere absence of a flaw as grounds for a higher one. For tracks that exhibit clean, professional, genre-correct execution with no audible technical flaws, do not manufacture deductions - score them at the 82-88 professional band per the master calibration above and validate their commercial fitness, reserving 89 and above for the specific, nameable evidence of excellence that the calibration requires. Do not pick a score first and write text to match it afterward - the commentary must be the reason for the score, not a description of it after the fact.
@@ -1106,7 +1172,7 @@ RUBRIC ANCHOR: correlation in the 0.35-0.75 range (a wide, deliberate, mono-safe
 RULES:
 1. Every commentary must reference something specific and real about THIS audio file - an actual frequency range, an actual timing observation, an actual moment in the song. Do not write generic, reusable descriptions that could apply to any song.
 2. Never write the same commentary you might write for a different song. If two songs have similar scores, their commentary must still describe different specific details.
-3. Be consistent with the parent category's score and tone.
+3. Keep each qualityTier consistent with the evidence described in its own commentary; do not anchor to any parent score or prior AI judgment.
 4. Keep each commentary to 1-3 sentences, technical and actionable, in the same voice as a professional mixing engineer.`;
 
 async function performSubMetricsCall1(
@@ -1176,7 +1242,8 @@ IMPORTANT SPECTROGRAM INTERPRETATION RULE: Strong brightness in the low and lowe
     },
   });
 
-  return JSON.parse(response.text);
+  const parsed = JSON.parse(response.text);
+  return applyDeterministicProductionTierScores(parsed);
 }
 
 const SUBMETRICS_SCHEMA_2 = {
@@ -2616,7 +2683,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
-      parsedCritique.productionScoringVersion = "production-repeatability-v1";
+      parsedCritique.productionScoringVersion = "production-tier-v1";
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
     } catch (subErr: any) {
@@ -2882,7 +2949,7 @@ app.post("/api/critique-url", async (req, res) => {
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
-      parsedCritique.productionScoringVersion = "production-repeatability-v1";
+      parsedCritique.productionScoringVersion = "production-tier-v1";
       parsedCritique.subMetricsCall1Failed = false;
     } catch (subErr: any) {
       console.error("[Call 1] Failed (URL route), continuing without it:", subErr.message || subErr);
