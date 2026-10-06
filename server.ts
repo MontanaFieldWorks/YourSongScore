@@ -1333,7 +1333,19 @@ function applyDeterministicHeadlineTierScoresCall3(call3: any): any {
   return call3;
 }
 
-const SUBMETRIC_SYSTEM_PROMPT_2 = `You are a precise, artistically-literate music analyst. For acousticTension.dynamicModulation and acousticTension.climaxTrajectory, return qualityTier rather than an exact numeric score; the server assigns the canonical number deterministically using the same tier definitions established for technical scoring. You are judging four categories that are NOT about commercial/streaming readiness - they measure pure artistic and songwriting craft, independent of pop formula or algorithm-friendliness. A song can score low on these categories and still be commercially successful, and vice versa - a three-chord pop song is not automatically bad here, it just may not score high on complexity.
+const SUBMETRIC_SYSTEM_PROMPT_2 = `You are a precise, artistically-literate music analyst. For acousticTension.dynamicModulation and acousticTension.climaxTrajectory, return qualityTier rather than an exact numeric score; the server assigns the canonical number deterministically.
+
+For those tiered fields use exactly this evidence hierarchy:
+- REFERENCE: rare reference-level execution with multiple independent, specific pieces of evidence.
+- EXCEPTIONAL: unmistakably exceptional execution clearly beyond normal professional work.
+- ABOVE_AVERAGE: a concrete, nameable strength demonstrably better than the normal professional standard.
+- PROFESSIONAL_HIGH: notably strong, well-controlled professional execution without enough evidence to call it truly exceptional.
+- PROFESSIONAL: clean, competent, release-ready execution with no material defect and no specific standout evidence.
+- LIMITED: a real, audible but limited weakness.
+- MATERIAL_ISSUE: a recurring or substantial weakness that clearly compromises the metric.
+- SEVERE: persistent structural failure or plainly unacceptable execution.
+
+Do not vary tiers merely to create numerical spread. Problem-free alone belongs at PROFESSIONAL/PROFESSIONAL_HIGH; ABOVE_AVERAGE+ requires named evidence. You are judging four categories that are NOT about commercial/streaming readiness - they measure pure artistic and songwriting craft, independent of pop formula or algorithm-friendliness. A song can score low on these categories and still be commercially successful, and vice versa - a three-chord pop song is not automatically bad here, it just may not score high on complexity.
 
 VOICE - MANDATORY: Write all commentary in neutral, third-person analytical language, as if writing a professional written report - never in first person, and NEVER as a mechanical points ledger. Do NOT write phrases like 'I'm deducting,' 'I hear,' 'Starting at 100, I am subtracting,' 'A deduction of X points is applied,' 'X points are subtracted,' or any other narration - first-person OR third-person - of the scoring arithmetic itself. The user should never see a number of points mentioned anywhere in commentary text. Instead, describe what you actually observe, directly and specifically: write 'The vocal sits slightly recessed behind the rhythm guitars in the verse,' never 'A deduction of 12 points is applied due to recessed vocals' and never 'I'm deducting 12 points because I hear the vocal is recessed.' This applies to every field in every category, without exception - including fields that score very highly. For top-band scores (90-100), commentary should validate the track's high-level craft and execution honestly; never invent imaginary flaws, non-existent muddiness, or unneeded tweaks just to explain why a score is not 100. Reserve criticisms strictly for genuine, demonstrable technical or arrangement shortcomings. Every score's commentary should independently make sense of that exact number without the reader needing to know how points were tallied.
 
@@ -1535,6 +1547,18 @@ const SUBMETRICS_SCHEMA_3 = {
 };
 
 const SUBMETRIC_SYSTEM_PROMPT_3 = `You are a precise music analyst breaking down five categories into their specific sub-components using the EVIDENCE-BASED scoring method defined below. For compositionFlowSubs, vocalTrackingSubs, and instrumentalStagingSubs, return qualityTier rather than an exact numeric score; the server assigns the canonical number deterministically. LyricalImpactSubs and musicTheorySubs remain numeric.
+
+For the tiered fields use exactly this evidence hierarchy:
+- REFERENCE: rare reference-level execution with multiple independent, specific pieces of evidence.
+- EXCEPTIONAL: unmistakably exceptional execution clearly beyond normal professional work.
+- ABOVE_AVERAGE: a concrete, nameable strength demonstrably better than the normal professional standard.
+- PROFESSIONAL_HIGH: notably strong, well-controlled professional execution without enough evidence to call it truly exceptional.
+- PROFESSIONAL: clean, competent, release-ready execution with no material defect and no specific standout evidence.
+- LIMITED: a real, audible but limited weakness.
+- MATERIAL_ISSUE: a recurring or substantial weakness that clearly compromises the metric.
+- SEVERE: persistent structural failure or plainly unacceptable execution.
+
+Do not vary tiers merely to create numerical spread. Problem-free alone belongs at PROFESSIONAL/PROFESSIONAL_HIGH; ABOVE_AVERAGE+ requires named evidence.
 
 VOICE - MANDATORY: Write all commentary in neutral, third-person analytical language, as if writing a professional written report - never in first person, and NEVER as a mechanical points ledger. Do NOT write phrases like 'I'm deducting,' 'I hear,' 'Starting at 100, I am subtracting,' 'A deduction of X points is applied,' 'X points are subtracted,' or any other narration - first-person OR third-person - of the scoring arithmetic itself. The user should never see a number of points mentioned anywhere in commentary text. Instead, describe what you actually observe, directly and specifically: write 'The vocal sits slightly recessed behind the rhythm guitars in the verse,' never 'A deduction of 12 points is applied due to recessed vocals' and never 'I'm deducting 12 points because I hear the vocal is recessed.' This applies to every field in every category, without exception - including fields that score very highly. For top-band scores (90-100), commentary should validate the track's high-level craft and execution honestly; never invent imaginary flaws, non-existent muddiness, or unneeded tweaks just to explain why a score is not 100. Reserve criticisms strictly for genuine, demonstrable technical or arrangement shortcomings. Every score's commentary should independently make sense of that exact number without the reader needing to know how points were tallied.
 
