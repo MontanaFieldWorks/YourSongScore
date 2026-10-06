@@ -965,8 +965,8 @@ const tierMetricProperties = {
 const SUBMETRICS_SCHEMA_1 = {
   type: Type.OBJECT,
   properties: {
-    spectralMatch: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-    dynamicVariety: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+    spectralMatch: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
+    dynamicVariety: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
     paletteCohesion: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
     aestheticDesign: { type: Type.OBJECT, description: "Quality of the track's audible sonic architecture and production design. Return a qualityTier rather than a numeric score; the server assigns the canonical score deterministically.", properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
     spaceAndDensity: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
@@ -992,6 +992,8 @@ const SUBMETRICS_SCHEMA_1 = {
 
 function applyDeterministicProductionTierScores(call1: any): any {
   const tieredMetricKeys = [
+    "spectralMatch",
+    "dynamicVariety",
     "paletteCohesion",
     "aestheticDesign",
     "spaceAndDensity",
@@ -1024,7 +1026,7 @@ ${SCORE_CALIBRATION}
 DO NOT CONFIDENTLY ASSERT UNVERIFIABLE PRODUCTION TECHNIQUES: Never state as fact that a specific production method was used - sampled versus real acoustic drums, auto-tune or pitch-correction software, a specific plugin or piece of hardware - unless the audio evidence is genuinely, audibly unambiguous (e.g. a clearly robotic, quantized, inhuman vocal is real evidence of heavy pitch-correction; a rigidly identical, zero-variance drum pattern is real evidence of programming or sampling). When you cannot genuinely distinguish the method, describe the audible RESULT instead of guessing the technique: write 'the drums sound tight and consistent' rather than 'well-chosen drum samples,' and write 'the vocal pitch is remarkably precise and stable' rather than 'auto-tuning is consistently applied.' This matters especially for older or vintage recordings, where confidently attributing a modern production technique (auto-tune, digital sampling) can be not just unverifiable but chronologically impossible - when in doubt about a recording's era or technology, describe what you hear, not what likely produced it.
 
 DETERMINISTIC TIER SCORING - MANDATORY FOR PRODUCTION/MIX CHILDREN:
-For paletteCohesion, aestheticDesign, spaceAndDensity, mudPrevention, sibilanceShaving, lowEndDivision, midrangeSpacing, and stereoWidth, you are NOT authorized to choose an exact numeric score. Return only qualityTier plus evidence-based commentary (and the existing applicability/role booleans where required). The server converts the tier into a canonical numeric score deterministically after your response.
+For spectralMatch, dynamicVariety, paletteCohesion, aestheticDesign, spaceAndDensity, mudPrevention, sibilanceShaving, lowEndDivision, midrangeSpacing, and stereoWidth, you are NOT authorized to choose an exact numeric score. Return only qualityTier plus evidence-based commentary (and the existing applicability/role booleans where required). The server converts the tier into a canonical numeric score deterministically after your response.
 
 Choose the tier from the audible evidence, not from a desired number:
 - REFERENCE: rare reference-level execution with multiple independent, specific pieces of evidence.
@@ -2690,7 +2692,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
-      parsedCritique.productionScoringVersion = "production-tier-v1";
+      parsedCritique.productionScoringVersion = "production-tier-v2";
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
     } catch (subErr: any) {
@@ -2956,7 +2958,7 @@ app.post("/api/critique-url", async (req, res) => {
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
-      parsedCritique.productionScoringVersion = "production-tier-v1";
+      parsedCritique.productionScoringVersion = "production-tier-v2";
       parsedCritique.subMetricsCall1Failed = false;
     } catch (subErr: any) {
       console.error("[Call 1] Failed (URL route), continuing without it:", subErr.message || subErr);
