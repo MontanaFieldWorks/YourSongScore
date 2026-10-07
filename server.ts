@@ -1348,7 +1348,7 @@ function applyDeterministicHeadlineTierScoresCall3(call3: any): any {
   return call3;
 }
 
-const SUBMETRIC_SYSTEM_PROMPT_2 = `You are a precise, artistically-literate music analyst. For acousticTension.dynamicModulation and acousticTension.climaxTrajectory, return qualityTier rather than an exact numeric score; the server assigns the canonical number deterministically.
+const SUBMETRIC_SYSTEM_PROMPT_2 = `You are a precise, artistically-literate music analyst. Every quality-evaluation child in artisticAnalysis, melodicHooks, acousticTension, and songwritingDensity returns qualityTier rather than an exact numeric score; the server assigns the canonical number deterministically. moodValence, speechiness, and acousticness are descriptive continua rather than quality judgments, so those three remain numeric.
 
 For every qualityTier field in this pass use exactly this evidence hierarchy:
 - REFERENCE: rare reference-level execution with multiple independent, specific pieces of evidence.
@@ -1556,7 +1556,7 @@ const SUBMETRICS_SCHEMA_3 = {
   required: ["compositionFlowSubs", "vocalTrackingSubs", "instrumentalStagingSubs", "lyricalImpactSubs", "musicTheorySubs"],
 };
 
-const SUBMETRIC_SYSTEM_PROMPT_3 = `You are a precise music analyst breaking down five categories into their specific sub-components using the EVIDENCE-BASED scoring method defined below. For compositionFlowSubs, vocalTrackingSubs, and instrumentalStagingSubs, return qualityTier rather than an exact numeric score; the server assigns the canonical number deterministically. LyricalImpactSubs and musicTheorySubs remain numeric.
+const SUBMETRIC_SYSTEM_PROMPT_3 = `You are a precise music analyst breaking down five categories into their specific sub-components using the EVIDENCE-BASED scoring method defined below. Every quality-evaluation child in compositionFlowSubs, vocalTrackingSubs, instrumentalStagingSubs, lyricalImpactSubs, and musicTheorySubs returns qualityTier rather than an exact numeric score; the server assigns the canonical number deterministically. Applicability booleans remain explicit where required.
 
 For every qualityTier field in this pass use exactly this evidence hierarchy:
 - REFERENCE: rare reference-level execution with multiple independent, specific pieces of evidence.
