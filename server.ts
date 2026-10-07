@@ -1256,10 +1256,10 @@ const SUBMETRICS_SCHEMA_2 = {
       properties: {
         score: { type: Type.INTEGER },
         feedback: { type: Type.STRING },
-        artisticAlignment: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-        atmosphericDepth: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-        harmonicIntrigue: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-        paletteSynergy: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        artisticAlignment: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
+        atmosphericDepth: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
+        harmonicIntrigue: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
+        paletteSynergy: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
       },
       required: ["score", "feedback", "artisticAlignment", "atmosphericDepth", "harmonicIntrigue", "paletteSynergy"],
     },
@@ -1268,8 +1268,8 @@ const SUBMETRICS_SCHEMA_2 = {
       properties: {
         score: { type: Type.INTEGER },
         feedback: { type: Type.STRING },
-        intervalMemory: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-        syllabicPlacement: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
+        intervalMemory: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
+        syllabicPlacement: { type: Type.OBJECT, properties: { ...tierMetricProperties, applicable: { type: Type.BOOLEAN } }, required: ["qualityTier", "commentary", "applicable"] },
       },
       required: ["score", "feedback", "intervalMemory", "syllabicPlacement"],
     },
@@ -1288,8 +1288,8 @@ const SUBMETRICS_SCHEMA_2 = {
       properties: {
         score: { type: Type.INTEGER },
         feedback: { type: Type.STRING },
-        vocalPocketing: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
-        poeticBrevity: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
+        vocalPocketing: { type: Type.OBJECT, properties: { ...tierMetricProperties, applicable: { type: Type.BOOLEAN } }, required: ["qualityTier", "commentary", "applicable"] },
+        poeticBrevity: { type: Type.OBJECT, properties: { ...tierMetricProperties, applicable: { type: Type.BOOLEAN } }, required: ["qualityTier", "commentary", "applicable"] },
       },
       required: ["score", "feedback", "vocalPocketing", "poeticBrevity"],
     },
@@ -1315,8 +1315,17 @@ function assignTierScore(metric: any, key: string): void {
 }
 
 function applyDeterministicHeadlineTierScoresCall2(call2: any): any {
+  for (const key of ["artisticAlignment", "atmosphericDepth", "harmonicIntrigue", "paletteSynergy"]) {
+    assignTierScore(call2?.artisticAnalysis?.[key], `artisticAnalysis.${key}`);
+  }
+  for (const key of ["intervalMemory", "syllabicPlacement"]) {
+    assignTierScore(call2?.melodicHooks?.[key], `melodicHooks.${key}`);
+  }
   assignTierScore(call2?.acousticTension?.dynamicModulation, "acousticTension.dynamicModulation");
   assignTierScore(call2?.acousticTension?.climaxTrajectory, "acousticTension.climaxTrajectory");
+  for (const key of ["vocalPocketing", "poeticBrevity"]) {
+    assignTierScore(call2?.songwritingDensity?.[key], `songwritingDensity.${key}`);
+  }
   return call2;
 }
 
@@ -1330,12 +1339,18 @@ function applyDeterministicHeadlineTierScoresCall3(call3: any): any {
   for (const key of ["timelineGridCohesion", "transientPunch", "melodicStaging", "instrumentalWarmth"]) {
     assignTierScore(call3?.instrumentalStagingSubs?.[key], `instrumentalStagingSubs.${key}`);
   }
+  for (const key of ["meaningClarity", "clicheAvoidance"]) {
+    assignTierScore(call3?.lyricalImpactSubs?.[key], `lyricalImpactSubs.${key}`);
+  }
+  for (const key of ["chordDynamics", "harmonicVariety", "formAndStructure"]) {
+    assignTierScore(call3?.musicTheorySubs?.[key], `musicTheorySubs.${key}`);
+  }
   return call3;
 }
 
 const SUBMETRIC_SYSTEM_PROMPT_2 = `You are a precise, artistically-literate music analyst. For acousticTension.dynamicModulation and acousticTension.climaxTrajectory, return qualityTier rather than an exact numeric score; the server assigns the canonical number deterministically.
 
-For those tiered fields use exactly this evidence hierarchy:
+For every qualityTier field in this pass use exactly this evidence hierarchy:
 - REFERENCE: rare reference-level execution with multiple independent, specific pieces of evidence.
 - EXCEPTIONAL: unmistakably exceptional execution clearly beyond normal professional work.
 - ABOVE_AVERAGE: a concrete, nameable strength demonstrably better than the normal professional standard.
@@ -1463,13 +1478,8 @@ async function performSubMetricsCall2(
   melodySummary?: string
 ): Promise<any> {
   const contextSummary = `
-Qualitative context from the earlier analysis pass (descriptive only - NO parent scores are given to you deliberately):
-The parent category scores are intentionally withheld here. Your sub-metric scores are used to RECOMPUTE those parent scores, so being shown the earlier numbers would make this analysis gravitate back toward that first unaided impression instead of independently determining the result from the evidence. Score each sub-metric on its own merits from the audio, the measurements below, and the descriptive notes - never toward any prior number.
-- Composition Flow notes: ${parsedCritique?.arrangement?.transitionsAndArc}
-- Music Theory chord structures: ${parsedCritique?.musicTheory?.chordStructures}
-- Lyrical clarity classification: ${parsedCritique?.lyricalImpact?.meaningClarity}
-- Vocal Tracking notes: ${parsedCritique?.performance?.vocalsCritique}
-For the two tiered acoustic-tension fields, infer stylistic intent from the audio itself rather than from a provisional genre label.
+INDEPENDENT ARTISTIC / SONGWRITING SCORING PASS.
+Do NOT inherit or anchor to any earlier AI-written genre label, arrangement prose, music-theory prose, lyrical classification, vocal critique, parent score, title, or identity. Those upstream outputs can vary between runs and must not become hidden inputs to a later quality score. Judge the actual audio directly.
 
 IF a detected key and chord vocabulary is provided below, treat it as AI-INFERRED SUPPORTING EVIDENCE about the song's harmonic content - useful corroboration for judging harmonicIntrigue, to be weighed alongside your own listening impression rather than trusted over it. It is NOT verified ground truth: it comes from model inference on the audio, and direct model-based key identification has been measured on this project as unreliable, returning different keys for the same recording on repeated runs. If it clearly conflicts with what you actually hear, say so plainly and trust your listening; never present the detected key or chords to the user as confirmed fact. This is the song's overall key and the set of chords it uses, not a timed section-by-section progression, so do not describe specific chord timing or ordering beyond what you can genuinely hear yourself. The Roman numerals show functional harmony relative to the key - chords outside the standard diatonic set (I, ii, iii, IV, V, vi, vii°), such as borrowed chords, secondary dominants, or unexpected extensions (maj7, sus4, etc. used non-conventionally), are a real signal of harmonic richness and should meaningfully raise the harmonicIntrigue score above 75. A chord vocabulary using only plain diatonic triads is NOT a harmonic failure - it is the harmonic backbone of countless great songs, and used well it should score a solid 75-85 (average, competently executed harmony, not adventurous, but not deficient either). Reserve scores meaningfully below that floor for genuine harmonic poverty specifically - a single chord for most or all of the song, or minimal chord movement with essentially no harmonic motion at all - not merely for staying within the diatonic set:
 Detected Key & Chord Vocabulary: ${chordProgressionSummary || 'not available'}
@@ -1528,17 +1538,17 @@ const SUBMETRICS_SCHEMA_3 = {
     lyricalImpactSubs: {
       type: Type.OBJECT,
       properties: {
-        meaningClarity: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
-        clicheAvoidance: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING }, applicable: { type: Type.BOOLEAN } }, required: ["score", "commentary", "applicable"] },
+        meaningClarity: { type: Type.OBJECT, properties: { ...tierMetricProperties, applicable: { type: Type.BOOLEAN } }, required: ["qualityTier", "commentary", "applicable"] },
+        clicheAvoidance: { type: Type.OBJECT, properties: { ...tierMetricProperties, applicable: { type: Type.BOOLEAN } }, required: ["qualityTier", "commentary", "applicable"] },
       },
       required: ["meaningClarity", "clicheAvoidance"],
     },
     musicTheorySubs: {
       type: Type.OBJECT,
       properties: {
-        chordDynamics: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-        harmonicVariety: { type: Type.OBJECT, properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
-        formAndStructure: { type: Type.OBJECT, description: "Structural effectiveness and development of the composition: proportion, section logic, thematic evolution, transitions, return/resolution, and overall arc. Do not equate complexity or verse/chorus conformity with quality.", properties: { score: { type: Type.INTEGER }, commentary: { type: Type.STRING } }, required: ["score", "commentary"] },
+        chordDynamics: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
+        harmonicVariety: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
+        formAndStructure: { type: Type.OBJECT, description: "Structural effectiveness and development of the composition: proportion, section logic, thematic evolution, transitions, return/resolution, and overall arc. Do not equate complexity or verse/chorus conformity with quality.", properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
       },
       required: ["chordDynamics", "harmonicVariety", "formAndStructure"],
     },
@@ -1548,7 +1558,7 @@ const SUBMETRICS_SCHEMA_3 = {
 
 const SUBMETRIC_SYSTEM_PROMPT_3 = `You are a precise music analyst breaking down five categories into their specific sub-components using the EVIDENCE-BASED scoring method defined below. For compositionFlowSubs, vocalTrackingSubs, and instrumentalStagingSubs, return qualityTier rather than an exact numeric score; the server assigns the canonical number deterministically. LyricalImpactSubs and musicTheorySubs remain numeric.
 
-For the tiered fields use exactly this evidence hierarchy:
+For every qualityTier field in this pass use exactly this evidence hierarchy:
 - REFERENCE: rare reference-level execution with multiple independent, specific pieces of evidence.
 - EXCEPTIONAL: unmistakably exceptional execution clearly beyond normal professional work.
 - ABOVE_AVERAGE: a concrete, nameable strength demonstrably better than the normal professional standard.
@@ -1668,14 +1678,8 @@ async function performSubMetricsCall3(
   measuredVocalDynamics?: number
 ): Promise<any> {
   const contextSummary = `
-Qualitative context from the earlier analysis pass (descriptive only - NO parent scores are given to you deliberately):
-The parent category scores are intentionally withheld here. Your sub-metric scores are used to RECOMPUTE those parent scores, so being shown the earlier numbers would make this analysis gravitate back toward that first unaided impression instead of independently determining the result from the evidence. Score each sub-metric on its own merits from the audio, the measurements below, and the descriptive notes - never toward any prior number.
-- Composition Flow notes (DESCRIPTIVE CONTEXT ONLY; do not treat any section labels here as ground truth - verify form directly from the audio): ${parsedCritique?.arrangement?.transitionsAndArc}
-- Vocal Tracking notes: ${parsedCritique?.performance?.vocalsCritique}
-- Lyrical meaning classification: "${parsedCritique?.lyricalImpact?.meaningClarity}", feedback: ${parsedCritique?.lyricalImpact?.feedback}
-- Music Theory chord structures: ${parsedCritique?.musicTheory?.chordStructures}
-- Harmonic Intrigue notes from a separate pass: "${parsedCritique?.subMetricsCall2?.artisticAnalysis?.harmonicIntrigue?.commentary ?? "N/A"}"
-For the tiered composition/vocal/instrumental fields, infer stylistic intent from the audio itself rather than from a provisional genre label.
+INDEPENDENT STRUCTURE / PERFORMANCE / THEORY SCORING PASS.
+Do NOT inherit or anchor to earlier AI-written genre, composition, vocal, lyrical, music-theory, artistic-analysis prose, or parent scores. Judge the actual audio directly and use only the measured/visual evidence below as support.
 - Measured Timeline Grid Cohesion Score: ${measuredGridCohesion !== undefined && measuredGridCohesion !== null ? measuredGridCohesion : 'not available'}
 - Measured Transient Punch Score: ${measuredTransientPunch !== undefined && measuredTransientPunch !== null ? measuredTransientPunch : 'not available'}
 - Measured Melodic Staging Score: ${measuredMelodicStaging !== undefined && measuredMelodicStaging !== null ? measuredMelodicStaging : 'not available'}
@@ -1692,8 +1696,8 @@ IF a rhythm onset image has been provided alongside the audio: this is an 800x30
 
 FORM-LABEL DISCIPLINE: derive the structural description from what is actually audible. If the piece is instrumental, thematic, episodic, through-composed, classical/cinematic, or otherwise not clearly verse/chorus based, describe sections neutrally (opening statement, contrasting section, development, reprise, climax, coda, etc.) rather than inventing pop labels. Use verse/chorus/pre-chorus/bridge terminology only when those functions are genuinely evident in the audio.
 
-Detected Chord Progression (real, computed ground truth - use as the primary basis for chordDynamics scoring, not just your own listening impression): ${chordProgressionSummary || 'not available'}
-Detected Melody/Pitch Data (real, computed): ${melodySummary || 'not available'}
+Detected Chord Vocabulary / Progression Support (AI-inferred supporting evidence; useful corroboration, NOT ground truth and never stronger than the audible/visual evidence): ${chordProgressionSummary || 'not available'}
+Detected Melody/Pitch Support (computed dominant-pitch evidence): ${melodySummary || 'not available'}
 IMPORTANT CAVEAT on the melody data above: this reflects the dominant monophonic pitch detected in the mix at each moment, which is usually but not always the lead vocal - during instrumental sections or dense arrangements it may reflect a lead instrument instead. Use it as genuine supporting evidence for the melody score, but do not treat it as confirmed, isolated vocal data.
 
 Listen to the actual audio again and generate specific, evidence-based scores and commentary for all 16 sub-fields across these 5 categories, consistent with the above context but grounded in what you actually hear this time. Actively scan for genuine technical sophistication before defaulting to surface-level descriptions.`;
@@ -2750,7 +2754,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
-      parsedCritique.productionScoringVersion = "scoring-tier-v3";
+      parsedCritique.productionScoringVersion = "scoring-tier-v4";
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
     } catch (subErr: any) {
@@ -3016,7 +3020,7 @@ app.post("/api/critique-url", async (req, res) => {
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
-      parsedCritique.productionScoringVersion = "scoring-tier-v3";
+      parsedCritique.productionScoringVersion = "scoring-tier-v4";
       parsedCritique.subMetricsCall1Failed = false;
     } catch (subErr: any) {
       console.error("[Call 1] Failed (URL route), continuing without it:", subErr.message || subErr);
