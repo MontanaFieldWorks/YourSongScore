@@ -2101,25 +2101,14 @@ function reconcileParentScores(parsedCritique: any): void {
       [c1Ready.paletteCohesion?.score, 25],
     ]);
     if (production !== null && parsedCritique.scores) {
-      // Production Index represents the combined strength of three different production
-      // dimensions. One standout child should not pull the aggregate into the 89+ band
-      // when the other two are merely professional-standard. Require a majority of the
-      // Production Index weight to carry genuine above-average evidence before the parent
-      // itself can be called above-average.
-      const productionChildren = [
-        { score: c1Ready.aestheticDesign?.score, weight: 40 },
-        { score: c1Ready.spaceAndDensity?.score, weight: 35 },
-        { score: c1Ready.paletteCohesion?.score, weight: 25 },
-      ].filter(x => typeof x.score === "number") as Array<{ score: number; weight: number }>;
-      const aboveAverageWeight = productionChildren
-        .filter(x => x.score >= 89)
-        .reduce((sum, x) => sum + x.weight, 0);
-      let reconciledProduction =
-        production > 88 && aboveAverageWeight < 50 ? 88 : production;
-      if (finishCeiling !== null) {
-        reconciledProduction = Math.min(reconciledProduction, finishCeiling);
-      }
-      parsedCritique.scores.overallProduction = reconciledProduction;
+      // Preserve the actual weighted evidence (Aesthetic 40%, Space 35%, Palette 25%).
+      // The former majority-above-89 gate collapsed legitimate distinctions: e.g.,
+      // one exceptional 40%-weight child could make the weighted result 90 yet the
+      // gate silently replaced it with 88. The weighted average already limits how
+      // much a single standout can move the parent; do not impose a second ceiling.
+      // Objective multi-signal production-finish ceilings remain authoritative.
+      parsedCritique.scores.overallProduction =
+        finishCeiling !== null ? Math.min(production, finishCeiling) : production;
     }
 
     // Sibilance Shaving and Low-End Division can both be genuinely N/A. Their 0
@@ -2754,7 +2743,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
-      parsedCritique.productionScoringVersion = "scoring-tier-v4";
+      parsedCritique.productionScoringVersion = "scoring-tier-v5";
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
     } catch (subErr: any) {
@@ -3020,7 +3009,7 @@ app.post("/api/critique-url", async (req, res) => {
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
-      parsedCritique.productionScoringVersion = "scoring-tier-v4";
+      parsedCritique.productionScoringVersion = "scoring-tier-v5";
       parsedCritique.subMetricsCall1Failed = false;
     } catch (subErr: any) {
       console.error("[Call 1] Failed (URL route), continuing without it:", subErr.message || subErr);
