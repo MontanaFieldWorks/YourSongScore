@@ -2313,7 +2313,7 @@ function isGeminiNonRetryable(err: any): boolean {
   const msg = String(err?.message || err || "").toLowerCase();
   if (isGeminiPrepayExhausted(err)) return true;
   // 429 with exhausted quota/billing cannot recover inside a short backoff.
-  if (status === 429 && /quota exhausted|insufficient quota|free.tier.*quota|billing.*(?:quota|limit)|quota.*limit.*0/i.test(msg)) return true;
+  if (status === 429 && /quota exhausted|quota exceeded|exceeded your current quota|insufficient quota|free.tier.*quota|billing.*(?:quota|limit)|quota.*limit.*0/i.test(msg)) return true;
   return [400, 401, 402, 403, 404, 413, 422].includes(status ?? 0);
 }
 
@@ -3298,7 +3298,7 @@ app.post("/api/critique-spotify", async (req, res) => {
     });
   } catch (error: any) {
     console.error("Error analyzing Spotify URL:", error);
-    res.status(500).json({ error: `Spotify Song Audit failed: ${error.message || error}` });
+    res.status(isGeminiPrepayExhausted(error) ? 402 : 500).json({ error: `Spotify Song Audit failed: ${error.message || error}` });
   }
 });
 
