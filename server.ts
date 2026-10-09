@@ -2292,55 +2292,74 @@ interface AverageableCritique {
   [key: string]: any;
 }
 
-// Robust wrapper to perform generateContent calls with 4x retry policies & exponential backoff on transient demand spikes (503/429)
+// Gemini errors that cannot be repaired by waiting. A 402 must stop the
+// whole song's analysis immediately, including optional sub-metric calls.
+function geminiErrorStatus(err: any): number | null {
+  const direct = Number(err?.status ?? err?.code ?? err?.error?.code);
+  if (Number.isInteger(direct) && direct >= 400 && direct <= 599) return direct;
+  const message = String(err?.message || err || "");
+  const match = message.match(/(?:["']?code["']?\s*:\s*|\bHTTP\s*)(4\d\d|5\d\d)\b/i);
+  return match ? Number(match[1]) : null;
+}
+
+function isGeminiPrepayExhausted(err: any): boolean {
+  const msg = String(err?.message || err || "").toLowerCase();
+  return geminiErrorStatus(err) === 402 ||
+    /prepayment credits? (?:are |have been )?depleted|prepay(?:ment)? credits?|insufficient (?:prepaid )?credits|billing.*(?:depleted|exhausted)/i.test(msg);
+}
+
+function isGeminiNonRetryable(err: any): boolean {
+  const status = geminiErrorStatus(err);
+  const msg = String(err?.message || err || "").toLowerCase();
+  if (isGeminiPrepayExhausted(err)) return true;
+  // 429 with exhausted quota/billing cannot recover inside a short backoff.
+  if (status === 429 && /quota exhausted|insufficient quota|free.tier.*quota|billing.*(?:quota|limit)|quota.*limit.*0/i.test(msg)) return true;
+  return [400, 401, 402, 403, 404, 413, 422].includes(status ?? 0);
+}
+
+// Retry only likely transient failures. Do not retry arbitrary exceptions,
+// invalid API requests, insufficient credits, authentication, or permissions.
+function isGeminiTransient(err: any): boolean {
+  if (isGeminiNonRetryable(err)) return false;
+  const status = geminiErrorStatus(err);
+  if ([429, 500, 502, 503, 504].includes(status ?? 0)) return true;
+  if (status !== null) return false;
+  const msg = String(err?.message || err || "").toLowerCase();
+  return /(?:temporarily unavailable|overloaded|high demand|connection reset|econnreset|etimedout|network timeout|fetch failed|service unavailable)/i.test(msg);
+}
+
+// Max 3 attempts total (2 retries). The caller's smaller maxAttempts,
+// if supplied, is respected but the historical larger limits are not.
 async function generateContentWithRetry(params: {
   model: string;
   contents: any;
   config?: any;
-}, maxAttempts = 6): Promise<any> {
+}, maxAttempts = 3): Promise<any> {
   if (!ai) {
     throw new Error("Gemini API Client is not configured. Please supply a GEMINI_API_KEY in Secrets.");
   }
-  let attempts = 0;
-  let currentModel = params.model;
-  while (attempts < maxAttempts) {
+  const attemptLimit = Math.min(3, Math.max(1, maxAttempts));
+  for (let attempt = 1; attempt <= attemptLimit; attempt++) {
     try {
-      const response = await ai.models.generateContent({
+      return await ai.models.generateContent({
         ...params,
-        model: currentModel,
         config: {
           ...(params.config || {}),
           seed: params.config?.seed ?? 20261003,
         },
       });
-      return response;
     } catch (err: any) {
-      attempts++;
-      const errMsg = (err?.message || String(err)).toLowerCase();
-      const isUnavailable = errMsg.includes("503") || 
-                            errMsg.includes("unavailable") || 
-                            errMsg.includes("high demand") || 
-                            errMsg.includes("temporary") ||
-                            errMsg.includes("overloaded") ||
-                            (err?.status === 503);
-
-      // Log retries to console.log instead of console.warn to allow graceful recovery without triggering error flags in validation systems
-      console.log(`[Gemini API] Retry info - Attempt ${attempts}/${maxAttempts} with model ${currentModel} returned: ${errMsg.slice(0, 150)}`);
-
-      if (attempts >= maxAttempts) {
-        console.error(`[Gemini API] Failed permanently after ${attempts} attempts:`, err);
+      if (!isGeminiTransient(err) || attempt >= attemptLimit) {
+        console.error(`[Gemini API] Stopped after attempt ${attempt}/${attemptLimit}; status=${geminiErrorStatus(err) ?? "unknown"}`);
         throw err;
       }
-
-
-
-      // Wait with backoff (1500ms, 3000ms, 4500ms)
-      const delay = attempts * 2000;
-      console.log(`[Gemini API] Waiting ${delay}ms before retrying...`);
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      // 2s, then 4s. Failed responses are never silently replaced by scores.
+      const backoffMs = attempt * 2000;
+      console.log(`[Gemini API] Transient failure, retry ${attempt + 1}/${attemptLimit} in ${backoffMs}ms`);
+      await new Promise(resolve => setTimeout(resolve, backoffMs));
     }
   }
-  throw new Error("Gemini invocation failed after all retries.");
+  throw new Error("Gemini request failed after permitted retries.");
 }
 
 async function verifyInstrumentalGenreIfNeeded(
@@ -2419,6 +2438,7 @@ Return the best genre/subgenre plus a short evidence summary.`;
       console.log("[GenreConsistency] Focused blind-instrumental verification confirmed the original classification.");
     }
   } catch (err: any) {
+    if (isGeminiPrepayExhausted(err)) throw err;
     console.log("[GenreConsistency] Verification failed; continuing with the original classification:", err?.message || err);
   }
 }
@@ -2761,6 +2781,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
     } catch (subErr: any) {
+      if (isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Call 1] Sub-Metrics Call 1 failed, continuing without it:", subErr.message || subErr);
       parsedCritique.subMetricsCall1Failed = true;
     }
@@ -2778,6 +2799,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
         inferredChordSummary = `Key: ${chordKeyAnalysis.keySignature}. Chord vocabulary used: ${chordList}. (Note: this is the song's overall key and chord vocabulary, not a timed section-by-section progression.)`;
       }
     } catch (subErr: any) {
+      if (isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Chord/Key] Direct Gemini chord/key analysis failed, continuing without it:", subErr.message || subErr);
       parsedCritique.chordKeyAnalysisFailed = true;
     }
@@ -2789,6 +2811,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       parsedCritique.subMetricsCall2Failed = false;
       console.log("[Call 2] Sub-Metrics Call 2 completed successfully.");
     } catch (subErr: any) {
+      if (isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Call 2] Sub-Metrics Call 2 failed, continuing without it:", subErr.message || subErr);
       parsedCritique.subMetricsCall2Failed = true;
     }
@@ -2812,6 +2835,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       parsedCritique.subMetricsCall3Failed = false;
       console.log("[Call 3] Sub-Metrics Call 3 completed successfully.");
     } catch (subErr: any) {
+      if (isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Call 3] Sub-Metrics Call 3 failed, continuing without it:", subErr.message || subErr);
       parsedCritique.subMetricsCall3Failed = true;
     }
@@ -2823,7 +2847,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
     res.json({ critique: parsedCritique });
   } catch (error: any) {
     console.error("Error processing file critique:", error);
-    res.status(500).json({ error: `Analysis failed: ${error.message || error}` });
+    res.status(isGeminiPrepayExhausted(error) ? 402 : 500).json({ error: `Analysis failed: ${error.message || error}` });
   }
 });
 
@@ -3026,6 +3050,7 @@ app.post("/api/critique-url", async (req, res) => {
       parsedCritique.productionScoringVersion = "scoring-tier-v5";
       parsedCritique.subMetricsCall1Failed = false;
     } catch (subErr: any) {
+      if (isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Call 1] Failed (URL route), continuing without it:", subErr.message || subErr);
       parsedCritique.subMetricsCall1Failed = true;
     }
@@ -3042,6 +3067,7 @@ app.post("/api/critique-url", async (req, res) => {
         inferredChordSummary = `Key: ${chordKeyAnalysis.keySignature}. Chord vocabulary used: ${chordList}. (Note: this is the song's overall key and chord vocabulary, not a timed section-by-section progression.)`;
       }
     } catch (subErr: any) {
+      if (isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Chord/Key] Failed (URL route), continuing without it:", subErr.message || subErr);
       parsedCritique.chordKeyAnalysisFailed = true;
     }
@@ -3052,6 +3078,7 @@ app.post("/api/critique-url", async (req, res) => {
       parsedCritique.subMetricsCall2 = subMetricsCall2;
       parsedCritique.subMetricsCall2Failed = false;
     } catch (subErr: any) {
+      if (isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Call 2] Failed (URL route), continuing without it:", subErr.message || subErr);
       parsedCritique.subMetricsCall2Failed = true;
     }
@@ -3074,6 +3101,7 @@ app.post("/api/critique-url", async (req, res) => {
       parsedCritique.subMetricsCall3 = subMetricsCall3;
       parsedCritique.subMetricsCall3Failed = false;
     } catch (subErr: any) {
+      if (isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Call 3] Failed (URL route), continuing without it:", subErr.message || subErr);
       parsedCritique.subMetricsCall3Failed = true;
     }
@@ -3085,7 +3113,7 @@ app.post("/api/critique-url", async (req, res) => {
     res.json({ critique: parsedCritique });
   } catch (error: any) {
     console.error("Error processing URL critique:", error);
-    res.status(500).json({ error: `Analysis failed: ${error.message || error}` });
+    res.status(isGeminiPrepayExhausted(error) ? 402 : 500).json({ error: `Analysis failed: ${error.message || error}` });
   }
 });
 
@@ -3211,6 +3239,7 @@ app.post("/api/critique-spotify", async (req, res) => {
       critique.subMetricsCall1 = subMetricsCall1;
       critique.subMetricsCall1Failed = false;
     } catch (subErr: any) {
+      if (isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Call 1] Failed (Spotify route), continuing without it:", subErr.message || subErr);
       critique.subMetricsCall1Failed = true;
     }
@@ -3226,6 +3255,7 @@ app.post("/api/critique-spotify", async (req, res) => {
         inferredChordSummary = `Key: ${chordKeyAnalysis.keySignature}. Chord vocabulary used: ${chordList}. (Note: this is the song's overall key and chord vocabulary, not a timed section-by-section progression.)`;
       }
     } catch (subErr: any) {
+      if (isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Chord/Key] Failed (Spotify route), continuing without it:", subErr.message || subErr);
       critique.chordKeyAnalysisFailed = true;
     }
@@ -3236,6 +3266,7 @@ app.post("/api/critique-spotify", async (req, res) => {
       critique.subMetricsCall2 = subMetricsCall2;
       critique.subMetricsCall2Failed = false;
     } catch (subErr: any) {
+      if (isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Call 2] Failed (Spotify route), continuing without it:", subErr.message || subErr);
       critique.subMetricsCall2Failed = true;
     }
@@ -3246,6 +3277,7 @@ app.post("/api/critique-spotify", async (req, res) => {
       critique.subMetricsCall3 = subMetricsCall3;
       critique.subMetricsCall3Failed = false;
     } catch (subErr: any) {
+      if (isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Call 3] Failed (Spotify route), continuing without it:", subErr.message || subErr);
       critique.subMetricsCall3Failed = true;
     }
