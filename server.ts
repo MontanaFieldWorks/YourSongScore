@@ -1949,7 +1949,8 @@ function enforceClassicalInstrumentalSourceNeutrality(parsedCritique: any): void
     [/\bnotes? and strums?\b/gi, "attacks and sustained tones"],
     // Do not leave a false electronic-genre label embedded in otherwise
     // source-neutral prose on an established Classical instrumental.
-    [/\b(?:modern|contemporary) electronic aesthetic\b/gi, "instrumental aesthetic"],
+    [/\bmodern electronic aesthetic\b/gi, "modern instrumental aesthetic"],
+    [/\bcontemporary electronic aesthetic\b/gi, "contemporary instrumental aesthetic"],
     [/\belectronic aesthetic\b/gi, "instrumental aesthetic"],
     [/\belectronic genres?\b/gi, "instrumental context"],
     [/\belectronic (?:production|style)\b/gi, "instrumental presentation"],
