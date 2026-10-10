@@ -1033,6 +1033,8 @@ function applyDeterministicProductionTierScores(call1: any): any {
 
 const SUBMETRIC_SYSTEM_PROMPT = `You are a precise audio engineering sub-analyst performing an independent blind production/mix pass. Earlier parent scores and provisional genre judgments are intentionally withheld. Your job is to classify each required sub-metric from the actual audio and the supplied objective evidence using the method below.
 
+GENRE/SOURCE EVIDENCE: Sampled orchestral instruments, regular pitched attacks, a low ostinato, or precise programmed playback do NOT establish an electronic genre or modern electronic aesthetic. When the audio is recognizably orchestral/classical, describe the actual rendered orchestral texture and audible production outcome. Only name drums, synths, electronic instruments, or electronic style when there is distinct audible evidence beyond generic transients or synthetic-sounding timbres. Do not invent source identities to justify a score.
+
 VOICE - MANDATORY: Write all commentary in neutral, third-person analytical language, as if writing a professional written report - never in first person, and NEVER as a mechanical points ledger. Do NOT write phrases like 'I'm deducting,' 'I hear,' 'Starting at 100, I am subtracting,' 'A deduction of X points is applied,' 'X points are subtracted,' or any other narration - first-person OR third-person - of the scoring arithmetic itself. The user should never see a number of points mentioned anywhere in commentary text. Instead, describe what you actually observe, directly and specifically: write 'The vocal sits slightly recessed behind the rhythm guitars in the verse,' never 'A deduction of 12 points is applied due to recessed vocals' and never 'I'm deducting 12 points because I hear the vocal is recessed.' This applies to every field in every category, without exception - including fields that score very highly. For top-band scores (90-100), commentary should validate the track's high-level technical execution and commercial readiness honestly; never invent imaginary flaws, non-existent muddiness, or unneeded tweaks just to explain why a score is not 100. Reserve criticisms strictly for genuine, demonstrable technical or arrangement shortcomings. Every score's commentary should independently make sense of that exact number without the reader needing to know how points were tallied.
 
 ${SCORE_CALIBRATION}
@@ -1586,6 +1588,8 @@ const SUBMETRICS_SCHEMA_3 = {
 
 const SUBMETRIC_SYSTEM_PROMPT_3 = `You are a precise music analyst breaking down five categories into their specific sub-components using the EVIDENCE-BASED scoring method defined below. Every quality-evaluation child in compositionFlowSubs, vocalTrackingSubs, instrumentalStagingSubs, lyricalImpactSubs, and musicTheorySubs returns qualityTier rather than an exact numeric score; the server assigns the canonical number deterministically. Applicability booleans remain explicit where required.
 
+SOURCE/GENRE NEUTRALITY: Do not label orchestral or classical instrumental performances as an electronic genre, electronic aesthetic, EDM, or synth music solely from regular attacks, orchestral sample timbres, tempo precision, or a low-register repeating figure. A percussive attack is not necessarily a drum, and a synthesized orchestral rendering is not evidence of an electronic composition. Describe verifiable audible instrumental behavior; claim a specific electronic source only with a genuinely distinct audible cue.
+
 For every qualityTier field in this pass use exactly this evidence hierarchy:
 - REFERENCE: rare reference-level execution with multiple independent, specific pieces of evidence.
 - EXCEPTIONAL: unmistakably exceptional execution clearly beyond normal professional work.
@@ -1943,6 +1947,13 @@ function enforceClassicalInstrumentalSourceNeutrality(parsedCritique: any): void
     [/\bthe instrument's timbre\b/gi, "the rendered texture's timbral character"],
     [/\beach note and strum\b/gi, "individual attacks and sustained tones"],
     [/\bnotes? and strums?\b/gi, "attacks and sustained tones"],
+    // Do not leave a false electronic-genre label embedded in otherwise
+    // source-neutral prose on an established Classical instrumental.
+    [/\b(?:modern|contemporary) electronic aesthetic\b/gi, "instrumental aesthetic"],
+    [/\belectronic aesthetic\b/gi, "instrumental aesthetic"],
+    [/\belectronic genres?\b/gi, "instrumental context"],
+    [/\belectronic (?:production|style)\b/gi, "instrumental presentation"],
+    [/\belectronic (?:music|track)\b/gi, "instrumental piece"],
   ];
 
   const neutralize = (text: string): string => {
