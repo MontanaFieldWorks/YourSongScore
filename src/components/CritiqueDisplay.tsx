@@ -469,6 +469,35 @@ export function getEchoNestTier(item: { value: number; min: number; max: number 
   }
 }
 
+// A severe finish defect should not be hidden by strong songwriting or a good
+// genre-profile match. This ceiling is produced by the existing multi-signal
+// server cross-check; neither a single LUFS miss nor genre-specific tonal style
+// can trigger it by itself.
+function getVerifiedProductionFinishCeiling(critique: any): number | null {
+  const evidence = critique?.productionFinishEvidence;
+  if (
+    evidence?.source !== "server" ||
+    !Number.isFinite(evidence.ceiling) ||
+    !(evidence.flagCount >= 3) ||
+    !(evidence.spectralFlagCount >= 2)
+  ) return null;
+  return Math.max(0, Math.min(100, Math.round(evidence.ceiling)));
+}
+
+function capReadinessForVerifiedFinish(score: number, critique: any): number {
+  const ceiling = getVerifiedProductionFinishCeiling(critique);
+  return ceiling === null ? score : Math.min(score, ceiling);
+}
+
+export function computeCommercialImpactScore(critique: any): number {
+  const engagement = critique?.scores?.commercialReadiness ?? 75;
+  const production = critique?.scores?.overallProduction ?? 75;
+  return capReadinessForVerifiedFinish(
+    Math.round(engagement * 0.80 + production * 0.20),
+    critique
+  );
+}
+
 export function computeEchoNestScorecard(critique: any) {
   const liveMetrics = critique?.liveMetrics;
   const overallProductionVal = critique?.scores?.overallProduction ?? 75;
@@ -515,14 +544,26 @@ export function computeEchoNestScorecard(critique: any) {
   const valenceOffset = Math.round(((theoryScoreVal || 72) - 72) * 0.3);
   const valence = critique?.spotifyOverrides?.valence ?? critique?.subMetricsCall2?.moodValence?.score ?? Math.max(8, Math.min(95, baseValence + valenceOffset));
 
+  // Midrange/treble energy CANNOT establish whether a recording contains vocals:
+  // string, piano and orchestral music often have strong midrange energy too.
+  // Use the existing listening-derived vocal applicability decision instead.
+  // 98 / 2 are categorical proxy values, NOT measured Spotify probabilities.
+  // Retain legacy profile fallback only when vocal applicability is unavailable.
   const instrumentalnessOffset = Math.round(((instrumentalScoreVal || 75) - 75) * 0.3);
-  const instrumentalness = (() => {
-    if (liveMetrics?.calculatedMidEnergy !== undefined && liveMetrics?.calculatedHighEnergy !== undefined) {
-      const vocalPresenceProxy = Math.min(1, liveMetrics.calculatedMidEnergy / Math.max(1, liveMetrics.calculatedHighEnergy));
-      return Math.round(Math.min(98, Math.max(1, (1 - vocalPresenceProxy) * 80)));
-    }
-    return Math.max(1, Math.min(98, baseInstrumentalness + instrumentalnessOffset));
-  })();
+  const vocalStatus = critique?.performance?.vocalApplicable;
+  const vocalSubs = critique?.subMetricsCall3?.vocalTrackingSubs;
+  const vocalSubStatus = [
+    vocalSubs?.pitchAccuracy?.applicable,
+    vocalSubs?.dynamicDelivery?.applicable,
+  ];
+  const noVocalsEstablished = vocalStatus === false ||
+    (vocalStatus == null && vocalSubStatus.every(value => value === false));
+  const vocalsEstablished = vocalStatus === true ||
+    (vocalStatus == null && vocalSubStatus.some(value => value === true));
+  const instrumentalness = critique?.spotifyOverrides?.instrumentalness ??
+    (noVocalsEstablished ? 98
+      : vocalsEstablished ? 2
+      : Math.max(1, Math.min(98, baseInstrumentalness + instrumentalnessOffset)));
 
   const speechinessOffset = Math.round(((lyricsScoreVal || 70) - 70) * 0.2);
   const speechiness = critique?.subMetricsCall2?.speechiness?.score ?? Math.max(2, Math.min(92, baseSpeechiness + speechinessOffset));
@@ -625,10 +666,13 @@ export function computeCategoryScores(critique: any) {
     ? echoNestData.reduce((sum: number, item: any) => sum + (item.matchPercent ?? 0), 0) / echoNestData.length
     : 75;
 
-  const scoreStreamingReadiness = Math.round(
-    (completionRate * 0.40) +
-    (echoNestAvgMatch * 0.30) +
-    (commercialReadinessVal * 0.30)
+  const scoreStreamingReadiness = capReadinessForVerifiedFinish(
+    Math.round(
+      (completionRate * 0.40) +
+      (echoNestAvgMatch * 0.30) +
+      (commercialReadinessVal * 0.30)
+    ),
+    critique
   );
 
   const lufsRaw = critique?.liveMetrics?.calculatedLufs;
@@ -1922,7 +1966,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     };
 
     const aggScoreMap: Record<string, number | null> = {
-      "COMMERCIAL IMPACT": Math.round((critique?.scores?.commercialReadiness ?? 75) * 0.8 + (critique?.scores?.overallProduction ?? 75) * 0.2),
+      "COMMERCIAL IMPACT": computeCommercialImpactScore(critique),
       "PRODUCTION QUALITY": null,
       "SONGWRITING QUALITY": dnaScore,
     };
@@ -1952,7 +1996,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     const aggNoteMap: Record<string, string> = {
       "COMMERCIAL IMPACT":
         `Weighted aggregate: Engagement Power ${critique?.scores?.commercialReadiness ?? 75} (80%) + ` +
-        `Production Index ${critique?.scores?.overallProduction ?? 75} (20%) = ${aggScoreMap["COMMERCIAL IMPACT"]}.`,
+        `Production Index ${critique?.scores?.overallProduction ?? 75} (20%). ` +
+        `Result: ${aggScoreMap["COMMERCIAL IMPACT"]}.` +
+        (getVerifiedProductionFinishCeiling(critique) !== null
+          ? ` Multi-signal, server-verified production-finish ceiling: ${getVerifiedProductionFinishCeiling(critique)}; applied only if below the weighted result.`
+          : ""),
       "PRODUCTION QUALITY":
         "Grouping only — no separate Production Quality score is calculated here. Use the scored Mix Balance, Vocal Tracking, Instrumental Staging, and related child metrics below.",
       "SONGWRITING QUALITY": songwritingQualityParts.length > 0
@@ -6418,7 +6466,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 }`}>
                   <p className="text-[12px] text-slate-400 leading-relaxed font-semibold" style={{ marginBottom: "0px" }}>
                     This is a generalized, "quick view" analysis of how streaming services algorithms might assess your song upon upload: Engagement Power (80% weight) &amp; Production Index (20% weight).
-                    <span className="block mt-1 text-blue-400/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Predicts first-listen algorithmic scoring and playlist eligibility.</span>
+                    <span className="block mt-1 text-blue-400/90 font-mono text-[10px] uppercase tracking-wider" style={{ marginBottom: "2px" }}>Heuristic estimate, not a platform prediction or playlist eligibility determination. Verified production-finish defects can limit this score.</span>
                   </p>
                   <span 
                     style={{ paddingTop: "2px" }}
@@ -6435,7 +6483,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {/* Right Score display */}
               <div className="flex-shrink-0 flex items-center justify-center">
                 <ScoreCircle 
-                  score={Math.round((critique?.scores?.commercialReadiness ?? 75) * 0.8 + (critique?.scores?.overallProduction ?? 75) * 0.2)} 
+                  score={computeCommercialImpactScore(critique)} 
                   size={110} 
                   strokeWidth={7} 
                   color={activeCategory === "mainstream" ? "#3b82f6" : "rgba(59, 130, 246, 0.45)"} 
