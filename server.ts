@@ -1520,6 +1520,20 @@ Listen to the actual audio again and generate specific, evidence-based scores, f
 const SUBMETRICS_SCHEMA_3 = {
   type: Type.OBJECT,
   properties: {
+    // Independent second listen: not shown Call 1's instrument assertions or tiers.
+    // Used only to confirm applicability, never as another quality score.
+    lowEndRoleAudit: {
+      type: Type.OBJECT,
+      properties: {
+        percussionType: { type: Type.STRING, enum: ["KICK_DRUM", "BASS_DRUM", "TIMPANI_OR_LOW_TOM", "OTHER_NAMED_LOW_PERCUSSION", "PITCHED_ATTACK_ONLY", "NOT_ESTABLISHED"] },
+        percussionSourceName: { type: Type.STRING, description: "Specific audible drum/percussion instrument. Empty unless independently heard. Do not turn rhythmic bass notes, orchestral attacks, or a generic low pulse into a drum." },
+        percussionAudibleCue: { type: Type.STRING, description: "Concrete unpitched/low-drum attack or percussive timbre that distinguishes this source from the pitched instruments. Empty if ambiguous." },
+        percussionCertainty: { type: Type.STRING, enum: ["CLEAR", "AMBIGUOUS", "NOT_ESTABLISHED"] },
+        bassFoundationType: { type: Type.STRING, enum: ["DEDICATED_BASS_INSTRUMENT", "DEDICATED_SYNTH_OR_SUB", "INDEPENDENT_ORCHESTRAL_BASS", "SHARED_LOW_REGISTER", "NOT_ESTABLISHED"] },
+        rolesIndependent: { type: Type.BOOLEAN, description: "True only if actual low-frequency percussion and a separate sustained bass foundation can each be heard as distinct roles." },
+      },
+      required: ["percussionType", "percussionSourceName", "percussionAudibleCue", "percussionCertainty", "bassFoundationType", "rolesIndependent"],
+    },
     compositionFlowSubs: {
       type: Type.OBJECT,
       properties: {
@@ -1567,7 +1581,7 @@ const SUBMETRICS_SCHEMA_3 = {
       required: ["chordDynamics", "harmonicVariety", "formAndStructure"],
     },
   },
-  required: ["compositionFlowSubs", "vocalTrackingSubs", "instrumentalStagingSubs", "lyricalImpactSubs", "musicTheorySubs"],
+  required: ["lowEndRoleAudit", "compositionFlowSubs", "vocalTrackingSubs", "instrumentalStagingSubs", "lyricalImpactSubs", "musicTheorySubs"],
 };
 
 const SUBMETRIC_SYSTEM_PROMPT_3 = `You are a precise music analyst breaking down five categories into their specific sub-components using the EVIDENCE-BASED scoring method defined below. Every quality-evaluation child in compositionFlowSubs, vocalTrackingSubs, instrumentalStagingSubs, lyricalImpactSubs, and musicTheorySubs returns qualityTier rather than an exact numeric score; the server assigns the canonical number deterministically. Applicability booleans remain explicit where required.
@@ -1694,6 +1708,9 @@ async function performSubMetricsCall3(
   const contextSummary = `
 INDEPENDENT STRUCTURE / PERFORMANCE / THEORY SCORING PASS.
 Do NOT inherit or anchor to earlier AI-written genre, composition, vocal, lyrical, music-theory, artistic-analysis prose, or parent scores. Judge the actual audio directly and use only the measured/visual evidence below as support.
+
+INDEPENDENT LOW-END ROLE AUDIT (ADDITIONAL EVIDENCE, NOT A QUALITY SCORE):
+Return lowEndRoleAudit independently of any earlier low-end claims. Listen to the raw audio from scratch and identify whether TWO genuinely distinct low-frequency instruments/roles exist: a specifically identifiable kick/bass drum, timpani, low tom, or other NAMED drum/percussion source with separately audible attacks; and a distinct sustained bass/sub-bass instrument/foundation. Name the percussion instrument and give a concrete audible cue that separates its attacks from the pitched ensemble. A pitched orchestral ostinato, piano note attack, pizzicato bass, synth arpeggio, or generic low-frequency rhythmic transient is NOT a drum. Audio produced with sampled or synthesized orchestral instruments is NOT necessarily electronic/dance music. Do not infer drums simply because an onset image has periodic peaks: pitched attacks can produce the same peaks. If either role cannot be independently verified, set percussionType=PITCHED_ATTACK_ONLY or NOT_ESTABLISHED, percussionCertainty=AMBIGUOUS or NOT_ESTABLISHED, rolesIndependent=false and describe no imagined drum. If no actual drum is audible, leave percussionSourceName and percussionAudibleCue empty. This audit must not affect the music-theory, production, or quality-tier judgments in this pass.
 - Measured Timeline Grid Cohesion Score: ${measuredGridCohesion !== undefined && measuredGridCohesion !== null ? measuredGridCohesion : 'not available'}
 - Measured Transient Punch Score: ${measuredTransientPunch !== undefined && measuredTransientPunch !== null ? measuredTransientPunch : 'not available'}
 - Measured Melodic Staging Score: ${measuredMelodicStaging !== undefined && measuredMelodicStaging !== null ? measuredMelodicStaging : 'not available'}
@@ -1956,6 +1973,27 @@ function enforceClassicalInstrumentalSourceNeutrality(parsedCritique: any): void
   }
 }
 
+// The source-identity audit is strict about *observable percussion* rather
+// than acoustic energy alone. Do not accept generic descriptions of "transients"
+// or "pulse" as a positive instrument identification. Each model pass is scored
+// independently; these checks only establish whether a low-end role exists.
+function hasSpecificLowPercussionEvidence(kind: any, nameValue: any, cueValue: any): boolean {
+  const name = String(nameValue || "").trim();
+  const cue = String(cueValue || "").trim();
+  if (!name || !cue || cue.length < 12) return false;
+  if (/(?:transient(?:-like)?|pulse|ostinato|attack-like|percussive[- ](?:sounding|element)|rhythmic (?:element|layer)|low[- ]frequency (?:element|energy|sound|activity))/i.test(name)) return false;
+  if (/^(?:unknown|none|n\/?a|not established|undetermined|percussion|drums?|other)$/i.test(name)) return false;
+  if (/^(?:unknown|none|n\/?a|not (?:clear|established|audible)|unverified)$/i.test(cue)) return false;
+  const recognized = kind === "KICK_DRUM"
+    ? /\b(kick|bass drum)\b/i.test(name)
+    : kind === "BASS_DRUM"
+      ? /\b(bass drum|concert bass drum|gran cassa)\b/i.test(name)
+      : kind === "TIMPANI_OR_LOW_TOM"
+        ? /\b(timpani|tympani|kettledrum|kettle drum|low tom|floor tom)\b/i.test(name)
+        : kind === "OTHER_NAMED_LOW_PERCUSSION";
+  return recognized;
+}
+
 function reconcileParentScores(parsedCritique: any): void {
   const appScore = (sub: any): number | undefined =>
     isApplicable(sub) ? sub?.score : undefined;
@@ -2096,34 +2134,46 @@ function reconcileParentScores(parsedCritique: any): void {
       // The earlier broad LOW_PERCUSSION label accepted an unverified rhythmic
       // transient as an actual drum. Require named source evidence, clear
       // percussion audibility and two independent low-frequency roles.
-      const sourceName = String(lowEnd.lowTransientSourceName || "").trim();
-      const audibleCue = String(lowEnd.lowTransientAudibleCue || "").trim();
-      const vagueSourceName =
-        !sourceName ||
-        /^(?:unknown|none|n\/?a|not established|undetermined)$/i.test(sourceName) ||
-        /(?:transient(?:-like)?|pulse|ostinato|attack-like|percussive[- ](?:sounding|element)|rhythmic (?:element|layer)|low[- ]frequency (?:element|energy|sound|activity))/i.test(sourceName);
-      const vagueAudibleCue =
-        !audibleCue ||
-        /^(?:unknown|none|n\/?a|not (?:clear|established|audible)|unverified)$/i.test(audibleCue);
       const percussionPresent =
         lowEnd.kickLikePercussionRolePresent === true &&
-        ["KICK_DRUM", "BASS_DRUM", "TIMPANI_OR_LOW_TOM", "OTHER_NAMED_LOW_PERCUSSION"].includes(lowEnd.lowTransientSourceType) &&
         lowEnd.lowTransientCertainty === "CLEAR" &&
         lowEnd.lowEndRolesIndependent === true &&
-        !vagueSourceName && !vagueAudibleCue;
+        hasSpecificLowPercussionEvidence(lowEnd.lowTransientSourceType, lowEnd.lowTransientSourceName, lowEnd.lowTransientAudibleCue);
       const bassPresent =
         lowEnd.sustainedBassRolePresent === true &&
         lowEnd.lowEndRolesIndependent === true &&
         ["DEDICATED_BASS_INSTRUMENT", "DEDICATED_SYNTH_OR_SUB", "INDEPENDENT_ORCHESTRAL_BASS"].includes(lowEnd.bassFoundationSourceType);
-      if (!percussionPresent || !bassPresent) {
+
+      // Cross-check against the EXISTING independent structure/performance call.
+      // DSP band correlation, overall transient punch and onset bars do not
+      // establish instrument identity, so none is used as a fake drum detector.
+      // A mismatch or missing second audit means the role is not established;
+      // it does NOT mean the track has bad low-frequency mixing.
+      const audit = c3Ready?.lowEndRoleAudit;
+      const corroborated =
+        !!audit &&
+        audit.percussionCertainty === "CLEAR" &&
+        audit.rolesIndependent === true &&
+        audit.percussionType === lowEnd.lowTransientSourceType &&
+        audit.bassFoundationType === lowEnd.bassFoundationSourceType &&
+        hasSpecificLowPercussionEvidence(audit.percussionType, audit.percussionSourceName, audit.percussionAudibleCue);
+      lowEnd.sourceVerification = {
+        firstPassPercussionType: lowEnd.lowTransientSourceType,
+        secondPassPercussionType: audit?.percussionType ?? "NO_AUDIT",
+        firstPassBassType: lowEnd.bassFoundationSourceType,
+        secondPassBassType: audit?.bassFoundationType ?? "NO_AUDIT",
+        corroborated: corroborated,
+      };
+      if (!percussionPresent || !bassPresent || !corroborated) {
         lowEnd.score = 0;
         lowEnd.applicable = false;
         const missing = [
-          !percussionPresent ? "an independent kick/low-percussion rhythmic role" : null,
-          !bassPresent ? "an independent sustained bass/sub-bass role" : null,
-        ].filter(Boolean).join(" and ");
+          !percussionPresent ? "an identifiable low-percussion instrument" : null,
+          !bassPresent ? "an independent sustained bass/sub-bass instrument" : null,
+          !corroborated ? "agreement between independent listening passes" : null,
+        ].filter(Boolean).join(", ");
         lowEnd.commentary =
-          `Not applicable: the audio does not establish ${missing} with sufficiently clear, independent source evidence. Rhythmic pulses or pitched attacks alone cannot establish kick/bass separation.`;
+          `Not applicable: the analysis does not establish ${missing}. A low-frequency pulse, pitched attack or unsupported percussion claim cannot prove that two separately audible low-end roles are present.`;
       } else {
         lowEnd.applicable = true;
       }
@@ -2830,7 +2880,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
-      parsedCritique.productionScoringVersion = "scoring-tier-v6";
+      parsedCritique.productionScoringVersion = "scoring-tier-v7";
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
     } catch (subErr: any) {
@@ -3100,7 +3150,7 @@ app.post("/api/critique-url", async (req, res) => {
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
-      parsedCritique.productionScoringVersion = "scoring-tier-v6";
+      parsedCritique.productionScoringVersion = "scoring-tier-v7";
       parsedCritique.subMetricsCall1Failed = false;
     } catch (subErr: any) {
       if (isGeminiPrepayExhausted(subErr)) throw subErr;
