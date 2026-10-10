@@ -981,16 +981,20 @@ const SUBMETRICS_SCHEMA_1 = {
         sustainedBassRolePresent: { type: Type.BOOLEAN, description: "True only when an independent dedicated bass or sub-bass role is audibly present." },
         lowTransientSourceType: {
           type: Type.STRING,
-          enum: ["KICK_OR_BASS_DRUM", "LOW_PERCUSSION", "PITCHED_ATTACK_ONLY", "NOT_ESTABLISHED"],
-          description: "Identify the audible LOW-FREQUENCY TRANSIENT SOURCE. KICK_OR_BASS_DRUM includes electronic/acoustic kick or orchestral bass drum only when genuinely audible as independent percussion. LOW_PERCUSSION requires a clearly independent, percussion-like rhythmic role. PITCHED_ATTACK_ONLY means piano, pizzicato, harp, guitar, orchestral attack or other note onset; NOT_ESTABLISHED if unclear/absent. Never infer a kick from bass pulse or timing alone.",
+          enum: ["KICK_DRUM", "BASS_DRUM", "TIMPANI_OR_LOW_TOM", "OTHER_NAMED_LOW_PERCUSSION", "PITCHED_ATTACK_ONLY", "NOT_ESTABLISHED"],
+          description: "Classify an IDENTIFIABLE low percussion instrument, not just a transient sound. KICK_DRUM is acoustic/electronic kick; BASS_DRUM is an orchestral bass drum; TIMPANI_OR_LOW_TOM requires audible pitched drum/percussion attacks; OTHER_NAMED_LOW_PERCUSSION needs a specifically named percussion instrument. Pitched piano, pizzicato, harp, guitar, ensemble notes, ostinati and merely rhythmic low-frequency pulses are PITCHED_ATTACK_ONLY. If the source cannot be identified as percussion, return NOT_ESTABLISHED.",
         },
+        lowTransientSourceName: { type: Type.STRING, description: "Plain instrument name actually audible as low percussion (e.g. kick drum, orchestral bass drum, timpani, low tom). Empty when unverified. Low-frequency transient, pulse, rhythmic layer and percussive element are NOT instrument names." },
+        lowTransientAudibleCue: { type: Type.STRING, description: "Describe the distinct drum/percussion attack pattern or percussive timbre audibly establishing this source. Do not repeat a generic description of rhythmic movement. Empty if uncertain." },
+        lowTransientCertainty: { type: Type.STRING, enum: ["CLEAR", "AMBIGUOUS", "NOT_ESTABLISHED"], description: "CLEAR only when a specific percussion instrument and its separate percussion attacks are distinguishable from pitched instrumentation. Otherwise AMBIGUOUS or NOT_ESTABLISHED." },
+        lowEndRolesIndependent: { type: Type.BOOLEAN, description: "True only when the identified low percussion and bass sources are audibly separate roles, not the same instrument, rhythmic pulse or pitched onset." },
         bassFoundationSourceType: {
           type: Type.STRING,
           enum: ["DEDICATED_BASS_INSTRUMENT", "DEDICATED_SYNTH_OR_SUB", "INDEPENDENT_ORCHESTRAL_BASS", "SHARED_LOW_REGISTER", "NOT_ESTABLISHED"],
           description: "Identify the audible INDEPENDENT SUSTAINED BASS SOURCE. An instrument merely playing low notes as part of the same melodic/harp/piano part counts as SHARED_LOW_REGISTER, not a separate bass role. NOT_ESTABLISHED when absent or uncertain.",
         },
       },
-      required: ["qualityTier", "commentary", "applicable", "kickLikePercussionRolePresent", "sustainedBassRolePresent", "lowTransientSourceType", "bassFoundationSourceType"],
+      required: ["qualityTier", "commentary", "applicable", "kickLikePercussionRolePresent", "sustainedBassRolePresent", "lowTransientSourceType", "bassFoundationSourceType", "lowTransientSourceName", "lowTransientAudibleCue", "lowTransientCertainty", "lowEndRolesIndependent"],
     },
     midrangeSpacing: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
     stereoWidth: { type: Type.OBJECT, properties: { ...tierMetricProperties }, required: ["qualityTier", "commentary"] },
@@ -1170,7 +1174,7 @@ RUBRIC ANCHOR FOR MIDRANGE SPACING: a score of 90-100 requires the midrange (rou
 
 RUBRIC ANCHOR FOR LOW-END DIVISION: a score of 90-100 requires the kick drum and bass (synth bass, 808, or bass guitar) to occupy clearly separated frequency pockets with both audible and distinct throughout - neither one masking or swallowing the other. Real sub-bass/bass temporal correlation and crest factor measurements are provided above as 'Measured Low-End Evidence' - use them as supporting evidence for how independently the sub-bass and bass regions actually behave over time, alongside what you actually hear. Low correlation can reflect deliberate, independent sound design (e.g. a modulated sub-bass in electronic genres) rather than a problem, and neither correlation nor crest factor alone proves or disproves genuine separation - judge the combination alongside the audible result. In modern dark pop, hip-hop, or synthwave, powerful low-end with sustained bass notes that underpin punchy transients represents elite low-end engineering (90-100), not an overlap problem. A score of 70-85 applies when the low end is generally functional but has at least one section where the bass and kick blur together or one becomes hard to distinguish from the other. Below 70 is reserved for a persistent, structural failure of separation - one element (most commonly the bass) is genuinely difficult to hear as a distinct part for most of the track, buried under or merged with the other low-frequency content.
 
-LOW-END DIVISION APPLICABILITY GATE - MANDATORY: this metric is specifically about separation between a RHYTHM-SECTION LOW-FREQUENCY TRANSIENT ROLE and an INDEPENDENT SUSTAINED BASS/SUB-BASS ROLE. You MUST explicitly return kickLikePercussionRolePresent and sustainedBassRolePresent based on what is audibly present in THIS file. kickLikePercussionRolePresent may be TRUE only for a real kick drum or genuinely drum/percussion-like low-frequency rhythmic transient role. Pitched attacks from piano, guitar, harp, pizzicato strings, orchestral notes, or other melodic instruments NEVER count as the kick/percussion side of this metric, even if they have strong transients or low fundamentals. sustainedBassRolePresent requires an independent bass foundation such as bass guitar, synth bass, 808/sub bass, double-bass section, or comparable dedicated low-frequency role; the lower register of the SAME melodic instrument does not create a second bass role. Also classify lowTransientSourceType and bassFoundationSourceType using the enums in the schema. A generic rhythmic pulse, accent or low melodic transient is NOT proof of percussion; report PITCHED_ATTACK_ONLY or NOT_ESTABLISHED. A low note within the same melodic source is NOT proof of independent bass; report SHARED_LOW_REGISTER or NOT_ESTABLISHED. Choose NOT_ESTABLISHED instead of guessing sources. Set applicable=true ONLY when BOTH booleans are true, the transient type is KICK_OR_BASS_DRUM or LOW_PERCUSSION, and the bass type is DEDICATED_BASS_INSTRUMENT, DEDICATED_SYNTH_OR_SUB or INDEPENDENT_ORCHESTRAL_BASS. Otherwise set applicable=false, with a 0 placeholder assigned downstream, and state which role is missing or unverified. Clean low-frequency tone from one source or one orchestral texture is not evidence of Low-End Division excellence.
+LOW-END DIVISION APPLICABILITY GATE - MANDATORY: this metric is specifically about separation between a RHYTHM-SECTION LOW-FREQUENCY TRANSIENT ROLE and an INDEPENDENT SUSTAINED BASS/SUB-BASS ROLE. You MUST explicitly return kickLikePercussionRolePresent and sustainedBassRolePresent based on what is audibly present in THIS file. kickLikePercussionRolePresent may be TRUE only for a real kick drum or genuinely drum/percussion-like low-frequency rhythmic transient role. Pitched attacks from piano, guitar, harp, pizzicato strings, orchestral notes, or other melodic instruments NEVER count as the kick/percussion side of this metric, even if they have strong transients or low fundamentals. sustainedBassRolePresent requires an independent bass foundation such as bass guitar, synth bass, 808/sub bass, double-bass section, or comparable dedicated low-frequency role; the lower register of the SAME melodic instrument does not create a second bass role. Also classify lowTransientSourceType and bassFoundationSourceType using the schema enums. Name the actual percussion instrument in lowTransientSourceName and its distinct audible drum/percussion behavior in lowTransientAudibleCue; report lowTransientCertainty and lowEndRolesIndependent. Merely reporting a low-frequency transient, percussive-sounding element, regular rhythmic pulse, bass accent, or pitched note onset is NOT sufficient. If no actual drum/percussion instrument can be named and heard, set lowTransientCertainty=AMBIGUOUS or NOT_ESTABLISHED, applicable=false. Do not invent a named drum. For OTHER_NAMED_LOW_PERCUSSION, name the actual instrument. A low note from the same melodic source is SHARED_LOW_REGISTER, not independent bass. Set applicable=true only when BOTH presence booleans are true, a specifically identified low-percussion source AND a separate dedicated bass foundation are audible, the low percussion is CLEAR, and both roles are independent. Otherwise mark the metric N/A with a zero placeholder, never award high scores for unverified separation. Clean low-frequency tone from one source or one orchestral texture is not evidence of Low-End Division excellence.
 
 - sibilanceShaving: evaluates VOCAL SIBILANCE specifically - whether sung or spoken "s", "t", "sh", "ch" and similar consonants become harsh, piercing, or fatiguing in the delivered mix. A precomputed FULL-MIX 5-10kHz transient-spike diagnostic is provided below as supporting evidence, but it is NOT vocal-isolated: cymbals, hi-hats, snare brightness, distorted guitars, synth attacks, and other non-vocal transients can all raise it. Therefore NEVER map that diagnostic directly to the score and NEVER score a vocal down merely because the full-mix detector is low. Use it only as a reason to listen more carefully for actual consonant harshness.
 MANDATORY AUDIBLE-EVIDENCE GATE: before scoring below the 82-88 professional band, identify recurring audible vocal consonants that are genuinely sharp or fatiguing and distinguish them from non-vocal high-frequency transients. If the vocal consonants themselves remain controlled, score 82-88 even when the full-mix spike diagnostic is low. Award 89-94 only for unusually smooth, detailed high-frequency vocal control that can be specifically described; 95+ requires exceptional reference-level control. Score 70-81 when recurring sibilant consonants are clearly audible and mildly distracting; below 70 only when vocal sibilance is persistent, severe, and plainly fatiguing. If no vocal or spoken sibilant source exists, set applicable=false with score 0 as the placeholder, exactly as required by the absence rule.
@@ -1531,7 +1535,7 @@ const SUBMETRICS_SCHEMA_3 = {
       properties: {
         pitchAccuracy: { type: Type.OBJECT, properties: { ...tierMetricProperties, applicable: { type: Type.BOOLEAN } }, required: ["qualityTier", "commentary", "applicable"] },
         dynamicDelivery: { type: Type.OBJECT, properties: { ...tierMetricProperties, applicable: { type: Type.BOOLEAN } }, required: ["qualityTier", "commentary", "applicable"] },
-        vocalLayerFit: { type: Type.OBJECT, properties: { ...tierMetricProperties, applicable: { type: Type.BOOLEAN } }, required: ["qualityTier", "commentary", "applicable"] },
+        vocalLayerFit: { type: Type.OBJECT, properties: { ...tierMetricProperties, applicable: { type: Type.BOOLEAN }, backingVocalLayersPresent: { type: Type.BOOLEAN, description: "True ONLY when an actual backing harmony, doubled vocal, choir or additional vocal layer is audibly present somewhere in the recording. Solo lead vocals with no layering means false and N/A." } }, required: ["qualityTier", "commentary", "applicable", "backingVocalLayersPresent"] },
       },
       required: ["pitchAccuracy", "dynamicDelivery", "vocalLayerFit"],
     },
@@ -2089,11 +2093,27 @@ function reconcileParentScores(parsedCritique: any): void {
     // from Mix Balance by appScore below.
     if (c1Ready.lowEndDivision) {
       const lowEnd = c1Ready.lowEndDivision;
+      // The earlier broad LOW_PERCUSSION label accepted an unverified rhythmic
+      // transient as an actual drum. Require named source evidence, clear
+      // percussion audibility and two independent low-frequency roles.
+      const sourceName = String(lowEnd.lowTransientSourceName || "").trim();
+      const audibleCue = String(lowEnd.lowTransientAudibleCue || "").trim();
+      const vagueSourceName =
+        !sourceName ||
+        /^(?:unknown|none|n\/?a|not established|undetermined)$/i.test(sourceName) ||
+        /(?:transient(?:-like)?|pulse|ostinato|attack-like|percussive[- ](?:sounding|element)|rhythmic (?:element|layer)|low[- ]frequency (?:element|energy|sound|activity))/i.test(sourceName);
+      const vagueAudibleCue =
+        !audibleCue ||
+        /^(?:unknown|none|n\/?a|not (?:clear|established|audible)|unverified)$/i.test(audibleCue);
       const percussionPresent =
         lowEnd.kickLikePercussionRolePresent === true &&
-        ["KICK_OR_BASS_DRUM", "LOW_PERCUSSION"].includes(lowEnd.lowTransientSourceType);
+        ["KICK_DRUM", "BASS_DRUM", "TIMPANI_OR_LOW_TOM", "OTHER_NAMED_LOW_PERCUSSION"].includes(lowEnd.lowTransientSourceType) &&
+        lowEnd.lowTransientCertainty === "CLEAR" &&
+        lowEnd.lowEndRolesIndependent === true &&
+        !vagueSourceName && !vagueAudibleCue;
       const bassPresent =
         lowEnd.sustainedBassRolePresent === true &&
+        lowEnd.lowEndRolesIndependent === true &&
         ["DEDICATED_BASS_INSTRUMENT", "DEDICATED_SYNTH_OR_SUB", "INDEPENDENT_ORCHESTRAL_BASS"].includes(lowEnd.bassFoundationSourceType);
       if (!percussionPresent || !bassPresent) {
         lowEnd.score = 0;
@@ -2103,10 +2123,22 @@ function reconcileParentScores(parsedCritique: any): void {
           !bassPresent ? "an independent sustained bass/sub-bass role" : null,
         ].filter(Boolean).join(" and ");
         lowEnd.commentary =
-          `Not applicable: the audio does not establish ${missing}, so there are not two independent low-end roles whose separation can be evaluated.`;
+          `Not applicable: the audio does not establish ${missing} with sufficiently clear, independent source evidence. Rhythmic pulses or pitched attacks alone cannot establish kick/bass separation.`;
       } else {
         lowEnd.applicable = true;
       }
+    }
+
+    // Vocal sibilance must not be scored on an instrumental with no vocal source.
+    if (
+      parsedCritique.performance?.vocalApplicable === false &&
+      parsedCritique.lyricalImpact?.applicable === false &&
+      c1Ready.sibilanceShaving
+    ) {
+      c1Ready.sibilanceShaving.applicable = false;
+      c1Ready.sibilanceShaving.score = 0;
+      c1Ready.sibilanceShaving.commentary =
+        "Not applicable: this instrumental has no established vocal or spoken consonants.";
     }
 
     const production = weightedAvg([
@@ -2170,6 +2202,27 @@ function reconcileParentScores(parsedCritique: any): void {
     // instrumental), the parent vocalScore becomes N/A too rather than keeping the score
     // the earlier unaided pass guessed. Previously this parent reported 82 while all three
     // of its children were N/A.
+    const vocals = c3.vocalTrackingSubs;
+    // A solo vocal is not a perfect vocal-layer mix. Exclude unperformed layering
+    // and renormalize the vocal parent over the remaining applicable children.
+    if (vocals?.vocalLayerFit && vocals.vocalLayerFit.backingVocalLayersPresent === false) {
+      vocals.vocalLayerFit.applicable = false;
+      vocals.vocalLayerFit.score = 0;
+      vocals.vocalLayerFit.commentary =
+        "Not applicable: no distinct backing, doubled or harmony vocal layer is audibly established.";
+    }
+    if (
+      parsedCritique.performance?.vocalApplicable === false &&
+      parsedCritique.lyricalImpact?.applicable === false && vocals
+    ) {
+      for (const key of ["pitchAccuracy", "dynamicDelivery", "vocalLayerFit"]) {
+        if (vocals[key]) {
+          vocals[key].applicable = false;
+          vocals[key].score = 0;
+          vocals[key].commentary = "Not applicable: no vocal performance is established.";
+        }
+      }
+    }
     const vocal = computeParent([
       [c3.vocalTrackingSubs?.pitchAccuracy, 40],
       [c3.vocalTrackingSubs?.dynamicDelivery, 35],
@@ -2777,7 +2830,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
-      parsedCritique.productionScoringVersion = "scoring-tier-v5";
+      parsedCritique.productionScoringVersion = "scoring-tier-v6";
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
     } catch (subErr: any) {
@@ -3047,7 +3100,7 @@ app.post("/api/critique-url", async (req, res) => {
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
-      parsedCritique.productionScoringVersion = "scoring-tier-v5";
+      parsedCritique.productionScoringVersion = "scoring-tier-v6";
       parsedCritique.subMetricsCall1Failed = false;
     } catch (subErr: any) {
       if (isGeminiPrepayExhausted(subErr)) throw subErr;
