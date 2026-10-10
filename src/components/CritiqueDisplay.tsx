@@ -498,6 +498,35 @@ export function computeCommercialImpactScore(critique: any): number {
   );
 }
 
+// Instrumentalness represents the likelihood that vocals are absent, not the
+// amount of midrange energy or the quality of instrumental performance.
+// Reuse this one value in both the visible DNA panel and the exported scorecard.
+function estimateInstrumentalness(
+  critique: any,
+  baseInstrumentalness: number,
+  instrumentalScore: number
+): number {
+  const manual = critique?.spotifyOverrides?.instrumentalness;
+  if (typeof manual === "number" && Number.isFinite(manual)) {
+    return Math.max(0, Math.min(100, Math.round(manual)));
+  }
+  const vocalStatus = critique?.performance?.vocalApplicable;
+  const vocalSubs = critique?.subMetricsCall3?.vocalTrackingSubs;
+  const subStatuses = [
+    vocalSubs?.pitchAccuracy?.applicable,
+    vocalSubs?.dynamicDelivery?.applicable,
+  ];
+  if (vocalStatus === false || (vocalStatus == null && subStatuses.every(v => v === false))) {
+    return 98; // established no vocals: high proxy, not a measured probability
+  }
+  if (vocalStatus === true || (vocalStatus == null && subStatuses.some(v => v === true))) {
+    return 2; // established vocals: low proxy, not a measured probability
+  }
+  // Old/incomplete critiques lack a vocal-presence finding: preserve baseline.
+  const offset = Math.round(((instrumentalScore || 75) - 75) * 0.3);
+  return Math.max(1, Math.min(98, baseInstrumentalness + offset));
+}
+
 export function computeEchoNestScorecard(critique: any) {
   const liveMetrics = critique?.liveMetrics;
   const overallProductionVal = critique?.scores?.overallProduction ?? 75;
@@ -544,26 +573,7 @@ export function computeEchoNestScorecard(critique: any) {
   const valenceOffset = Math.round(((theoryScoreVal || 72) - 72) * 0.3);
   const valence = critique?.spotifyOverrides?.valence ?? critique?.subMetricsCall2?.moodValence?.score ?? Math.max(8, Math.min(95, baseValence + valenceOffset));
 
-  // Midrange/treble energy CANNOT establish whether a recording contains vocals:
-  // string, piano and orchestral music often have strong midrange energy too.
-  // Use the existing listening-derived vocal applicability decision instead.
-  // 98 / 2 are categorical proxy values, NOT measured Spotify probabilities.
-  // Retain legacy profile fallback only when vocal applicability is unavailable.
-  const instrumentalnessOffset = Math.round(((instrumentalScoreVal || 75) - 75) * 0.3);
-  const vocalStatus = critique?.performance?.vocalApplicable;
-  const vocalSubs = critique?.subMetricsCall3?.vocalTrackingSubs;
-  const vocalSubStatus = [
-    vocalSubs?.pitchAccuracy?.applicable,
-    vocalSubs?.dynamicDelivery?.applicable,
-  ];
-  const noVocalsEstablished = vocalStatus === false ||
-    (vocalStatus == null && vocalSubStatus.every(value => value === false));
-  const vocalsEstablished = vocalStatus === true ||
-    (vocalStatus == null && vocalSubStatus.some(value => value === true));
-  const instrumentalness = critique?.spotifyOverrides?.instrumentalness ??
-    (noVocalsEstablished ? 98
-      : vocalsEstablished ? 2
-      : Math.max(1, Math.min(98, baseInstrumentalness + instrumentalnessOffset)));
+  const instrumentalness = estimateInstrumentalness(critique, baseInstrumentalness, instrumentalScoreVal);
 
   const speechinessOffset = Math.round(((lyricsScoreVal || 70) - 70) * 0.2);
   const speechiness = critique?.subMetricsCall2?.speechiness?.score ?? Math.max(2, Math.min(92, baseSpeechiness + speechinessOffset));
@@ -936,18 +946,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [critique?.userValence, critique?.userEnergy, valence, energy]);
 
-  // Instrumentalness — partially audio-driven via mid/high energy balance
-  // High mid energy relative to high energy suggests vocal presence (lower instrumentalness)
-  const instrumentalnessOffset = Math.round(((instrumentalScoreVal || 75) - 75) * 0.3);
-  const instrumentalness = (() => {
-    if (liveMetrics?.calculatedMidEnergy !== undefined && liveMetrics?.calculatedHighEnergy !== undefined) {
-      const vocalPresenceProxy = Math.min(1, liveMetrics.calculatedMidEnergy / Math.max(1, liveMetrics.calculatedHighEnergy));
-      // High mid/high ratio suggests vocals — lower instrumentalness
-      const audioInstrumentalness = Math.round(Math.min(98, Math.max(1, (1 - vocalPresenceProxy) * 80)));
-      return audioInstrumentalness;
-    }
-    return Math.max(1, Math.min(98, baseInstrumentalness + instrumentalnessOffset));
-  })();
+  // The visible DNA panel must match the exported Echo Nest scorecard.
+  const instrumentalness = estimateInstrumentalness(critique, baseInstrumentalness, instrumentalScoreVal);
 
   // Speechiness — linear mapping from lyricsScore (lyrical density/cadence)
   // No reliable audio signal available; linear mapping is more consistent than modulo
