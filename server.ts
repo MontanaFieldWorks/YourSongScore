@@ -2089,6 +2089,7 @@ function enforceBlindReportIntegrity(critique: any, suppliedTitle: any): void {
       .replace(/\bfaithfully (?:recreates|reproduces) the original\b/gi, "develops the audible arrangement");
     if (corroboratedInstruments) {
       text = text
+        .replace(/\ban a cappella (?:arrangement|recreation|rendition|version|cover)(?: of [\"“][^\"”]+[\"”])?/gi, "a vocal-rich arrangement")
         .replace(/\ba cappella (?:arrangement|recreation|rendition|version|cover) of [\"“][^\"”]+[\"”]/gi, "vocal-rich arrangement")
         .replace(/\ba cappella (?:recreation|rendition|version|cover)\b/gi, "vocal-rich arrangement")
         .replace(/\bentirely vocal palette\b/gi, "layered vocal palette")
