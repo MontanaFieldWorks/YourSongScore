@@ -1063,12 +1063,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   };
 
   const getInstrumentalnessDesc = () => {
+    const corridorText = `${instMinBound}%–${instMaxBound}%`;
     if (instrumentalnessMatch >= 88) {
-      return `Raw Value: ${instrumentalness}% (Ideal Target: ${targetInstrumentalness}%; Match: ${instrumentalnessMatch}%). Optimal vocal-to-instrumental ratio. Clearly guides recommender bots on track identity (vocal-led crossover vs background music).`;
+      return `Estimated Instrumentalness: ${instrumentalness}% (Genre corridor: ${corridorText}; Match: ${instrumentalnessMatch}%). Vocal presence is compatible with this broad stylistic profile. This is a heuristic comparison, not a streaming-platform prediction.`;
     } else if (instrumentalnessMatch >= 75) {
-      return `Raw Value: ${instrumentalness}% (Ideal Target: ${targetInstrumentalness}%; Match: ${instrumentalnessMatch}%). Reasonable background instrumental index. Melodic backing tracking matches general expectations.`;
+      return `Estimated Instrumentalness: ${instrumentalness}% (Genre corridor: ${corridorText}; Match: ${instrumentalnessMatch}%). The vocal/instrumental balance is somewhat outside this profile's illustrative range, without implying a production-quality flaw.`;
     } else {
-      return `Raw Value: ${instrumentalness}% (Ideal Target: ${targetInstrumentalness}%; Match: ${instrumentalnessMatch}%). Significant vocal profile delta. Background instrumental tracks or vocal level margins could mislead algorithms regarding focal points.`;
+      return `Estimated Instrumentalness: ${instrumentalness}% (Genre corridor: ${corridorText}; Match: ${instrumentalnessMatch}%). This diverges from the profile's illustrative vocal/instrumental range; it is not evidence that an instrumental song needs vocals.`;
     }
   };
 

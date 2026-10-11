@@ -446,7 +446,9 @@ export default function App() {
     const flags: string[] = [];
     const spectralFlags: string[] = [];
     if (finite(crest) && crest > 18.5) flags.push("very high crest factor");
-    if (finite(lufs) && lufs < -14.2) flags.push("very low integrated loudness");
+    // LUFS remains an advisory genre-specific mastering measurement, not a
+    // universally bad production-finish signal. Match the server's four-signal
+    // severe-finish detector rather than penalizing legitimate quiet genres.
     if (finite(subPct) && subPct < 0.15) { flags.push("extremely low sub-band energy"); spectralFlags.push("sub"); }
     if (finite(midPct) && midPct > 32) { flags.push("extreme mid-band concentration"); spectralFlags.push("mid"); }
     if (finite(airPct) && airPct < 0.35) { flags.push("extremely low air-band energy"); spectralFlags.push("air"); }
