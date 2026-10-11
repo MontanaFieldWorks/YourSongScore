@@ -497,6 +497,24 @@ function capReadinessForVerifiedFinish(score: number, critique: any): number {
   return ceiling === null ? score : Math.min(score, ceiling);
 }
 
+// A model-generated engagement narrative may praise "professional production"
+ // despite independent DSP measurements showing severe finish deficiencies.
+ // Preserve claims about composition but do not let those claims certify the mix.
+function getFinishAwareEngagementFeedback(critique: any): string {
+  const raw = String(critique?.vibe?.commercialViability ??
+    "Musical engagement could not be established from the available analysis.");
+  const ceiling = getVerifiedProductionFinishCeiling(critique);
+  if (ceiling === null) return raw;
+
+  const text = raw
+    .replace(/\b(?:professional|polished|pristine|excellent|outstanding|exceptional) production quality\b/gi, "audible melodic and arrangement qualities")
+    .replace(/\b(?:pristine|professional|flawless|release-ready|radio-ready) mastering\b/gi, "musical arrangement")
+    .replace(/\b(?:fully|professionally) mastered\b/gi, "musically developed")
+    .trim();
+
+  return `${text} This engagement assessment concerns the musical structure, not release-ready audio quality. The delivered recording has separately verified production-finish limitations (technical ceiling ${ceiling}).`;
+}
+
 export function computeCommercialImpactScore(critique: any): number {
   const engagement = critique?.scores?.commercialReadiness ?? 75;
   const production = critique?.scores?.overallProduction ?? 75;
@@ -1574,21 +1592,21 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     {
       id: "readiness",
       name: "Engagement Power",
-      subtitle: "Listener Retention & Algorithmic Survival",
+      subtitle: "Musical Engagement Estimate",
       score: critique?.scores?.commercialReadiness ?? 75,
       colorClass: "stroke-teal-500",
       bgClass: "from-teal-500/5 to-slate-900 border-white/5",
       isGold: false,
-      hoverText: "Predicts how reliably a song holds listener focus and survives the critical early-skip window that drives algorithmic placement.",
+      hoverText: "Heuristic estimate based on hook placement, dynamic variety, spectral balance and transitions. Actual listener behavior is not measured.",
       subParams: [
         { name: "Opening Hook Strength (60%)", desc: "Predicts listener retention through the song's first 30 seconds. Skip behavior in this window is one of the most heavily weighted signals in streaming algorithms." },
         { name: "Dynamic Variety (20%)", desc: "Measures whether the song's energy and intensity shift meaningfully across its runtime, rather than remaining flat throughout." },
         { name: "Spectral Match (10%)", desc: "Compares the track's frequency distribution to mainstream hits to ensure a balanced, commercially viable audio spectrum." },
         { name: "Section Transitions (10%)", desc: "Evaluates whether shifts between verse, chorus, and bridge feel earned and well-built, rather than abrupt or disconnected." }
       ],
-      callout: "This Metric predicts listener retention and skip-resistance, the single most heavily weighted signal in modern streaming algorithms. This score itself makes up 80% of the Commercial Impact score shown above (the remaining 20% comes from Production Index) - that's why the two numbers differ.",
+      callout: "This is an audio-based estimate of musical engagement, not observed skip behavior or a prediction of platform placement. Engagement Power contributes 80% to the Commercial Impact weighted base (Production Index contributes 20%); independently verified finish problems may then cap that result.",
       description: "Evaluates whether your track holds a listener's attention long enough to survive the algorithm's early-skip window, and whether its dynamic arc gives listeners a reason to keep listening.",
-      feedback: critique?.vibe?.commercialViability ?? "Ready for immediate curation and sync scheduling."
+      feedback: getFinishAwareEngagementFeedback(critique)
     },
     {
       id: "mix",
