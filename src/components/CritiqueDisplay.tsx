@@ -475,8 +475,16 @@ export function getEchoNestTier(item: { value: number; min: number; max: number 
 // can trigger it by itself.
 function getVerifiedProductionFinishCeiling(critique: any): number | null {
   const evidence = critique?.productionFinishEvidence;
+  // App.tsx reconciles the original server measurement with final browser DSP,
+  // retaining the stricter valid ceiling and labeling it production-grounding-v3.
+  // That reconciled evidence is authoritative for reports, too. Previously,
+  // requiring source="server" silently bypassed the readiness cap after the
+  // client had finished its normal reconciliation.
+  const verifiedSource =
+    evidence?.source === "server" ||
+    (evidence?.source === "reconciled" && evidence?.version === "production-grounding-v3");
   if (
-    evidence?.source !== "server" ||
+    !verifiedSource ||
     !Number.isFinite(evidence.ceiling) ||
     !(evidence.flagCount >= 3) ||
     !(evidence.spectralFlagCount >= 2)
