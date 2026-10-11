@@ -1965,6 +1965,13 @@ function enforceClassicalInstrumentalSourceNeutrality(parsedCritique: any): void
     [/\bsynthesized orchestral\s*\/\s*electronic elements?\b/gi, "rendered orchestral textures"],
     [/\bambient nature of the electronic textures\b/gi, "ambient character of the instrumental textures"],
     [/\bblend of electronic and cinematic textures\b/gi, "blend of instrumental and cinematic textures"],
+    // Further exact unsupported formulations found in the October 11
+    // independent Classical control. Neutralize *source identity*, not
+    // audible arpeggiation, depth, width, warmth, or other observed behavior.
+    [/\bsynthesized elements?\b/gi, "rendered instrumental textures"],
+    [/\belectronic character\b/gi, "timbral character"],
+    [/\belectronic textures?\b/gi, "instrumental textures"],
+    [/\belectronic (?:elements?|layers?|instrumentation)\b/gi, "instrumental textures"],
     // Source-neutral nouns introduced by the original normalizer are singular;
     // handle obvious plural agreements instead of emitting broken sentences.
     [/\bbackground harmonic layer are\b/gi, "background harmonic textures are"],
