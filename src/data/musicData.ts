@@ -838,7 +838,8 @@ export const SUBGENRE_PROFILES: Record<string, SubgenreProfile> = {
     valenceMin: 0.15, valenceMax: 0.52,
     speechMin: 0.03, speechMax: 0.05,
     acousticMin: 0.75, acousticMax: 0.98,
-    instMin: 0.65, instMax: 0.95,
+    // Traditional Classical can be completely instrumental.
+    instMin: 0.65, instMax: 1.0,
     liveMin: 0.03, liveMax: 0.12
   },
   "classical|classical crossover": {
@@ -852,7 +853,9 @@ export const SUBGENRE_PROFILES: Record<string, SubgenreProfile> = {
     valenceMin: 0.28, valenceMax: 0.62,
     speechMin: 0.03, speechMax: 0.06,
     acousticMin: 0.42, acousticMax: 0.8,
-    instMin: 0.35, instMax: 0.85,
+    // Classical Crossover includes completely instrumental works as well as
+    // vocal-led repertoire; the old 85% cap punished legitimate instrumentals.
+    instMin: 0.35, instMax: 1.0,
     liveMin: 0.04, liveMax: 0.15
   },
 
