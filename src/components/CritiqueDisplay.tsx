@@ -508,6 +508,7 @@ function getFinishAwareEngagementFeedback(critique: any): string {
 
   const text = raw
     .replace(/\b(?:professional|polished|pristine|excellent|outstanding|exceptional) production quality\b/gi, "audible melodic and arrangement qualities")
+    .replace(/\b(?:clean|polished|pristine|professional|flawless|release-ready|radio-ready) production\b/gi, "clear arrangement")
     .replace(/\b(?:pristine|professional|flawless|release-ready|radio-ready) mastering\b/gi, "musical arrangement")
     .replace(/\b(?:fully|professionally) mastered\b/gi, "musically developed")
     .trim();
