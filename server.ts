@@ -1033,7 +1033,7 @@ function applyDeterministicProductionTierScores(call1: any): any {
 
 const SUBMETRIC_SYSTEM_PROMPT = `You are a precise audio engineering sub-analyst performing an independent blind production/mix pass. Earlier parent scores and provisional genre judgments are intentionally withheld. Your job is to classify each required sub-metric from the actual audio and the supplied objective evidence using the method below.
 
-GENRE/SOURCE EVIDENCE: Sampled orchestral instruments, regular pitched attacks, a low ostinato, or precise programmed playback do NOT establish an electronic genre or modern electronic aesthetic. When the audio is recognizably orchestral/classical, describe the actual rendered orchestral texture and audible production outcome. Only name drums, synths, electronic instruments, or electronic style when there is distinct audible evidence beyond generic transients or synthetic-sounding timbres. Do not invent source identities to justify a score.
+GENRE/SOURCE EVIDENCE: Sampled orchestral instruments, regular pitched attacks, a low ostinato, or precise programmed playback do NOT establish an electronic genre or modern electronic aesthetic. When the audio is recognizably orchestral/classical, describe the actual rendered orchestral texture and audible production outcome. Only name drums, synths, electronic instruments, or electronic style when there is distinct audible evidence beyond generic transients or synthetic-sounding timbres. Do not invent source identities to justify a score. "Synthesized orchestral/electronic elements" and "electronic textures" are NOT safe catch-all phrases for a rendered classical instrumental; use verifiable descriptions of the timbre and arrangement when the source is ambiguous.
 
 VOICE - MANDATORY: Write all commentary in neutral, third-person analytical language, as if writing a professional written report - never in first person, and NEVER as a mechanical points ledger. Do NOT write phrases like 'I'm deducting,' 'I hear,' 'Starting at 100, I am subtracting,' 'A deduction of X points is applied,' 'X points are subtracted,' or any other narration - first-person OR third-person - of the scoring arithmetic itself. The user should never see a number of points mentioned anywhere in commentary text. Instead, describe what you actually observe, directly and specifically: write 'The vocal sits slightly recessed behind the rhythm guitars in the verse,' never 'A deduction of 12 points is applied due to recessed vocals' and never 'I'm deducting 12 points because I hear the vocal is recessed.' This applies to every field in every category, without exception - including fields that score very highly. For top-band scores (90-100), commentary should validate the track's high-level technical execution and commercial readiness honestly; never invent imaginary flaws, non-existent muddiness, or unneeded tweaks just to explain why a score is not 100. Reserve criticisms strictly for genuine, demonstrable technical or arrangement shortcomings. Every score's commentary should independently make sense of that exact number without the reader needing to know how points were tallied.
 
@@ -1959,6 +1959,17 @@ function enforceClassicalInstrumentalSourceNeutrality(parsedCritique: any): void
     [/\belectronic genres?\b/gi, "instrumental context"],
     [/\belectronic (?:production|style)\b/gi, "instrumental presentation"],
     [/\belectronic (?:music|track)\b/gi, "instrumental piece"],
+    // A sampled/rendered orchestral performance is not evidence of electronic
+    // composition. Remove these unsupported stock phrases while preserving
+    // genuinely observable properties (arpeggios, timbral contrast, dynamics).
+    [/\bsynthesized orchestral\s*\/\s*electronic elements?\b/gi, "rendered orchestral textures"],
+    [/\bambient nature of the electronic textures\b/gi, "ambient character of the instrumental textures"],
+    [/\bblend of electronic and cinematic textures\b/gi, "blend of instrumental and cinematic textures"],
+    // Source-neutral nouns introduced by the original normalizer are singular;
+    // handle obvious plural agreements instead of emitting broken sentences.
+    [/\bbackground harmonic layer are\b/gi, "background harmonic textures are"],
+    [/\bbackground harmonic layer, which appear\b/gi, "background harmonic textures, which appear"],
+    [/\bforeground melodic layer-led\b/gi, "melody-led"],
   ];
 
   const neutralize = (text: string): string => {
