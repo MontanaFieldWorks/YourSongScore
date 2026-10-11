@@ -2019,9 +2019,9 @@ function enforceClassicalInstrumentalSourceNeutrality(parsedCritique: any): void
 // authoritative song titles. Treat them like a missing title for SEO only.
 function hasUsableProvidedTitle(title: any): boolean {
   if (typeof title !== "string") return false;
-  const value = title.trim().replace(/\\.(?:mp3|wav|flac|m4a)$/i, "");
+  const value = title.trim().replace(/\.(?:mp3|wav|flac|m4a)$/i, "");
   if (!value) return false;
-  return !/^(?:[0-9]{1,3}[\\s_.-]+[a-z]{1,4}|[0-9]{1,3})$/i.test(value);
+  return !/^(?:[0-9]{1,3}[\s_.-]+[a-z]{1,4}|[0-9]{1,3})$/i.test(value);
 }
 
 // Neither the Call 1 listening pass nor an anonymous filename can establish
@@ -2075,24 +2075,24 @@ function enforceBlindReportIntegrity(critique: any, suppliedTitle: any): void {
     c3?.timelineGridCohesion, c3?.transientPunch,
     c3?.melodicStaging, c3?.instrumentalWarmth
   ]);
-  const instrumentFamilies = /\\b(?:piano|guitars?|drums?|bass guitar)\\b/i;
+  const instrumentFamilies = /\b(?:piano|guitars?|drums?|bass guitar)\b/i;
   const corroboratedInstruments =
     instrumentFamilies.test(c1Text) && instrumentFamilies.test(c3Text);
 
   const neutralize = (message: string): string => {
     let text = message
-      .replace(/\\b(?:one of the most famous|globally recognized|universally recognizable|frequently streamed worldwide)\\b/gi, "distinctive")
-      .replace(/\\b(?:iconic status|worldwide fame|global popularity)\\b/gi, "distinctive musical character")
-      .replace(/\\bclassic rock covers\\b/gi, "theatrical rock")
-      .replace(/\\bthe original's\\b/gi, "the arrangement's")
-      .replace(/\\bthe original composition\\b/gi, "the composition")
-      .replace(/\\bfaithfully (?:recreates|reproduces) the original\\b/gi, "develops the audible arrangement");
+      .replace(/\b(?:one of the most famous|globally recognized|universally recognizable|frequently streamed worldwide)\b/gi, "distinctive")
+      .replace(/\b(?:iconic status|worldwide fame|global popularity)\b/gi, "distinctive musical character")
+      .replace(/\bclassic rock covers\b/gi, "theatrical rock")
+      .replace(/\bthe original's\b/gi, "the arrangement's")
+      .replace(/\bthe original composition\b/gi, "the composition")
+      .replace(/\bfaithfully (?:recreates|reproduces) the original\b/gi, "develops the audible arrangement");
     if (corroboratedInstruments) {
       text = text
-        .replace(/\\ba cappella (?:arrangement|recreation|rendition|version|cover) of [\\"“][^\\"”]+[\\"”]/gi, "vocal-rich arrangement")
-        .replace(/\\ba cappella (?:recreation|rendition|version|cover)\\b/gi, "vocal-rich arrangement")
-        .replace(/\\bentirely vocal palette\\b/gi, "layered vocal palette")
-        .replace(/\\bwhile not a traditional instrumental mix\\b/gi, "despite its emphasis on vocals");
+        .replace(/\ba cappella (?:arrangement|recreation|rendition|version|cover) of [\"“][^\"”]+[\"”]/gi, "vocal-rich arrangement")
+        .replace(/\ba cappella (?:recreation|rendition|version|cover)\b/gi, "vocal-rich arrangement")
+        .replace(/\bentirely vocal palette\b/gi, "layered vocal palette")
+        .replace(/\bwhile not a traditional instrumental mix\b/gi, "despite its emphasis on vocals");
     }
     return text;
   };
