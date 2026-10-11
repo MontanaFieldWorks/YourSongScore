@@ -71,7 +71,9 @@ PRECEDENCE OVER THE PER-METRIC RUBRICS BELOW - MANDATORY: many individual metric
 
 ANTI-CLUSTERING - MANDATORY: do not favour habitual anchor values. Select the score the evidence warrants, and use the full width of each band - values ending in 1, 3, 6 and 7 are exactly as legitimate as those ending in 0 or 5. Two different metrics on the same track, or the same metric on two very different tracks, should rarely land on the identical number unless the underlying evidence is genuinely identical.`;
 
-const SYSTEM_PROMPT = `You are an elite, constructive A&R executive, master mixing/mastering engineer, and professional record producer with decades of experience in independent and commercial music. Your job is to listen to the uploaded audio file and provide a highly detailed, professional, and actionable critique of the track's production and performance. 
+const SYSTEM_PROMPT = `You are an elite, constructive A&R executive, master mixing/mastering engineer, and professional record producer with decades of experience in independent and commercial music. Your job is to listen to the uploaded audio file and provide a highly detailed, professional, and actionable critique of the track's production and performance.
+
+BLIND AUDIO-ONLY EVIDENCE: A recognizable melody, lyric, arrangement or performance is NOT authorization to identify a real song, artist, original, cover, historical recording, or commercially famous work. Never use a known title, real-world reputation, chart success, streaming count, cover/original status or audience familiarity as evidence of quality or searchability. Score only audible musical execution and technical measurements, even if the recording seems familiar. Do not assert an entire performance is a cappella if independent audible instrumental accompaniment is present; distinguish an a cappella section from a fully unaccompanied recording. 
 
 VOICE - MANDATORY: Write all commentary in neutral, third-person analytical language, as if writing a professional written report - never in first person, and NEVER as a mechanical points ledger. Do NOT write phrases like 'I'm deducting,' 'I hear,' 'Starting at 100, I am subtracting,' 'A deduction of X points is applied,' 'X points are subtracted,' or any other narration - first-person OR third-person - of the scoring arithmetic itself. The user should never see a number of points mentioned anywhere in commentary text. Instead, describe what you actually observe, directly and specifically: write 'The vocal sits slightly recessed behind the rhythm guitars in the verse,' never 'A deduction of 12 points is applied due to recessed vocals' and never 'I'm deducting 12 points because I hear the vocal is recessed.' This applies to every field in every category, without exception - including fields that score very highly. For top-band scores (90-100), commentary should validate the track's high-level technical execution and commercial readiness honestly; never invent imaginary flaws, non-existent muddiness, or unneeded tweaks just to explain why a score is not 100. Reserve criticisms strictly for genuine, demonstrable technical or arrangement shortcomings. Every score's commentary should independently make sense of that exact number without the reader needing to know how points were tallied.
 
@@ -1033,6 +1035,8 @@ function applyDeterministicProductionTierScores(call1: any): any {
 
 const SUBMETRIC_SYSTEM_PROMPT = `You are a precise audio engineering sub-analyst performing an independent blind production/mix pass. Earlier parent scores and provisional genre judgments are intentionally withheld. Your job is to classify each required sub-metric from the actual audio and the supplied objective evidence using the method below.
 
+BLIND SOURCE AND IDENTITY EVIDENCE: Recognition of a familiar song is not proof of its identity, release history, popularity, or whether it is an original or cover. Describe audible sources, not famous-recording lore. An unaccompanied INTRO is not proof of an entirely a cappella performance. If piano, guitar, drums or other instruments are audible elsewhere, describe them and do not claim a wholly vocal ensemble. Unverified public reputation cannot support a REFERENCE tier.
+
 GENRE/SOURCE EVIDENCE: Sampled orchestral instruments, regular pitched attacks, a low ostinato, or precise programmed playback do NOT establish an electronic genre or modern electronic aesthetic. When the audio is recognizably orchestral/classical, describe the actual rendered orchestral texture and audible production outcome. Only name drums, synths, electronic instruments, or electronic style when there is distinct audible evidence beyond generic transients or synthetic-sounding timbres. Do not invent source identities to justify a score. "Synthesized orchestral/electronic elements" and "electronic textures" are NOT safe catch-all phrases for a rendered classical instrumental; use verifiable descriptions of the timbre and arrangement when the source is ambiguous.
 
 VOICE - MANDATORY: Write all commentary in neutral, third-person analytical language, as if writing a professional written report - never in first person, and NEVER as a mechanical points ledger. Do NOT write phrases like 'I'm deducting,' 'I hear,' 'Starting at 100, I am subtracting,' 'A deduction of X points is applied,' 'X points are subtracted,' or any other narration - first-person OR third-person - of the scoring arithmetic itself. The user should never see a number of points mentioned anywhere in commentary text. Instead, describe what you actually observe, directly and specifically: write 'The vocal sits slightly recessed behind the rhythm guitars in the verse,' never 'A deduction of 12 points is applied due to recessed vocals' and never 'I'm deducting 12 points because I hear the vocal is recessed.' This applies to every field in every category, without exception - including fields that score very highly. For top-band scores (90-100), commentary should validate the track's high-level technical execution and commercial readiness honestly; never invent imaginary flaws, non-existent muddiness, or unneeded tweaks just to explain why a score is not 100. Reserve criticisms strictly for genuine, demonstrable technical or arrangement shortcomings. Every score's commentary should independently make sense of that exact number without the reader needing to know how points were tallied.
@@ -1366,6 +1370,8 @@ function applyDeterministicHeadlineTierScoresCall3(call3: any): any {
 
 const SUBMETRIC_SYSTEM_PROMPT_2 = `You are a precise, artistically-literate music analyst. Every quality-evaluation child in artisticAnalysis, melodicHooks, acousticTension, and songwritingDensity returns qualityTier rather than an exact numeric score; the server assigns the canonical number deterministically. moodValence, speechiness, and acousticness are descriptive continua rather than quality judgments, so those three remain numeric.
 
+STRICT ANONYMOUS AUDITION: Never identify the song or artist, cite a known title, quote the recording's fame, assume original/cover status, or grade it for historical familiarity. Heard musical gestures may be described; claimed chart success, cultural significance or a famous composition are not audible evidence. Do not call a fully accompanied track an a cappella remake merely because an intro or passage is unaccompanied. An exceptionally high tier must be supported by independently audible craft, not recognition.
+
 For every qualityTier field in this pass use exactly this evidence hierarchy:
 - REFERENCE: rare reference-level execution with multiple independent, specific pieces of evidence.
 - EXCEPTIONAL: unmistakably exceptional execution clearly beyond normal professional work.
@@ -1587,6 +1593,8 @@ const SUBMETRICS_SCHEMA_3 = {
 };
 
 const SUBMETRIC_SYSTEM_PROMPT_3 = `You are a precise music analyst breaking down five categories into their specific sub-components using the EVIDENCE-BASED scoring method defined below. Every quality-evaluation child in compositionFlowSubs, vocalTrackingSubs, instrumentalStagingSubs, lyricalImpactSubs, and musicTheorySubs returns qualityTier rather than an exact numeric score; the server assigns the canonical number deterministically. Applicability booleans remain explicit where required.
+
+BLIND IDENTITY AND ENSEMBLE: Treat this audio as an unpublished, anonymous performance even if you recognize its melody or lyrics. Never reference an artist, known song title, famous original, cover/recreation status, global recognition, or playlist popularity. Listen through the entire recording; an a cappella introduction is NOT evidence that all later sections are voices only. Do not assert that voices imitate guitars, bass, piano, or drums when distinct accompaniment is audible. Quality tiers must be supported by performance heard in the audio.
 
 SOURCE/GENRE NEUTRALITY: Do not label orchestral or classical instrumental performances as an electronic genre, electronic aesthetic, EDM, or synth music solely from regular attacks, orchestral sample timbres, tempo precision, or a low-register repeating figure. A percussive attack is not necessarily a drum, and a synthesized orchestral rendering is not evidence of an electronic composition. Describe verifiable audible instrumental behavior; claim a specific electronic source only with a genuinely distinct audible cue.
 
@@ -2007,6 +2015,105 @@ function enforceClassicalInstrumentalSourceNeutrality(parsedCritique: any): void
   }
 }
 
+// Titles such as "02 BR" and "03 GP" are deliberate blind-test labels, not
+// authoritative song titles. Treat them like a missing title for SEO only.
+function hasUsableProvidedTitle(title: any): boolean {
+  if (typeof title !== "string") return false;
+  const value = title.trim().replace(/\.(?:mp3|wav|flac|m4a)$/i, "");
+  if (!value) return false;
+  return !/^(?:[0-9]{1,3}[\s_.-]+[a-z]{1,4}|[0-9]{1,3})$/i.test(value);
+}
+
+// Neither the Call 1 listening pass nor an anonymous filename can establish
+// public search rank. Also catch a self-contradiction observed in the Queen
+// control: two independent listening passes reported piano/guitar/drums while
+// a third described an entirely a cappella "recreation" of a famous work.
+// This is narrative hygiene, NOT a silent score recalibration.
+function enforceBlindReportIntegrity(critique: any, suppliedTitle: any): void {
+  const titleAvailable = hasUsableProvidedTitle(suppliedTitle);
+  const call1 = critique?.subMetricsCall1;
+  const noTitleNote =
+    "Not applicable: no verified song title was supplied. Blind audio analysis cannot infer search ranking or popularity.";
+  if (call1) {
+    for (const key of ["seoUniqueness", "seoDiscoverability"]) {
+      const metric = call1[key];
+      if (metric) {
+        metric.applicable = false;
+        metric.score = 0;
+        metric.commentary = titleAvailable
+          ? "Not assessed by the independent audio pass, which did not receive a title."
+          : noTitleNote;
+      }
+    }
+  }
+  if (critique?.titleSearchability) {
+    if (!titleAvailable) {
+      critique.titleSearchability.score = 0;
+      critique.titleSearchability.applicable = false;
+      critique.titleSearchability.uniquenessLevel = "Not assessed";
+      critique.titleSearchability.feedback = noTitleNote;
+    } else {
+      critique.titleSearchability.applicable = true;
+      const feedback = String(critique.titleSearchability.feedback || "");
+      critique.titleSearchability.feedback =
+        feedback + " This is an unverified title-text heuristic, not a live search-engine or streaming rank.";
+    }
+  }
+
+  // Protect anonymous submissions only. Explicitly supplied artist/title
+  // metadata has a different provenance and can be discussed by the user.
+  if (titleAvailable) return;
+
+  const sourceText = (metrics: any[]): string =>
+    metrics.map(x => String(x?.commentary || "")).join(" ").toLowerCase();
+  const c1Text = sourceText([
+    call1?.aestheticDesign, call1?.paletteCohesion,
+    call1?.spaceAndDensity, call1?.stereoWidth
+  ]);
+  const c3 = critique?.subMetricsCall3?.instrumentalStagingSubs;
+  const c3Text = sourceText([
+    c3?.timelineGridCohesion, c3?.transientPunch,
+    c3?.melodicStaging, c3?.instrumentalWarmth
+  ]);
+  const instrumentFamilies = /\b(?:piano|guitars?|drums?|bass guitar)\b/i;
+  const corroboratedInstruments =
+    instrumentFamilies.test(c1Text) && instrumentFamilies.test(c3Text);
+
+  const neutralize = (message: string): string => {
+    let text = message
+      .replace(/\b(?:one of the most famous|globally recognized|universally recognizable|frequently streamed worldwide)\b/gi, "distinctive")
+      .replace(/\b(?:iconic status|worldwide fame|global popularity)\b/gi, "distinctive musical character")
+      .replace(/\bclassic rock covers\b/gi, "theatrical rock")
+      .replace(/\bthe original's\b/gi, "the arrangement's")
+      .replace(/\bthe original composition\b/gi, "the composition")
+      .replace(/\bfaithfully (?:recreates|reproduces) the original\b/gi, "develops the audible arrangement");
+    if (corroboratedInstruments) {
+      text = text
+        .replace(/\ban a cappella (?:arrangement|recreation|rendition|version|cover)(?: of [\"“][^\"”]+[\"”])?/gi, "a vocal-rich arrangement")
+        .replace(/\ba cappella (?:arrangement|recreation|rendition|version|cover) of [\"“][^\"”]+[\"”]/gi, "vocal-rich arrangement")
+        .replace(/\ba cappella (?:recreation|rendition|version|cover)\b/gi, "vocal-rich arrangement")
+        .replace(/\bentirely vocal palette\b/gi, "layered vocal palette")
+        .replace(/\bwhile not a traditional instrumental mix\b/gi, "despite its emphasis on vocals");
+    }
+    return text;
+  };
+
+  const walk = (value: any): any => {
+    if (typeof value === "string") return neutralize(value);
+    if (Array.isArray(value)) return value.map(walk);
+    if (value && typeof value === "object") {
+      for (const key of Object.keys(value)) value[key] = walk(value[key]);
+    }
+    return value;
+  };
+  for (const key of ["vibe", "performance", "mixQuality", "arrangement",
+    "lyricalImpact", "musicTheory", "subMetricsCall1", "subMetricsCall2", "subMetricsCall3"]) {
+    // Preserve genre classifications and metric values; only sanitize prose.
+    const field = critique?.[key];
+    if (field) walk(field);
+  }
+}
+
 // The source-identity audit is strict about *observable percussion* rather
 // than acoustic energy alone. Do not accept generic descriptions of "transients"
 // or "pulse" as a positive instrument identification. Each model pass is scored
@@ -2260,13 +2367,10 @@ function reconcileParentScores(parsedCritique: any): void {
       }
     }
 
-    const searchability = weightedAvg([
-      [c1Ready.seoUniqueness?.score, 50],
-      [c1Ready.seoDiscoverability?.score, 50],
-    ]);
-    if (searchability !== null && parsedCritique.titleSearchability) {
-      parsedCritique.titleSearchability.score = searchability;
-    }
+    // Call 1 is intentionally blind to the title. Its purported SEO scores
+    // are audio-recognition guesses, not a title-searchability measurement.
+    // Never overwrite the parent with this unauthenticated information.
+    // Title applicability is reconciled after all the music scores are set.
   }
 
   if (parsedCritique.subMetricsCall3 && !parsedCritique.subMetricsCall3Failed) {
@@ -2980,6 +3084,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
     validateGenrePair(parsedCritique);
     reconcileParentScores(parsedCritique);
     enforceClassicalInstrumentalSourceNeutrality(parsedCritique);
+    enforceBlindReportIntegrity(parsedCritique, metaTitle);
 
     res.json({ critique: parsedCritique });
   } catch (error: any) {
@@ -3246,6 +3351,7 @@ app.post("/api/critique-url", async (req, res) => {
     validateGenrePair(parsedCritique);
     reconcileParentScores(parsedCritique);
     enforceClassicalInstrumentalSourceNeutrality(parsedCritique);
+    enforceBlindReportIntegrity(parsedCritique, metaTitle);
 
     res.json({ critique: parsedCritique });
   } catch (error: any) {
@@ -3422,6 +3528,7 @@ app.post("/api/critique-spotify", async (req, res) => {
     validateGenrePair(critique);
     reconcileParentScores(critique);
     enforceClassicalInstrumentalSourceNeutrality(critique);
+    enforceBlindReportIntegrity(critique, trackName);
 
     res.json({
       critique,

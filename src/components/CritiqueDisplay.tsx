@@ -1759,15 +1759,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     {
       id: "searchability",
       name: "Song Title Searchability",
-      subtitle: "Digital Search Indexing",
+      subtitle: "Title Text Assessment",
       score: searchScore,
+      applicable: critique?.titleSearchability?.applicable,
+
       colorClass: "stroke-pink-400",
-      hoverText: "Audits search duplication risk. Unique titles rank faster; common phrases get buried in search index traffic.",
+      hoverText: "A title-text heuristic if a real song title was supplied. No public search or streaming index is queried.",
       subParams: [
         { name: "SEO Uniqueness (50%)", desc: "Is your song title a common phrase or does it have a unique signature string?" },
         { name: "SEO Discoverability (50%)", desc: "Likelihood of your track ranking top on Google/Spotify search results when typed." }
       ],
-      callout: "This Metric analyzes index duplication risk, helping fans find your track faster on digital stores.",
+      callout: "Title searchability is not measurable from an audio recording. Anonymous test filenames are N/A; any estimate from a supplied title remains unverified.",
       description: "A critical review of digital branding. Common titles face steep traffic search volume competition; highly unique phrasing scales indexes quickly.",
       feedback: `SEO designation: ${searchLevel}. Recommendation: ${searchFeedback}`
     }
@@ -7100,14 +7102,17 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               </div>
 
               <div className="flex-shrink-0 flex items-center justify-center">
-                <ScoreCircle
-                  score={searchScore}
-                  size={110}
-                  strokeWidth={7}
-                  color={expandedMetric === "searchability" ? "#ec4899" : "rgba(236, 72, 153, 0.45)"}
-                  glowColor={expandedMetric === "searchability" ? "rgba(236, 72, 153, 0.65)" : "rgba(236, 72, 153, 0.15)"}
-                  extraGlow={expandedMetric === "searchability"}
-                />
+                {critique?.titleSearchability?.applicable === false
+                  ? <span className="font-black font-mono text-2xl text-slate-300">N/A</span>
+                  : <ScoreCircle
+                      score={searchScore}
+                      size={110}
+                      strokeWidth={7}
+                      color={expandedMetric === "searchability" ? "#ec4899" : "rgba(236, 72, 153, 0.45)"}
+                      glowColor={expandedMetric === "searchability" ? "rgba(236, 72, 153, 0.65)" : "rgba(236, 72, 153, 0.15)"}
+                      extraGlow={expandedMetric === "searchability"}
+                    />
+                }
               </div>
             </div>
           </button>
