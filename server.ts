@@ -1845,12 +1845,16 @@ function buildProductionFinishEvidence(values: {
   const flags: string[] = [];
   const spectralFlags: string[] = [];
 
-  // Calibrated against the frozen 17-song regression set. These are deliberately
-  // extreme-outlier thresholds, not genre taste targets. In that benchmark all 15
-  // professional masters triggered zero of these five flags; the second user track
-  // triggered one; the raw/unmixed Braden export triggered all five.
+  // Audited against the frozen 17-song regression set (15 professional masters,
+  // two independent controls). These are corroborating extreme-outlier checks,
+  // not genre taste targets. LUFS has deliberately been removed as a standalone
+  // global defect flag because its threshold contradicted the Classical target
+  // corridor. The remaining crest and three spectral checks remain unchanged.
   if (finite(values.crestFactorDb) && values.crestFactorDb > 18.5) flags.push("very high crest factor");
-  if (finite(values.integratedLufs) && values.integratedLufs < -14.2) flags.push("very low integrated loudness");
+  // Integrated LUFS is not a universal finish-defect signal. An otherwise
+  // healthy Classical/Jazz master can legitimately sit below -14.2 LUFS.
+  // Keep LUFS in the diagnostics, but use it only in genre-aware advisory
+  // mastering checks, never as an independent extreme finish flag.
   if (finite(values.subPct) && values.subPct < 0.15) {
     flags.push("extremely low sub-band energy");
     spectralFlags.push("sub");
