@@ -57,6 +57,7 @@ export interface MusicTheoryCritique {
 
 export interface TitleSearchabilityCritique {
   score: number;
+  applicable?: boolean;
   uniquenessLevel: string;
   feedback: string;
 }
