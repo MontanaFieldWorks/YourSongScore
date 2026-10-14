@@ -5467,8 +5467,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div>
                   <div className="flex justify-between items-baseline mb-1">
                     <span className="text-[12px] font-mono text-slate-400 uppercase tracking-widest">Sample Peak Headroom (Estimate)</span>
-                    <span className={`text-[11px] font-mono font-black px-2 py-0.5 rounded ${spotifyPeakAboveAdvisory ? "bg-amber-500/10 text-amber-400 border border-amber-500/15" : "bg-emerald-500/10 text-[#1ed760] border border-emerald-500/15"}`}>
-                      {spotifyPeakAboveAdvisory ? "ABOVE ADVISORY" : "WITHIN ADVISORY"}
+                    <span className={`text-[11px] font-mono font-black px-2 py-0.5 rounded ${!spotifyPeakAvailable ? "bg-slate-500/10 text-slate-400 border border-slate-500/15" : spotifyPeakAboveAdvisory ? "bg-amber-500/10 text-amber-400 border border-amber-500/15" : "bg-emerald-500/10 text-[#1ed760] border border-emerald-500/15"}`}>
+                      {!spotifyPeakAvailable ? "NOT MEASURED" : spotifyPeakAboveAdvisory ? "ABOVE ADVISORY" : "WITHIN ADVISORY"}
                     </span>
                   </div>
                   <div className="w-full bg-neutral-900 h-2 rounded-full mt-2 mb-2 relative overflow-hidden border border-white/5">
