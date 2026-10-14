@@ -1031,14 +1031,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const instrumentalnessMatch = instrumentalness >= instMinBound && instrumentalness <= instMaxBound ? 100 : Math.max(0, Math.min(100, Math.round(100 - Math.abs(instrumentalness - targetInstrumentalness))));
   const livenessMatch = liveness >= liveMinBound && liveness <= liveMaxBound ? 100 : Math.max(0, Math.min(100, Math.round(100 - Math.abs(liveness - targetLiveness))));
 
-  let spotifyTruePeak = -1.05;
-  if (commercialReadinessVal > 88 && mixScoreVal < 68) {
-    spotifyTruePeak = -0.15;
-  } else if (commercialReadinessVal > 78 && mixScoreVal < 74) {
-    spotifyTruePeak = -0.78;
-  } else {
-    spotifyTruePeak = -1.05;
-  }
+  // Peak metering comes from live audio metrics. The former readiness-derived
+  // placeholder invented dBTP readings; preserve honest unavailable state.
+  const spotifySamplePeak = critique?.liveMetrics?.calculatedTruePeak;
+  const spotifyPeakAvailable = typeof spotifySamplePeak === "number" && Number.isFinite(spotifySamplePeak);
+  const spotifyPeakAboveAdvisory = spotifyPeakAvailable && spotifySamplePeak > -1.0;
 
   // Dynamic explanations for Spotify metrics based on matches
   const getDanceabilityDesc = () => {
@@ -2253,7 +2250,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     }
     if (engTruePeak !== undefined) {
       const tpPass = engTruePeak <= -1.0;
-      engRows.push({ name: "True Peak", value: `${engTruePeak} dBTP`, target: "-1.0 dBTP or lower", status: tpPass ? "PASS" : "CLIPPING RISK", pass: tpPass });
+      engRows.push({ name: "Sample Peak (estimated)", value: `${engTruePeak} dBFS`, target: "-1.0 dBFS advisory headroom", status: tpPass ? "MEETS ADVISORY" : "ABOVE ADVISORY (NOT CLIPPING)", pass: tpPass });
     }
     if (engPlr !== undefined) {
       const plrStatus = engPlr < 5 ? "SEVERE BRICKWALLING" : engPlr < 8 ? "MODERATE COMPRESSION" : "IDEAL";
@@ -3117,13 +3114,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               </div>
               <div className="bg-[#13161C] p-4 rounded-xl border border-white/5 flex flex-col justify-between">
                 <div>
-                  <span className="text-[12px] font-mono text-slate-400 uppercase">True Peak Level</span>
+                  <span className="text-[12px] font-mono text-slate-400 uppercase">Sample Peak (Approx.)</span>
                   <p className="text-xl font-mono font-black text-white mt-1">
-                    {critique?.liveMetrics ? `${critique.liveMetrics.calculatedTruePeak} dBTP` : "--"}
+                    {critique?.liveMetrics ? `${critique.liveMetrics.calculatedTruePeak} dBFS` : "--"}
                   </p>
                 </div>
                 <p className="text-[13px] text-slate-500 mt-2 leading-relaxed">
-                  Safely below the -1.0 dBTP limit required by Spotify and Apple Music encoders to prevent digital codec clipping.
+                  Estimated sample peak (every second PCM frame); this is not a true-peak or intersample-clipping measurement. -1.0 dBFS is advisory headroom, not proof of clipping.
                 </p>
               </div>
               <div className="bg-[#13161C] p-4 rounded-xl border border-white/5 flex flex-col justify-between">
@@ -5463,29 +5460,29 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
               {/* 8. True Peak Limiter (Target -1.0 dBTP) */}
               <div className={`p-4 rounded-xl border flex flex-col justify-between transition-all ${
-                spotifyTruePeak > -1.0 
+                spotifyPeakAboveAdvisory 
                   ? "bg-[#241315]/40 border-amber-800/40 hover:border-amber-600/50" 
                   : "bg-[#131c19]/40 border-emerald-950 hover:border-[#1ed760]/25"
               }`}>
                 <div>
                   <div className="flex justify-between items-baseline mb-1">
-                    <span className="text-[12px] font-mono text-slate-400 uppercase tracking-widest">True Peak Limiter Audit</span>
-                    <span className={`text-[11px] font-mono font-black px-2 py-0.5 rounded ${spotifyTruePeak > -1.0 ? "bg-amber-500/10 text-amber-400 border border-amber-500/15" : "bg-emerald-500/10 text-[#1ed760] border border-emerald-500/15"}`}>
-                      {spotifyTruePeak > -1.0 ? "LIMIT EXCEEDED WARNING" : "TARGET COMPLIANT"}
+                    <span className="text-[12px] font-mono text-slate-400 uppercase tracking-widest">Sample Peak Headroom (Estimate)</span>
+                    <span className={`text-[11px] font-mono font-black px-2 py-0.5 rounded ${spotifyPeakAboveAdvisory ? "bg-amber-500/10 text-amber-400 border border-amber-500/15" : "bg-emerald-500/10 text-[#1ed760] border border-emerald-500/15"}`}>
+                      {spotifyPeakAboveAdvisory ? "ABOVE ADVISORY" : "WITHIN ADVISORY"}
                     </span>
                   </div>
                   <div className="w-full bg-neutral-900 h-2 rounded-full mt-2 mb-2 relative overflow-hidden border border-white/5">
-                    <div className={`h-full rounded-full transition-all duration-1000 ${spotifyTruePeak > -1.0 ? "bg-amber-400" : "bg-[#1ed760]"}`} style={{ width: "100%" }} />
+                    <div className={`h-full rounded-full transition-all duration-1000 ${spotifyPeakAboveAdvisory ? "bg-amber-400" : "bg-[#1ed760]"}`} style={{ width: "100%" }} />
                   </div>
                 </div>
                 <p className="text-[12px] leading-relaxed mt-1 font-sans">
-                  {spotifyTruePeak > -1.0 ? (
+                  {!spotifyPeakAvailable ? (<span className="text-slate-400">Peak measurement unavailable; no true-peak or codec-clipping conclusion.</span>) : spotifyPeakAboveAdvisory ? (
                     <span className="text-amber-300">
-                      <strong>True Peak Warning: {spotifyTruePeak.toFixed(2)} dBTP exceeds -1.0 dB target</strong>. The hot master peaks risk digital compression artifacts during Vorbis transcoding. Reduce master ceiling slightly to secure dynamic range integrity.
+                      <strong>Sample Peak Advisory: {spotifySamplePeak!.toFixed(2)} dBFS exceeds -1.0 dBFS advisory</strong>. This does not establish clipping or codec artifacts. A true-peak meter is required to assess intersample peaks.
                     </span>
                   ) : (
                     <span className="text-emerald-400/90">
-                      <strong>True Peak PASS: {spotifyTruePeak.toFixed(2)} dBTP is below -1.0 dB target</strong>. Safe transcoding headroom! This preserves clean transient punch during encoding loops without codec clipping.
+                      <strong>Sample Peak Estimate: {spotifySamplePeak!.toFixed(2)} dBFS is at or below -1.0 dBFS advisory</strong>. This is sample-peak headroom only; true-peak and codec behavior have not been measured.
                     </span>
                   )}
                 </p>
