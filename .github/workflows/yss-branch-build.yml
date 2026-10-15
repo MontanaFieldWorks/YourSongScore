@@ -17,3 +17,4 @@ jobs:
           cache: 'npm'
       - run: npm install --package-lock=false --no-audit --no-fund
       - run: npm run build
+      - run: node --test tests/low-frequency-fallback.test.mjs
