@@ -1,0 +1,24 @@
+name: YSS branch build verification
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm install --package-lock=false --no-audit --no-fund
+      - run: npm run build
+      - name: TypeScript baseline check (informational while existing errors remain)
+        run: npm run lint
+        continue-on-error: true
+      - name: Run regression tests
+        run: |
+          if ls tests/*.test.mjs >/dev/null 2>&1; then node --test tests/*.test.mjs; fi
