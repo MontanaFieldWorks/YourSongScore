@@ -3,7 +3,7 @@ import test from "node:test";
 
 // Regression truth table for the production-finish ceiling in server.ts.
 // Code-level validation must also verify this table stays aligned with the implementation.
-function ceiling(spectralFlags: number, totalFlags: number): number | null {
+function ceiling(spectralFlags, totalFlags) {
   if (spectralFlags >= 2 && totalFlags === 4) return 80;
   if (spectralFlags >= 2 && totalFlags === 3) return 84;
   return null;
