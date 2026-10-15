@@ -1765,12 +1765,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
       colorClass: "stroke-pink-400",
       hoverText: "A title-text heuristic if a real song title was supplied. No public search or streaming index is queried.",
-      subParams: [
-        { name: "SEO Uniqueness (50%)", desc: "Is your song title a common phrase or does it have a unique signature string?" },
-        { name: "SEO Discoverability (50%)", desc: "Likelihood of your track ranking top on Google/Spotify search results when typed." }
-      ],
+      subParams: [], // Standalone title-text heuristic, not a weighted audio submetric.
       callout: "Title searchability is not measurable from an audio recording. Anonymous test filenames are N/A; any estimate from a supplied title remains unverified.",
-      description: "A critical review of digital branding. Common titles face steep traffic search volume competition; highly unique phrasing scales indexes quickly.",
+      description: "An unverified text-only estimate of title distinctiveness. No actual search ranking, competition, or streaming-platform discoverability is measured.",
       feedback: `SEO designation: ${searchLevel}. Recommendation: ${searchFeedback}`
     }
   ];
@@ -1983,7 +1980,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       mix: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
       vocals: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
       instrumental: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
-      searchability: { category: "SONIC SOUNDPRINT", agg: "PRODUCTION QUALITY" },
+      searchability: { category: "TITLE & DISCOVERABILITY", agg: null },
       artistic: { category: "COMPOSITIONAL DEPTH", agg: null },
       lyrics: { category: "COMPOSITIONAL DEPTH", agg: null },
       theory: { category: "COMPOSITIONAL DEPTH", agg: null },
@@ -2535,7 +2532,6 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const CALL1_FIELD_MAP: Record<string, string[]> = {
     production: ["aestheticDesign", "spaceAndDensity", "paletteCohesion"],
     mix: ["mudPrevention", "midrangeSpacing", "lowEndDivision", "sibilanceShaving", "stereoWidth"],
-    searchability: ["seoUniqueness", "seoDiscoverability"],
   };
 
   const READINESS_MIXED_MAP: Array<{ call: 1 | 3; parent?: string; field: string }> = [
