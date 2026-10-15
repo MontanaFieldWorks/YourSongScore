@@ -1214,7 +1214,7 @@ function buildProductionFinishEvidence(values: {
   // A single unusual measurement is never enough to suppress a score. The ceiling only
   // activates when at least two independent spectral outliers occur together and the
   // total pattern contains three or more extreme signals.
-  else if (spectralFlags.length >= 2 && flags.length === 4) ceiling = 80;
+  if (spectralFlags.length >= 2 && flags.length === 4) ceiling = 80;
   else if (spectralFlags.length >= 2 && flags.length === 3) ceiling = 84;
 
   const fmt = (v: number | undefined, digits = 2) => finite(v) ? v.toFixed(digits) : "N/A";
