@@ -1,9 +1,8 @@
 name: YSS branch build verification
 on:
   push:
-    branches:
-      - fix-seo-display-hierarchy-20261015
-      - experiment-low-frequency-balance-fallback-20261015
+    branches: ['**']
+  pull_request:
   workflow_dispatch:
 jobs:
   build:
@@ -17,3 +16,9 @@ jobs:
           cache: 'npm'
       - run: npm install --package-lock=false --no-audit --no-fund
       - run: npm run build
+      - name: TypeScript baseline check (informational while existing errors remain)
+        run: npm run lint
+        continue-on-error: true
+      - name: Run regression tests
+        run: |
+          if ls tests/*.test.mjs >/dev/null 2>&1; then node --test tests/*.test.mjs; fi
