@@ -1783,6 +1783,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       "SONIC SOUNDPRINT": { dark: "FF065F46", agg: "FF9BBFB5", core: "FFCDDFDA" },
       "COMPOSITIONAL DEPTH": { dark: "FF5B21B6", agg: "FFBDA6E2", core: "FFDED3F0" },
       "STRUCTURAL ENGAGEMENT": { dark: "FF6D28D9", agg: "FFC4B5FD", core: "FFEDE9FE" },
+      "TITLE & DISCOVERABILITY": { dark: "FF334155", agg: "FFCBD5E1", core: "FFE2E8F0" },
     };
     const PLACEHOLDER = "FFFEF3C7";
     const PLACEHOLDER_TEXT = "FF92400E";
@@ -1896,6 +1897,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       const row = ws.getRow(currentRow);
       row.height = 16;
       const colors = CATS[name];
+      if (!colors) throw new Error(`Excel export category palette missing for: ${name}`);
       for (let col = 2; col <= 7; col++) {
         const cell = row.getCell(col);
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: colors.dark } };
