@@ -462,8 +462,7 @@ export default function App() {
       (serverFinishEvidence?.ceiling === null || typeof serverFinishEvidence?.ceiling === "number");
 
     let locallyCalculatedCeiling: number | null = null;
-    if (spectralFlags.length >= 2 && flags.length >= 5) locallyCalculatedCeiling = 74;
-    else if (spectralFlags.length >= 2 && flags.length === 4) locallyCalculatedCeiling = 80;
+    if (spectralFlags.length >= 2 && flags.length === 4) locallyCalculatedCeiling = 80;
     else if (spectralFlags.length >= 2 && flags.length === 3) locallyCalculatedCeiling = 84;
 
     const serverCeiling =
