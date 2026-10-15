@@ -1637,6 +1637,17 @@ function reconcileParentScores(parsedCritique: any): void {
         firstPassBassType: lowEnd.bassFoundationSourceType,
         secondPassBassType: audit?.bassFoundationType ?? "NO_AUDIT",
         corroborated: corroborated,
+        // Preserve the original listening-pass evidence even if the gate makes
+        // the score N/A. This is diagnostics only: do not infer a missing role
+        // from the absence of corroboration.
+        firstPassCommentary: String(lowEnd.commentary || ""),
+        firstPassPercussionEvidence: String(lowEnd.lowTransientAudibleCue || ""),
+        secondPassPercussionEvidence: String(audit?.percussionAudibleCue || ""),
+        rejectionReasons: [
+          !percussionPresent ? "FIRST_PASS_PERCUSSION_UNVERIFIED" : null,
+          !bassPresent ? "FIRST_PASS_BASS_UNVERIFIED" : null,
+          !audit ? "SECOND_PASS_UNAVAILABLE" : !corroborated ? "LISTENING_PASSES_DISAGREE" : null,
+        ].filter(Boolean),
       };
       if (!percussionPresent || !bassPresent || !corroborated) {
         lowEnd.score = 0;
@@ -1726,6 +1737,18 @@ function reconcileParentScores(parsedCritique: any): void {
     const vocals = c3.vocalTrackingSubs;
     // A solo vocal is not a perfect vocal-layer mix. Exclude unperformed layering
     // and renormalize the vocal parent over the remaining applicable children.
+    if (vocals?.vocalLayerFit) {
+      // Keep the raw listening decision and rationale for false-N/A review.
+      // No second independent layer-presence check exists yet; this does not
+      // assert that the absence decision is correct.
+      vocals.vocalLayerFit.sourceVerification = {
+        rawLayerPresence: vocals.vocalLayerFit.backingVocalLayersPresent,
+        rawApplicable: vocals.vocalLayerFit.applicable,
+        rawCommentary: String(vocals.vocalLayerFit.commentary || ""),
+        forcedNotApplicable: vocals.vocalLayerFit.backingVocalLayersPresent === false,
+        decisionSource: "CALL3_SINGLE_LISTEN",
+      };
+    }
     if (vocals?.vocalLayerFit && vocals.vocalLayerFit.backingVocalLayersPresent === false) {
       vocals.vocalLayerFit.applicable = false;
       vocals.vocalLayerFit.score = 0;
