@@ -4,6 +4,7 @@ import { CritiqueData, TrackInfo, LiveAudioMetrics } from "../types";
 import { getSubgenreProfile, getVectorTargets, getCritiqueAndFix } from "../data/musicData";
 import { updateTrackFields } from "../firebase";
 import ExcelJS from "exceljs";
+import { getSourceVerificationRows } from "../lib/sourceVerificationDiagnostics";
 import { 
   Play, Pause, RefreshCw, Layers, Sliders, Mic,
   Volume2, Disc, ArrowLeft, ArrowRight, CheckCircle, Flame, Sparkles, CheckSquare, Square,
@@ -1774,6 +1775,26 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     const ws = workbook.addWorksheet("YSS Full Report", { views: [{ showGridLines: false }] });
     const wsEchoNest = workbook.addWorksheet("Echo Nest Scorecard", { views: [{ showGridLines: false }] });
     const wsEngineering = workbook.addWorksheet("Engineering Studio", { views: [{ showGridLines: false }] });
+    // Diagnostic-only audit trail. These values are never used for scores or N/A decisions.
+    const wsSourceDiagnostics = workbook.addWorksheet("Source Diagnostics", { views: [{ showGridLines: false }] });
+    wsSourceDiagnostics.columns = [
+      { header: "Metric", key: "section", width: 24 },
+      { header: "Diagnostic field", key: "field", width: 38 },
+      { header: "Recorded evidence / decision", key: "value", width: 110 },
+    ];
+    wsSourceDiagnostics.getRow(1).font = { bold: true };
+    wsSourceDiagnostics.getRow(1).alignment = { vertical: "middle" };
+    wsSourceDiagnostics.views = [{ state: "frozen", ySplit: 1, showGridLines: false }];
+    for (const diagnostic of getSourceVerificationRows(critique)) {
+      const row = wsSourceDiagnostics.addRow(diagnostic);
+      row.alignment = { vertical: "top", wrapText: true };
+      row.height = 32;
+    }
+    wsSourceDiagnostics.getCell("A23").value =
+      "NOT_CAPTURED means the source-verification object or field was unavailable in this report; it does not establish source absence.";
+    wsSourceDiagnostics.mergeCells("A23:C23");
+    wsSourceDiagnostics.getCell("A23").font = { italic: true, color: { argb: "FF475569" } };
+    wsSourceDiagnostics.getRow(23).height = 30;
     const wsGenreDiagnostics = critique?.genrePipelineDiagnostics
       ? workbook.addWorksheet("Genre Diagnostics", { views: [{ showGridLines: false }] })
       : null;
