@@ -1621,7 +1621,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       subParams: [
         { name: "Mud Prevention (25%)", desc: "Evaluation of the 150Hz–250Hz proximity effect zone to ensure vocal and snare clarity." },
         { name: "Midrange Spacing (25%)", desc: "Ensuring guitars and synths do not drown out vocal track focus." },
-        { name: "Low-End Division (20%)", desc: "Frequency splitting between sub-bass movements and kick-drum transient punch." },
+        { name: critique?.subMetricsCall1?.lowEndDivision?.applicable === false ? "Low-Frequency Balance & Control (20%)" : "Low-End Division (20%)", desc: "Low-End Division tests verified independent bass/percussion roles; when not applicable, Low-Frequency Balance assesses the actual low-register weight and control without inventing instruments." },
         { name: "Sibilance Shaving (15%)", desc: "Auditing the sibilance region (4kHz-8kHz) for harsh sibilant spikes." },
         { name: "Stereo Width (15%)", desc: "Judges whether the stereo image is appropriately wide - backing elements and reverbs spread naturally without sacrificing mono compatibility or center-focus." }
       ],
@@ -2578,6 +2578,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         }
       }
       return null;
+    }
+    if (id === "mix" && index === 2 && critiqueData?.subMetricsCall1?.lowEndDivision?.applicable === false) {
+      const fallback = critiqueData.subMetricsCall1.lowFrequencyBalance;
+      return fallback && typeof fallback.score === "number"
+        ? { score: fallback.score, commentary: fallback.commentary || "", applicable: true }
+        : null;
     }
     const fields = CALL1_FIELD_MAP[id];
     if (fields && critiqueData?.subMetricsCall1) {
