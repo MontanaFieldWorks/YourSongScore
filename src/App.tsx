@@ -4,6 +4,7 @@ import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile, InternalBatchResult } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
 import { analyzeAudioBufferInWorker } from "./lib/batchAudioWorker";
+import { computeMixBalanceScore, isMudDiagnosticCritique, markMudPreventionDiagnosticOnly } from "./lib/mudPreventionDiagnostic";
 
 // Runs the new, validated essentia.js key detection and overwrites the old,
 // confirmed-unreliable chroma-based key on the given liveMetrics object in place.
@@ -604,34 +605,18 @@ export default function App() {
       }
     }
 
-    let mudCap: number | null = null;
-    if (finite(mudFlux) && mudFlux >= 70) {
-      mudCap = 68;
-    } else if (finite(mudFlux) && mudFlux >= 58) {
-      mudCap = 74;
-    } else if (
-      finite(bassBandEnergy) && finite(lowMidBandEnergy) &&
-      bassBandEnergy > 87 && lowMidBandEnergy > 72
-    ) {
-      mudCap = 78;
-    }
+    // Mud flux is retained as DSP evidence only. Its gain-dependent thresholds
+    // are unvalidated as scoring gates and cannot cap any scored metric.
+    const mudCap: number | null = null;
 
     let midrangeCap: number | null = null;
     if (finite(midrangeFlatness) && midrangeFlatness <= 0.40) {
       midrangeCap = 72;
     } else if (finite(midrangeFlatness) && midrangeFlatness < 0.45) {
       midrangeCap = 76;
-    } else if (
-      finite(midrangeFlatness) && finite(mudFlux) &&
-      midrangeFlatness < 0.48 && mudFlux >= 58
-    ) {
-      midrangeCap = 80;
     }
 
     const mixSignals: string[] = [];
-    if (finite(mudFlux) && mudFlux >= 58) {
-      mixSignals.push(`elevated 150–400 Hz flux (${mudFlux.toFixed(1)})`);
-    }
     if (finite(midrangeFlatness) && midrangeFlatness < 0.45) {
       mixSignals.push(`collapsed midrange spectral structure (flatness ${midrangeFlatness.toFixed(3)})`);
     }
@@ -655,7 +640,7 @@ export default function App() {
     }
     if (
       finite(airBandEnergy) && airBandEnergy < 22 &&
-      ((finite(mudFlux) && mudFlux >= 58) || (finite(midrangeFlatness) && midrangeFlatness < 0.45))
+      finite(midrangeFlatness) && midrangeFlatness < 0.45
     ) {
       mixSignals.push(`dark-spectrum collapse (${airBandEnergy} air energy)`);
     }
@@ -668,14 +653,6 @@ export default function App() {
     else if (mixSignals.length === 1) spectralCap = 86;
 
     const appliedMixCaps: string[] = [];
-    if (mudCap !== null && call1?.mudPrevention && typeof call1.mudPrevention.score === "number" && call1.mudPrevention.score > mudCap) {
-      call1.mudPrevention.score = mudCap;
-      call1.mudPrevention.commentary =
-        `Measured low-mid evidence does not support a top-band Mud Prevention score. 150–400 Hz spectral flux is ${finite(mudFlux) ? mudFlux.toFixed(1) : "N/A"}` +
-        `${finite(bassBandEnergy) && finite(lowMidBandEnergy) ? `; bass/low-mid energy is ${bassBandEnergy}/${lowMidBandEnergy}` : ""}. The score reflects the measured congestion risk rather than genre warmth alone.`;
-      appliedMixCaps.push(`Mud Prevention ≤ ${mudCap}`);
-    }
-
     if (midrangeCap !== null && call1?.midrangeSpacing && typeof call1.midrangeSpacing.score === "number" && call1.midrangeSpacing.score > midrangeCap) {
       call1.midrangeSpacing.score = midrangeCap;
       call1.midrangeSpacing.commentary =
@@ -692,7 +669,7 @@ export default function App() {
     }
 
     const mixEvidenceSummary =
-      `Mix evidence: mud flux ${finite(mudFlux) ? mudFlux.toFixed(1) : "N/A"}; midrange flatness ${finite(midrangeFlatness) ? midrangeFlatness.toFixed(3) : "N/A"}; ` +
+      `Mix evidence: mud flux ${finite(mudFlux) ? mudFlux.toFixed(1) : "N/A"} (diagnostic only, not a score gate); midrange flatness ${finite(midrangeFlatness) ? midrangeFlatness.toFixed(3) : "N/A"}; ` +
       `bass/low-mid/core-mid/air energy ${finite(bassBandEnergy) ? bassBandEnergy : "N/A"}/${finite(lowMidBandEnergy) ? lowMidBandEnergy : "N/A"}/${finite(coreMidBandEnergy) ? coreMidBandEnergy : "N/A"}/${finite(airBandEnergy) ? airBandEnergy : "N/A"}; ` +
       `relative air ${finite(relativeAirPct) ? relativeAirPct.toFixed(2) + "%" : "N/A"}. ` +
       (appliedMixCaps.length > 0 ? `Measured corrections: ${appliedMixCaps.join(", ")}.` : "No calibrated mix correction applied.");
@@ -712,31 +689,12 @@ export default function App() {
       summary: mixEvidenceSummary,
     };
 
-    // Recompute Mix Balance from the corrected children. N/A children are excluded and
-    // the remaining weights renormalize, matching the server-side parent calculation.
+    // Recompute Mix Balance from the same scored, applicable children as the server.
+    // Historical reports are not passed through this new diagnostic-only behavior.
     if (call1 && critique.mixQuality) {
-      const mixParts: Array<{ metric: any; weight: number }> = [
-        { metric: call1.mudPrevention, weight: 25 },
-        { metric: call1.midrangeSpacing, weight: 25 },
-        { metric: call1.lowEndDivision, weight: 20 },
-        { metric: call1.sibilanceShaving, weight: 15 },
-        { metric: call1.stereoWidth, weight: 15 },
-      ];
-      let mixWeighted = 0;
-      let mixWeight = 0;
-      for (const part of mixParts) {
-        if (
-          part.metric?.applicable !== false &&
-          typeof part.metric?.score === "number" &&
-          Number.isFinite(part.metric.score)
-        ) {
-          mixWeighted += part.metric.score * part.weight;
-          mixWeight += part.weight;
-        }
-      }
-      if (mixWeight > 0) {
-        critique.mixQuality.score = Math.round(mixWeighted / mixWeight);
-      }
+      if (isMudDiagnosticCritique(critique)) markMudPreventionDiagnosticOnly(critique);
+      const correctedMix = computeMixBalanceScore(call1, isMudDiagnosticCritique(critique));
+      if (correctedMix !== null) critique.mixQuality.score = correctedMix;
       if (appliedMixCaps.length > 0) {
         critique.mixQuality.dominanceIssues = mixEvidenceSummary;
       }

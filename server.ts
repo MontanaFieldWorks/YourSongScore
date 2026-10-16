@@ -6,6 +6,7 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { GENRE_MAP } from "./src/data/musicData";
+import { computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC_SCORING_VERSION } from "./src/lib/mudPreventionDiagnostic";
 
 dotenv.config();
 
@@ -1695,13 +1696,10 @@ function reconcileParentScores(parsedCritique: any): void {
     // Sibilance Shaving and Low-End Division can both be genuinely N/A. Their 0
     // placeholders must be excluded and the remaining weights renormalized rather than
     // silently treating absence as either failure or perfect execution.
-    const mixBalance = weightedAvg([
-      [c1Ready.mudPrevention?.score, 25],
-      [c1Ready.midrangeSpacing?.score, 25],
-      [appScore(c1Ready.lowEndDivision), 20],
-      [appScore(c1Ready.sibilanceShaving), 15],
-      [c1Ready.stereoWidth?.score, 15],
-    ]);
+    // Mud Prevention remains measurable/reportable but is not a beta score.
+    // Keep the other four weights and their independent applicability rules.
+    markMudPreventionDiagnosticOnly(parsedCritique);
+    const mixBalance = computeMixBalanceScore(c1Ready, true);
     if (mixBalance !== null && parsedCritique.mixQuality) {
       parsedCritique.mixQuality.score =
         finishCeiling !== null ? Math.min(mixBalance, finishCeiling) : mixBalance;
@@ -2361,6 +2359,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       threeX
     );
     parsedCritique.productionFinishEvidence = productionFinishEvidence;
+    parsedCritique.productionScoringVersion = MUD_DIAGNOSTIC_SCORING_VERSION;
 
     try {
 
@@ -2373,7 +2372,6 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
-      parsedCritique.productionScoringVersion = "scoring-tier-v7";
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
     } catch (subErr: any) {
@@ -2632,6 +2630,7 @@ app.post("/api/critique-url", async (req, res) => {
       !!threeX
     );
     parsedCritique.productionFinishEvidence = productionFinishEvidence;
+    parsedCritique.productionScoringVersion = MUD_DIAGNOSTIC_SCORING_VERSION;
 
     try {
 
@@ -2644,7 +2643,6 @@ app.post("/api/critique-url", async (req, res) => {
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
       const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
-      parsedCritique.productionScoringVersion = "scoring-tier-v7";
       parsedCritique.subMetricsCall1Failed = false;
     } catch (subErr: any) {
       if (isGeminiPrepayExhausted(subErr)) throw subErr;
