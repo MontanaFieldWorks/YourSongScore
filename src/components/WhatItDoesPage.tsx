@@ -789,8 +789,8 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                             <div className="flex gap-2">
                               <span className="text-[#46F4CD] font-mono text-[12px] select-none shrink-0 mt-0.5">○</span>
                               <div className="flex flex-col">
-                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Mud Prevention</span>
-                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Checks for uncontrolled low-mid buildup, distinguishing genuine masking from intentional genre weight (e.g. dark pop, hip-hop).</span>
+                                <span className="text-[14px] font-bold text-slate-200 leading-[1.375]">Mud Prevention — Diagnostic Only</span>
+                                <span className="text-[13px] text-slate-400 leading-[1.375] mt-0.5">Displays low-mid evidence and listening notes for beta review. This unvalidated measure is not scored and does not penalize any scored metric.</span>
                               </div>
                             </div>
                             <div className="flex gap-2">

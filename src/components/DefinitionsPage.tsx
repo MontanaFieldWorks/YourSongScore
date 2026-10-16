@@ -445,9 +445,9 @@ export default function DefinitionsPage({ onBack, initialSelectedTerm, onNavigat
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           
           <div id="def-mud-prevention" className="bg-[#020203] border border-white/5 p-5 rounded-2xl text-left">
-            <h4 className="text-sm font-bold text-white">Mud Prevention (150Hz–250Hz)</h4>
+            <h4 className="text-sm font-bold text-white">Mud Prevention (low-mid diagnostic — unscored for beta)</h4>
             <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-              When too many instruments (guitars, piano notes, low vocals) overlap in this low-mid frequency zone, they mask each other, leading to a "cloudy" or "muddy" track where details are lost. Mud Prevention measures how cleanly you have EQ-scooped background channels to give lead elements transparent dynamic focus.
+              Excess low-mid energy can make a mix sound cloudy, but warmth and overlapping spectra do not by themselves prove audible masking. YSS retains measured low-mid evidence and listening commentary for review; this diagnostic is not a numerical beta score and cannot impose scoring penalties.
             </p>
           </div>
 

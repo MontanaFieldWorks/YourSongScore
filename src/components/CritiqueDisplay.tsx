@@ -5,6 +5,7 @@ import { getSubgenreProfile, getVectorTargets, getCritiqueAndFix } from "../data
 import { updateTrackFields } from "../firebase";
 import ExcelJS from "exceljs";
 import { getSourceVerificationRows } from "../lib/sourceVerificationDiagnostics";
+import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS } from "../lib/mudPreventionDiagnostic";
 import { 
   Play, Pause, RefreshCw, Layers, Sliders, Mic,
   Volume2, Disc, ArrowLeft, ArrowRight, CheckCircle, Flame, Sparkles, CheckSquare, Square,
@@ -1547,6 +1548,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     ? Math.round(dnaComponents.reduce((s, x) => s + x.score, 0) / dnaComponents.length)
     : 0;
 
+  const betaMixWeightLabel = (key: "midrangeSpacing" | "lowEndDivision" | "sibilanceShaving" | "stereoWidth") => {
+    const weight = getMixBalanceEffectiveWeight(critique?.subMetricsCall1, key);
+    return weight === null ? "N/A" : `${weight}%`;
+  };
+
   // Metric definitions dictionary for breakdowns and hover states
   const METRICS_LIST = [
     {
@@ -1617,11 +1623,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       isGold: false,
       hoverText: "Audits master frequency balances, low-end boominess, midrange vocal presence, and stereo width separation.",
       subParams: [
-        { name: "Mud Prevention (25%)", desc: "Evaluation of the 150Hz–250Hz proximity effect zone to ensure vocal and snare clarity." },
-        { name: "Midrange Spacing (25%)", desc: "Ensuring guitars and synths do not drown out vocal track focus." },
-        { name: "Low-End Division (20%)", desc: "Frequency splitting between sub-bass movements and kick-drum transient punch." },
-        { name: "Sibilance Shaving (15%)", desc: "Auditing the sibilance region (4kHz-8kHz) for harsh sibilant spikes." },
-        { name: "Stereo Width (15%)", desc: "Judges whether the stereo image is appropriately wide - backing elements and reverbs spread naturally without sacrificing mono compatibility or center-focus." }
+        { name: isMudDiagnosticCritique(critique) ? "Mud Prevention (Diagnostic Only)" : "Mud Prevention (25%)", desc: "Low-mid congestion evidence only for new beta reports; not used to determine a score or penalize other metrics." },
+        { name: isMudDiagnosticCritique(critique) ? `Midrange Spacing (${betaMixWeightLabel("midrangeSpacing")})` : "Midrange Spacing (25%)", desc: "Ensuring guitars and synths do not drown out vocal track focus." },
+        { name: isMudDiagnosticCritique(critique) ? `Low-End Division (${betaMixWeightLabel("lowEndDivision")})` : "Low-End Division (20%)", desc: "Frequency splitting between sub-bass movements and kick-drum transient punch; N/A when two independent roles cannot be verified." },
+        { name: isMudDiagnosticCritique(critique) ? `Sibilance Shaving (${betaMixWeightLabel("sibilanceShaving")})` : "Sibilance Shaving (15%)", desc: "Auditing the sibilance region (4kHz-8kHz) for harsh sibilant spikes." },
+        { name: isMudDiagnosticCritique(critique) ? `Stereo Width (${betaMixWeightLabel("stereoWidth")})` : "Stereo Width (15%)", desc: "Judges whether the stereo image is appropriately wide - backing elements and reverbs spread naturally without sacrificing mono compatibility or center-focus." }
       ],
       callout: "This Metric secures clear frequency separations so that your low and high ends decode without clipping.",
       description: "Audits decibel levels, EQ notches, sibilance de-essing, low frequency separation, and relative placement in the stereo panning field.",
@@ -1795,6 +1801,20 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     wsSourceDiagnostics.mergeCells("A23:C23");
     wsSourceDiagnostics.getCell("A23").font = { italic: true, color: { argb: "FF475569" } };
     wsSourceDiagnostics.getRow(23).height = 30;
+    // This record is informational, not an alternative score. Existing
+    // reports retain their legacy scored Mud Prevention rows unchanged.
+    if (isMudDiagnosticCritique(critique)) {
+      for (const [field, value] of [
+        ["Scoring status", "DIAGNOSTIC_ONLY — excluded from Mix Balance and all other scores"],
+        ["Mud flux (150–400 Hz)", critique?.mixBalanceEvidence?.mudFlux ?? critique?.liveMetrics?.calculatedMudFlux ?? "NOT_CAPTURED"],
+        ["Raw listening evidence", critique?.subMetricsCall1?.mudPrevention?.commentary || "NOT_CAPTURED"],
+        ["Mix scoring weights", "Midrange Spacing 25; Low-End Division 20; Sibilance Shaving 15; Stereo Width 15 (renormalized across applicable metrics)"],
+      ] as Array<[string, string | number]>) {
+        const row = wsSourceDiagnostics.addRow({ section: "Mud Prevention", field, value });
+        row.alignment = { vertical: "top", wrapText: true };
+        row.height = 36;
+      }
+    }
     const wsGenreDiagnostics = critique?.genrePipelineDiagnostics
       ? workbook.addWorksheet("Genre Diagnostics", { views: [{ showGridLines: false }] })
       : null;
@@ -2128,14 +2148,18 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       addCoreRow(colors, m.name, coreExportScore, (m.feedback || "").replace(/\n/g, " ").replace(/(\d+\s*)?[+-]\s*\d+\s*points?:\s*/gi, ""));
       (m.subParams || []).forEach((param: any, idx: number) => {
         const realSub = getRealSubMetric(critique, m.id, idx);
+        const diagnosticMud = m.id === "mix" && idx === 0 && isMudDiagnosticCritique(critique);
         const subScore = realSub ? realSub.score : getSubScore(m.score, idx, m.subParams.length, m.id);
         const fallbackWarning = realSub ? "" : getFallbackWarning(critique, m.id);
-        const subText = (fallbackWarning) + (realSub ? realSub.commentary : getSubScoreExplanationText(param.name, subScore));
+        const subText = diagnosticMud
+          ? `DIAGNOSTIC ONLY — excluded from scoring. ${realSub?.commentary || "Raw source evidence not captured for this report."}`
+          : (fallbackWarning) + (realSub ? realSub.commentary : getSubScoreExplanationText(param.name, subScore));
         // A parent-level N/A must propagate to every child. Some model responses correctly
         // mark the parent metric not applicable while child placeholders still carry score 0
         // without their own applicable flag. Checking only the child would export that 0 as a
         // real failure. Either parent or child N/A therefore exports as N/A.
-        const exportScore = m.applicable === false || realSub?.applicable === false ? "N/A" : subScore;
+        const exportScore = diagnosticMud ? "DIAGNOSTIC ONLY" :
+          m.applicable === false || realSub?.applicable === false ? "N/A" : subScore;
         addSubRow(param.name, exportScore, (subText || "").replace(/\n/g, " ").replace(/(\d+\s*)?[+-]\s*\d+\s*points?:\s*/gi, ""));
       });
     });
@@ -2576,7 +2600,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     theory: { parent: "musicTheorySubs", fields: ["chordDynamics", "harmonicVariety", "formAndStructure"] },
   };
 
-  const getRealSubMetric = (critiqueData: any, id: string, index: number): { score: number; commentary: string; applicable?: boolean } | null => {
+  const getRealSubMetric = (critiqueData: any, id: string, index: number): { score: number; commentary: string; applicable?: boolean; scoringStatus?: string } | null => {
     if (id === "readiness") {
       const entry = READINESS_MIXED_MAP[index];
       if (!entry) return null;
@@ -2599,8 +2623,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     if (fields && critiqueData?.subMetricsCall1) {
       const fieldName = fields[index];
       const data = fieldName ? critiqueData.subMetricsCall1[fieldName] : null;
-      if (data && typeof data.score === "number") {
-        return { score: data.score, commentary: data.commentary || "", applicable: data.applicable };
+      if (data && (typeof data.score === "number" || data.scoringStatus === MUD_DIAGNOSTIC_STATUS)) {
+        return { score: typeof data.score === "number" ? data.score : 0, commentary: data.commentary || "", applicable: data.applicable, scoringStatus: data.scoringStatus };
       }
     }
     const call2Entry = CALL2_FIELD_MAP[id];
@@ -3933,6 +3957,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
             <div className="flex flex-col gap-4 mt-5">
               {(selectedObj.subParams || []).map((param, index) => {
                 const realSub = getRealSubMetric(critique, selectedObj.id, index);
+                const diagnosticMud = selectedObj.id === "mix" && index === 0 && isMudDiagnosticCritique(critique);
                 const subScore = realSub ? realSub.score : getSubScore(selectedObj.score, index, selectedObj.subParams.length, selectedObj.id);
                 
                 // Determine colors precisely matching the Rose Chart:
@@ -4106,7 +4131,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   }
                 }
 
-                let statusColorClass = "text-blue-400";
+                if (diagnosticMud) {
+                  ringColor = "#64748b";
+                  statusLabel = "DIAGNOSTIC ONLY";
+                }
+                let statusColorClass = diagnosticMud ? "text-slate-400" : "text-blue-400";
                 if (statusLabel.toLowerCase().includes("optimal")) {
                   statusColorClass = "text-[#10b981]";
                 } else if (statusLabel.toLowerCase().includes("review")) {
@@ -4118,7 +4147,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 // Sub score inner circle parameters (flat style, non-glowing, non-selectable)
                 const sRadius = (64 - 4) / 2;
                 const sCircumference = 2 * Math.PI * sRadius;
-                const sOffset = sCircumference - (subScore / 100) * sCircumference;
+                const sOffset = diagnosticMud ? sCircumference : sCircumference - (subScore / 100) * sCircumference;
 
                 const isLufsRow = false;
 
@@ -4165,7 +4194,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             />
                           </svg>
                           <span className="absolute font-mono font-black text-white text-base select-none">
-                            {realSub?.applicable === false ? "N/A" : subScore}
+                            {diagnosticMud ? "—" : realSub?.applicable === false ? "N/A" : subScore}
                           </span>
                         </div>
 
@@ -4188,7 +4217,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             </span>
                             <span className="text-[12px] text-blue-400 font-mono font-bold uppercase tracking-wider leading-none">
                               Weight: {(() => {
-                                const embeddedMatch = param.name.match(/\((\d+)%\)/);
+                                if (diagnosticMud) return "Not scored";
+                                if (selectedObj.id === "mix" && isMudDiagnosticCritique(critique)) {
+                                  return betaMixWeightLabel(CALL1_FIELD_MAP.mix[index] as "midrangeSpacing" | "lowEndDivision" | "sibilanceShaving" | "stereoWidth");
+                                }
+                                const embeddedMatch = param.name.match(/\(([\d.]+)%\)/);
                                 if (embeddedMatch) return `${embeddedMatch[1]}%`;
                                 if (selectedObj.id === "artistic") {
                                   return param.name === "Harmonic Intrigue" ? "40%" : "30%";
@@ -4213,7 +4246,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                               {getFallbackWarning(critique, selectedObj.id)}
                             </span>
                           )}
-                          {realSub ? realSub.commentary : getSubScoreExplanationText(param.name, subScore)}
+                          {diagnosticMud
+                            ? `Diagnostic evidence only; no score or automatic penalty. ${realSub?.commentary || "Raw source evidence not captured."}`
+                            : realSub ? realSub.commentary : getSubScoreExplanationText(param.name, subScore)}
                         </div>
                       </div>
                     </div>
@@ -4266,6 +4301,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               {(() => {
                 const roseData = (selectedObj.subParams || []).map((param, index) => {
                   const realSub = getRealSubMetric(critique, selectedObj.id, index);
+                  const diagnosticMud = selectedObj.id === "mix" && index === 0 && isMudDiagnosticCritique(critique);
                   const subScore = realSub ? realSub.score : getSubScore(selectedObj.score, index, selectedObj.subParams.length, selectedObj.id);
                   let ringColor = "#3b82f6";
                   
@@ -4317,16 +4353,19 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                     else ringColor = "#f43f5e";
                   }
                   
-                  const weightMatch = param.name.match(/\((\d+)%\)/);
+                  const weightMatch = param.name.match(/\(([\d.]+)%\)/);
                   const parsedWeight = weightMatch 
-                    ? parseInt(weightMatch[1], 10) 
+                    ? parseFloat(weightMatch[1])
                     : (selectedObj.id === "artistic" ? (param.name === "Harmonic Intrigue" ? 40 : 30) : (100 / (selectedObj.subParams?.length || 4)));
                   return {
                     name: param.name.split(" (")[0],
                     score: subScore,
                     color: ringColor,
-                    weight: parsedWeight,
-                    applicable: realSub?.applicable !== false,
+                    weight: diagnosticMud ? 0 : parsedWeight,
+                    applicable: !diagnosticMud && realSub?.applicable !== false &&
+                      !(selectedObj.id === "mix" && isMudDiagnosticCritique(critique) &&
+                        index > 0 &&
+                        getMixBalanceEffectiveWeight(critique?.subMetricsCall1, CALL1_FIELD_MAP.mix[index] as "midrangeSpacing" | "lowEndDivision" | "sibilanceShaving" | "stereoWidth") === null),
                   };
                 });
                 // Drop genuinely not-applicable sub-metrics from the chart rather than
