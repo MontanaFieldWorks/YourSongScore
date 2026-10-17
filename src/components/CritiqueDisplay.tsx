@@ -5,6 +5,7 @@ import { getSubgenreProfile, getVectorTargets, getCritiqueAndFix } from "../data
 import { updateTrackFields } from "../firebase";
 import ExcelJS from "exceljs";
 import { getSourceVerificationRows } from "../lib/sourceVerificationDiagnostics";
+import { getMudPreventionPublicCommentary } from "../lib/mudPreventionReporting";
 import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS } from "../lib/mudPreventionDiagnostic";
 import { 
   Play, Pause, RefreshCw, Layers, Sliders, Mic,
@@ -1807,7 +1808,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       for (const [field, value] of [
         ["Scoring status", "DIAGNOSTIC_ONLY — excluded from Mix Balance and all other scores"],
         ["Mud flux (150–400 Hz)", critique?.mixBalanceEvidence?.mudFlux ?? critique?.liveMetrics?.calculatedMudFlux ?? "NOT_CAPTURED"],
-        ["Raw listening evidence", critique?.subMetricsCall1?.mudPrevention?.commentary || "NOT_CAPTURED"],
+        ["Original Gemini commentary (UNVERIFIED; internal diagnostics only)", critique?.subMetricsCall1?.mudPrevention?.commentary || "NOT_CAPTURED"],
+        ["Interpretation status", "UNVERIFIED listening interpretation retained for internal audit only; not a verified mud-quality finding or a scoring input."],
         ["Mix scoring weights", "Midrange Spacing 25; Low-End Division 20; Sibilance Shaving 15; Stereo Width 15 (renormalized across applicable metrics)"],
       ] as Array<[string, string | number]>) {
         const row = wsSourceDiagnostics.addRow({ section: "Mud Prevention", field, value });
@@ -2152,7 +2154,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         const subScore = realSub ? realSub.score : getSubScore(m.score, idx, m.subParams.length, m.id);
         const fallbackWarning = realSub ? "" : getFallbackWarning(critique, m.id);
         const subText = diagnosticMud
-          ? `DIAGNOSTIC ONLY — excluded from scoring. ${realSub?.commentary || "Raw source evidence not captured for this report."}`
+          ? getMudPreventionPublicCommentary(critique)
           : (fallbackWarning) + (realSub ? realSub.commentary : getSubScoreExplanationText(param.name, subScore));
         // A parent-level N/A must propagate to every child. Some model responses correctly
         // mark the parent metric not applicable while child placeholders still carry score 0
@@ -4247,7 +4249,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                             </span>
                           )}
                           {diagnosticMud
-                            ? `Diagnostic evidence only; no score or automatic penalty. ${realSub?.commentary || "Raw source evidence not captured."}`
+                            ? getMudPreventionPublicCommentary(critique)
                             : realSub ? realSub.commentary : getSubScoreExplanationText(param.name, subScore)}
                         </div>
                       </div>
