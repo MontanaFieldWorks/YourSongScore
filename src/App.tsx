@@ -47,6 +47,7 @@ import UsefulToolsPage from "./components/UsefulToolsPage";
 import RabbitHolePageV2 from "./components/RabbitHolePageV2";
 import MarketingPage from "./components/MarketingPage";
 import StacksPage from "./components/StacksPage";
+import BlindTunnelPage from "./components/BlindTunnelPage";
 import EngineeringStudioPage from "./components/EngineeringStudioPage";
 import EngineeringDetailsPage from "./components/EngineeringDetailsPage";
 import Dashboard, { MOCK_GENERATED_CRITIQUE_TEMPLATE } from "./components/Dashboard";
@@ -155,6 +156,7 @@ export default function App() {
   const [viewingMarketingPage, setViewingMarketingPage] = useState(false);
   const [viewingMetadataGenerator, setViewingMetadataGenerator] = useState(false);
   const [viewingStacks, setViewingStacks] = useState(false);
+  const [viewingBlindTunnel, setViewingBlindTunnel] = useState(false);
   const [viewingEngineeringStudio, setViewingEngineeringStudio] = useState(false);
   const [viewingEngineeringDetails, setViewingEngineeringDetails] = useState(false);
   const [viewingAlphaPage, setViewingAlphaPage] = useState(false);
@@ -900,7 +902,7 @@ export default function App() {
   const hasPushedSubPageHistoryRef = React.useRef(false);
   const isAnySubPageActive =
     viewingDefinitions || viewingAboutPage || viewingWhatItDoesPage || viewingUsefulTools ||
-    viewingRabbitHoleV2 || viewingMarketingPage || viewingMetadataGenerator || viewingStacks ||
+    viewingRabbitHoleV2 || viewingMarketingPage || viewingMetadataGenerator || viewingStacks || viewingBlindTunnel ||
     viewingEngineeringStudio || viewingEngineeringDetails || viewingAlphaPage || viewingArRep;
 
   useEffect(() => {
@@ -922,6 +924,7 @@ export default function App() {
       setViewingMarketingPage(false);
       setViewingMetadataGenerator(false);
       setViewingStacks(false);
+              setViewingBlindTunnel(false);
       setViewingEngineeringStudio(false);
       setViewingEngineeringDetails(false);
       setViewingAlphaPage(false);
@@ -2281,6 +2284,7 @@ export default function App() {
                     setViewingUsefulTools(false);
                     setViewingRabbitHoleV2(false);
                     setViewingStacks(false);
+              setViewingBlindTunnel(false);
                     setViewingArRep(false);
                     setViewingEngineeringDetails(false);
                     setViewingEngineeringStudio(false);
@@ -2308,6 +2312,7 @@ export default function App() {
                   setViewingUsefulTools(false);
                   setViewingRabbitHoleV2(false);
                   setViewingStacks(false);
+              setViewingBlindTunnel(false);
                   setViewingArRep(false);
                   setViewingEngineeringDetails(false);
                   setViewingEngineeringStudio(false);
@@ -2354,6 +2359,7 @@ export default function App() {
                           setViewingUsefulTools(false);
                           setViewingRabbitHoleV2(false);
                           setViewingStacks(false);
+              setViewingBlindTunnel(false);
                           setViewingArRep(false);
                           setViewingEngineeringDetails(false);
                           setShowLibraryDropdown(false);
@@ -2376,6 +2382,7 @@ export default function App() {
                           setViewingUsefulTools(false);
                           setViewingRabbitHoleV2(false);
                           setViewingStacks(false);
+              setViewingBlindTunnel(false);
                           setViewingArRep(false);
                           setViewingEngineeringDetails(false);
                           setShowLibraryDropdown(false);
@@ -2399,6 +2406,7 @@ export default function App() {
                           setViewingUsefulTools(false);
                           setViewingRabbitHoleV2(false);
                           setViewingStacks(false);
+              setViewingBlindTunnel(false);
                           setViewingDashboard(false);
                           setViewingArRep(false);
                           setViewingEngineeringDetails(false);
@@ -2449,6 +2457,7 @@ export default function App() {
                   setViewingWhatItDoesPage(false);
                   setViewingDefinitions(false);
                   setViewingStacks(false);
+              setViewingBlindTunnel(false);
                   setViewingArRep(false);
                   setViewingDashboard(false);
                   setViewingEngineeringDetails(false);
@@ -2474,6 +2483,7 @@ export default function App() {
                   setViewingUsefulTools(false);
                   setViewingRabbitHoleV2(false);
                   setViewingStacks(false);
+              setViewingBlindTunnel(false);
                   setViewingEngineeringDetails(false);
                 }}
                 className={`${showMoreNav ? "flex" : "hidden lg:flex"} items-center gap-1.5 text-[11px] font-mono py-1.5 px-3.5 rounded-full border transition-all cursor-pointer flex-shrink-0 ${
@@ -2498,6 +2508,7 @@ export default function App() {
                   setViewingUsefulTools(false);
                   setViewingRabbitHoleV2(false);
                   setViewingStacks(false);
+              setViewingBlindTunnel(false);
                   setViewingArRep(false);
                   setViewingEngineeringDetails(false);
                   if (targetState && selectedFile) {
@@ -2538,6 +2549,7 @@ export default function App() {
                       setViewingMetadataGenerator(false);
                       setViewingEngineeringDetails(false);
                       setViewingStacks(false);
+              setViewingBlindTunnel(false);
                     }}
                     className="px-3.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-white/10 text-slate-300 text-[10px] uppercase font-bold tracking-widest rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
                   >
@@ -2752,10 +2764,18 @@ export default function App() {
               setViewingStacks(true);
             }}
           />
+        ) : viewingBlindTunnel ? (
+          <BlindTunnelPage
+            onBack={() => {
+              setViewingBlindTunnel(false);
+              setViewingRabbitHoleV2(true);
+            }}
+          />
         ) : viewingStacks ? (
           <StacksPage 
             onBack={() => {
               setViewingStacks(false);
+              setViewingBlindTunnel(false);
               setViewingRabbitHoleV2(true);
             }}
           />

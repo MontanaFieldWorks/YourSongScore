@@ -52,12 +52,14 @@ interface RabbitHolePageV2Props {
   onNavigateToSpotifyAnalyzer?: () => void;
   onNavigateToMetadataGenerator?: () => void;
   onNavigateToMarketing?: () => void;
+  onNavigateToBlindTunnel?: () => void;
   trackInfo?: any;
 }
 
 export default function RabbitHolePageV2({ 
   onBack, 
   onNavigateToStacks, 
+  onNavigateToBlindTunnel,
   onNavigateToSpotifyAnalyzer,
   onNavigateToMetadataGenerator,
   onNavigateToMarketing,
@@ -348,7 +350,7 @@ export default function RabbitHolePageV2({
 
           {/* Knowledge Card 2: The Blind Tunnel (-14 LUFS) */}
           <div 
-            onClick={onNavigateToStacks}
+            onClick={onNavigateToBlindTunnel}
             className="group relative flex items-start gap-4 p-4 bg-[#0d0e12] border border-[#bd93f9]/30 rounded-none hover:border-[#bd93f9]/50 transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-md text-right h-[110px]"
             style={{ width: "500px" }}
           >
