@@ -67,7 +67,6 @@ export default function RabbitHolePageV2({
 }: RabbitHolePageV2Props) {
   
   // Local states for interactive modals or expanded insights
-  const [activeSecretModal, setActiveSecretModal] = useState(false);
   const [activeEchoNestModal, setActiveEchoNestModal] = useState(false);
   const [activeListenerMapModal, setActiveListenerMapModal] = useState(false);
 
@@ -304,7 +303,7 @@ export default function RabbitHolePageV2({
 
           {/* Knowledge Card 1: The Hidden Chamber (KEY READ) */}
           <div 
-            onClick={() => setActiveSecretModal(true)}
+            onClick={onNavigateToBlindTunnel}
             className="group relative flex items-start gap-4 p-4 bg-[#0d0e12] border border-[#bd93f9]/30 rounded-none hover:border-[#bd93f9]/50 transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-md text-right h-[110px]"
             style={{ width: "500px" }}
           >
@@ -454,45 +453,6 @@ export default function RabbitHolePageV2({
         </div>
 
       </div>
-
-      {/* INTERACTIVE INSIGHT DRAWER: The Hidden Chamber Secret Intel */}
-      {activeSecretModal && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-[#0b0c0f] border border-[#bd93f9]/30 rounded-3xl p-6 max-w-lg w-full text-left flex flex-col gap-5 shadow-[0_0_50px_rgba(189,147,249,0.25)] relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
-              <CustomRabbit className="w-48 h-48 text-[#ad46ff]" />
-            </div>
-            
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2">
-                <CustomRabbit className="w-5 h-5 text-[#ad46ff] animate-pulse" />
-                <h3 className="text-lg font-black text-white uppercase tracking-tight">
-                  Secret Intel unlocked
-                </h3>
-              </div>
-              <button 
-                onClick={() => setActiveSecretModal(false)}
-                className="text-slate-400 hover:text-white font-mono text-xs cursor-pointer border border-white/5 px-2 py-1 rounded hover:bg-white/5"
-              >
-                CLOSE [X]
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-4 text-xs md:text-sm text-slate-300 leading-relaxed font-sans mt-2">
-              <p className="border-l-2 border-[#bd93f9] pl-3 py-0.5 bg-[#bd93f9]/5 rounded-r">
-                <strong className="text-white block mb-0.5">The Skip-Rate Gatekeeper</strong>
-                Spotify's algorithmic feed (Discover Weekly / Release Radar) evaluates the <strong>"Skip Rate"</strong> in the first 30 seconds of a listener's interaction. If a track is skipped before 30 seconds, it incurs a severe rank penalty.
-              </p>
-              <p>
-                <strong>How to Game the Gate:</strong> Modern pop and hip-hop records are mixed to place high-impact hooks, drum rolls, or dramatic vocal declarations within the first 5 to 7 seconds. Long, slow atmospheric intros trigger a 40%+ drop-off in average casual feeds.
-              </p>
-              <p>
-                <strong>The "Double Play" Loop:</strong> Independent teams bypass standard curator feeds by creating 1-to-2-minute loop segments that prompt natural repeat plays, raising the algorithmic "re-play quotient" and pushing the track into discovery buckets automatically.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* INTERACTIVE INSIGHT DRAWER: The Echo Nest Factors */}
       {activeEchoNestModal && (
