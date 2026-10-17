@@ -61,7 +61,7 @@ test("UI and Excel use same read-only helper; old scoring and DSP formulas remai
   assert.match(display,/analyzeClimaxPeakCompetition\(rawEnvelope\)/);
   assert.match(display,/formatClimaxPeakDiagnostic\(peakDiagnostics\)/);
   assert.match(display,/formatClimaxPeakDiagnostic\(climaxDiagnostic\)/);
-  assert.match(display,/Original three-window energy peak/);
+  assert.match(await readFile("src/lib/climaxPeakDiagnostics.ts","utf8"),/Original three-window energy peak/);
   assert.doesNotMatch(display,/Climax Trajectory Score is a 50\/50 blend/);
   assert.doesNotMatch(display,/Golden Climax Zone \(55%–90%\)/);
   assert.match(display,/Gemini Call 2 listening tier when available/);

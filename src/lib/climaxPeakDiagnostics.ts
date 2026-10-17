@@ -38,7 +38,9 @@ export function analyzeClimaxPeakCompetition(
   for (let i = 0; i < n; i++) {
     const localMaximum = (i === 0 || threeWindow[i] >= threeWindow[i - 1]) &&
       (i === n - 1 || threeWindow[i] >= threeWindow[i + 1]);
-    if (localMaximum && threeWindow[primaryIdx] - threeWindow[i] <= COMPARABLE_PEAK_TOLERANCE_DB) {
+    // Flat-top plateaus represent one peak event, not several "competing" peaks.
+    const plateauContinuation = i > 0 && Math.abs(threeWindow[i] - threeWindow[i - 1]) < 1e-8;
+    if (localMaximum && !plateauContinuation && threeWindow[primaryIdx] - threeWindow[i] <= COMPARABLE_PEAK_TOLERANCE_DB) {
       localPeaks.push(i);
     }
   }
