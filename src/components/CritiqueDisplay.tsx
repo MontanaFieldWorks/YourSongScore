@@ -6,6 +6,7 @@ import { updateTrackFields } from "../firebase";
 import ExcelJS from "exceljs";
 import { getSourceVerificationRows } from "../lib/sourceVerificationDiagnostics";
 import { analyzeClimaxPeakCompetition, formatClimaxPeakDiagnostic } from "../lib/climaxPeakDiagnostics";
+import { getClimaxTrajectoryEvidenceRows } from "../lib/climaxEvidenceExport";
 import { getMudPreventionPublicCommentary } from "../lib/mudPreventionReporting";
 import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS } from "../lib/mudPreventionDiagnostic";
 import { 
@@ -1829,6 +1830,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       });
       row.alignment = { vertical: "top", wrapText: true };
       row.height = 55;
+    }
+    // Original Call 2 listening evidence and score provenance for audit only.
+    // Never used to derive or alter any numerical score in the public report.
+    for (const evidence of getClimaxTrajectoryEvidenceRows(critique)) {
+      const row = wsSourceDiagnostics.addRow(evidence);
+      row.alignment = { vertical: "top", wrapText: true };
+      if (evidence.field.includes("commentary")) row.height = 65;
     }
     const wsGenreDiagnostics = critique?.genrePipelineDiagnostics
       ? workbook.addWorksheet("Genre Diagnostics", { views: [{ showGridLines: false }] })
