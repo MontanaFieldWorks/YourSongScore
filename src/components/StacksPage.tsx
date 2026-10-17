@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowLeft, Library, WalletMinimal } from "lucide-react";
+import { ArrowLeft, Library } from "lucide-react";
 
 interface StacksPageProps {
   onBack: () => void;
@@ -47,53 +47,7 @@ export default function StacksPage({ onBack }: StacksPageProps) {
       {/* 2. Unified Content Cards */}
       <div className="flex flex-col gap-6">
         
-        {/* FIRST UNIFIED DIV: The Blind Tunnel */}
-        <div className="bg-[#13161C] border border-white/10 rounded-[32px] p-6 md:p-8 relative overflow-hidden shadow-2xl flex flex-col gap-6">
-          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-purple-500/5 rounded-full blur-[100px] pointer-events-none" />
-          
-          <div className="relative z-10 flex flex-col gap-4">
-            <h2 className="text-2xl font-black text-white tracking-tight font-sans flex items-center gap-2.5">
-              <WalletMinimal className="w-6 h-6 text-[#bd93f9] shrink-0" />
-              <span>The Blind Tunnel: The Misunderstood -14.0</span>
-            </h2>
-            <h3 className="text-base font-bold text-[#bd93f9] tracking-tight">
-              -14.0 Integrated Loudness — Normalization vs. Commercial Reality
-            </h3>
-            <p className="text-slate-300 text-sm font-medium leading-relaxed italic border-l-2 border-[#bd93f9]/50 pl-4">
-              The -14 LUFS target is widely misunderstood and leads to weak-sounding tracks from independent artists.
-            </p>
-
-            <div 
-              className="mt-2 flex flex-col gap-5 leading-relaxed whitespace-pre-wrap"
-              style={{ fontFamily: "Inter, sans-serif", fontSize: "12pt", color: "#cad5e2" }}
-            >
-              <div style={{ fontSize: "12px" }}>
-                <strong className="text-white block mb-1 text-sm uppercase tracking-wider font-mono text-[#bd93f9]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>How Normalizers Work</strong>
-                Spotify and Apple Music turn down a high-density song mastered at -8 LUFS by about 6dB, while maintaining a song mastered at -14 LUFS at full volume. This sounds like it levels the playing field — but it doesn't.
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <strong className="text-white block mb-1 text-sm uppercase tracking-wider font-mono text-[#bd93f9]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Why Mastering to -14 LUFS Is a Track Killer</strong>
-                <div className="flex flex-col gap-2.5">
-                  <p className="pl-4 border-l border-white/10" style={{ fontSize: "12px" }}>
-                    ● <strong className="text-slate-200">The Saturation and Density Illusion:</strong> Even when turned down to -14 LUFS, a track mastered to -8 LUFS carries a dense, compact, unified dynamic profile. It sounds saturated, punchy, and modern. A track delivered at -10.5 LUFS retains massive wide transient peaks but lacks that cohesive, aggressive glue when matched to the same volume.
-                  </p>
-                  <p className="pl-4 border-l border-white/10" style={{ fontSize: "12px" }}>
-                    ● <strong className="text-slate-200">No-Normalization Playback:</strong> Loudness normalization can be turned off by listeners, and is almost always bypassed in live venues, club sound systems, physical DJ mixers, and third-party radio. On those systems, your -11.6 LUFS track will sound dramatically weaker than competitor tracks.
-                  </p>
-                  <p className="pl-4 border-l border-white/10" style={{ fontSize: "12px" }}>
-                    ● <strong className="text-slate-200">The Sweet Spot:</strong> This is the optimal range where you achieve modern commercial density, compression, and loudness without squashing your kick and snare transients into flat, uninspiring lines.
-                  </p>
-                  <p className="pl-4 border-l border-white/10" style={{ fontWeight: "bold", fontSize: "12px" }}>
-                    ● The Reality — Target Delivery Window: -9.0 to -7.0 LUFS
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* SECOND UNIFIED DIV: The Pink Floyd Paradox */}
+        {/* The Pink Floyd Paradox */}
         <div className="bg-[#13161C] border border-white/10 rounded-[32px] p-6 md:p-8 relative overflow-hidden shadow-2xl flex flex-col gap-6">
           <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-purple-500/5 rounded-full blur-[100px] pointer-events-none" />
           
