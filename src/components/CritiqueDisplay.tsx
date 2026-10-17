@@ -5,6 +5,7 @@ import { getSubgenreProfile, getVectorTargets, getCritiqueAndFix } from "../data
 import { updateTrackFields } from "../firebase";
 import ExcelJS from "exceljs";
 import { getSourceVerificationRows } from "../lib/sourceVerificationDiagnostics";
+import { analyzeClimaxPeakCompetition, formatClimaxPeakDiagnostic } from "../lib/climaxPeakDiagnostics";
 import { getMudPreventionPublicCommentary } from "../lib/mudPreventionReporting";
 import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS } from "../lib/mudPreventionDiagnostic";
 import { 
@@ -1816,6 +1817,18 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         row.alignment = { vertical: "top", wrapText: true };
         row.height = 36;
       }
+    }
+    // Audit-only peak-location information reuses the measured 1-second envelope.
+    // It does not change YSS's peak selection or quality score.
+    const climaxDiagnostic = analyzeClimaxPeakCompetition(critique?.liveMetrics?.calculatedEnergyEnvelope);
+    if (climaxDiagnostic) {
+      const row = wsSourceDiagnostics.addRow({
+        section: "Climax Trajectory",
+        field: "Competing peaks (informational; not scored)",
+        value: formatClimaxPeakDiagnostic(climaxDiagnostic),
+      });
+      row.alignment = { vertical: "top", wrapText: true };
+      row.height = 55;
     }
     const wsGenreDiagnostics = critique?.genrePipelineDiagnostics
       ? workbook.addWorksheet("Genre Diagnostics", { views: [{ showGridLines: false }] })
@@ -8760,6 +8773,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               const buildDb = liveMetrics?.calculatedClimaxBuildDb ?? null;
               const climaxScore = climaxTrajectoryQualityScore ?? 75;
               const rawEnvelope = liveMetrics?.calculatedEnergyEnvelope ?? null;
+              const peakDiagnostics = analyzeClimaxPeakCompetition(rawEnvelope);
 
               const envelopePoints: number[] = (rawEnvelope && rawEnvelope.length >= 4)
                 ? rawEnvelope.map(p => p.db)
@@ -8783,11 +8797,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   };
                 } else if (posRatio <= 0.90) {
                   posTier = { 
-                    label: "LATE-BUILD PEAK ZONE", 
+                    label: "MID/LATE ENERGY PEAK", 
                     color: "text-teal-400", 
                     bg: "bg-teal-500/10", 
                     border: "border-teal-500/25",
-                    desc: "Peak lands between 55% and 90% of runtime. This confirms a later energy peak, but timing alone does not prove that the climax is musically effective."
+                    desc: "The measured energy maximum falls in the middle-to-late portion of the recording. This timing range is descriptive, not an ideal or a musical-quality rating."
                   };
                 } else {
                   posTier = { 
@@ -8826,7 +8840,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   };
                 } else {
                   magTier = { 
-                    label: "STRONG CLIMATIC BUILD", 
+                    label: "STRONG ENERGY BUILD", 
                     color: "text-teal-400", 
                     bg: "bg-teal-500/10", 
                     border: "border-teal-500/25",
@@ -8901,7 +8915,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         CLIMAX TRAJECTORY AUDIT
                       </div>
                       <span className="text-[12px] font-mono text-slate-500">
-                        Measures whether the song builds toward a later climax (<span className="text-teal-400">55–90% ideal zone</span>) with measurable dynamic power
+                        Shows measured peak-energy timing and build; the Climax Trajectory quality score is a separate judgment.
                       </span>
                     </div>
                     <span className="text-[11px] font-mono uppercase px-2.5 py-1 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20 font-bold self-start sm:self-auto">
@@ -9003,7 +9017,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                           fontWeight="bold" 
                           textAnchor="middle"
                         >
-                          IDEAL CLIMAX ZONE (55%–90%)
+                          55%–90% TIMING BAND (DESCRIPTIVE)
                         </text>
 
                         {/* Filled Area Chart */}
@@ -9100,7 +9114,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         </span>
                         <span className="flex items-center gap-1.5">
                           <span className="w-3 h-2 bg-teal-500/20 border border-teal-500/40 rounded-sm" />
-                          <span className="text-teal-300">Golden Climax Zone (55%–90%)</span>
+                          <span className="text-teal-300">55%–90% Timing Reference (not a quality target)</span>
                         </span>
                       </div>
                       <span className="text-slate-500">Smoothed Energy Envelope</span>
@@ -9153,7 +9167,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         {climaxScore} <span className="text-xs text-slate-500 font-semibold">/ 100</span>
                       </div>
                       <p className="text-[11px] text-slate-300 leading-relaxed mt-2">
-                        50% Peak Timing Alignment + 50% Dynamics Lift from Intro Baseline.
+                        Quality score: Gemini listening tier when available; otherwise a separate DSP fallback (35% peak position, 65% energy build). Neither is a 50/50 blend.
                       </p>
                     </div>
                   </div>
@@ -9162,7 +9176,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <div className="p-4 bg-[#020203] border border-white/10 rounded-xl flex flex-col gap-3">
                     <div className="flex items-center justify-between text-[12px] font-mono">
                       <span className="text-slate-400 font-bold uppercase tracking-wider">Climax Timing &amp; Placement Arc Guide</span>
-                      <span className="text-slate-500">Optimal Delivery Timeline</span>
+                      <span className="text-slate-500">Measured peak-position reference</span>
                     </div>
 
                     {/* Segmented Timeline Arc Bar */}
@@ -9179,7 +9193,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         <div 
                           className="h-full bg-gradient-to-r from-teal-600/90 via-teal-500/90 to-emerald-400/90 border-r border-black/40"
                           style={{ width: "35%" }} 
-                          title="55%–90%: Golden Climax Zone ★"
+                          title="55%–90%: timing band only; not an ideal musical climax"
                         />
                         {/* 90-100% Late / Abrupt Outro */}
                         <div 
@@ -9208,27 +9222,39 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                       {/* Zone Labels */}
                       <div className="flex justify-between text-[10px] font-mono text-slate-500 mt-2 px-0.5">
                         <span className="text-amber-400 font-semibold">0%–55% (Front-Loaded)</span>
-                        <span className="text-teal-400 font-semibold text-center">55%–90% (Golden Climax Zone ★)</span>
+                        <span className="text-teal-400 font-semibold text-center">55%–90% (Timing Reference)</span>
                         <span className="text-cyan-400 font-semibold text-right">90%–100% (Late)</span>
                       </div>
                     </div>
                   </div>
+
+                  {/* Descriptive only: secondary peaks never alter the scored tier or DSP fallback. */}
+                  {peakDiagnostics && (
+                    <div className="p-4 bg-[#020203] border border-white/10 rounded-xl flex flex-col gap-2">
+                      <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-slate-400">
+                        Competing Energy Peaks — Diagnostic Only
+                      </span>
+                      <p className="text-[12px] text-slate-300 leading-relaxed">
+                        {formatClimaxPeakDiagnostic(peakDiagnostics)}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Contextual AI Dynamic Arc Critique */}
                   <div className="p-4 bg-[#020203] border border-white/10 rounded-xl flex flex-col gap-2">
                     <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-slate-500">Structural Arc &amp; Momentum Assessment</span>
                     <p className="text-[13px] text-slate-300 leading-relaxed">
                       {posRatio != null && posRatio >= 0.55 && posRatio <= 0.90
-                        ? `The track's energy arc builds convincingly into its peak at ${Math.round(posRatio * 100)}% of runtime, delivering ${buildDb != null ? `+${buildDb} dB of dynamic lift` : "substantial dynamic lift"} that gives the listener a clear, rewarding destination.`
+                        ? `The measured energy maximum occurs at ${Math.round(posRatio * 100)}% of runtime${buildDb != null ? `, ${buildDb} dB above the opening baseline` : ""}. Timing and level alone do not establish the musical impact of the passage.`
                         : posRatio != null && posRatio < 0.55
-                        ? `The track hits its maximum loudness early at ${Math.round(posRatio * 100)}% of runtime. Consider preserving additional instrumentation or vocal power for a secondary climax in the final third to sustain engagement.`
-                        : "Climax trajectory evaluation complete. Ensure structural contrast supports a clear narrative build toward the song's primary hook."}
+                        ? `The measured energy maximum occurs at ${Math.round(posRatio * 100)}% of runtime. An early loudness peak can still serve the arrangement; further conclusions require musical evidence.`
+                        : "Peak-location timing is descriptive evidence; evaluate the musical arc separately rather than assuming later or louder means better."}
                     </p>
                   </div>
 
                   {/* Explanatory Footer */}
                   <p className="text-[12px] text-slate-500 leading-relaxed border-t border-white/5 pt-3">
-                    Climax Trajectory Score is a 50/50 blend of Peak Position and Build Magnitude, both DSP-measured from the actual audio waveform. Weighted at 30% into your overall Structural Engagement score.
+                    Climax Trajectory quality comes from the Gemini Call 2 listening tier when available. If unavailable, YSS uses its separate DSP fallback (35% position, 65% build). The energy chart and competing-peak evidence are descriptive, not independent proof of musical effectiveness. This metric contributes 30% to Structural Engagement.
                   </p>
                 </div>
               </motion.div>
