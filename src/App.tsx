@@ -2731,6 +2731,10 @@ export default function App() {
               setViewingRabbitHoleV2(false);
               setViewingStacks(true);
             }}
+            onNavigateToBlindTunnel={() => {
+              setViewingRabbitHoleV2(false);
+              setViewingBlindTunnel(true);
+            }}
             onNavigateToSpotifyAnalyzer={() => {
               setViewingRabbitHoleV2(false);
               setViewingDashboard(false);
