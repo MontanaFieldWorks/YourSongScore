@@ -49,7 +49,8 @@ const VARS=[
 const FNS=[
   "applyDeterministicProductionTierScores","assignTierScore",
   "applyDeterministicHeadlineTierScoresCall2","applyDeterministicHeadlineTierScoresCall3",
-  "geminiErrorStatus","isGeminiPrepayExhausted",\n  "performCritiqueAnalysis","performSubMetricsCall1","performChordKeyAnalysis",
+  "geminiErrorStatus","isGeminiPrepayExhausted",
+  "performCritiqueAnalysis","performSubMetricsCall1","performChordKeyAnalysis",
   "performSubMetricsCall2","performSubMetricsCall3","validateGenrePair",
   "verifyInstrumentalGenreIfNeeded","isApplicable","computeParent","applyParent",
   "hasSpecificLowPercussionEvidence","reconcileParentScores",
