@@ -106,9 +106,10 @@ function mock(schema,song,key="") {
 export class Gate {
   constructor({dry=true,client=null,record=()=>{}}={}) {
     this.dry=dry;this.client=client;this.record=record;
-    this.calls=0;this.estimatedUsd=0;this.history=[];this.song="";this.phase="";
+    this.calls=0;this.estimatedUsd=0;this.history=[];this.song="";this.phase="";this.stopped=false;
   }
   async request(req) {
+    if(this.stopped)throw Error("Prior provider failure: no additional requests permitted");
     if(this.calls>=MAX_REQUESTS)throw Error("11-request maximum reached");
     if(this.estimatedUsd+0.5>MAX_USD)throw Error("Conservative $5 estimated spend gate");
     if(req.model!=="gemini-2.5-flash")throw Error("Pinned source model call changed");
@@ -125,6 +126,7 @@ export class Gate {
            usageMetadata:{promptTokenCount:100,candidatesTokenCount:100,thoughtsTokenCount:100,totalTokenCount:300}}
         : await this.client.models.generateContent({model:MODEL,contents:req.contents,config});
     }catch(e) {
+      this.stopped=true;
       const row={slot,song:this.song,phase:this.phase,status:"ERROR",
         milliseconds:Date.now()-start,message:String(e?.message||e).slice(0,220)};
       this.history.push(row);this.record(row);throw e;
@@ -132,6 +134,7 @@ export class Gate {
     const u=resp.usageMetadata||{};
     const input=u.promptTokenCount,output=u.candidatesTokenCount,thinking=u.thoughtsTokenCount;
     if(![input,output,thinking].every(v=>Number.isFinite(v)&&v>=0)) {
+      this.stopped=true;
       const row={slot,song:this.song,phase:this.phase,status:"MISSING_USAGE"};
       this.history.push(row);this.record(row);
       throw Error("Missing usage data, fail closed");
@@ -142,8 +145,8 @@ export class Gate {
       milliseconds:Date.now()-start,inputTokens:input,outputTokens:output,
       thinkingTokens:thinking,totalTokens:u.totalTokenCount??null,estimatedUsd:usd};
     this.history.push(row);this.record(row);
-    if(this.estimatedUsd>MAX_USD)throw Error("Estimated charge cap crossed: stop");
-    if(!resp.text)throw Error("Empty response; no retries");
+    if(this.estimatedUsd>MAX_USD){this.stopped=true;throw Error("Estimated charge cap crossed: stop");}
+    if(!resp.text){this.stopped=true;throw Error("Empty response; no retries");}
     return resp;
   }
 }
@@ -154,6 +157,7 @@ export async function runSong(h,gate,song,bytes) {
   c.productionScoringVersion="scoring-tier-v8-mud-diagnostic";
   gate.phase="instrumental-genre-if-applicable";
   await p.verifyInstrumentalGenreIfNeeded(part,c,false);
+  if(gate.stopped)throw Error("Instrumental-genre request failed; stop despite production fallback");
   p.validateGenrePair(c);
   gate.phase="call-1-production";
   c.subMetricsCall1=await p.performSubMetricsCall1(part,c);
