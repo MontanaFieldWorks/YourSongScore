@@ -104,6 +104,44 @@ function mock(schema,song,key="") {
   if(schema?.type===Type.INTEGER||schema?.type===Type.NUMBER)return 85;
   return null;
 }
+// Independently check provider JSON before production parsing/reconciliation.
+// A schema/parse failure is a charged request and stops all subsequent calls.
+export function validateStructured(schema,value,where="$") {
+  if(value===null && schema?.nullable===true)return;
+  if(schema?.enum && !schema.enum.includes(value))
+    throw Error(where+": value is outside declared enum");
+  switch(schema?.type) {
+    case Type.OBJECT:
+      if(!value||typeof value!=="object"||Array.isArray(value))
+        throw Error(where+": expected object");
+      for(const key of schema.required||[]) {
+        if(!Object.prototype.hasOwnProperty.call(value,key))
+          throw Error(where+"."+key+": required property missing");
+      }
+      for(const [key,field] of Object.entries(schema.properties||{})) {
+        if(Object.prototype.hasOwnProperty.call(value,key))
+          validateStructured(field,value[key],where+"."+key);
+      }
+      break;
+    case Type.ARRAY:
+      if(!Array.isArray(value))throw Error(where+": expected array");
+      if(schema.items) value.forEach((item,i)=>validateStructured(schema.items,item,where+"["+i+"]"));
+      break;
+    case Type.STRING:
+      if(typeof value!=="string")throw Error(where+": expected string");
+      break;
+    case Type.BOOLEAN:
+      if(typeof value!=="boolean")throw Error(where+": expected boolean");
+      break;
+    case Type.INTEGER:
+      if(!Number.isSafeInteger(value))throw Error(where+": expected integer");
+      break;
+    case Type.NUMBER:
+      if(typeof value!=="number"||!Number.isFinite(value))
+        throw Error(where+": expected finite number");
+      break;
+  }
+}
 export class Gate {
   constructor({dry=true,client=null,record=()=>{}}={}) {
     this.dry=dry;this.client=client;this.record=record;
@@ -145,9 +183,21 @@ export class Gate {
     const row={slot,song:this.song,phase:this.phase,status:"OK",model:MODEL,
       milliseconds:Date.now()-start,inputTokens:input,outputTokens:output,
       thinkingTokens:thinking,totalTokens:u.totalTokenCount??null,estimatedUsd:usd};
+    if(this.estimatedUsd>MAX_USD) {
+      this.stopped=true;row.status="OVER_BUDGET";
+      this.history.push(row);this.record(row);
+      throw Error("Estimated charge cap crossed: stop");
+    }
+    try {
+      if(typeof resp.text!=="string"||!resp.text.trim())throw Error("Empty response");
+      validateStructured(config.responseSchema,JSON.parse(resp.text));
+    }catch(e) {
+      this.stopped=true;row.status="SCHEMA_ERROR";
+      row.message=String(e?.message||e).slice(0,220);
+      this.history.push(row);this.record(row);
+      throw Error("Invalid structured provider response: "+row.message);
+    }
     this.history.push(row);this.record(row);
-    if(this.estimatedUsd>MAX_USD){this.stopped=true;throw Error("Estimated charge cap crossed: stop");}
-    if(!resp.text){this.stopped=true;throw Error("Empty response; no retries");}
     return resp;
   }
 }
@@ -199,6 +249,7 @@ export async function main(argv) {
   if(!o.chandelier||!o.braden)throw Error("Both --chandelier and --braden audio paths are required");
   const a=checked(o.chandelier,EXPECTED_AUDIO.chandelier);
   const b=checked(o.braden,EXPECTED_AUDIO.braden);
+  if(o.paid&&Date.now()>=Date.UTC(2027,0,1))throw Error("2026 introductory pricing expired; new review required");
   if(o.paid&&!process.env.GEMINI_API_KEY)throw Error("GEMINI_API_KEY unavailable; do not paste secrets in arguments");
   fs.mkdirSync(o.out,{recursive:true,mode:0o700});
   const ledger=path.join(o.out,"ledger.jsonl");
