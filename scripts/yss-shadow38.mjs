@@ -33,7 +33,7 @@ function declaration(source,name) {
         }
       }
     }
-    if(ts.isFunctionDeclaration(node)&&node.name?.text===name)\n      return node.getText(tree).replace(/^export\\s+/, "");
+    if(ts.isFunctionDeclaration(node)&&node.name?.text===name) return node.getText(tree).replace(/^export\s+/, "");
   }
   throw Error("Missing pinned production symbol: "+name);
 }
