@@ -244,6 +244,11 @@ function checked(file,expected) {
   if(sha256(buf)!==expected)throw Error("Audio SHA-256 mismatch; stopped without API call");
   return buf;
 }
+// Atomic exclusive creation protects against concurrent or repeated paid runs.
+export function claimPaidLedger(file) {
+  const fd=fs.openSync(file,"wx",0o600);
+  fs.closeSync(fd);
+}
 export async function main(argv) {
   const o=options(argv);
   if(!o.chandelier||!o.braden)throw Error("Both --chandelier and --braden audio paths are required");
@@ -256,10 +261,8 @@ export async function main(argv) {
   // Fail closed on restart or concurrent launch. Paid request counts may never reset.
   // A partial/failed paid run requires separate review, not an automatic resume.
   if(o.paid) {
-    let fd;
-    try {fd=fs.openSync(ledger,"wx",0o600);}
-    catch {throw Error("Existing paid-run ledger: rerun prohibited without review");}
-    fs.closeSync(fd);
+    try {claimPaidLedger(ledger);}
+    catch {throw Error("Existing paid-run ledger or inaccessible ledger: rerun prohibited without review");}
   }
   const client=o.paid?new GoogleGenAI({apiKey:process.env.GEMINI_API_KEY}):null;
   const gate=new Gate({dry:!o.paid,client,record:row=>
