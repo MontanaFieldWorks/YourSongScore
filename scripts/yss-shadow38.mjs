@@ -33,7 +33,7 @@ function declaration(source,name) {
         }
       }
     }
-    if(ts.isFunctionDeclaration(node)&&node.name?.text===name) return node.getText(tree);
+    if(ts.isFunctionDeclaration(node)&&node.name?.text===name)\n      return node.getText(tree).replace(/^export\\s+/, "");
   }
   throw Error("Missing pinned production symbol: "+name);
 }
@@ -49,7 +49,7 @@ const VARS=[
 const FNS=[
   "applyDeterministicProductionTierScores","assignTierScore",
   "applyDeterministicHeadlineTierScoresCall2","applyDeterministicHeadlineTierScoresCall3",
-  "performCritiqueAnalysis","performSubMetricsCall1","performChordKeyAnalysis",
+  "geminiErrorStatus","isGeminiPrepayExhausted",\n  "performCritiqueAnalysis","performSubMetricsCall1","performChordKeyAnalysis",
   "performSubMetricsCall2","performSubMetricsCall3","validateGenrePair",
   "verifyInstrumentalGenreIfNeeded","isApplicable","computeParent","applyParent",
   "hasSpecificLowPercussionEvidence","reconcileParentScores",
