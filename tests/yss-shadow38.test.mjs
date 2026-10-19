@@ -1,9 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
+import {execFileSync} from "node:child_process";
 import {fileURLToPath} from "node:url";
 import {loadPinned,runSong,Gate,options,BASE,MODEL,MAX_REQUESTS,MAX_USD,CONFIRM} from "../scripts/yss-shadow38.mjs";
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
+// actions/checkout is shallow by default; fetch the exact public baseline from GitHub
+// when missing. This makes NO Google or Gemini calls and does not alter production.
+try {execFileSync("git",["show",BASE+":server.ts"],{cwd:root,stdio:"ignore"});}
+catch {execFileSync("git",["fetch","--no-tags","--depth=1","origin",BASE],{cwd:root,stdio:"ignore"});}
+
 test("paid mode requires extra explicit confirmation",()=>{
  assert.equal(options([]).paid,false);
  assert.throws(()=>options(["--execute"]),/authorization/);
