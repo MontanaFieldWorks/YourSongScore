@@ -200,8 +200,16 @@ export async function main(argv) {
   const b=checked(o.braden,EXPECTED_AUDIO.braden);
   if(o.paid&&!process.env.GEMINI_API_KEY)throw Error("GEMINI_API_KEY unavailable; do not paste secrets in arguments");
   fs.mkdirSync(o.out,{recursive:true,mode:0o700});
-  const client=o.paid?new GoogleGenAI({apiKey:process.env.GEMINI_API_KEY}):null;
   const ledger=path.join(o.out,"ledger.jsonl");
+  // Fail closed on restart or concurrent launch. Paid request counts may never reset.
+  // A partial/failed paid run requires separate review, not an automatic resume.
+  if(o.paid) {
+    let fd;
+    try {fd=fs.openSync(ledger,"wx",0o600);}
+    catch {throw Error("Existing paid-run ledger: rerun prohibited without review");}
+    fs.closeSync(fd);
+  }
+  const client=o.paid?new GoogleGenAI({apiKey:process.env.GEMINI_API_KEY}):null;
   const gate=new Gate({dry:!o.paid,client,record:row=>
     fs.appendFileSync(ledger,JSON.stringify(row)+"\n",{mode:0o600})});
   const h=loadPinned(o.root,r=>gate.request(r));
