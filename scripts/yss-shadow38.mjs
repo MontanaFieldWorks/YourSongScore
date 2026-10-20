@@ -20,6 +20,7 @@ export const EXPECTED_AUDIO={
   braden:"996bb44b30054eeab3b36ac07ce9f438e8b014e52c01ec42a05e210050636e3e",
 };
 export const sha256=b=>crypto.createHash("sha256").update(b).digest("hex");
+// Estimated 2026 introductory prices; self-imposed gate, NOT a provider billing cap.
 const INPUT_RATE=0.75/1e6, OUTPUT_RATE=3.75/1e6;
 const readGit=(root,file)=>execFileSync("git",["show",BASE+":"+file],
   {cwd:root,encoding:"utf8",maxBuffer:12*1024*1024});
@@ -181,6 +182,8 @@ export class Gate {
     const usd=input*INPUT_RATE+(output+thinking)*OUTPUT_RATE;
     this.estimatedUsd+=usd;
     const row={slot,song:this.song,phase:this.phase,status:"OK",model:MODEL,
+      sourceTemperature:Number.isFinite(req.config.temperature)?req.config.temperature:null,
+      shadowTemperature:"OMITTED_PROVIDER_DEFAULT",thinkingLevel:"MEDIUM",
       milliseconds:Date.now()-start,inputTokens:input,outputTokens:output,
       thinkingTokens:thinking,totalTokens:u.totalTokenCount??null,estimatedUsd:usd};
     if(this.estimatedUsd>MAX_USD) {
@@ -201,6 +204,18 @@ export class Gate {
     return resp;
   }
 }
+// Prevent an expensive partially completed second song. Either song can consume
+// five standard requests plus one conditional instrumental-genre verification.
+// Keep the approved global 11-attempt limit; never silently increase it.
+export function reserveSecondSongBudget(gate) {
+  const required=6;
+  if(gate.stopped)throw Error("Prior provider failure: second song prohibited");
+  if(MAX_REQUESTS-gate.calls<required)
+    throw Error("Second song not started: cannot reserve six possible requests inside 11-request cap");
+  if(MAX_USD-gate.estimatedUsd<required*0.5)
+    throw Error("Second song not started: insufficient conservative cost reservation");
+}
+
 export async function runSong(h,gate,song,bytes) {
   const p=h.p,part={inlineData:{mimeType:"audio/mpeg",data:bytes.toString("base64")}};
   gate.song=song;gate.phase="main-critique";
@@ -235,14 +250,28 @@ export function options(argv) {
   const paid=argv.includes("--execute");
   if(paid&&val("--confirm")!==CONFIRM)throw Error("Separate paid authorization flag required");
   if(!paid&&argv.includes("--confirm"))throw Error("Cannot confirm payment in dry-run");
+  const explicitOut=val("--out");
   return {paid,root:val("--repo")||process.cwd(),chandelier:val("--chandelier"),
-    braden:val("--braden"),out:val("--out")||path.join(os.tmpdir(),"yss-shadow38")};
+    braden:val("--braden"),out:explicitOut||path.join(os.tmpdir(),"yss-shadow38"),
+    explicitOut:Boolean(explicitOut)};
 }
 function checked(file,expected) {
   const buf=fs.readFileSync(file);
   if(buf.length>15*1024*1024)throw Error("Audio exceeds current YSS limit");
   if(sha256(buf)!==expected)throw Error("Audio SHA-256 mismatch; stopped without API call");
   return buf;
+}
+// A paid ledger must be intentionally placed on persistent storage, away from
+// OS temp and the git checkout. No filesystem can guarantee backup or durability.
+export function validatePaidOutput(o) {
+  if(!o.paid)return;
+  if(!o.explicitOut||!path.isAbsolute(o.out))
+    throw Error("Paid mode requires an explicit absolute --out directory on persistent storage");
+  const out=path.resolve(o.out),tmp=path.resolve(os.tmpdir()),repo=path.resolve(o.root);
+  if(out===tmp||out.startsWith(tmp+path.sep))
+    throw Error("Paid ledger cannot use temporary storage");
+  if(out===repo||out.startsWith(repo+path.sep))
+    throw Error("Paid ledger cannot be stored inside the git checkout");
 }
 // Atomic exclusive creation protects against concurrent or repeated paid runs.
 export function claimPaidLedger(file) {
@@ -252,11 +281,16 @@ export function claimPaidLedger(file) {
 export async function main(argv) {
   const o=options(argv);
   if(!o.chandelier||!o.braden)throw Error("Both --chandelier and --braden audio paths are required");
+  validatePaidOutput(o);
   const a=checked(o.chandelier,EXPECTED_AUDIO.chandelier);
   const b=checked(o.braden,EXPECTED_AUDIO.braden);
   if(o.paid&&Date.now()>=Date.UTC(2027,0,1))throw Error("2026 introductory pricing expired; new review required");
   if(o.paid&&!process.env.GEMINI_API_KEY)throw Error("GEMINI_API_KEY unavailable; do not paste secrets in arguments");
   fs.mkdirSync(o.out,{recursive:true,mode:0o700});
+  if(o.paid) {
+    // Reject symlink escapes into temp or checkout as well as lexical paths.
+    validatePaidOutput({...o,out:fs.realpathSync(o.out)});
+  }
   const ledger=path.join(o.out,"ledger.jsonl");
   // Fail closed on restart or concurrent launch. Paid request counts may never reset.
   // A partial/failed paid run requires separate review, not an automatic resume.
@@ -268,15 +302,35 @@ export async function main(argv) {
   const gate=new Gate({dry:!o.paid,client,record:row=>
     fs.appendFileSync(ledger,JSON.stringify(row)+"\n",{mode:0o600})});
   const h=loadPinned(o.root,r=>gate.request(r));
-  for(const [label,bytes] of [["chandelier",a],["braden",b]]) {
-    const output=await runSong(h,gate,label,bytes);
-    fs.writeFileSync(path.join(o.out,label+".json"),JSON.stringify(output,null,2),{mode:0o600});
+  let failure=null;
+  let summary;
+  try {
+    for(const [label,bytes] of [["chandelier",a],["braden",b]]) {
+      // If Chandelier unexpectedly triggers instrumental verification, do not
+      // begin Braden: there would not be six remaining slots to finish it.
+      if(label==="braden")reserveSecondSongBudget(gate);
+      const output=await runSong(h,gate,label,bytes);
+      fs.writeFileSync(path.join(o.out,label+".json"),JSON.stringify(output,null,2),{mode:0o600});
+    }
+  }catch(e){failure=e;throw e;
+  }finally{
+    summary={mode:o.paid?"PAID":"DRY_RUN_NO_API_CALLS",
+      status:failure?"STOPPED":"COMPLETED",stopReason:failure?String(failure.message||failure):null,
+      model:MODEL,pinnedSource:BASE,sourceHash:h.sourceHash,requests:gate.calls,
+      estimatedUsd:gate.estimatedUsd,maxRequests:MAX_REQUESTS,maxEstimatedUsd:MAX_USD,
+      costBasis:"Estimated 2026 introductory token prices; not a guaranteed billing cap",
+      sourceModel:"gemini-2.5-flash",shadowModel:MODEL,
+      thinkingLevel:"MEDIUM",
+      productionTemperature:"0 for main submetric passes; 0.1 for chord/key",
+      shadowTemperature:"OMITTED_PROVIDER_DEFAULT",shadowSeed:"OMITTED_PROVIDER_DEFAULT",
+      maxOutputTokens:32768,browserDspIncluded:false,
+      missingProductionContext:["browser-computed DSP evidence","visuals","validated key context"],
+      songOrder:["chandelier","braden"],
+      secondSongReservation:"Six remaining requests and $3 estimated cost room required before Braden",
+      requestLedger:"ledger.jsonl",
+      history:gate.history.map(({slot,song,phase,status,estimatedUsd})=>({slot,song,phase,status,estimatedUsd:estimatedUsd??null}))};
+    fs.writeFileSync(path.join(o.out,"summary.json"),JSON.stringify(summary,null,2),{mode:0o600});
   }
-  const summary={mode:o.paid?"PAID":"DRY_RUN_NO_API_CALLS",model:MODEL,
-    pinnedSource:BASE,sourceHash:h.sourceHash,requests:gate.calls,
-    estimatedUsd:gate.estimatedUsd,maxRequests:MAX_REQUESTS,maxEstimatedUsd:MAX_USD,
-    browserDspIncluded:false};
-  fs.writeFileSync(path.join(o.out,"summary.json"),JSON.stringify(summary,null,2),{mode:0o600});
   return summary;
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
