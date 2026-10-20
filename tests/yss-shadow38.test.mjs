@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import {execFileSync} from "node:child_process";
 import {fileURLToPath} from "node:url";
-import {loadPinned,runSong,Gate,options,validateStructured,claimPaidLedger,BASE,MODEL,MAX_REQUESTS,MAX_USD,CONFIRM} from "../scripts/yss-shadow38.mjs";
+import {loadPinned,runSong,Gate,options,validateStructured,claimPaidLedger,reserveSecondSongBudget,validatePaidOutput,main,sha256,EXPECTED_AUDIO,BASE,MODEL,MAX_REQUESTS,MAX_USD,CONFIRM} from "../scripts/yss-shadow38.mjs";
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
 // actions/checkout is shallow by default; fetch the exact public baseline from GitHub
 // when missing. This makes NO Google or Gemini calls and does not alter production.
@@ -141,4 +141,56 @@ test("exclusive paid-run ledger refuses replay and concurrency",()=>{
    assert.ok(fs.existsSync(file));
    assert.throws(()=>claimPaidLedger(file),{code:"EEXIST"});
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test("second song is refused before its first paid request when six slots cannot be reserved",()=>{
+ const g=new Gate({dry:true});
+ g.calls=5;
+ assert.doesNotThrow(()=>reserveSecondSongBudget(g));
+ g.calls=6;
+ assert.throws(()=>reserveSecondSongBudget(g),/Second song not started/);
+ assert.equal(g.calls,6);
+ g.calls=5;g.estimatedUsd=2.01;
+ assert.throws(()=>reserveSecondSongBudget(g),/cost reservation/);
+ g.estimatedUsd=0;g.stopped=true;
+ assert.throws(()=>reserveSecondSongBudget(g),/Prior provider failure/);
+});
+
+test("paid execution requires explicit persistent output outside temp and git",()=>{
+ const opts={paid:true,root,out:path.join(os.homedir(),"yss-shadow38-test-persistent"),explicitOut:true};
+ assert.doesNotThrow(()=>validatePaidOutput(opts));
+ assert.throws(()=>validatePaidOutput({...opts,explicitOut:false}),/explicit absolute/);
+ assert.throws(()=>validatePaidOutput({...opts,out:"relative/path"}),/explicit absolute/);
+ assert.throws(()=>validatePaidOutput({...opts,out:path.join(os.tmpdir(),"paid-ledger")}),/temporary storage/);
+ assert.throws(()=>validatePaidOutput({...opts,out:path.join(root,"paid-ledger")}),/git checkout/);
+ assert.doesNotThrow(()=>validatePaidOutput({...opts,paid:false,out:path.join(os.tmpdir(),"dry-run")}));
+});
+
+test("complete zero-API dry run produces two song files and an honest 11-call summary",async()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),"yss-shadow38-end-to-end-"));
+ const origA=EXPECTED_AUDIO.chandelier,origB=EXPECTED_AUDIO.braden;
+ try {
+  const a=Buffer.from("synthetic Chandelier dry fixture");
+  const b=Buffer.from("synthetic Braden dry fixture");
+  const aPath=path.join(dir,"a.mp3"),bPath=path.join(dir,"b.mp3");
+  fs.writeFileSync(aPath,a);fs.writeFileSync(bPath,b);
+  EXPECTED_AUDIO.chandelier=sha256(a);EXPECTED_AUDIO.braden=sha256(b);
+  const out=path.join(dir,"dry");
+  const s=await main(["--repo",root,"--chandelier",aPath,"--braden",bPath,"--out",out]);
+  assert.equal(s.status,"COMPLETED");
+  assert.equal(s.mode,"DRY_RUN_NO_API_CALLS");
+  assert.equal(s.requests,11);
+  assert.equal(s.model,MODEL);
+  assert.equal(s.sourceModel,"gemini-2.5-flash");
+  assert.equal(s.shadowTemperature,"OMITTED_PROVIDER_DEFAULT");
+  assert.equal(s.thinkingLevel,"MEDIUM");
+  assert.equal(s.browserDspIncluded,false);
+  assert.equal(s.history.length,11);
+  assert.ok(fs.existsSync(path.join(out,"chandelier.json")));
+  assert.ok(fs.existsSync(path.join(out,"braden.json")));
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(out,"summary.json"),"utf8")).requests,11);
+ }finally{
+  EXPECTED_AUDIO.chandelier=origA;EXPECTED_AUDIO.braden=origB;
+  fs.rmSync(dir,{recursive:true,force:true});
+ }
 });
