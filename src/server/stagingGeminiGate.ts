@@ -1,7 +1,9 @@
 // ISOLATED YSS GEMINI 3.8 STAGING ONLY. Never merge into production.
 // All gate mutations are durable Postgres transactions. A restart cannot reset this test.
 import crypto from "node:crypto";
-import { Pool, type PoolClient } from "pg";
+import pg from "pg";
+import type { PoolClient } from "pg";
+const { Pool } = pg;
 
 export const STAGING_MODEL = "gemini-3.8-flash";
 export const STAGING_AUDIO_SHA256 = "d88420262baf2bf9e18349a38c928b1cede5b7ab6c87635004be3e61c964a3f6";
