@@ -1,0 +1,30 @@
+name: YSS Gemini 3.8 staging no-generation build
+on:
+  push:
+    branches:
+      - research/yss-gemini38-staging-20261022
+  workflow_dispatch:
+jobs:
+  no-paid-checks:
+    runs-on: ubuntu-latest
+    env:
+      GEMINI_API_KEY: ""
+      YSS_STAGING_DATABASE_URL: ""
+      YSS_STAGING_ACCESS_PASSWORD: ""
+      YSS_GEMINI_MODEL: gemini-3.8-flash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - run: node --import tsx --test tests/yss-staging38-contract.test.mjs
+      - name: Verify staging serves nothing without access password
+        run: |
+          NODE_ENV=production node dist/server.cjs > /tmp/staging.log 2>&1 &
+          pid=$!
+          sleep 4
+          code=$(curl -sS -o /dev/null -w "%{http_code}" http://localhost:3000/)
+          test "$code" = 503
+          kill $pid || true
