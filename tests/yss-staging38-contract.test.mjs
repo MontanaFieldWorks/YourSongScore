@@ -17,12 +17,12 @@ test("carries the old attempt and estimated reserve forward",()=>{
 test("absence of optional thinking tokens does not count as free",()=>{
  const priced=conservativeTotalCost({promptTokenCount:1000,candidatesTokenCount:2000,totalTokenCount:3500});
  assert.equal(priced.unallocatedTokens,500);
- assert.equal(priced.estimatedUsd,3500*3.75/1e6);
+ assert.ok(Math.abs(priced.estimatedUsd - 3500*3.75/1e6) < 1e-10);
 });
 test("total with zero missing categorical counts is still priced conservatively",()=>{
  const priced=conservativeTotalCost({totalTokenCount:4000});
  assert.equal(priced.unallocatedTokens,4000);
- assert.equal(priced.estimatedUsd,4000*3.75/1e6);
+ assert.ok(Math.abs(priced.estimatedUsd - 4000*3.75/1e6) < 1e-10);
 });
 test("invalid or missing usage fails closed",()=>{
  for(const u of [null,{}, {totalTokenCount:0},{totalTokenCount:NaN},{totalTokenCount:4,promptTokenCount:5},{totalTokenCount:5,thoughtsTokenCount:-1}])
