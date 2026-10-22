@@ -2,7 +2,7 @@
 // All gate mutations are durable Postgres transactions. A restart cannot reset this test.
 import crypto from "node:crypto";
 import pg from "pg";
-import type { PoolClient } from "pg";
+import type { Pool as PgPool, PoolClient } from "pg";
 const { Pool } = pg;
 
 export const STAGING_MODEL = "gemini-3.8-flash";
@@ -46,7 +46,7 @@ export function conservativeTotalCost(usage: any) {
 }
 
 export class StagingGeminiGate {
-  private pool: Pool | null;
+  private pool: PgPool | null;
   private ready: Promise<void> | null = null;
   private active = false;
   private stoppedInMemory = false;
