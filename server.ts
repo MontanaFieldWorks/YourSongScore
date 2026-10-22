@@ -1,4 +1,6 @@
 import express from "express";
+import crypto from "node:crypto";
+import { StagingGeminiGate, StagingStop, STAGING_MODEL } from "./src/server/stagingGeminiGate";
 import path from "path";
 import fs from "fs";
 import multer from "multer";
@@ -11,6 +13,28 @@ import { computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC
 dotenv.config();
 
 const app = express();
+// This research branch is STAGING ONLY. It must never be merged to main.
+const STAGING_MODE = true;
+const stagingGate = new StagingGeminiGate();
+// Require operator credentials BEFORE serving the UI or permitting any API call.
+app.use((req, res, next) => {
+  if (!STAGING_MODE) return next();
+  const password = process.env.YSS_STAGING_ACCESS_PASSWORD;
+  if (!password || password.length < 16) return res.status(503).send("YSS staging access not configured");
+  const expected = "Basic " + Buffer.from("yss:" + password, "utf8").toString("base64");
+  const offered = req.headers.authorization || "";
+  const a=crypto.createHash("sha256").update(offered).digest();
+  const b=crypto.createHash("sha256").update(expected).digest();
+  if (!crypto.timingSafeEqual(a,b)) {
+    res.setHeader("WWW-Authenticate", 'Basic realm="YSS Staging Only"');
+    return res.status(401).send("Staging authentication required");
+  }
+  if (req.method !== "GET" && req.method !== "HEAD" && req.method !== "OPTIONS"
+      && !(req.method==="POST" && req.path==="/api/critique-file")) {
+    return res.status(403).json({error:"STAGING_ONLY_CHANDELIER_FILE_UPLOAD"});
+  }
+  next();
+});
 const PORT = 3000;
 
 // Increase payload parsing limit for handling large audio base64 or transfers
@@ -1933,6 +1957,10 @@ async function generateContentWithRetry(params: {
   if (!ai) {
     throw new Error("Gemini API Client is not configured. Please supply a GEMINI_API_KEY in Secrets.");
   }
+  if (STAGING_MODE) {
+    // One provider attempt per analysis call; no wrapper retries or model fallback.
+    return stagingGate.generate(ai, params);
+  }
   const attemptLimit = Math.min(3, Math.max(1, maxAttempts));
   for (let attempt = 1; attempt <= attemptLimit; attempt++) {
     try {
@@ -2032,7 +2060,7 @@ Return the best genre/subgenre plus a short evidence summary.`;
       console.log("[GenreConsistency] Focused blind-instrumental verification confirmed the original classification.");
     }
   } catch (err: any) {
-    if (isGeminiPrepayExhausted(err)) throw err;
+    if (STAGING_MODE || isGeminiPrepayExhausted(err)) throw err;
     console.log("[GenreConsistency] Verification failed; continuing with the original classification:", err?.message || err);
   }
 }
@@ -2159,13 +2187,20 @@ function isPlaceholderGenre(genre: string | null | undefined): boolean {
 // 1. Check if Gemini config is present and if Spotify credentials are set up
 app.get("/api/config-status", (req, res) => {
   res.json({
-    geminiLive: !!ai,
+    geminiLive: !!ai && (!STAGING_MODE || stagingGate.isConfigured()),
     spotifyConfigured: !!(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET),
   });
 });
 
+// Read-only operator status; protected by staging HTTP Basic authentication.
+app.get("/api/staging-status", async (_req, res) => {
+  try { res.json({model:STAGING_MODEL, ...await stagingGate.status()}); }
+  catch { res.status(503).json({ready:false,reason:"STAGING_LEDGER_UNAVAILABLE"}); }
+});
+
 // 2. Main File Critique API
 app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
+  let stagingRunStarted = false;
   try {
     if (!ai) {
       return res.status(500).json({ error: "Gemini API Client is not configured. Please supply a GEMINI_API_KEY in Secrets." });
@@ -2174,6 +2209,10 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       return res.status(400).json({ error: "No audio file uploaded." });
     }
 
+    if (STAGING_MODE) {
+      await stagingGate.begin(req.file.buffer);
+      stagingRunStarted = true;
+    }
     const mimeType = req.file.mimetype;
     const base64Data = req.file.buffer.toString("base64");
     const threeX = req.body.threeX === "true";
@@ -2375,7 +2414,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
     } catch (subErr: any) {
-      if (isGeminiPrepayExhausted(subErr)) throw subErr;
+      if (STAGING_MODE || isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Call 1] Sub-Metrics Call 1 failed, continuing without it:", subErr.message || subErr);
       parsedCritique.subMetricsCall1Failed = true;
     }
@@ -2393,7 +2432,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
         inferredChordSummary = `Key: ${chordKeyAnalysis.keySignature}. Chord vocabulary used: ${chordList}. (Note: this is the song's overall key and chord vocabulary, not a timed section-by-section progression.)`;
       }
     } catch (subErr: any) {
-      if (isGeminiPrepayExhausted(subErr)) throw subErr;
+      if (STAGING_MODE || isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Chord/Key] Direct Gemini chord/key analysis failed, continuing without it:", subErr.message || subErr);
       parsedCritique.chordKeyAnalysisFailed = true;
     }
@@ -2405,7 +2444,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       parsedCritique.subMetricsCall2Failed = false;
       console.log("[Call 2] Sub-Metrics Call 2 completed successfully.");
     } catch (subErr: any) {
-      if (isGeminiPrepayExhausted(subErr)) throw subErr;
+      if (STAGING_MODE || isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Call 2] Sub-Metrics Call 2 failed, continuing without it:", subErr.message || subErr);
       parsedCritique.subMetricsCall2Failed = true;
     }
@@ -2429,7 +2468,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       parsedCritique.subMetricsCall3Failed = false;
       console.log("[Call 3] Sub-Metrics Call 3 completed successfully.");
     } catch (subErr: any) {
-      if (isGeminiPrepayExhausted(subErr)) throw subErr;
+      if (STAGING_MODE || isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Call 3] Sub-Metrics Call 3 failed, continuing without it:", subErr.message || subErr);
       parsedCritique.subMetricsCall3Failed = true;
     }
@@ -2439,8 +2478,13 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
     enforceClassicalInstrumentalSourceNeutrality(parsedCritique);
     enforceBlindReportIntegrity(parsedCritique, metaTitle);
 
+    if (STAGING_MODE) await stagingGate.complete();
     res.json({ critique: parsedCritique });
   } catch (error: any) {
+    if (STAGING_MODE) {
+      if (stagingRunStarted) await stagingGate.abort();
+      return res.status(503).json({error:error instanceof StagingStop ? error.code : "STAGING_ANALYSIS_STOPPED"});
+    }
     console.error("Error processing file critique:", error);
     res.status(isGeminiPrepayExhausted(error) ? 402 : 500).json({ error: `Analysis failed: ${error.message || error}` });
   }
