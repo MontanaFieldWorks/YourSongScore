@@ -17,7 +17,8 @@ const OUTPUT_RATE = 3.75 / 1_000_000; // conservative: price ALL counted tokens 
 const RUN_ID = "chandelier-20261022-once";
 
 export class StagingStop extends Error {
-  constructor(public code: string) { super(code); this.name = "StagingStop"; }
+  public code: string;
+  constructor(code: string) { super(code); this.name = "StagingStop"; this.code = code; }
 }
 const safeCode = (s: string) => { throw new StagingStop(s); };
 const sha256 = (bytes: Buffer) => crypto.createHash("sha256").update(bytes).digest("hex");
