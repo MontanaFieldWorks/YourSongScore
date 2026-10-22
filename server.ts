@@ -39,6 +39,9 @@ if (geminiApiKey) {
   });
 }
 
+// Latest standard Gemini model for critique analysis, sub-metrics, and consultation
+const GEMINI_MODEL = "gemini-3.8-flash";
+
 // System Instructions optimized for Songwriter critique
 // ---------------------------------------------------------------------------
 // SINGLE SOURCE OF TRUTH for the scoring calibration rules.
@@ -68,7 +71,9 @@ GENRE COMPATIBILITY vs DEMONSTRATED CRAFT - MANDATORY, GOVERNS EVERY METRIC: gen
 The same distinction applies to raw measurements. A measured characteristic being large, wide, loud, dynamic, consistent or tightly gridded is evidence about WHAT the audio contains - never proof that it was expertly crafted. A completely unmastered render can legitimately show a very wide dynamic range simply because nothing has been done to restrain it: that is the absence of processing, not mastery of dynamics. Likewise an untouched file can show high stereo width, high timbral consistency or perfect grid alignment for reasons that have nothing to do with skill. Interpret every measurement in context and judge whether the result reflects deliberate, skilled control, rather than converting a high number directly into a high score.
 Summarised as one rule to apply everywhere: absence of a problem, compatibility with the genre, and a large raw measurement each get you to 82-88. Only demonstrated, nameable craft gets you above it.
 
-PRECEDENCE OVER THE PER-METRIC RUBRICS BELOW - MANDATORY: many individual metric rubrics further down describe their top band as "90-100". Read that phrase as naming "the top band" conceptually, NOT as a literal instruction to award 90 or more. The calibration above governs the actual number in every case. Concretely: meeting the standard a rubric describes, cleanly and with no flaw, places the metric at 82-88; exceeding that standard with specific, nameable, above-average evidence is what earns 89 and above. Where a rubric states that some characteristic "must score 90-100", or that a genre-typical trait must not be penalised, its real intent is that the characteristic IS NOT A FLAW and must not drag the score downward - honour that intent by scoring at the professional-standard band or above and never treating it as a defect, but do NOT convert "this is not a flaw" into automatic evidence of excellence. Those genre-fairness rules exist to prevent unfair deductions, not to manufacture inflated scores.`;
+PRECEDENCE OVER THE PER-METRIC RUBRICS BELOW - MANDATORY: many individual metric rubrics further down describe their top band as "90-100". Read that phrase as naming "the top band" conceptually, NOT as a literal instruction to award 90 or more. The calibration above governs the actual number in every case. Concretely: meeting the standard a rubric describes, cleanly and with no flaw, places the metric at 82-88; exceeding that standard with specific, nameable, above-average evidence is what earns 89 and above. Where a rubric states that some characteristic "must score 90-100", or that a genre-typical trait must not be penalised, its real intent is that the characteristic IS NOT A FLAW and must not drag the score downward - honour that intent by scoring at the professional-standard band or above and never treating it as a defect, but do NOT convert "this is not a flaw" into automatic evidence of excellence. Those genre-fairness rules exist to prevent unfair deductions, not to manufacture inflated scores.
+
+ANTI-CLUSTERING - MANDATORY: do not favour habitual anchor values. Select the score the evidence warrants, and use the full width of each band - values ending in 1, 3, 6 and 7 are exactly as legitimate as those ending in 0 or 5. Two different metrics on the same track, or the same metric on two very different tracks, should rarely land on the identical number unless the underlying evidence is genuinely identical.`;
 
 const SYSTEM_PROMPT = `You are an elite, constructive A&R executive, master mixing/mastering engineer, and professional record producer with decades of experience in independent and commercial music. Your job is to listen to the uploaded audio file and provide a highly detailed, professional, and actionable critique of the track's production and performance.
 
@@ -585,7 +590,7 @@ IF a spectrogram image has been provided alongside the audio: this is a time-res
 IMPORTANT SPECTROGRAM INTERPRETATION RULE: Strong brightness in the low and lower-mid bands (below 400Hz) is NORMAL and EXPECTED for modern basslines, 808s, synths, and kicks. Do NOT assume that brightness in lower bands equals 'mud' or 'buildup.' Mud only occurs when multiple elements blur together into an indistinct, uncontrolled smear that masks lead elements. If vocal presence and instrumental attack remain distinct, heavy lower-frequency energy represents intentional weight and depth, not an acoustic defect. Use the image to confirm clean temporal separation between beats and transients, and point to specific visible patterns only when genuine masking or smearing is present.`;
 
   const response = await generateContentWithRetry({
-    model: "gemini-2.5-flash",
+    model: GEMINI_MODEL,
     contents: {
       parts: spectrogramImagePart ? [audioPart, spectrogramImagePart, { text: contextSummary }] : [audioPart, { text: contextSummary }],
     },
@@ -730,21 +735,19 @@ You are ALSO judging two additional standalone values, moodValence and speechine
 - moodTags: provide exactly 5 single-or-two-word descriptive mood/vibe tags for this specific track (e.g. "Anthemic", "Melancholic", "Late Night", "Euphoric", "Defiant"). These should genuinely describe THIS song's actual mood and energy as you hear it - do not default to generic rock-coded words if they don't fit; a pop, R&B, folk, or electronic track should get tags that genuinely suit its real character.
 - artisticAlignment (part of artisticAnalysis): judges execution conviction and INTERNAL CREATIVE COHERENCE - not popularity, polish, genre correctness, technical finish, or whether the analyst personally likes the aesthetic.
 
-  ARTISTIC ALIGNMENT QUALITY-TIER RUBRIC: Judge artistic coherence and DISTINCTIVE CREATIVE IDENTITY, not technical polish, commercial success, genre correctness, or whether the listener likes the aesthetic. Return one of the EXISTING qualityTier names; the server alone maps the tier to a number. The neutral baseline for an ordinary but competently coherent identity without an identifiable artistic flaw is PROFESSIONAL (85), not LIMITED (79). A flawlessly produced track can be artistically ordinary; a rough demo can be artistically unified.
+  IMPORTANT METRIC-SPECIFIC CALIBRATION OVERRIDE: for Artistic Alignment ONLY, do NOT use the global 82-88 "professional-standard" band as the default. Technical professionalism is not the thing being measured here. A track can be flawlessly produced yet artistically ordinary, and a rough demo can be artistically unified. The neutral starting point for this metric is approximately 76-80: coherent enough to function, but not yet evidence of a distinctive or unusually unified artistic identity.
 
-  TIER DESCRIPTORS (do not invent a new tier or a free-form numeric score):
-  - REFERENCE: rare, signature-level artistic unity. Major decisions across form, performance, palette, dynamics and production perspective reinforce an unusually specific identity; independently identify at least THREE concrete supporting observations from different dimensions.
-  - EXCEPTIONAL: unmistakably exceptional unity and distinctiveness, clearly beyond ordinary strong professional execution; name the identity and at least THREE independent cross-dimensional examples.
-  - ABOVE_AVERAGE: demonstrably distinctive and above normal professional identity, with at least THREE specific observations across different musical dimensions supporting the identified artistic world.
-  - PROFESSIONAL_HIGH: notably strong, intentionally coherent identity with nameable supporting choices, but not sufficiently original or exceptional to warrant ABOVE_AVERAGE.
-  - PROFESSIONAL: ordinary but competently coherent identity; the elements belong together and no meaningful artistic conflict is audible, although the identity may be conventional or generic. This is the default for sound ordinary artistic execution (85), not an artistic defect.
-  - LIMITED: a real, nameable artistic weakness, such as a major creative choice that pulls away from the intended identity or an undercommitted element that noticeably weakens cohesion. Mere conventionality, lack of novelty, or absence of exceptional distinctiveness is NOT sufficient.
-  - MATERIAL_ISSUE: recurring or substantial artistic contradictions clearly compromise the intended identity, supported by specific examples.
-  - SEVERE: persistent, plainly unsuccessful artistic direction with multiple major contradictions or no discernible coherent identity.
+  SCORE BANDS:
+  - 95-100: rare, signature-level artistic unity. Nearly every major decision across arrangement/form, performance, timbre/palette, dynamics, and production perspective reinforces one unusually specific identity. This should be exceptional even among strong commercial releases.
+  - 90-94: clearly exceptional alignment. The commentary MUST identify the artistic identity and at least THREE independent, specific observations from different dimensions that reinforce it. Mere polish, genre authenticity, or "everything works together" is insufficient.
+  - 83-89: strong, clearly coherent identity with specific supporting choices, but the result is still conventional, partly generic, or contains ordinary compromises.
+  - 76-82: competent/ordinary coherence. The elements generally belong together and nothing meaningfully fights the song, but there is limited evidence of a distinctive, unusually unified artistic world. THIS is the correct default for a solid professional track.
+  - 70-75: mixed evidence. The dominant identity is understandable, but one or more meaningful elements feel generic, undercommitted, or pull in a different direction.
+  - Below 70: multiple substantial artistic contradictions or an unclear identity across major dimensions.
 
-  DISTINCTIVENESS VS COHERENCE: Coherence alone does NOT justify ABOVE_AVERAGE or higher. Conventional coherence without a specific artistic weakness belongs at PROFESSIONAL, never LIMITED by default. Scores above the professional tiers require both internal unity AND unusually specific identity; roughness, lack of mastering, sparse instrumentation or unconventional form must not lower the tier unless they actually conflict with that identity.
+  DISTINCTIVENESS VS COHERENCE: coherence alone does NOT justify 90+. A conventional set of compatible choices can be perfectly coherent and still belong in the high 70s or 80s. Scores above 90 require both coherence AND unusually specific identity. Conversely, roughness, lack of mastering, sparse instrumentation, or unconventional form must not lower the score unless those characteristics actually conflict with the artistic identity.
 
-  COMMENTARY RULE: explicitly separate what establishes identity from what merely sounds competent. For ABOVE_AVERAGE and higher (90+ on the CURRENT mapping), identify the artistic identity and at least THREE independent, specific supporting observations from different dimensions. Generic praise ("consistent", "cohesive", "elements work together") cannot justify an exceptional tier. For LIMITED or below, name an identifiable artistic weakness rather than treating technical imperfection or ordinary coherence as a defect. Genre compatibility removes a mismatch penalty but never earns a high tier by itself.
+  COMMENTARY RULE: explicitly separate what establishes the identity from what merely sounds competent. For 90+, name the identity and at least three independent supporting observations. If the evidence is generic ("consistent", "cohesive", "elements work together") without specific cross-dimensional examples, score 82 or below. Genre compatibility removes a mismatch penalty but never earns a high score by itself.
 
 - atmosphericDepth (part of artisticAnalysis): judges the sense of sonic space, dimension, and immersive atmosphere - does the production create a genuine feeling of depth and place, or does it feel flat and two-dimensional? This is distinct from stereoWidth (left-right spread) - atmosphericDepth is about front-to-back depth, reverb/space usage, and the sense of an environment the listener is inside. RUBRIC ANCHOR: a score of 90-100 requires a genuine, deliberate sense of dimensional space - specific elements audibly sit at different depths (close/dry vs distant/reverberant), creating real immersion. A score of 70-89 applies to a competently produced track with reasonable space but no particularly distinctive or immersive atmospheric choices - this is a normal, non-penalized outcome for straightforward, present-forward production. Below 70 is reserved for a mix that genuinely feels flat and one-dimensional, with no meaningful sense of depth or space at all - name the specific lack (e.g. no audible reverb tail anywhere, everything sitting at identical apparent distance).
 
@@ -813,7 +816,7 @@ Do NOT independently replace this key with another tonic or mode. Return keySign
     : CHORD_KEY_ANALYSIS_PROMPT;
 
   const response = await generateContentWithRetry({
-    model: "gemini-2.5-flash",
+    model: GEMINI_MODEL,
     contents: {
       parts: [audioPart],
     },
@@ -844,7 +847,7 @@ Detected Key & Chord Vocabulary: ${chordProgressionSummary || 'not available'}
 Listen to the actual audio again and generate specific, evidence-based scores, feedback, and sub-metric commentary for all 4 categories and their 9 sub-fields, consistent with the above context but grounded in what you actually hear this time.`;
 
   const response = await generateContentWithRetry({
-    model: "gemini-2.5-flash",
+    model: GEMINI_MODEL,
     contents: {
       parts: [audioPart, { text: contextSummary }],
     },
@@ -1081,7 +1084,7 @@ IMPORTANT CAVEAT on the melody data above: this reflects the dominant monophonic
 Listen to the actual audio again and generate specific, evidence-based scores and commentary for all 16 sub-fields across these 5 categories, consistent with the above context but grounded in what you actually hear this time. Actively scan for genuine technical sophistication before defaulting to surface-level descriptions.`;
 
   const response = await generateContentWithRetry({
-    model: "gemini-2.5-flash",
+    model: GEMINI_MODEL,
     contents: {
       parts: [
         audioPart,
@@ -1998,7 +2001,7 @@ ${GENRE_TAXONOMY_TEXT}
 Return the best genre/subgenre plus a short evidence summary.`;
 
     const response = await generateContentWithRetry({
-      model: "gemini-2.5-flash",
+      model: GEMINI_MODEL,
       contents: { parts: [audioPart, { text: context }] },
       config: {
         systemInstruction: "You are a conservative music-genre verifier. Resolve only the genre classification from audible evidence. Do not score production, composition, or commercial quality. Do not identify the artist or song.",
@@ -2071,7 +2074,7 @@ async function performCritiqueAnalysis(
 
   const runSingle = async (temp: number) => {
     const response = await generateContentWithRetry({
-      model: "gemini-2.5-flash",
+      model: GEMINI_MODEL,
       contents: normalizedContents,
       config: {
         systemInstruction: systemInstruction,
@@ -3011,7 +3014,7 @@ app.post("/api/ar-consult", async (req, res) => {
     });
 
     const response = await generateContentWithRetry({
-      model: "gemini-2.5-flash",
+      model: GEMINI_MODEL,
       contents: contents,
       config: {
         systemInstruction: systemInstruction,
@@ -3050,7 +3053,7 @@ app.use((err: any, req: any, res: any, next: any) => {
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, allowedHosts: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
