@@ -102,6 +102,7 @@ export function captureA2BrowserUnavailable(critique: any): void {
     const entry = trace[key];
     if (!entry) continue;
     entry.postClientScore = null;
+    entry.browserScoringStage = "BROWSER_DSP_UNAVAILABLE";
     entry.clientCapReason = "BROWSER_DSP_UNAVAILABLE";
     entry.clientCapLimit = null;
     entry.clientCapCandidate = null;
@@ -124,6 +125,7 @@ export function captureA2AfterClient(
     const cap = key === "midrangeSpacing" ? caps.midrangeCap : caps.spaceDensityCeiling;
     const changed = finite(before) && finite(after) && after !== before;
     entry.postClientScore = after;
+    entry.browserScoringStage = "COMPLETED";
     entry.clientCapCandidate = finite(cap) ? cap : null;
     const attributed = changed && finite(cap) && before > cap && after === cap;
     entry.clientCapReason = !changed
@@ -155,11 +157,25 @@ export function getA2ScoringProvenanceRows(critique: any): A2DiagnosticRow[] {
     const isSpace = key === "spaceAndDensity";
     const pre = entry?.preClientScore;
     const post = entry?.postClientScore;
-    const browserAvailable = entry?.clientCapReason !== "BROWSER_DSP_UNAVAILABLE";
-    const denominator = isSpace ? entry?.productionDenominator : exactMixContribution(critique).denominator;
-    const effectiveWeight = isSpace ? entry?.productionEffectiveWeight : exactMixContribution(critique).effectiveWeight;
-    const trueContribution = isSpace ? entry?.productionContribution : exactMixContribution(critique).contribution;
+    // A completed stage requires a positive marker emitted by captureA2AfterClient.
+    // An undefined field never proves that the browser ran.
+    const browserStage = entry?.browserScoringStage === "COMPLETED" ? "COMPLETED"
+      : entry?.browserScoringStage === "BROWSER_DSP_UNAVAILABLE" ? "BROWSER_DSP_UNAVAILABLE"
+      : "NOT_CAPTURED";
+    // In the absence of a live browser stage, the only valid historical value is
+    // the immutable server snapshot. Never invent a legacy A2 scoring event.
+    const mixInputs = entry
+      ? browserStage === "COMPLETED"
+        ? exactMixContribution(critique)
+        : { denominator: entry.serverMixDenominator ?? null,
+            effectiveWeight: entry.serverMixEffectiveWeight ?? null,
+            contribution: entry.serverMixContribution ?? null }
+      : { denominator: null, effectiveWeight: null, contribution: null };
+    const denominator = isSpace ? entry?.productionDenominator : mixInputs.denominator;
+    const effectiveWeight = isSpace ? entry?.productionEffectiveWeight : mixInputs.effectiveWeight;
+    const trueContribution = isSpace ? entry?.productionContribution : mixInputs.contribution;
     const serverMix = entry?.serverMixContribution;
+    const knownInapplicable = !isSpace && item?.applicable === false;
 
     add(label, "A2 capture", entry ? "PRESENT" : "NOT_CAPTURED (legacy report or Call 1 unavailable)");
     add(label, "Raw Gemini qualityTier/commentary access", entry?.rawEvidenceAccess || (entry ? "NOT_CAPTURED" : "NOT_CAPTURED"));
@@ -176,7 +192,7 @@ export function getA2ScoringProvenanceRows(critique: any): A2DiagnosticRow[] {
     add(label, "Server-side cap reason", isSpace ? textOrMissing(entry?.serverCapReason) : entry ? "NOT_APPLICABLE" : "NOT_CAPTURED");
     add(label, "Pre-client score after server reconciliation", numberOrMissing(pre));
     add(label, "Post-client child score", numberOrMissing(post));
-    add(label, "Browser scoring stage", entry ? browserAvailable ? "COMPLETED" : "BROWSER_DSP_UNAVAILABLE" : "NOT_CAPTURED");
+    add(label, "Browser scoring stage", browserStage);
     add(label, "Client cap reason", textOrMissing(entry?.clientCapReason));
     add(label, "Selected client cap (even when unapplied)",
       finite(entry?.clientCapCandidate) ? entry.clientCapCandidate
@@ -188,10 +204,19 @@ export function getA2ScoringProvenanceRows(critique: any): A2DiagnosticRow[] {
     add(label, "Metric applicability", !item ? "NOT_CAPTURED" : item.applicable === false ? "false" : "true");
 
     add(label, "Actual aggregation denominator (weight units)", numberOrMissing(denominator));
-    add(label, "Effective aggregate weight (%; computed from exact ratio)", finite(effectiveWeight)
-      ? roundTo(effectiveWeight) : "NOT_CAPTURED");
-    add(label, "Exact pre-round weighted contribution (points)", finite(trueContribution)
-      ? roundTo(trueContribution) : "NOT_CAPTURED");
+    add(label, "Effective aggregate weight (%; computed from exact ratio)",
+      knownInapplicable ? "NOT_APPLICABLE"
+        : finite(effectiveWeight) ? roundTo(effectiveWeight) : "NOT_CAPTURED");
+    add(label, "Exact pre-round weighted contribution (points)",
+      knownInapplicable ? "NOT_APPLICABLE"
+        : finite(trueContribution) ? roundTo(trueContribution) : "NOT_CAPTURED");
+    add(label, "Contribution provenance", !entry
+      ? "NOT_CAPTURED (legacy report; A2 ledger absent)"
+      : isSpace ? "CAPTURED_SERVER_ORIGINAL"
+      : browserStage === "COMPLETED" ? "CAPTURED_POST_CLIENT"
+      : browserStage === "BROWSER_DSP_UNAVAILABLE" ? "CAPTURED_SERVER_ONLY_BROWSER_UNAVAILABLE"
+      : finite(entry.serverMixDenominator) ? "CAPTURED_SERVER_ONLY_BROWSER_NOT_CAPTURED"
+      : "NOT_CAPTURED (no server or browser aggregation snapshot)");
     if (isSpace) {
       add(label, "Contribution basis", "SERVER ORIGINAL AGGREGATION (not recomputed from post-client score)");
       add(label, "Server weighted mean before rounding", numberOrMissing(entry?.productionWeightedMean));
@@ -206,7 +231,11 @@ export function getA2ScoringProvenanceRows(critique: any): A2DiagnosticRow[] {
       add(label, "Finish evidence summary", textOrMissing(finish?.summary));
       add(label, "Finish ceiling", finite(finish?.ceiling) ? finish.ceiling : finish?.ceiling === null ? "NONE" : "NOT_CAPTURED");
     } else {
-      add(label, "Contribution basis", browserAvailable ? "POST-CLIENT MIX RECOMPUTATION BEFORE PARENT CEILING" : "SERVER MIX INPUTS ONLY (BROWSER UNAVAILABLE)");
+      add(label, "Contribution basis", browserStage === "COMPLETED"
+        ? "POST-CLIENT MIX RECOMPUTATION BEFORE PARENT CEILING"
+        : browserStage === "BROWSER_DSP_UNAVAILABLE"
+          ? "SERVER MIX INPUTS ONLY (BROWSER UNAVAILABLE)"
+          : "SERVER MIX INPUTS ONLY (BROWSER STAGE NOT CAPTURED)");
       add(label, "Server Mix Balance contribution before browser correction", numberOrMissing(serverMix));
       add(label, "Final Mix Balance score after browser corrections", numberOrMissing(critique?.mixQuality?.score));
       add(label, "DSP midrange flatness", numberOrMissing(live?.calculatedMidrangeFlatness));
@@ -219,4 +248,16 @@ export function getA2ScoringProvenanceRows(critique: any): A2DiagnosticRow[] {
       "Unrounded score × original integer weight / actual applicable denominator. Parent rounding, finish ceilings and penalties can change the final parent.");
   }
   return rows;
+}
+
+/** The normal report and the offline workbook test share this exact append path. */
+export function appendA2ProvenanceToSourceDiagnostics(
+  worksheet: { addRow: (record: A2DiagnosticRow) => { alignment: any; height: number } },
+  critique: any,
+): void {
+  for (const evidence of getA2ScoringProvenanceRows(critique)) {
+    const row = worksheet.addRow(evidence);
+    row.alignment = { vertical: "top", wrapText: true };
+    if (evidence.field.includes("commentary")) row.height = 65;
+  }
 }
