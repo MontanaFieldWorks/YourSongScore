@@ -2,130 +2,192 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import {
-  captureA2BeforeClient,
-  captureA2AfterClient,
-  getA2ScoringProvenanceRows,
+  captureA2BeforeClient, captureA2AfterClient, captureA2BrowserUnavailable,
+  captureA2ServerProductionInputs, captureA2ServerMixInputs,
+  exactMixContribution, getA2ScoringProvenanceRows,
 } from "../src/lib/a2ScoringProvenance.ts";
+import {
+  a2InternalAccessAllowed, withholdA2RawEvidence, getRestrictedA2RawEvidence,
+} from "../src/lib/a2InternalEvidence.ts";
 
-const fixture = () => ({
+const SECRET = "private-a2-test-secret-12345678901234567890";
+const f = () => ({
   productionScoringVersion: "scoring-tier-v8-mud-diagnostic",
   subMetricsCall1: {
-    spaceAndDensity: { qualityTier: "PROFESSIONAL_HIGH", score: 88, commentary: "current space commentary" },
-    midrangeSpacing: { qualityTier: "PROFESSIONAL_HIGH", score: 88, commentary: "current midrange commentary" },
-    lowEndDivision: { score: 88, applicable: true },
-    sibilanceShaving: { score: 85, applicable: true },
+    aestheticDesign: { score: 90 }, paletteCohesion: { score: 85 },
+    spaceAndDensity: { qualityTier: "PROFESSIONAL_HIGH", score: 88, commentary: "Safe displayed Space commentary" },
+    midrangeSpacing: { qualityTier: "PROFESSIONAL_HIGH", score: 88, commentary: "Safe displayed Midrange commentary" },
+    lowEndDivision: { score: 88, applicable: true }, sibilanceShaving: { score: 85, applicable: true },
     stereoWidth: { score: 88, applicable: true },
     a2ScoringProvenance: {
-      spaceAndDensity: { rawQualityTier: "PROFESSIONAL_HIGH", rawCommentary: "Raw Gemini space critique", canonicalMappedScore: 88 },
-      midrangeSpacing: { rawQualityTier: "PROFESSIONAL_HIGH", rawCommentary: "Raw Gemini mids critique", canonicalMappedScore: 88 },
+      spaceAndDensity: { rawQualityTier: "PROFESSIONAL_HIGH", rawCommentary: "RAW PRIVATE SPACE CLAIM", canonicalMappedScore: 88, serverCap: null, serverCapReason: "NONE" },
+      midrangeSpacing: { rawQualityTier: "PROFESSIONAL_HIGH", rawCommentary: "RAW PRIVATE MIDRANGE CLAIM", canonicalMappedScore: 88, serverCapReason: "NOT_APPLICABLE" },
     },
   },
-  scores: { overallProduction: 88 },
-  mixQuality: { score: 88 },
-  productionFinishEvidence: { ceiling: null, summary: "No multi-signal finish outlier" },
-  liveMetrics: { calculatedMidrangeFlatness: .38, calculatedMidrangeFlux: 12.5, calculatedCoreMidsBandEnergy: 47, calculatedLowMidsBandEnergy: 67, calculatedFinishMidPct: 25.1, calculatedFinishSubPct: 2.1, calculatedFinishAirPct: 1.2, calculatedCrestFactorDb: 14.3 },
-  mixBalanceEvidence: { midrangeCap: 72, summary: "Real measured evidence" },
+  scores: { overallProduction: 88 }, mixQuality: { score: 88 },
+  productionFinishEvidence: { ceiling: null, summary: "No multi-signal outlier" },
+  mixBalanceEvidence: { midrangeCap: 72, summary: "Measured evidence" },
+  liveMetrics: { calculatedMidrangeFlatness: .38, calculatedMidrangeFlux: 12.5,
+    calculatedCoreMidsBandEnergy: 47, calculatedLowMidsBandEnergy: 67,
+    calculatedFinishMidPct: 25.1, calculatedFinishSubPct: 2.1, calculatedFinishAirPct: 1.2 },
+});
+const row = (rows, section, field) => {
+  const hit = rows.find(x => x.section === section && x.field === field);
+  assert.ok(hit, "missing row: " + section + "/" + field);
+  return hit.value;
+};
+const approx = (a, b) => assert.ok(Math.abs(a-b) < 0.000001, String(a) + " != " + String(b));
+const S = "A2 Space & Density", M = "A2 Midrange Spacing";
+
+test("Server Production Index contribution uses original 35/100 weighting", () => {
+  const c = f(), old = structuredClone(c.scores);
+  captureA2ServerProductionInputs(c);
+  const e = c.subMetricsCall1.a2ScoringProvenance.spaceAndDensity;
+  assert.equal(e.productionDenominator, 100);
+  assert.equal(e.productionContribution, 30.8);
+  approx(e.productionWeightedMean, 88.45);
+  assert.deepEqual(c.scores, old);
 });
 
-const read = (rows, section, field) => {
-  const match = rows.find(x => x.section === section && x.field === field);
-  assert.ok(match, "missing row: " + section + "/" + field);
-  return match.value;
-};
+test("Server Production Index correctly renormalizes missing child without changing score", () => {
+  const c = f();
+  delete c.subMetricsCall1.aestheticDesign.score;
+  captureA2ServerProductionInputs(c);
+  let e = c.subMetricsCall1.a2ScoringProvenance.spaceAndDensity;
+  assert.equal(e.productionDenominator, 60);
+  approx(e.productionEffectiveWeight, 3500/60);
+  approx(e.productionContribution, 88*35/60);
+  c.subMetricsCall1.spaceAndDensity.applicable = false;
+  captureA2ServerProductionInputs(c);
+  assert.equal(e.productionDenominator, 60); // server weightedAvg checks numeric only
+  delete c.subMetricsCall1.spaceAndDensity.score;
+  captureA2ServerProductionInputs(c);
+  assert.equal(e.productionContribution, null);
+  assert.equal(e.productionDenominator, 25);
+});
 
-test("captures raw Call 1 evidence and both stage scores while leaving score calculations untouched", () => {
-  const c = fixture();
-  const originalScores = {
-    space: c.subMetricsCall1.spaceAndDensity.score,
-    mids: c.subMetricsCall1.midrangeSpacing.score,
-    production: c.scores.overallProduction,
-    mix: c.mixQuality.score,
-  };
+test("Mix contribution uses exact applicable denominator, never rounded display weight", () => {
+  const c = f();
+  let m = exactMixContribution(c);
+  assert.equal(m.denominator, 75);
+  assert.equal(m.contribution, 88*25/75);
+  approx(m.effectiveWeight, 100/3);
+  c.subMetricsCall1.lowEndDivision.applicable = false;
+  m = exactMixContribution(c);
+  assert.equal(m.denominator, 55);
+  assert.equal(m.contribution, 40);
+  approx(m.effectiveWeight, 2500/55);
+  c.subMetricsCall1.sibilanceShaving.applicable = false;
+  m = exactMixContribution(c);
+  assert.equal(m.denominator, 40);
+  assert.equal(m.contribution, 55);
+  c.subMetricsCall1.midrangeSpacing.applicable = false;
+  m = exactMixContribution(c);
+  assert.equal(m.contribution, null);
+  assert.equal(m.effectiveWeight, null);
+});
+
+test("Historical scored Mud Prevention retains 25 weight units", () => {
+  const c = f();
+  c.productionScoringVersion = "legacy"; c.subMetricsCall1.mudPrevention = { score: 88 };
+  assert.equal(exactMixContribution(c).denominator, 100);
+});
+
+test("No cap, server cap, client cap and final parent are reported as distinct", () => {
+  const c = f();
+  captureA2ServerProductionInputs(c);
+  const e = c.subMetricsCall1.a2ScoringProvenance.spaceAndDensity;
+  e.serverProductionParentScore = 84;
+  e.serverCap = 85; e.serverCapReason = "PRODUCTION_FINISH_MULTI_SIGNAL_CEILING";
+  c.subMetricsCall1.spaceAndDensity.score = 85;
+  captureA2ServerMixInputs(c);
   captureA2BeforeClient(c);
-  assert.deepEqual(originalScores, {
-    space: c.subMetricsCall1.spaceAndDensity.score,
-    mids: c.subMetricsCall1.midrangeSpacing.score,
-    production: c.scores.overallProduction,
-    mix: c.mixQuality.score,
-  });
-  c.subMetricsCall1.midrangeSpacing.score = 72; // simulated EXISTING client cap; helper never assigns
-  captureA2AfterClient(c, { midrangeCap: 72, spaceDensityCeiling: null });
+  c.subMetricsCall1.spaceAndDensity.score = 84;
+  c.subMetricsCall1.midrangeSpacing.score = 72;
+  captureA2AfterClient(c, { midrangeCap: 72, spaceDensityCeiling: 84 });
   const rows = getA2ScoringProvenanceRows(c);
-  const section = "A2 Midrange Spacing";
-  assert.equal(read(rows, section, "Raw Gemini Call 1 qualityTier (UNVERIFIED)"), "PROFESSIONAL_HIGH");
-  assert.equal(read(rows, section, "Original Gemini Call 1 commentary (UNVERIFIED)"), "Raw Gemini mids critique");
-  assert.equal(read(rows, section, "Server canonical tier-mapped score (before server ceiling)"), 88);
-  assert.equal(read(rows, section, "Pre-client score (after server reconciliation)"), 88);
-  assert.equal(read(rows, section, "Post-client score (after all client guardrails)"), 72);
-  assert.equal(read(rows, section, "Client score-change/cap reason"), "MIDRANGE_FLATNESS_CAP");
-  assert.equal(read(rows, section, "Client cap limit (if applied)"), 72);
-  assert.equal(read(rows, section, "Effective parent weight (percent)"), 33.3);
-  assert.equal(read(rows, section, "Weighted point contribution BEFORE parent ceiling/penalties"), 23.976);
-  assert.equal(read(rows, section, "DSP midrange spectral flatness"), .38);
-  assert.equal(read(rows, section, "DSP midrange spectral flux"), 12.5);
-  assert.equal(c.subMetricsCall1.spaceAndDensity.score, 88);
-  assert.equal(c.subMetricsCall1.midrangeSpacing.score, 72);
+  assert.equal(row(rows, S, "Server-side cap"), 85);
+  assert.equal(row(rows, S, "Pre-client score after server reconciliation"), 85);
+  assert.equal(row(rows, S, "Post-client child score"), 84);
+  assert.equal(row(rows, S, "Exact pre-round weighted contribution (points)"), 30.8);
+  assert.equal(row(rows, S, "Server original parent score after ceiling"), 84);
+  assert.equal(row(rows, M, "Server-side cap"), "NOT_APPLICABLE");
+  assert.equal(row(rows, M, "Client cap reason"), "MIDRANGE_FLATNESS_CAP");
+  assert.equal(row(rows, M, "Exact pre-round weighted contribution (points)"), 24);
+  assert.equal(row(rows, M, "Server Mix Balance contribution before browser correction"), 88*25/75);
   assert.equal(c.scores.overallProduction, 88);
   assert.equal(c.mixQuality.score, 88);
 });
 
-test("server cap is distinguishable from a later client cap; Space & Density weight is 35%", () => {
-  const c = fixture();
-  c.subMetricsCall1.a2ScoringProvenance.spaceAndDensity.serverCap = 85;
-  c.subMetricsCall1.a2ScoringProvenance.spaceAndDensity.serverCapReason = "PRODUCTION_FINISH_MULTI_SIGNAL_CEILING";
-  c.subMetricsCall1.spaceAndDensity.score = 85;
-  captureA2BeforeClient(c);
-  captureA2AfterClient(c, { midrangeCap: null, spaceDensityCeiling: 84 });
-  const rows = getA2ScoringProvenanceRows(c), section = "A2 Space & Density";
-  assert.equal(read(rows, section, "Server canonical tier-mapped score (before server ceiling)"), 88);
-  assert.equal(read(rows, section, "Server-side production-finish cap"), 85);
-  assert.equal(read(rows, section, "Pre-client score (after server reconciliation)"), 85);
-  assert.equal(read(rows, section, "Post-client score (after all client guardrails)"), 85);
-  assert.equal(read(rows, section, "Client score-change/cap reason"), "NONE");
-  assert.equal(read(rows, section, "Effective parent weight (percent)"), 35);
-  assert.equal(read(rows, section, "Weighted point contribution BEFORE parent ceiling/penalties"), 29.75);
-});
-
-test("N/A Low-End Division is renormalized; parent score not treated as a child contribution", () => {
-  const c = fixture();
-  c.subMetricsCall1.lowEndDivision.applicable = false;
+test("NONE when cap does not apply and missing DSP is explicitly marked", () => {
+  const c = f();
   captureA2BeforeClient(c);
   captureA2AfterClient(c, { midrangeCap: null, spaceDensityCeiling: null });
   const rows = getA2ScoringProvenanceRows(c);
-  assert.equal(read(rows, "A2 Midrange Spacing", "Effective parent weight (percent)"), 45.5);
-  assert.equal(read(rows, "A2 Midrange Spacing", "Weighted point contribution BEFORE parent ceiling/penalties"), 40.04);
-  assert.equal(read(rows, "A2 Midrange Spacing", "Final parent total (may include other children/caps/penalties)"), 88);
+  assert.equal(row(rows, S, "Server-side cap"), "NONE");
+  assert.equal(row(rows, S, "Server-side cap reason"), "NONE");
+  assert.equal(row(rows, M, "Client cap reason"), "NONE");
+  assert.equal(row(rows, M, "Applied client cap"), "NONE");
+  const absent = f();
+  const existingScore = absent.subMetricsCall1.midrangeSpacing.score;
+  captureA2BrowserUnavailable(absent);
+  const noDsp = getA2ScoringProvenanceRows(absent);
+  assert.equal(row(noDsp, M, "Browser scoring stage"), "BROWSER_DSP_UNAVAILABLE");
+  assert.equal(row(noDsp, M, "Post-client child score"), "NOT_CAPTURED");
+  assert.equal(absent.subMetricsCall1.midrangeSpacing.score, existingScore);
 });
 
-test("unknown or legacy evidence does not manufacture raw tiers, caps, DSP measurements or mapped scores", () => {
-  const legacy = { subMetricsCall1: { midrangeSpacing: { score: 88 }, spaceAndDensity: { score: 85 } } };
-  const before = structuredClone(legacy);
-  captureA2BeforeClient(legacy);
-  captureA2AfterClient(legacy, { midrangeCap: null, spaceDensityCeiling: null });
-  const rows = getA2ScoringProvenanceRows(legacy);
-  assert.deepEqual(legacy, before);
-  assert.equal(read(rows, "A2 Space & Density", "A2 capture"), "NOT_CAPTURED (legacy report or Call 1 unavailable)");
-  assert.equal(read(rows, "A2 Space & Density", "Raw Gemini Call 1 qualityTier (UNVERIFIED)"), "NOT_CAPTURED");
-  assert.equal(read(rows, "A2 Midrange Spacing", "Effective parent weight (percent)"), "NOT_CAPTURED");
-  assert.equal(read(rows, "A2 Midrange Spacing", "DSP midrange spectral flatness"), "NOT_CAPTURED");
+test("Legacy and missing metric cases never invent evidence", () => {
+  const c = { subMetricsCall1: { spaceAndDensity: { score: 85 } } };
+  const old = structuredClone(c);
+  captureA2BeforeClient(c);
+  captureA2AfterClient(c, { midrangeCap: null, spaceDensityCeiling: null });
+  assert.deepEqual(c, old);
+  const rows = getA2ScoringProvenanceRows(c);
+  assert.match(row(rows, S, "A2 capture"), /NOT_CAPTURED/);
+  assert.equal(row(rows, S, "Server-side cap"), "NOT_CAPTURED");
+  assert.equal(row(rows, M, "Exact pre-round weighted contribution (points)"), "NOT_CAPTURED");
 });
 
-test("source capture and worksheet integration remain diagnostic-only; no new provider prompts, schemas or scoring formulas", () => {
+test("Raw A2 evidence is withheld from public JSON and only authorized token can retrieve", () => {
+  const c = f(), raw = c.subMetricsCall1.a2ScoringProvenance.midrangeSpacing.rawCommentary;
+  const id = withholdA2RawEvidence(c, 1000);
+  assert.match(id, /^[0-9a-f-]{36}$/i);
+  assert.ok(!JSON.stringify(c).includes("RAW PRIVATE"));
+  assert.ok(!JSON.stringify(c).includes("rawCommentary"));
+  assert.ok(!JSON.stringify(c).includes("rawQualityTier"));
+  assert.equal(c.subMetricsCall1.midrangeSpacing.commentary, "Safe displayed Midrange commentary");
+  assert.equal(a2InternalAccessAllowed("Bearer " + SECRET, SECRET), true);
+  assert.equal(getRestrictedA2RawEvidence(id, "Bearer wrong", SECRET, 1001), null);
+  assert.equal(getRestrictedA2RawEvidence(id, "Bearer " + SECRET, "short", 1001), null);
+  assert.equal(getRestrictedA2RawEvidence(id, "Bearer " + SECRET, SECRET, 1001).midrangeSpacing.commentary, raw);
+  assert.equal(getRestrictedA2RawEvidence(id, "Bearer " + SECRET, SECRET, 1000 + 24*60*60*1000 + 1), null);
+});
+
+test("Ordinary Excel Source Diagnostics never leaks raw text even from an unredacted fixture", () => {
+  const c = f();
+  assert.ok(!JSON.stringify(getA2ScoringProvenanceRows(c)).includes("RAW PRIVATE"));
+  withholdA2RawEvidence(c);
+  const rows = getA2ScoringProvenanceRows(c);
+  assert.ok(!JSON.stringify(rows).includes("RAW PRIVATE"));
+  assert.match(JSON.stringify(rows), /REDACTED/);
+  assert.match(JSON.stringify(rows), /RESTRICTED_INTERNAL_ONLY/);
+});
+
+test("Static integration gates preserve Gemini 2.5, tier schema, scoring weights and report boundary", () => {
   const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
   const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   const report = readFileSync(new URL("../src/components/CritiqueDisplay.tsx", import.meta.url), "utf8");
-  assert.match(server, /call1\.a2ScoringProvenance = \{\};/);
-  assert.match(server, /a2Entry\.canonicalMappedScore = canonicalScore/);
-  assert.match(server, /trace\.serverCapReason = "PRODUCTION_FINISH_MULTI_SIGNAL_CEILING"/);
-  assert.match(app, /captureA2BeforeClient\(critique\)/);
-  assert.match(app, /captureA2AfterClient\(critique, \{ midrangeCap, spaceDensityCeiling: null \}\)/);
-  assert.match(app, /captureA2AfterClient\(critique, \{ midrangeCap, spaceDensityCeiling \}\)/);
-  const first = report.indexOf('workbook.addWorksheet("Source Diagnostics"');
-  const append = report.indexOf("getA2ScoringProvenanceRows(critique)");
-  assert.ok(first >= 0 && append > first);
-  assert.equal(report.match(/getA2ScoringProvenanceRows\(critique\)/g)?.length, 1);
-  assert.equal((server.match(/model: "gemini-2\.5-flash"/g) || []).length, 7);
-  assert.equal((server.match(/\.\.\.tierMetricProperties/g) || []).length, 36);
+  assert.equal((server.match(/withholdA2RawEvidence\((?:parsedCritique|critique)\)/g)||[]).length,3);
+  assert.match(server, /app\.get\("\/api\/internal\/a2-evidence\/:id"/);
+  assert.match(server, /process\.env\.YSS_A2_INTERNAL_TOKEN/);
+  assert.match(server, /captureA2ServerProductionInputs\(parsedCritique\)/);
+  assert.match(server, /captureA2ServerMixInputs\(parsedCritique\)/);
+  assert.match(app, /captureA2BrowserUnavailable\(overriddenCritique\)/);
+  assert.match(app, /captureA2BrowserUnavailable\(overriddenFinalCritique\)/);
+  assert.equal((report.match(/getA2ScoringProvenanceRows\(critique\)/g)||[]).length,1);
+  assert.equal((server.match(/model: "gemini-2\.5-flash"/g)||[]).length,7);
+  assert.equal((server.match(/\.\.\.tierMetricProperties/g)||[]).length,36);
   assert.match(server, /\[c1Ready\.spaceAndDensity\?\.score, 35\]/);
   assert.match(server, /computeMixBalanceScore\(c1Ready, true\)/);
 });
