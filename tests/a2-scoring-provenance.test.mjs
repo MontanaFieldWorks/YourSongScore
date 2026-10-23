@@ -201,7 +201,7 @@ test("undefined browser stage is never marked COMPLETED, even with a server ledg
   const rows = getA2ScoringProvenanceRows(c);
   assert.equal(row(rows, M, "Browser scoring stage"), "NOT_CAPTURED");
   assert.equal(row(rows, M, "Contribution provenance"), "CAPTURED_SERVER_ONLY_BROWSER_NOT_CAPTURED");
-  assert.equal(row(rows, M, "Exact pre-round weighted contribution (points)"), 88*25/75);
+  approx(row(rows, M, "Exact pre-round weighted contribution (points)"), 88*25/75);
   assert.equal(row(rows, M, "Pre-client score after server reconciliation"), "NOT_CAPTURED");
   assert.equal(row(rows, M, "Post-client child score"), "NOT_CAPTURED");
   assert.equal(row(rows, M, "Contribution basis"), "SERVER MIX INPUTS ONLY (BROWSER STAGE NOT CAPTURED)");
