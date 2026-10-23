@@ -45,7 +45,7 @@ test("Server Production Index contribution uses original 35/100 weighting", () =
   const e = c.subMetricsCall1.a2ScoringProvenance.spaceAndDensity;
   assert.equal(e.productionDenominator, 100);
   assert.equal(e.productionContribution, 30.8);
-  approx(e.productionWeightedMean, 88.45);
+  approx(e.productionWeightedMean, 88.05);
   assert.deepEqual(c.scores, old);
 });
 
