@@ -5,7 +5,7 @@ import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, 
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
 import { analyzeAudioBufferInWorker } from "./lib/batchAudioWorker";
 import { computeMixBalanceScore, isMudDiagnosticCritique, markMudPreventionDiagnosticOnly } from "./lib/mudPreventionDiagnostic";
-import { captureA2BeforeClient, captureA2AfterClient } from "./lib/a2ScoringProvenance";
+import { captureA2BeforeClient, captureA2AfterClient, captureA2BrowserUnavailable } from "./lib/a2ScoringProvenance";
 
 // Runs the new, validated essentia.js key detection and overwrites the old,
 // confirmed-unreliable chroma-based key on the given liveMetrics object in place.
@@ -1355,6 +1355,8 @@ export default function App() {
       if (liveMetrics) {
         overriddenCritique.liveMetrics = liveMetrics;
         applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
+      } else {
+        captureA2BrowserUnavailable(overriddenCritique);
       }
 
       if (overriddenCritique.liveMetrics) {
@@ -1778,6 +1780,8 @@ export default function App() {
       if (liveMetrics) {
         overriddenCritique.liveMetrics = liveMetrics;
         applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
+      } else {
+        captureA2BrowserUnavailable(overriddenCritique);
       }
 
       if (overriddenCritique.liveMetrics) {
@@ -1858,6 +1862,8 @@ export default function App() {
       }
       if (liveMetrics) {
         applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
+      } else {
+        captureA2BrowserUnavailable(overriddenCritique);
       }
 
       if (overriddenCritique.liveMetrics) {
@@ -2122,6 +2128,8 @@ export default function App() {
       }
       if (overriddenFinalCritique.liveMetrics) {
         applyProductionFinishGuardrail(overriddenFinalCritique, overriddenFinalCritique.liveMetrics);
+      } else {
+        captureA2BrowserUnavailable(overriddenFinalCritique);
       }
 
       const updatedTrack: StoredTrack = {
