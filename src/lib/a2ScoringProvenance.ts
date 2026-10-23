@@ -164,7 +164,10 @@ export function getA2ScoringProvenanceRows(critique: any): A2DiagnosticRow[] {
     add(label, "A2 capture", entry ? "PRESENT" : "NOT_CAPTURED (legacy report or Call 1 unavailable)");
     add(label, "Raw Gemini qualityTier/commentary access", entry?.rawEvidenceAccess || (entry ? "NOT_CAPTURED" : "NOT_CAPTURED"));
     add(label, "Internal evidence reference (requires server token)", textOrMissing(raw?.internalEvidenceId));
-    add(label, "Original raw Gemini commentary in ordinary export", "REDACTED — available only from token-protected server evidence vault");
+    add(label, "Original raw Gemini commentary in ordinary export",
+      entry?.rawEvidenceAccess === "RESTRICTED_INTERNAL_ONLY"
+        ? "REDACTED — available only from token-protected server evidence vault"
+        : "NOT_CAPTURED");
     add(label, "Model-selected qualityTier (existing public metric)", textOrMissing(item?.qualityTier));
     add(label, "Canonical mapped score before server caps", numberOrMissing(entry?.canonicalMappedScore));
     add(label, "Server-side cap", isSpace
@@ -175,7 +178,9 @@ export function getA2ScoringProvenanceRows(critique: any): A2DiagnosticRow[] {
     add(label, "Post-client child score", numberOrMissing(post));
     add(label, "Browser scoring stage", entry ? browserAvailable ? "COMPLETED" : "BROWSER_DSP_UNAVAILABLE" : "NOT_CAPTURED");
     add(label, "Client cap reason", textOrMissing(entry?.clientCapReason));
-    add(label, "Selected client cap (even when unapplied)", numberOrMissing(entry?.clientCapCandidate));
+    add(label, "Selected client cap (even when unapplied)",
+      finite(entry?.clientCapCandidate) ? entry.clientCapCandidate
+        : entry?.clientCapReason === "NONE" ? "NONE" : "NOT_CAPTURED");
     add(label, "Applied client cap", finite(entry?.clientCapLimit)
       ? entry.clientCapLimit : entry?.clientCapReason === "NONE" ? "NONE"
       : entry?.clientCapReason === "BROWSER_DSP_UNAVAILABLE" ? "NOT_CAPTURED" : "NOT_CAPTURED");
