@@ -1345,7 +1345,11 @@ function enforceClassicalInstrumentalSourceNeutrality(parsedCritique: any): void
     if (typeof value === "string") return neutralize(value);
     if (Array.isArray(value)) return value.map(walk);
     if (value && typeof value === "object") {
-      for (const key of Object.keys(value)) value[key] = walk(value[key]);
+      for (const key of Object.keys(value)) {
+        // Preserve raw Gemini evidence verbatim in the internal A2 audit trail.
+        // Other report prose still receives the existing source-safety normalizers.
+        if (key !== "a2ScoringProvenance") value[key] = walk(value[key]);
+      }
     }
     return value;
   };
@@ -1450,7 +1454,11 @@ function enforceBlindReportIntegrity(critique: any, suppliedTitle: any): void {
     if (typeof value === "string") return neutralize(value);
     if (Array.isArray(value)) return value.map(walk);
     if (value && typeof value === "object") {
-      for (const key of Object.keys(value)) value[key] = walk(value[key]);
+      for (const key of Object.keys(value)) {
+        // Preserve raw Gemini evidence verbatim in the internal A2 audit trail.
+        // Other report prose still receives the existing source-safety normalizers.
+        if (key !== "a2ScoringProvenance") value[key] = walk(value[key]);
+      }
     }
     return value;
   };
