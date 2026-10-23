@@ -353,6 +353,18 @@ function applyDeterministicProductionTierScores(call1: any): any {
     "stereoWidth",
   ];
 
+  // Audit-only snapshot of Gemini's original Call 1 output. Kept outside the
+  // structured provider response schema and never used to choose a score.
+  call1.a2ScoringProvenance = {};
+  for (const key of ["spaceAndDensity", "midrangeSpacing"]) {
+    const original = call1?.[key];
+    if (original) {
+      call1.a2ScoringProvenance[key] = {
+        rawQualityTier: original.qualityTier,
+        rawCommentary: original.commentary,
+      };
+    }
+  }
   for (const key of tieredMetricKeys) {
     const metric = call1?.[key];
     if (!metric) continue;
@@ -361,6 +373,8 @@ function applyDeterministicProductionTierScores(call1: any): any {
       throw new Error(`Invalid production quality tier for ${key}: ${String(metric.qualityTier)}`);
     }
     metric.score = canonicalScore;
+    const a2Entry = call1?.a2ScoringProvenance?.[key];
+    if (a2Entry) a2Entry.canonicalMappedScore = canonicalScore;
   }
 
   return call1;
@@ -1504,6 +1518,11 @@ function reconcileParentScores(parsedCritique: any): void {
       c1Ready.spaceAndDensity.score = spaceDensityCeiling;
       c1Ready.spaceAndDensity.commentary =
         `The arrangement may retain usable separation, but the delivered spectrum is too uneven to support a 90+ space-and-density result. Extreme finish outliers indicate that apparent openness is not translating as balanced, reference-level spectral occupancy. ${finishEvidence.summary}`;
+      const trace = c1Ready.a2ScoringProvenance?.spaceAndDensity;
+      if (trace) {
+        trace.serverCap = spaceDensityCeiling;
+        trace.serverCapReason = "PRODUCTION_FINISH_MULTI_SIGNAL_CEILING";
+      }
     }
     if (c1Ready.paletteCohesion && typeof c1Ready.paletteCohesion.score === "number" && c1Ready.paletteCohesion.score > paletteCohesionCeiling) {
       c1Ready.paletteCohesion.score = paletteCohesionCeiling;
