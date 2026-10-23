@@ -4,7 +4,7 @@
  * actual scores continue through the existing server and browser pathways.
  * Row generation is pure and only consumed by the internal Source Diagnostics tab.
  */
-import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique } from "./mudPreventionDiagnostic";
+import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique } from "./mudPreventionDiagnostic.ts";
 
 const A2_KEYS = ["spaceAndDensity", "midrangeSpacing"] as const;
 const finite = (v: unknown): v is number =>
