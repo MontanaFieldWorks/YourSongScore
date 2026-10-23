@@ -39,9 +39,6 @@ if (geminiApiKey) {
   });
 }
 
-// Latest standard Gemini model for critique analysis, sub-metrics, and consultation
-const GEMINI_MODEL = "gemini-3.8-flash";
-
 // System Instructions optimized for Songwriter critique
 // ---------------------------------------------------------------------------
 // SINGLE SOURCE OF TRUTH for the scoring calibration rules.
@@ -590,7 +587,7 @@ IF a spectrogram image has been provided alongside the audio: this is a time-res
 IMPORTANT SPECTROGRAM INTERPRETATION RULE: Strong brightness in the low and lower-mid bands (below 400Hz) is NORMAL and EXPECTED for modern basslines, 808s, synths, and kicks. Do NOT assume that brightness in lower bands equals 'mud' or 'buildup.' Mud only occurs when multiple elements blur together into an indistinct, uncontrolled smear that masks lead elements. If vocal presence and instrumental attack remain distinct, heavy lower-frequency energy represents intentional weight and depth, not an acoustic defect. Use the image to confirm clean temporal separation between beats and transients, and point to specific visible patterns only when genuine masking or smearing is present.`;
 
   const response = await generateContentWithRetry({
-    model: GEMINI_MODEL,
+    model: "gemini-2.5-flash",
     contents: {
       parts: spectrogramImagePart ? [audioPart, spectrogramImagePart, { text: contextSummary }] : [audioPart, { text: contextSummary }],
     },
@@ -816,7 +813,7 @@ Do NOT independently replace this key with another tonic or mode. Return keySign
     : CHORD_KEY_ANALYSIS_PROMPT;
 
   const response = await generateContentWithRetry({
-    model: GEMINI_MODEL,
+    model: "gemini-2.5-flash",
     contents: {
       parts: [audioPart],
     },
@@ -847,7 +844,7 @@ Detected Key & Chord Vocabulary: ${chordProgressionSummary || 'not available'}
 Listen to the actual audio again and generate specific, evidence-based scores, feedback, and sub-metric commentary for all 4 categories and their 9 sub-fields, consistent with the above context but grounded in what you actually hear this time.`;
 
   const response = await generateContentWithRetry({
-    model: GEMINI_MODEL,
+    model: "gemini-2.5-flash",
     contents: {
       parts: [audioPart, { text: contextSummary }],
     },
@@ -1084,7 +1081,7 @@ IMPORTANT CAVEAT on the melody data above: this reflects the dominant monophonic
 Listen to the actual audio again and generate specific, evidence-based scores and commentary for all 16 sub-fields across these 5 categories, consistent with the above context but grounded in what you actually hear this time. Actively scan for genuine technical sophistication before defaulting to surface-level descriptions.`;
 
   const response = await generateContentWithRetry({
-    model: GEMINI_MODEL,
+    model: "gemini-2.5-flash",
     contents: {
       parts: [
         audioPart,
@@ -2001,7 +1998,7 @@ ${GENRE_TAXONOMY_TEXT}
 Return the best genre/subgenre plus a short evidence summary.`;
 
     const response = await generateContentWithRetry({
-      model: GEMINI_MODEL,
+      model: "gemini-2.5-flash",
       contents: { parts: [audioPart, { text: context }] },
       config: {
         systemInstruction: "You are a conservative music-genre verifier. Resolve only the genre classification from audible evidence. Do not score production, composition, or commercial quality. Do not identify the artist or song.",
@@ -2074,7 +2071,7 @@ async function performCritiqueAnalysis(
 
   const runSingle = async (temp: number) => {
     const response = await generateContentWithRetry({
-      model: GEMINI_MODEL,
+      model: "gemini-2.5-flash",
       contents: normalizedContents,
       config: {
         systemInstruction: systemInstruction,
@@ -3014,7 +3011,7 @@ app.post("/api/ar-consult", async (req, res) => {
     });
 
     const response = await generateContentWithRetry({
-      model: GEMINI_MODEL,
+      model: "gemini-2.5-flash",
       contents: contents,
       config: {
         systemInstruction: systemInstruction,
