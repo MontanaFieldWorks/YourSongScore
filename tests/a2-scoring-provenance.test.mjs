@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
+import ExcelJS from "exceljs";
 import {
   captureA2BeforeClient, captureA2AfterClient, captureA2BrowserUnavailable,
   captureA2ServerProductionInputs, captureA2ServerMixInputs,
   exactMixContribution, getA2ScoringProvenanceRows,
+  appendA2ProvenanceToSourceDiagnostics,
 } from "../src/lib/a2ScoringProvenance.ts";
 import {
   a2InternalAccessAllowed, withholdA2RawEvidence, getRestrictedA2RawEvidence,
@@ -185,9 +187,118 @@ test("Static integration gates preserve Gemini 2.5, tier schema, scoring weights
   assert.match(server, /captureA2ServerMixInputs\(parsedCritique\)/);
   assert.match(app, /captureA2BrowserUnavailable\(overriddenCritique\)/);
   assert.match(app, /captureA2BrowserUnavailable\(overriddenFinalCritique\)/);
-  assert.equal((report.match(/getA2ScoringProvenanceRows\(critique\)/g)||[]).length,1);
+  assert.equal((report.match(/appendA2ProvenanceToSourceDiagnostics\(wsSourceDiagnostics, critique\)/g)||[]).length,1);
   assert.equal((server.match(/model: "gemini-2\.5-flash"/g)||[]).length,7);
   assert.equal((server.match(/\.\.\.tierMetricProperties/g)||[]).length,36);
   assert.match(server, /\[c1Ready\.spaceAndDensity\?\.score, 35\]/);
   assert.match(server, /computeMixBalanceScore\(c1Ready, true\)/);
+});
+
+
+test("undefined browser stage is never marked COMPLETED, even with a server ledger", () => {
+  const c = f();
+  captureA2ServerMixInputs(c);
+  const rows = getA2ScoringProvenanceRows(c);
+  assert.equal(row(rows, M, "Browser scoring stage"), "NOT_CAPTURED");
+  assert.equal(row(rows, M, "Contribution provenance"), "CAPTURED_SERVER_ONLY_BROWSER_NOT_CAPTURED");
+  assert.equal(row(rows, M, "Exact pre-round weighted contribution (points)"), 88*25/75);
+  assert.equal(row(rows, M, "Pre-client score after server reconciliation"), "NOT_CAPTURED");
+  assert.equal(row(rows, M, "Post-client child score"), "NOT_CAPTURED");
+  assert.equal(row(rows, M, "Contribution basis"), "SERVER MIX INPUTS ONLY (BROWSER STAGE NOT CAPTURED)");
+  // Neither the mere presence of A2 nor a client cap candidate proves a browser pass.
+  c.subMetricsCall1.a2ScoringProvenance.midrangeSpacing.clientCapReason = "NONE";
+  assert.equal(row(getA2ScoringProvenanceRows(c), M, "Browser scoring stage"), "NOT_CAPTURED");
+});
+
+test("inapplicable Midrange records NOT_APPLICABLE contribution with remaining denominator", () => {
+  const c = f();
+  c.subMetricsCall1.midrangeSpacing.applicable = false;
+  c.subMetricsCall1.midrangeSpacing.score = 0;
+  c.subMetricsCall1.lowEndDivision.applicable = false;
+  captureA2ServerMixInputs(c);
+  captureA2BeforeClient(c);
+  captureA2AfterClient(c, { midrangeCap: null, spaceDensityCeiling: null });
+  const rows = getA2ScoringProvenanceRows(c);
+  assert.equal(row(rows, M, "Browser scoring stage"), "COMPLETED");
+  assert.equal(row(rows, M, "Metric applicability"), "false");
+  assert.equal(row(rows, M, "Actual aggregation denominator (weight units)"), 30);
+  assert.equal(row(rows, M, "Effective aggregate weight (%; computed from exact ratio)"), "NOT_APPLICABLE");
+  assert.equal(row(rows, M, "Exact pre-round weighted contribution (points)"), "NOT_APPLICABLE");
+  assert.equal(row(rows, M, "Contribution provenance"), "CAPTURED_POST_CLIENT");
+  assert.equal(c.subMetricsCall1.midrangeSpacing.score, 0);
+});
+
+test("legacy data never gets an invented A2 contribution or a fabricated capture status", () => {
+  const c = f();
+  delete c.subMetricsCall1.a2ScoringProvenance;
+  const before = structuredClone(c);
+  const rows = getA2ScoringProvenanceRows(c);
+  assert.equal(row(rows, M, "Browser scoring stage"), "NOT_CAPTURED");
+  assert.equal(row(rows, M, "Actual aggregation denominator (weight units)"), "NOT_CAPTURED");
+  assert.equal(row(rows, M, "Effective aggregate weight (%; computed from exact ratio)"), "NOT_CAPTURED");
+  assert.equal(row(rows, M, "Exact pre-round weighted contribution (points)"), "NOT_CAPTURED");
+  assert.equal(row(rows, M, "Contribution provenance"), "NOT_CAPTURED (legacy report; A2 ledger absent)");
+  assert.deepEqual(c, before);
+});
+
+test("simulated sanitized API response roundtrips through ACTUAL A2 ExcelJS Source Diagnostics writer", async () => {
+  const c = f();
+  captureA2ServerProductionInputs(c);
+  captureA2ServerMixInputs(c);
+  const originalScores = {
+    production: c.scores.overallProduction,
+    mix: c.mixQuality.score,
+    space: c.subMetricsCall1.spaceAndDensity.score,
+    mids: c.subMetricsCall1.midrangeSpacing.score,
+  };
+  withholdA2RawEvidence(c);
+  // Simulates the public JSON response serialization performed on every critique route.
+  const apiResponse = JSON.parse(JSON.stringify({ critique: c }));
+  assert.ok(!JSON.stringify(apiResponse).includes("RAW PRIVATE"));
+  const client = apiResponse.critique;
+  captureA2BeforeClient(client);
+  client.subMetricsCall1.midrangeSpacing.score = 72; // existing DSP guard simulated
+  captureA2AfterClient(client, { midrangeCap: 72, spaceDensityCeiling: null });
+  const book = new ExcelJS.Workbook();
+  const source = book.addWorksheet("Source Diagnostics");
+  source.columns = [
+    { header: "Metric", key: "section", width: 24 },
+    { header: "Diagnostic field", key: "field", width: 38 },
+    { header: "Recorded evidence / decision", key: "value", width: 110 },
+  ];
+  appendA2ProvenanceToSourceDiagnostics(source, client);
+  const buffer = await book.xlsx.writeBuffer();
+  const replay = new ExcelJS.Workbook();
+  await replay.xlsx.load(buffer);
+  const sheet = replay.getWorksheet("Source Diagnostics");
+  assert.ok(sheet);
+  assert.equal(sheet.getCell("A1").value, "Metric");
+  assert.equal(sheet.getCell("B1").value, "Diagnostic field");
+  const cells = [];
+  const map = new Map();
+  sheet.eachRow((excelRow, index) => {
+    for (let col = 1; col <= 3; col++) cells.push(String(excelRow.getCell(col).value ?? ""));
+    if (index > 1) map.set(String(excelRow.getCell(1).value)+"::"+String(excelRow.getCell(2).value),excelRow.getCell(3).value);
+  });
+  const readWorkbook = (section, field) => {
+    const key = section+"::"+field;
+    assert.ok(map.has(key), "Workbook missing " + key);
+    return map.get(key);
+  };
+  assert.ok(!cells.join(" ").includes("RAW PRIVATE"));
+  assert.ok(!cells.join(" ").includes("rawCommentary"));
+  assert.equal(readWorkbook(M,"Raw Gemini qualityTier/commentary access"),"RESTRICTED_INTERNAL_ONLY");
+  assert.match(readWorkbook(M,"Original raw Gemini commentary in ordinary export"),/REDACTED/);
+  assert.equal(readWorkbook(M,"Browser scoring stage"),"COMPLETED");
+  assert.equal(readWorkbook(M,"Actual aggregation denominator (weight units)"),75);
+  assert.equal(readWorkbook(M,"Exact pre-round weighted contribution (points)"),24);
+  assert.equal(readWorkbook(M,"Pre-client score after server reconciliation"),88);
+  assert.equal(readWorkbook(M,"Post-client child score"),72);
+  assert.equal(readWorkbook(M,"Client cap reason"),"MIDRANGE_FLATNESS_CAP");
+  assert.equal(readWorkbook(S,"Exact pre-round weighted contribution (points)"),30.8);
+  assert.equal(readWorkbook(S,"Contribution basis"),"SERVER ORIGINAL AGGREGATION (not recomputed from post-client score)");
+  assert.equal(client.scores.overallProduction,originalScores.production);
+  assert.equal(client.mixQuality.score,originalScores.mix);
+  assert.equal(client.subMetricsCall1.spaceAndDensity.score,originalScores.space);
+  assert.equal(originalScores.mids,88);
 });
