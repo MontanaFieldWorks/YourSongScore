@@ -10,8 +10,9 @@ import { GENRE_MAP } from "./src/data/musicData";
 import { computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC_SCORING_VERSION } from "./src/lib/mudPreventionDiagnostic";
 import { captureA2ServerProductionInputs, captureA2ServerMixInputs } from "./src/lib/a2ScoringProvenance";
 import { withholdA2RawEvidence, getRestrictedA2RawEvidence } from "./src/lib/a2InternalEvidence";
-import { a2PilotContext, a2PilotBeforeProvider, a2PilotAfterProvider, a2PilotOnError,
-  beginA2Pilot, finishA2PilotIfActive, acknowledgeA2PilotBrowser, isA2PilotRequest } from "./src/lib/a2PilotSafety";
+import { a2PilotContext, a2PilotOnError, executeA2PilotProviderOperation,
+  a2PilotGenerateContentOptions, configuredA2PilotLedger, beginA2Pilot,
+  finishA2PilotIfActive, acknowledgeA2PilotBrowser, isA2PilotRequest } from "./src/lib/a2PilotSafety";
 
 dotenv.config();
 
@@ -1979,25 +1980,12 @@ async function generateContentWithRetry(params: {
   }
   const pilot = a2PilotContext.getStore();
   if (pilot) {
-    await a2PilotBeforeProvider(pilot);
-    try {
-      if (!a2PilotAi || params.model !== "gemini-2.5-flash")
-        throw new Error("A2 pilot requires configured Gemini 2.5 Flash");
-      const response = await a2PilotAi.models.generateContent({
-        ...params,
-        config: { ...(params.config || {}),
-          seed: params.config?.seed ?? 20261003,
-          automaticContinuation: false,
-          httpOptions: { ...(params.config?.httpOptions || {}),
-            retryOptions: { attempts: 1 } },
-        },
-      });
-      await a2PilotAfterProvider(pilot, response);
-      return response;
-    } catch (error) {
-      await a2PilotOnError(pilot);
-      throw error; // No application-level retry, even on 429/5xx.
-    }
+    // Admission is persisted BEFORE the SDK can send any request. Errors stop
+    // this pilot across instances, without retrying or resuming automatically.
+    return executeA2PilotProviderOperation(pilot, configuredA2PilotLedger(), async () => {
+      if (!a2PilotAi) throw new Error("A2 pilot Gemini client not configured");
+      return a2PilotAi.models.generateContent(a2PilotGenerateContentOptions(params));
+    });
   }
   const attemptLimit = Math.min(3, Math.max(1, maxAttempts));
   for (let attempt = 1; attempt <= attemptLimit; attempt++) {
