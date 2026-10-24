@@ -4,6 +4,7 @@ import fs from "fs";
 import multer from "multer";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI as A2PilotGoogleGenAI } from "@google/genai-a2-pilot";
 import dotenv from "dotenv";
 import { GENRE_MAP } from "./src/data/musicData";
 import { computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC_SCORING_VERSION } from "./src/lib/mudPreventionDiagnostic";
@@ -32,11 +33,11 @@ const upload = multer({
 // Initialize Gemini Client
 const geminiApiKey = process.env.GEMINI_API_KEY;
 let ai: GoogleGenAI | null = null;
-let a2PilotAi: GoogleGenAI | null = null;
+let a2PilotAi: A2PilotGoogleGenAI | null = null;
 if (geminiApiKey) {
   // Pilot-specific SDK client: one HTTP attempt, no SDK backoff/retries.
   // This is never selected outside the separately authorized A2 context.
-  a2PilotAi = new GoogleGenAI({ apiKey: geminiApiKey,
+  a2PilotAi = new A2PilotGoogleGenAI({ apiKey: geminiApiKey,
     httpOptions: { retryOptions: { attempts: 1 } } });
   ai = new GoogleGenAI({
     apiKey: geminiApiKey,
