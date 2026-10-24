@@ -1288,9 +1288,9 @@ export default function App() {
   const handleSubmitFile = async () => {
     if (!selectedFile) return;
     if (a2PilotEnabled && (threeXMode || a2PilotToken.length < 32 ||
-        extractedTitle || extractedArtist || extractedGenre)) {
+        extractedTitle || extractedArtist || extractedGenre || genreMode !== "auto")) {
       setErrorHeader("A2 Pilot Preflight Blocked");
-      setErrorDetails("Pilot requires single-pass mode, a 32+ character token, and empty Title/Artist/Genre tags. No analysis was submitted.");
+      setErrorDetails("Pilot requires single-pass mode, auto genre, a 32+ character token, and empty Title/Artist/Genre fields. No analysis was submitted.");
       return;
     }
 
@@ -1384,6 +1384,27 @@ export default function App() {
           coverArt: extractedCoverArt || undefined,
         }
       });
+
+      if (a2PilotEnabled) {
+        const provenance = overriddenCritique?.subMetricsCall1?.a2ScoringProvenance;
+        const spaceStage = provenance?.spaceAndDensity?.browserScoringStage;
+        const midrangeStage = provenance?.midrangeSpacing?.browserScoringStage;
+        if (!liveMetrics || spaceStage !== "COMPLETED" ||
+            midrangeStage !== "COMPLETED") {
+          throw new Error("A2 pilot browser evidence incomplete; persistent pilot locked. Do not upload the next recording.");
+        }
+        // Nonpaid acknowledgment unlocks the next recording only after the
+        // scoring browser has positively completed both A2 evidence traces.
+        const a2Ack = await fetch("/api/internal/a2-pilot/ack", {
+          method: "POST",
+          headers: { "Content-Type": "application/json",
+            "X-YSS-A2-Pilot-Token": a2PilotToken },
+          body: JSON.stringify({a2PilotCase,spaceStage,midrangeStage}),
+        });
+        if (!a2Ack.ok) {
+          throw new Error("A2 pilot completion acknowledgment rejected; persistent pilot locked. Do not retry.");
+        }
+      }
 
       if (currentUser) {
         try {
@@ -3198,7 +3219,8 @@ export default function App() {
                               <p className="text-xs text-amber-200">
                                 No batch mode or retries. Five or six Gemini operations per song.
                                 The shared 24-request / $5 conservative ledger stops on errors.
-                                Leave title, artist and genre empty; keep 3X off.
+                                Leave title, artist and genre empty, select auto genre and keep 3X off.
+                                Each case must also confirm browser A2 completion before the next upload.
                               </p>
                             </>
                           )}
