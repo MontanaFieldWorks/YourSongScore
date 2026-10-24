@@ -49,6 +49,10 @@ export function reservePilotRequest(state: A2PilotState, caseId: A2PilotCase): A
   ensureNotStopped(state);
   if (state.activeCase !== caseId) deny("no active authorized pilot case");
   if (state.inFlight) deny("a provider request remains in flight");
+  if (state.callsThisCase >= 6) {
+    return { ...state, stopped: true,
+      stopReason: "six provider operations per recording ceiling reached" };
+  }
   if (state.requests >= A2_PILOT_MAX_REQUESTS ||
       state.spentCents + A2_PILOT_RESERVATION_CENTS > A2_PILOT_MAX_CENTS) {
     return { ...state, stopped: true, stopReason: "24-request or $5 conservative reservation ceiling reached" };
