@@ -241,6 +241,45 @@ test("legacy data never gets an invented A2 contribution or a fabricated capture
   assert.deepEqual(c, before);
 });
 
+test("post-browser Mix contribution is frozen at scoring, not reconstructed from later report data", () => {
+  const c = f();
+  captureA2ServerMixInputs(c);
+  captureA2BeforeClient(c);
+  c.subMetricsCall1.midrangeSpacing.score = 72;
+  captureA2AfterClient(c, { midrangeCap: 72, spaceDensityCeiling: null });
+  const trace = c.subMetricsCall1.a2ScoringProvenance.midrangeSpacing;
+  assert.equal(trace.postClientMixDenominator, 75);
+  approx(trace.postClientMixEffectiveWeight, 100 / 3);
+  assert.equal(trace.postClientMixContribution, 24);
+  // A later edit/legacy replay must not silently rewrite captured arithmetic.
+  c.subMetricsCall1.midrangeSpacing.score = 80;
+  c.subMetricsCall1.lowEndDivision.applicable = false;
+  const rows = getA2ScoringProvenanceRows(c);
+  assert.equal(row(rows, M, "Current score shown in report"), 80);
+  assert.equal(row(rows, M, "Actual aggregation denominator (weight units)"), 75);
+  approx(row(rows, M, "Effective aggregate weight (%; computed from exact ratio)"), 100 / 3);
+  assert.equal(row(rows, M, "Exact pre-round weighted contribution (points)"), 24);
+  assert.equal(row(rows, M, "Contribution provenance"), "CAPTURED_POST_CLIENT");
+  assert.equal(row(rows, M, "Contribution basis"), "FROZEN POST-CLIENT MIX AGGREGATION BEFORE PARENT CEILING");
+});
+
+test("older completed-stage traces without frozen post-client inputs never invent their contribution", () => {
+  const c = f();
+  captureA2ServerMixInputs(c);
+  captureA2BeforeClient(c);
+  c.subMetricsCall1.a2ScoringProvenance.midrangeSpacing.browserScoringStage = "COMPLETED";
+  c.subMetricsCall1.a2ScoringProvenance.midrangeSpacing.postClientScore = 72;
+  c.subMetricsCall1.midrangeSpacing.score = 72;
+  const rows = getA2ScoringProvenanceRows(c);
+  assert.equal(row(rows, M, "Browser scoring stage"), "COMPLETED");
+  assert.equal(row(rows, M, "Actual aggregation denominator (weight units)"), "NOT_CAPTURED");
+  assert.equal(row(rows, M, "Effective aggregate weight (%; computed from exact ratio)"), "NOT_CAPTURED");
+  assert.equal(row(rows, M, "Exact pre-round weighted contribution (points)"), "NOT_CAPTURED");
+  assert.equal(row(rows, M, "Contribution provenance"), "NOT_CAPTURED (post-client aggregation snapshot absent)");
+  assert.equal(row(rows, M, "Contribution basis"), "POST-CLIENT MIX NOT_CAPTURED (no frozen snapshot)");
+  approx(row(rows, M, "Server Mix Balance contribution before browser correction"), 88*25/75);
+});
+
 test("simulated sanitized API response roundtrips through ACTUAL A2 ExcelJS Source Diagnostics writer", async () => {
   const c = f();
   captureA2ServerProductionInputs(c);
