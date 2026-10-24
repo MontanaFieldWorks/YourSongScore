@@ -22,6 +22,13 @@ applicability, or report formulas. A2 captures from PR #33 remain unchanged.
   not persisted in the browser Locker or included in public reports.
 - Existing production `GEMINI_API_KEY` remains the model credential; no new
   model or API key is introduced.
+- The normal YSS SDK stays `@google/genai` at its existing dependency
+  declaration. The pilot alone uses the separately installed exact alias
+  `@google/genai-a2-pilot = npm:@google/genai@2.30.0`. The old checked-in
+  lockfile pins the normal SDK to 2.6.0, which predates explicit retry and
+  continuation controls. Tests verify the actual installed pilot SDK version.
+  The lockfile is already out of sync with the manifest; update/verify it in
+  a separate dependency-lockfile cleanup before switching builds to `npm ci`.
 
 Do not copy the database URL or pilot token to public code, logs, docs or XLSX.
 PostgreSQL must allow atomic row locks and persistent transactions. Schema is
