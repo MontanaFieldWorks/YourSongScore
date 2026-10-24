@@ -4,11 +4,15 @@ import fs from "fs";
 import multer from "multer";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI as A2PilotGoogleGenAI } from "@google/genai-a2-pilot";
 import dotenv from "dotenv";
 import { GENRE_MAP } from "./src/data/musicData";
 import { computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC_SCORING_VERSION } from "./src/lib/mudPreventionDiagnostic";
 import { captureA2ServerProductionInputs, captureA2ServerMixInputs } from "./src/lib/a2ScoringProvenance";
 import { withholdA2RawEvidence, getRestrictedA2RawEvidence } from "./src/lib/a2InternalEvidence";
+import { a2PilotContext, a2PilotOnError, executeA2PilotProviderOperation,
+  a2PilotGenerateContentOptions, configuredA2PilotLedger, beginA2Pilot,
+  finishA2PilotIfActive, acknowledgeA2PilotBrowser, isA2PilotRequest } from "./src/lib/a2PilotSafety";
 
 dotenv.config();
 
@@ -30,7 +34,12 @@ const upload = multer({
 // Initialize Gemini Client
 const geminiApiKey = process.env.GEMINI_API_KEY;
 let ai: GoogleGenAI | null = null;
+let a2PilotAi: A2PilotGoogleGenAI | null = null;
 if (geminiApiKey) {
+  // Pilot-specific SDK client: one HTTP attempt, no SDK backoff/retries.
+  // This is never selected outside the separately authorized A2 context.
+  a2PilotAi = new A2PilotGoogleGenAI({ apiKey: geminiApiKey,
+    httpOptions: { retryOptions: { attempts: 1 } } });
   ai = new GoogleGenAI({
     apiKey: geminiApiKey,
     httpOptions: {
@@ -1969,6 +1978,15 @@ async function generateContentWithRetry(params: {
   if (!ai) {
     throw new Error("Gemini API Client is not configured. Please supply a GEMINI_API_KEY in Secrets.");
   }
+  const pilot = a2PilotContext.getStore();
+  if (pilot) {
+    // Admission is persisted BEFORE the SDK can send any request. Errors stop
+    // this pilot across instances, without retrying or resuming automatically.
+    return executeA2PilotProviderOperation(pilot, configuredA2PilotLedger(), async () => {
+      if (!a2PilotAi) throw new Error("A2 pilot Gemini client not configured");
+      return a2PilotAi.models.generateContent(a2PilotGenerateContentOptions(params));
+    });
+  }
   const attemptLimit = Math.min(3, Math.max(1, maxAttempts));
   for (let attempt = 1; attempt <= attemptLimit; attempt++) {
     try {
@@ -2068,7 +2086,9 @@ Return the best genre/subgenre plus a short evidence summary.`;
       console.log("[GenreConsistency] Focused blind-instrumental verification confirmed the original classification.");
     }
   } catch (err: any) {
-    if (isGeminiPrepayExhausted(err)) throw err;
+    // Pilot failures must not be downgraded to an optional genre fallback:
+    // doing so would permit later paid calls after an unsuccessful verification.
+    if (isA2PilotRequest() || isGeminiPrepayExhausted(err)) throw err;
     console.log("[GenreConsistency] Verification failed; continuing with the original classification:", err?.message || err);
   }
 }
@@ -2213,8 +2233,12 @@ app.get("/api/internal/a2-evidence/:id", (req, res) => {
   res.json({ evidence: result });
 });
 
+// Browser completion is a separate, nonpaid acknowledgment. If the client fails
+// to capture both A2 stages, the next recording remains locked in PostgreSQL.
+app.post("/api/internal/a2-pilot/ack", acknowledgeA2PilotBrowser);
+
 // 2. Main File Critique API
-app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
+app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req, res) => {
   try {
     if (!ai) {
       return res.status(500).json({ error: "Gemini API Client is not configured. Please supply a GEMINI_API_KEY in Secrets." });
@@ -2424,7 +2448,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
     } catch (subErr: any) {
-      if (isGeminiPrepayExhausted(subErr)) throw subErr;
+      if (isA2PilotRequest() || isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Call 1] Sub-Metrics Call 1 failed, continuing without it:", subErr.message || subErr);
       parsedCritique.subMetricsCall1Failed = true;
     }
@@ -2442,7 +2466,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
         inferredChordSummary = `Key: ${chordKeyAnalysis.keySignature}. Chord vocabulary used: ${chordList}. (Note: this is the song's overall key and chord vocabulary, not a timed section-by-section progression.)`;
       }
     } catch (subErr: any) {
-      if (isGeminiPrepayExhausted(subErr)) throw subErr;
+      if (isA2PilotRequest() || isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Chord/Key] Direct Gemini chord/key analysis failed, continuing without it:", subErr.message || subErr);
       parsedCritique.chordKeyAnalysisFailed = true;
     }
@@ -2454,7 +2478,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       parsedCritique.subMetricsCall2Failed = false;
       console.log("[Call 2] Sub-Metrics Call 2 completed successfully.");
     } catch (subErr: any) {
-      if (isGeminiPrepayExhausted(subErr)) throw subErr;
+      if (isA2PilotRequest() || isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Call 2] Sub-Metrics Call 2 failed, continuing without it:", subErr.message || subErr);
       parsedCritique.subMetricsCall2Failed = true;
     }
@@ -2478,7 +2502,7 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
       parsedCritique.subMetricsCall3Failed = false;
       console.log("[Call 3] Sub-Metrics Call 3 completed successfully.");
     } catch (subErr: any) {
-      if (isGeminiPrepayExhausted(subErr)) throw subErr;
+      if (isA2PilotRequest() || isGeminiPrepayExhausted(subErr)) throw subErr;
       console.error("[Call 3] Sub-Metrics Call 3 failed, continuing without it:", subErr.message || subErr);
       parsedCritique.subMetricsCall3Failed = true;
     }
@@ -2490,9 +2514,12 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
 
     // Withhold unfiltered Gemini text in a process-local, authenticated vault.
     // Ordinary API responses and Excel reports never contain raw A2 commentary.
+    await finishA2PilotIfActive();
     withholdA2RawEvidence(parsedCritique);
     res.json({ critique: parsedCritique });
   } catch (error: any) {
+    const a2Context = a2PilotContext.getStore();
+    if (a2Context) await a2PilotOnError(a2Context);
     console.error("Error processing file critique:", error);
     res.status(isGeminiPrepayExhausted(error) ? 402 : 500).json({ error: `Analysis failed: ${error.message || error}` });
   }
