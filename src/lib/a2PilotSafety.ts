@@ -192,6 +192,53 @@ export async function beginA2Pilot(req: any, res: any, next: () => void): Promis
     res.status(409).json({ error: String(e?.message || e) });
   }
 }
+/** One source for the exact options given to the installed pilot SDK. */
+export function a2PilotGenerateContentOptions(params: any): any {
+  if (params?.model !== A2_PILOT_MODEL) deny("pilot model changed");
+  return {
+    ...params,
+    model: A2_PILOT_MODEL,
+    config: {
+      ...(params.config || {}),
+      seed: params.config?.seed ?? 20261003,
+      automaticContinuation: false,
+      httpOptions: {
+        ...(params.config?.httpOptions || {}),
+        retryOptions: { attempts: 1 },
+      },
+    },
+  };
+}
+/**
+ * Wraps the ACTUAL pilot Gemini call. SQL reservation commits before mock/real
+ * transport may be invoked; its response is settled once and any failure
+ * permanently closes the pilot. Tests inject a fake DB + SDK mock fetch.
+ */
+export async function executeA2PilotProviderOperation(
+  context: A2PilotContext,
+  ledger: A2PilotLedger,
+  transport: () => Promise<any>,
+): Promise<any> {
+  if (context.stopped) deny("pilot context already stopped");
+  const reserved = await ledger.transact(s => reservePilotRequest(s, context.caseId));
+  if (reserved.stopped) {
+    context.stopped = true;
+    deny(reserved.stopReason || "pilot budget exhausted");
+  }
+  try {
+    const response = await transport();
+    const charge = estimatePilotChargeCents(response?.usageMetadata);
+    if (charge === null) deny("missing or implausible usage metadata");
+    await ledger.transact(s => settlePilotRequest(s, charge));
+    return response;
+  } catch (error) {
+    context.stopped = true;
+    try {
+      await ledger.transact(s => stopPilot(s, "provider, usage or ledger error; manual review required"));
+    } catch { /* failure to persist also closes local admission */ }
+    throw error;
+  }
+}
 export async function a2PilotBeforeProvider(context: A2PilotContext): Promise<void> {
   if (context.stopped) deny("request failed earlier in this pilot case");
   const state = await configuredA2PilotLedger().transact(s => reservePilotRequest(s, context.caseId));
