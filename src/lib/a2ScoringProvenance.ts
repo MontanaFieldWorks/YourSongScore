@@ -136,6 +136,14 @@ export function captureA2AfterClient(
           : "PRODUCTION_FINISH_MULTI_SIGNAL_CEILING"
         : "OTHER_CLIENT_CHANGE_NOT_ATTRIBUTED_TO_A2_CAP";
     entry.clientCapLimit = attributed ? cap : null;
+    // Freeze exact Mix Balance inputs at browser scoring time. Export must not
+    // reconstruct a claimed captured contribution from subsequently edited data.
+    if (key === "midrangeSpacing") {
+      const mix = exactMixContribution(critique);
+      entry.postClientMixDenominator = mix.denominator;
+      entry.postClientMixEffectiveWeight = mix.effectiveWeight;
+      entry.postClientMixContribution = mix.contribution;
+    }
   }
 }
 
@@ -166,7 +174,9 @@ export function getA2ScoringProvenanceRows(critique: any): A2DiagnosticRow[] {
     // the immutable server snapshot. Never invent a legacy A2 scoring event.
     const mixInputs = entry
       ? browserStage === "COMPLETED"
-        ? exactMixContribution(critique)
+        ? { denominator: entry.postClientMixDenominator ?? null,
+            effectiveWeight: entry.postClientMixEffectiveWeight ?? null,
+            contribution: entry.postClientMixContribution ?? null }
         : { denominator: entry.serverMixDenominator ?? null,
             effectiveWeight: entry.serverMixEffectiveWeight ?? null,
             contribution: entry.serverMixContribution ?? null }
@@ -213,7 +223,10 @@ export function getA2ScoringProvenanceRows(critique: any): A2DiagnosticRow[] {
     add(label, "Contribution provenance", !entry
       ? "NOT_CAPTURED (legacy report; A2 ledger absent)"
       : isSpace ? "CAPTURED_SERVER_ORIGINAL"
-      : browserStage === "COMPLETED" ? "CAPTURED_POST_CLIENT"
+      : browserStage === "COMPLETED"
+        ? finite(entry.postClientMixDenominator)
+          ? "CAPTURED_POST_CLIENT"
+          : "NOT_CAPTURED (post-client aggregation snapshot absent)"
       : browserStage === "BROWSER_DSP_UNAVAILABLE" ? "CAPTURED_SERVER_ONLY_BROWSER_UNAVAILABLE"
       : finite(entry.serverMixDenominator) ? "CAPTURED_SERVER_ONLY_BROWSER_NOT_CAPTURED"
       : "NOT_CAPTURED (no server or browser aggregation snapshot)");
@@ -232,7 +245,9 @@ export function getA2ScoringProvenanceRows(critique: any): A2DiagnosticRow[] {
       add(label, "Finish ceiling", finite(finish?.ceiling) ? finish.ceiling : finish?.ceiling === null ? "NONE" : "NOT_CAPTURED");
     } else {
       add(label, "Contribution basis", browserStage === "COMPLETED"
-        ? "POST-CLIENT MIX RECOMPUTATION BEFORE PARENT CEILING"
+        ? finite(entry?.postClientMixDenominator)
+          ? "FROZEN POST-CLIENT MIX AGGREGATION BEFORE PARENT CEILING"
+          : "POST-CLIENT MIX NOT_CAPTURED (no frozen snapshot)"
         : browserStage === "BROWSER_DSP_UNAVAILABLE"
           ? "SERVER MIX INPUTS ONLY (BROWSER UNAVAILABLE)"
           : "SERVER MIX INPUTS ONLY (BROWSER STAGE NOT CAPTURED)");
