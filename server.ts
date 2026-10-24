@@ -10,7 +10,7 @@ import { computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC
 import { captureA2ServerProductionInputs, captureA2ServerMixInputs } from "./src/lib/a2ScoringProvenance";
 import { withholdA2RawEvidence, getRestrictedA2RawEvidence } from "./src/lib/a2InternalEvidence";
 import { a2PilotContext, a2PilotBeforeProvider, a2PilotAfterProvider, a2PilotOnError,
-  beginA2Pilot, finishA2PilotIfActive, isA2PilotRequest } from "./src/lib/a2PilotSafety";
+  beginA2Pilot, finishA2PilotIfActive, acknowledgeA2PilotBrowser, isA2PilotRequest } from "./src/lib/a2PilotSafety";
 
 dotenv.config();
 
@@ -2243,6 +2243,10 @@ app.get("/api/internal/a2-evidence/:id", (req, res) => {
   if (!result) return res.status(404).json({ error: "Not available" });
   res.json({ evidence: result });
 });
+
+// Browser completion is a separate, nonpaid acknowledgment. If the client fails
+// to capture both A2 stages, the next recording remains locked in PostgreSQL.
+app.post("/api/internal/a2-pilot/ack", acknowledgeA2PilotBrowser);
 
 // 2. Main File Critique API
 app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req, res) => {
