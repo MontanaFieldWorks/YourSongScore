@@ -14,13 +14,13 @@ applicability, or report formulas. A2 captures from PR #33 remain unchanged.
 
 ## Configuration (NOT done by this PR)
 
-- \`YSS_A2_PILOT_ENABLED=true\` (off when unset)
-- \`YSS_A2_PILOT_DATABASE_URL\` — persistent PostgreSQL database; **not** a
+- `YSS_A2_PILOT_ENABLED=true` (off when unset)
+- `YSS_A2_PILOT_DATABASE_URL` — persistent PostgreSQL database; **not** a
   temporary Render container filesystem. This pilot will not run without it.
-- \`YSS_A2_PILOT_TOKEN\` — private 32+ character random secret. Enter it in the
+- `YSS_A2_PILOT_TOKEN` — private 32+ character random secret. Enter it in the
   A2 pilot password field. It is transmitted only in the pilot request header;
   not persisted in the browser Locker or included in public reports.
-- Existing production \`GEMINI_API_KEY\` remains the model credential; no new
+- Existing production `GEMINI_API_KEY` remains the model credential; no new
   model or API key is introduced.
 
 Do not copy the database URL or pilot token to public code, logs, docs or XLSX.
@@ -29,11 +29,11 @@ created on first authorized pilot request.
 
 ## Hardening
 
-- Maximum **24 provider-generation attempts total**, shared across all four
-  pilot cases and all instances. Requests are reserved durably **before** the SDK
+- Maximum **24 provider-generation attempts total** and **six per recording**,
+  shared across all four pilot cases and all instances. Requests are reserved durably **before** the SDK
   call and are never automatically retried. The SDK client sets
-  \`retryOptions.attempts=1\` and the pilot sets
-  \`automaticContinuation=false\`.
+  `retryOptions.attempts=1` and the pilot sets
+  `automaticContinuation=false`.
 - Maximum **$5 conservative estimated liability**, represented as 500 cents.
   Each admission reserves **175 cents**. No second operation is authorized
   while the first remains in flight. After a valid provider response, the
@@ -47,26 +47,34 @@ created on first authorized pilot request.
   budget as defense in depth. Do not use this control for arbitrary songs,
   other models, higher token limits or other Gemini usage on the same project.
 - Any network/provider error, malformed/missing token usage, out-of-range
-  usage, schema/analysis failure, or broken persistent-storage transaction
-  **stops** the pilot. Failed/in-flight reservations are NOT refunded. A server
+  usage, instrumental-genre verification failure, schema/analysis failure, or
+  broken persistent-storage transaction **stops** the pilot. Failed/in-flight reservations are NOT refunded. A server
   restart with an unfinished case remains blocked. No automatic repair/reset,
   resume, rerun or refund endpoint exists.
 - Server requires valid private pilot token, valid case ID and exact sequence,
-  MP3 upload, \`threeX=false\`, empty title/artist/genre metadata fields. A user
+  MP3 upload, `threeX=false`, empty title/artist/genre metadata fields. A user
   must still check that clean audio corresponds to the correct reference
-  master: filenames alone cannot cryptographically establish this.
+  master: filenames alone cannot cryptographically establish this. Browser
+  preflight additionally requires auto-genre mode (no genre override).
 - Normal user analysis uses the existing Gemini path and retry policy;
   controls apply ONLY to explicitly marked pilot submissions. Do not mistake
   regular uploads or the internal batch runner for a capped pilot.
 - Four cases each need five standard provider operations, sometimes six if
-  blind instrumental-genre verification fires. 24 requests is a maximum, not
-  a goal. A pilot that cannot complete within either limit fails closed.
+  blind instrumental-genre verification fires. **The server does not unlock
+  the next case after the last provider response.** Instead, a nonpaid,
+  token-protected browser acknowledgment must confirm both A2 provenance
+  stages are COMPLETED. A browser crash, failed DSP calculation or missing
+  acknowledgment leaves the current case locked across restarts. 24 total
+  requests and six per recording are ceilings, not targets; the pilot
+  fails closed if it cannot complete within these limits.
 
 ## Evidence / operator workflow (AFTER separate authorizations)
 
 Open production YSS > Upload > select exactly one MP3 > check
 "Internal A2 four-song pilot" > select numbered case > enter private token
-> clear Title/Artist/Genre > ensure 3X off > **Start A&R Audit** only once.
+> clear Title/Artist/Genre > select auto genre > ensure 3X off >
+**Start A&R Audit** only once. Confirm browser A2 acknowledgment succeeded.
+If it fails, do not retry, start another file, or reset the ledger.
 Export each workbook; inspect Source Diagnostics A2 Space/Density, Midrange
 Spacing, original/raw evidence access, before/after caps, aggregate denominators
 and parent scores. Record actual account billing separately.
@@ -76,12 +84,12 @@ or simulating this DRAFT PR.
 
 ## Nonpaid verification
 
-\`npm run build\`
-\`npm run lint\` (compare existing TS2739 baseline)
-\`node --test tests/*.test.mjs\`
+`npm run build`
+`npm run lint` (compare existing TS2739 baseline)
+`node --test tests/*.test.mjs`
 
 The tests cover sequential order, duplicate cases, concurrent requests,
 cross-ledger locking, request/spending reservations, persistence after a
-simulated restart, fail-stop behavior, missing usage, and static server/client
-gates. Unit tests employ a fake persistent SQL row: they do **not** substitute
+simulated restart, fail-stop behavior, missing usage, six-per-song ceiling,
+browser-acknowledgment barrier, and static server/client gates. Unit tests employ a fake persistent SQL row: they do **not** substitute
 for a later, separately authorized staging PostgreSQL integration test.
