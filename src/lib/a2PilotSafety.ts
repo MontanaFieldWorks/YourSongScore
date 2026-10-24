@@ -163,7 +163,9 @@ export async function beginA2Pilot(req: any, res: any, next: () => void): Promis
   try {
     if (!A2_PILOT_CASES.includes(caseId) ||
         !pilotAuthorized(bearer, process.env.YSS_A2_PILOT_TOKEN) ||
-        !validA2PilotFile(caseId, req.file?.originalname || "")) {
+        !validA2PilotFile(caseId, req.file?.originalname || "") ||
+        req.body?.threeX !== "false" ||
+        req.body?.metaTitle || req.body?.metaArtist || req.body?.metaGenre) {
       return void res.status(403).json({error: "A2 pilot authorization/case/filename rejected"});
     }
     const store = configuredA2PilotLedger();
