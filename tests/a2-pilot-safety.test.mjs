@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { createRequire } from "node:module";
+import { GoogleGenAI as PilotGoogleGenAI } from "@google/genai-a2-pilot";
 import {
   A2_PILOT_ID, A2_PILOT_MAX_CENTS, A2_PILOT_MAX_REQUESTS, A2_PILOT_RESERVATION_CENTS,
   A2_PILOT_CASES, A2PilotLedger, initialA2PilotState, startPilotCase,
@@ -14,6 +17,27 @@ const SECRET = "a2-pilot-private-test-token-123456789012345";
 const make = () => initialA2PilotState();
 const take = (s, caseId = "BOSTON_CLEAN") => reservePilotRequest(s, caseId);
 const success = (s, caseId = "BOSTON_CLEAN") => settlePilotRequest(take(s, caseId), 1);
+
+test("real installed pilot SDK is pinned 2.30.0 without upgrading normal YSS SDK", () => {
+  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.equal(pkg.dependencies["@google/genai"], "^2.4.0");
+  assert.equal(pkg.dependencies["@google/genai-a2-pilot"], "npm:@google/genai@2.30.0");
+  const require = createRequire(import.meta.url);
+  let current = dirname(require.resolve("@google/genai-a2-pilot"));
+  let installed = null;
+  for (let i = 0; i < 6; i++) {
+    const candidate = join(current, "package.json");
+    if (existsSync(candidate)) {
+      const meta = JSON.parse(readFileSync(candidate, "utf8"));
+      if (meta.name === "@google/genai") { installed = meta.version; break; }
+    }
+    current = dirname(current);
+  }
+  assert.equal(installed, "2.30.0", "pilot must use a capable installed SDK, not the older normal lockfile SDK");
+  const client = new PilotGoogleGenAI({ apiKey: "test-only-no-paid-request",
+    httpOptions: { retryOptions: { attempts: 1 } } });
+  assert.equal(typeof client.models.generateContent, "function");
+});
 
 test("pilot constants encode exactly 4 slots, 24 requests, $5 and $1.75 worst-case reservation", () => {
   assert.equal(A2_PILOT_ID, "A2_FOUR_SONG_20261024");
