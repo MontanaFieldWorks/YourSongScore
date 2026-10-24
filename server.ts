@@ -2097,7 +2097,9 @@ Return the best genre/subgenre plus a short evidence summary.`;
       console.log("[GenreConsistency] Focused blind-instrumental verification confirmed the original classification.");
     }
   } catch (err: any) {
-    if (isGeminiPrepayExhausted(err)) throw err;
+    // Pilot failures must not be downgraded to an optional genre fallback:
+    // doing so would permit later paid calls after an unsuccessful verification.
+    if (isA2PilotRequest() || isGeminiPrepayExhausted(err)) throw err;
     console.log("[GenreConsistency] Verification failed; continuing with the original classification:", err?.message || err);
   }
 }
