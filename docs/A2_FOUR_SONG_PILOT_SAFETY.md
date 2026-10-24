@@ -25,10 +25,12 @@ applicability, or report formulas. A2 captures from PR #33 remain unchanged.
 - The normal YSS SDK stays `@google/genai` at its existing dependency
   declaration. The pilot alone uses the separately installed exact alias
   `@google/genai-a2-pilot = npm:@google/genai@2.30.0`. The old checked-in
-  lockfile pins the normal SDK to 2.6.0, which predates explicit retry and
-  continuation controls. Tests verify the actual installed pilot SDK version.
-  The lockfile is already out of sync with the manifest; update/verify it in
-  a separate dependency-lockfile cleanup before switching builds to `npm ci`.
+  lockfile previously pinned the normal SDK to 2.6.0, which predates the
+  explicit retry and continuation controls. The full lockfile has now been
+  regenerated with npm (including previously missing production dependencies),
+  and the branch verification workflow uses `npm ci` for reproducible installs.
+  The pilot SDK is tested directly against a no-network injected fetch to prove
+  one HTTP attempt for 429/5xx, connection errors and CONTINUATION results.
 
 Do not copy the database URL or pilot token to public code, logs, docs or XLSX.
 PostgreSQL must allow atomic row locks and persistent transactions. Schema is
@@ -98,5 +100,10 @@ or simulating this DRAFT PR.
 The tests cover sequential order, duplicate cases, concurrent requests,
 cross-ledger locking, request/spending reservations, persistence after a
 simulated restart, fail-stop behavior, missing usage, six-per-song ceiling,
-browser-acknowledgment barrier, and static server/client gates. Unit tests employ a fake persistent SQL row: they do **not** substitute
-for a later, separately authorized staging PostgreSQL integration test.
+browser-acknowledgment barrier, and server/client integration. The mock HTTP
+transport exercises the **real installed pilot SDK** and production-used
+`executeA2PilotProviderOperation` wrapper, verifying no retries or automatic
+continuation, no dispatch after provider errors and no dispatch when an
+allowance is exhausted. Tests never make network calls or contact Gemini.
+The SQL tests use a fake persistent row, not a real PostgreSQL server; real
+PostgreSQL integration remains subject to separate authorization.
