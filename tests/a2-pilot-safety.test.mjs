@@ -4,7 +4,8 @@ import { readFileSync } from "node:fs";
 import {
   A2_PILOT_ID, A2_PILOT_MAX_CENTS, A2_PILOT_MAX_REQUESTS, A2_PILOT_RESERVATION_CENTS,
   A2_PILOT_CASES, A2PilotLedger, initialA2PilotState, startPilotCase,
-  reservePilotRequest, settlePilotRequest, stopPilot, completePilotCase,
+  reservePilotRequest, settlePilotRequest, stopPilot, markPilotServerComplete,
+  completePilotCase, acknowledgeA2PilotBrowser,
   estimatePilotChargeCents, pilotAuthorized, validA2PilotFile,
   beginA2Pilot, a2PilotBeforeProvider, a2PilotAfterProvider, a2PilotOnError,
 } from "../src/lib/a2PilotSafety.ts";
@@ -28,7 +29,7 @@ test("pilot refuses out-of-order or duplicate recording slots", () => {
   assert.throws(() => startPilotCase(first, "BOSTON_CLEAN"), /unfinished/);
   let current = first;
   for (let i = 0; i < 5; i++) current = success(current);
-  current = completePilotCase(current, "BOSTON_CLEAN");
+  current = completePilotCase(markPilotServerComplete(current, "BOSTON_CLEAN"), "BOSTON_CLEAN");
   assert.equal(current.completedCases, 1);
   assert.throws(() => startPilotCase(current, "BOSTON_CLEAN"), /incorrect or duplicate/);
   assert.equal(startPilotCase(current, "T01_B").activeCase, "T01_B");
@@ -40,6 +41,10 @@ test("a completed case requires 5 or 6 finished provider operations", () => {
   for (let i = 0; i < 4; i++) s = success(s);
   assert.throws(() => completePilotCase(s, "BOSTON_CLEAN"), /incomplete/);
   s = success(s);
+  assert.throws(() => completePilotCase(s, "BOSTON_CLEAN"), /browser A2 completion not confirmed/);
+  s = markPilotServerComplete(s, "BOSTON_CLEAN");
+  assert.equal(s.awaitingClientAck, true);
+  assert.throws(() => take(s), /awaiting verified browser completion/);
   assert.equal(completePilotCase(s, "BOSTON_CLEAN").completedCases, 1);
 });
 
@@ -62,7 +67,7 @@ test("all four cases can settle exactly 24 authorized requests with six each", (
   for (const caseId of A2_PILOT_CASES) {
     s = startPilotCase(s, caseId);
     for (let i = 0; i < 6; i++) s = settlePilotRequest(take(s, caseId), 1);
-    s = completePilotCase(s, caseId);
+    s = completePilotCase(markPilotServerComplete(s, caseId), caseId);
   }
   assert.equal(s.requests, 24);
   assert.equal(s.completedCases, 4);
@@ -236,13 +241,55 @@ test("server and UI integrate guard only into the ordinary single-file pilot opt
   assert.match(server, /await a2PilotBeforeProvider\(pilot\)/);
   assert.match(server, /await a2PilotAfterProvider\(pilot, response\)/);
   assert.match(server, /await finishA2PilotIfActive\(\)/);
+  assert.match(server, /app.post\("\/api\/internal\/a2-pilot\/ack", acknowledgeA2PilotBrowser\)/);
   assert.match(server, /retryOptions: \{ attempts: 1 \}/);
   assert.match(server, /automaticContinuation: false/);
   assert.match(server, /a2PilotOnError\(a2Context\)/);
   assert.match(server, /const attemptLimit = Math\.min\(3/); // normal route unchanged
   assert.match(app, /a2PilotEnabled \? \{headers: \{"X-YSS-A2-Pilot-Token": a2PilotToken\}\}/);
   assert.match(app, /formData\.append\("a2PilotCase", a2PilotCase\)/);
+  assert.match(app, /genreMode !== "auto"/);
+  assert.match(app, /spaceStage !== "COMPLETED"/);
+  assert.match(app, /midrangeStage !== "COMPLETED"/);
+  assert.match(app, /fetch\("\/api\/internal\/a2-pilot\/ack"/);
   assert.equal((server.match(/model: "gemini-2\.5-flash"/g) || []).length, 7);
+});
+
+test("server response alone cannot unlock next recording or allow extra provider calls", () => {
+  let s = startPilotCase(make(), "BOSTON_CLEAN");
+  for (let i = 0; i < 5; i++) s = success(s);
+  s = markPilotServerComplete(s, "BOSTON_CLEAN");
+  assert.throws(() => startPilotCase(s, "T01_B"), /unfinished/);
+  assert.throws(() => reservePilotRequest(s, "BOSTON_CLEAN"), /awaiting verified browser completion/);
+  s = completePilotCase(s, "BOSTON_CLEAN");
+  assert.equal(s.completedCases, 1);
+  assert.equal(s.awaitingClientAck, false);
+  assert.equal(startPilotCase(s, "T01_B").activeCase, "T01_B");
+});
+
+test("browser pending state persists across simulated restarts and blocks next song", async () => {
+  const db = fakePostgres();
+  const a = new A2PilotLedger(db);
+  await a.transact(s => startPilotCase(s, "BOSTON_CLEAN"));
+  for (let i = 0; i < 5; i++) {
+    await a.transact(s => take(s));
+    await a.transact(s => settlePilotRequest(s, 1));
+  }
+  await a.transact(s => markPilotServerComplete(s, "BOSTON_CLEAN"));
+  assert.equal(db.snapshot().awaitingClientAck, true);
+  await assert.rejects(new A2PilotLedger(db).transact(
+    s => startPilotCase(s, "T01_B")), /unfinished/);
+  await new A2PilotLedger(db).transact(s => completePilotCase(s, "BOSTON_CLEAN"));
+  assert.equal(db.snapshot().completedCases, 1);
+});
+
+test("unauthorized browser acknowledgment rejects without DB writes or paid calls", async () => {
+  const calls = [];
+  const req = {body:{a2PilotCase:"BOSTON_CLEAN",spaceStage:"COMPLETED",midrangeStage:"COMPLETED"},
+    get:()=> "incorrect-test-token-value-at-least-32-chars"};
+  const res = {setHeader(){},status(n){calls.push(n);return this;},json(obj){calls.push(obj);}};
+  await acknowledgeA2PilotBrowser(req,res);
+  assert.equal(calls[0],403);
 });
 
 test("without pilot secret, opt-in fails before any provider request", async () => {
