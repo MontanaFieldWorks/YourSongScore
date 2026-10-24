@@ -2523,6 +2523,8 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
     withholdA2RawEvidence(parsedCritique);
     res.json({ critique: parsedCritique });
   } catch (error: any) {
+    const a2Context = a2PilotContext.getStore();
+    if (a2Context) await a2PilotOnError(a2Context);
     console.error("Error processing file critique:", error);
     res.status(isGeminiPrepayExhausted(error) ? 402 : 500).json({ error: `Analysis failed: ${error.message || error}` });
   }
