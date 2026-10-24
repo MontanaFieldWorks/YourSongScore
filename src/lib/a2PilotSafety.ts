@@ -112,7 +112,8 @@ type DbClient = { query: (sql: string, params?: unknown[]) => Promise<{ rows: an
 type DbPool = { connect: () => Promise<DbClient>; query: (sql: string, params?: unknown[]) => Promise<{ rows: any[] }> };
 export class A2PilotLedger {
   private initialized: Promise<void> | null = null;
-  constructor(private db: DbPool) {}
+  private db: DbPool;
+  constructor(db: DbPool) { this.db = db; }
   private async setup(): Promise<void> {
     if (!this.initialized) {
       this.initialized = (async () => {
