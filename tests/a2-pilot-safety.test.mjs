@@ -262,12 +262,13 @@ test("server and UI integrate guard only into the ordinary single-file pilot opt
   const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
   const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
   assert.match(server, /upload\.single\("audio"\), beginA2Pilot, async/);
-  assert.match(server, /await a2PilotBeforeProvider\(pilot\)/);
-  assert.match(server, /await a2PilotAfterProvider\(pilot, response\)/);
+  assert.match(server, /executeA2PilotProviderOperation\(pilot, configuredA2PilotLedger\(\)/);
+  assert.match(server, /a2PilotGenerateContentOptions\(params\)/);
   assert.match(server, /await finishA2PilotIfActive\(\)/);
   assert.match(server, /app.post\("\/api\/internal\/a2-pilot\/ack", acknowledgeA2PilotBrowser\)/);
   assert.match(server, /retryOptions: \{ attempts: 1 \}/);
-  assert.match(server, /automaticContinuation: false/);
+  const safety = readFileSync(new URL("../src/lib/a2PilotSafety.ts", import.meta.url), "utf8");
+  assert.match(safety, /automaticContinuation: false/);
   assert.match(server, /a2PilotOnError\(a2Context\)/);
   assert.match(server, /const attemptLimit = Math\.min\(3/); // normal route unchanged
   assert.match(app, /a2PilotEnabled \? \{headers: \{"X-YSS-A2-Pilot-Token": a2PilotToken\}\}/);
