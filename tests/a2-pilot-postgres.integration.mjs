@@ -6,6 +6,7 @@
 import assert from "node:assert/strict";
 import { test, before, beforeEach, after } from "node:test";
 import pg from "pg";
+import { spawn } from "node:child_process";
 import {
   A2_PILOT_ID, A2PilotLedger, initialA2PilotState, startPilotCase,
   reservePilotRequest, settlePilotRequest, markPilotServerComplete,
@@ -35,6 +36,31 @@ async function createInitialCase(pool) {
   return ledger;
 }
 const context = () => ({ caseId: "BOSTON_CLEAN", stopped: false });
+
+// Spawn the real integration worker as a DIFFERENT operating-system process.
+// The worker receives only the disposable PostgreSQL URL and a PATH, never
+// production credentials or model configuration.
+async function runSeparateNodeProcess(action) {
+  return await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [
+      new URL("./support/a2-pg-worker.mjs", import.meta.url).pathname, action,
+    ], {
+      cwd: process.cwd(),
+      env: {
+        PATH: process.env.PATH || "",
+        A2_PG_INTEGRATION_DATABASE_URL: endpoint,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "", stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", chunk => stdout += chunk);
+    child.stderr.on("data", chunk => stderr += chunk);
+    child.on("error", reject);
+    child.on("close", code => resolve({ code, stdout, stderr }));
+  });
+}
 
 before(async () => {
   await admin.query("DROP TABLE IF EXISTS yss_a2_pilot_ledger");
@@ -232,4 +258,36 @@ test("separate connection observes committed stop; fails closed under further co
     assert.equal((await persisted()).stopped,true);
     assert.equal((await persisted()).requests,0);
   } finally { await a.end(); await b.end(); await c.end(); }
+});
+
+test("two actual Node processes racing initial case authorization share one PostgreSQL row lock", async () => {
+  const results = await Promise.all([
+    runSeparateNodeProcess("start"),
+    runSeparateNodeProcess("start"),
+  ]);
+  assert.equal(results.filter(r => r.code === 0).length, 1,
+    "only one independent process may begin the first case");
+  assert.equal(results.filter(r => r.code !== 0).length, 1,
+    "one process must observe already-active case");
+  assert.equal((await persisted()).activeCase, "BOSTON_CLEAN");
+  assert.equal((await persisted()).requests, 0);
+});
+
+test("committed reservation survives a real Node process exit and fresh worker restart", async () => {
+  const pool = makePool();
+  try {
+    await createInitialCase(pool);
+  } finally { await pool.end(); }
+  const first = await runSeparateNodeProcess("reserve");
+  assert.equal(first.code, 0, first.stderr);
+  assert.equal(JSON.parse(first.stdout.trim()).requests, 1);
+  const afterExit = await persisted();
+  assert.equal(afterExit.requests, 1);
+  assert.equal(afterExit.spentCents, 175);
+  assert.equal(afterExit.inFlight, true);
+  const second = await runSeparateNodeProcess("reserve");
+  assert.notEqual(second.code, 0, "fresh process must not redispatch stranded request");
+  assert.match(second.stderr, /in flight/);
+  assert.deepEqual(await persisted(), afterExit,
+    "new process never refunds or mutates stranded reservation");
 });
