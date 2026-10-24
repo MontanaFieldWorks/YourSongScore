@@ -167,6 +167,10 @@ export default function App() {
   const [localTrackFiles, setLocalTrackFiles] = useState<Record<string, File>>({});
   const [selectedDefinitionTerm, setSelectedDefinitionTerm] = useState<string | undefined>(undefined);
   const [threeXMode, setThreeXMode] = useState(false);
+  // Explicitly opt-in; token stays in React memory and is never saved to Locker.
+  const [a2PilotEnabled, setA2PilotEnabled] = useState(false);
+  const [a2PilotCase, setA2PilotCase] = useState("BOSTON_CLEAN");
+  const [a2PilotToken, setA2PilotToken] = useState("");
   const [showLibraryDropdown, setShowLibraryDropdown] = useState(false);
   const [showMoreNav, setShowMoreNav] = useState(false);
   const [queuedTrack, setQueuedTrack] = useState<any | null>(null);
@@ -1283,6 +1287,12 @@ export default function App() {
 
   const handleSubmitFile = async () => {
     if (!selectedFile) return;
+    if (a2PilotEnabled && (threeXMode || a2PilotToken.length < 32 ||
+        extractedTitle || extractedArtist || extractedGenre)) {
+      setErrorHeader("A2 Pilot Preflight Blocked");
+      setErrorDetails("Pilot requires single-pass mode, a 32+ character token, and empty Title/Artist/Genre tags. No analysis was submitted.");
+      return;
+    }
 
     setLoading(true);
     setLoadingStatus("Summoning studio-grade mixing engineer...");
@@ -1293,6 +1303,7 @@ export default function App() {
     const formData = new FormData();
     formData.append("audio", selectedFile);
     formData.append("threeX", threeXMode ? "true" : "false");
+    if (a2PilotEnabled) formData.append("a2PilotCase", a2PilotCase);
     if (extractedTitle) formData.append("metaTitle", extractedTitle);
     if (extractedArtist) formData.append("metaArtist", extractedArtist);
     if (extractedGenre) formData.append("metaGenre", extractedGenre);
@@ -1317,6 +1328,7 @@ export default function App() {
       setLoadingStatus(threeXMode ? "Multi-pass analysis starting up..." : "Gemini is listening to your transients and harmonics...");
       const res = await fetch("/api/critique-file", {
         method: "POST",
+        ...(a2PilotEnabled ? {headers: {"X-YSS-A2-Pilot-Token": a2PilotToken}} : {}),
         body: formData,
       });
 
@@ -3156,6 +3168,42 @@ export default function App() {
                         selectedFile={selectedFile}
                       />
                       
+                      {selectedFile && (
+                        <div className="bg-[#0A0B0E] rounded-2xl p-4 border border-amber-500/20 flex flex-col gap-3 text-left mt-2">
+                          <label className="flex gap-2 items-center text-xs text-amber-300">
+                            <input type="checkbox" checked={a2PilotEnabled}
+                              onChange={e => setA2PilotEnabled(e.target.checked)} />
+                            Internal A2 four-song pilot (disabled unless separately configured)
+                          </label>
+                          {a2PilotEnabled && (
+                            <>
+                              <label className="text-xs text-slate-300" htmlFor="a2-pilot-case">
+                                Authorized recording slot (strict order)
+                              </label>
+                              <select id="a2-pilot-case" value={a2PilotCase}
+                                onChange={e => setA2PilotCase(e.target.value)}
+                                className="p-2 bg-[#12141A] border border-white/15 text-white rounded-md">
+                                <option value="BOSTON_CLEAN">1 — Clean More Than a Feeling</option>
+                                <option value="T01_B">2 — T01_B.mp3 (muddy Boston)</option>
+                                <option value="DRAKE_CLEAN">3 — Clean God's Plan</option>
+                                <option value="T02_B">4 — T02_B.mp3 (muddy Drake)</option>
+                              </select>
+                              <label className="text-xs text-slate-300" htmlFor="a2-pilot-token">
+                                Private pilot token (not saved)
+                              </label>
+                              <input id="a2-pilot-token" type="password" value={a2PilotToken}
+                                onChange={e => setA2PilotToken(e.target.value)}
+                                autoComplete="off" spellCheck={false}
+                                className="p-2 bg-[#12141A] border border-white/15 text-white rounded-md" />
+                              <p className="text-xs text-amber-200">
+                                No batch mode or retries. Five or six Gemini operations per song.
+                                The shared 24-request / $5 conservative ledger stops on errors.
+                                Leave title, artist and genre empty; keep 3X off.
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      )}
                       {selectedFile && (
                         <div className="bg-[#0A0B0E] rounded-2xl p-4 border border-blue-500/10 flex flex-col gap-4 text-left mt-2 animate-fadeIn">
                           <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-[#3B82F6]/90 flex items-center gap-1.5 border-b border-white/5 pb-2">
