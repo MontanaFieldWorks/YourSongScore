@@ -5,6 +5,7 @@ import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, 
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
 import { analyzeAudioBufferInWorker } from "./lib/batchAudioWorker";
 import { computeMixBalanceScore, isMudDiagnosticCritique, markMudPreventionDiagnosticOnly } from "./lib/mudPreventionDiagnostic";
+import { captureA2BeforeClient, captureA2AfterClient, captureA2BrowserUnavailable } from "./lib/a2ScoringProvenance";
 
 // Runs the new, validated essentia.js key detection and overwrites the old,
 // confirmed-unreliable chroma-based key on the given liveMetrics object in place.
@@ -435,6 +436,8 @@ export default function App() {
   // Engineering Studio, eliminating the separate client->server evidence handoff.
   const applyProductionFinishGuardrail = (critique: CritiqueData, liveMetrics: any): CritiqueData => {
     if (!critique || !liveMetrics) return critique;
+    // Record server-returned child scores before browser corrections, for internal audit only.
+    captureA2BeforeClient(critique);
     const finite = (v: any): v is number => typeof v === "number" && Number.isFinite(v);
     const crest = finite(liveMetrics.calculatedCrestFactorDb)
       ? liveMetrics.calculatedCrestFactorDb
@@ -847,7 +850,10 @@ export default function App() {
       }
     }
 
-    if (ceiling === null) return critique;
+    if (ceiling === null) {
+      captureA2AfterClient(critique, { midrangeCap, spaceDensityCeiling: null });
+      return critique;
+    }
 
     const spaceDensityCeiling = Math.min(88, ceiling + 4);
     const paletteCohesionCeiling = Math.min(88, ceiling + 8);
@@ -880,6 +886,7 @@ export default function App() {
       critique.mixQuality.dominanceIssues =
         `Objective production-finish cross-check constrains the final Mix Balance rating. ${summary}`;
     }
+    captureA2AfterClient(critique, { midrangeCap, spaceDensityCeiling });
     return critique;
   };
 
@@ -1348,6 +1355,8 @@ export default function App() {
       if (liveMetrics) {
         overriddenCritique.liveMetrics = liveMetrics;
         applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
+      } else {
+        captureA2BrowserUnavailable(overriddenCritique);
       }
 
       if (overriddenCritique.liveMetrics) {
@@ -1771,6 +1780,8 @@ export default function App() {
       if (liveMetrics) {
         overriddenCritique.liveMetrics = liveMetrics;
         applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
+      } else {
+        captureA2BrowserUnavailable(overriddenCritique);
       }
 
       if (overriddenCritique.liveMetrics) {
@@ -1851,6 +1862,8 @@ export default function App() {
       }
       if (liveMetrics) {
         applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
+      } else {
+        captureA2BrowserUnavailable(overriddenCritique);
       }
 
       if (overriddenCritique.liveMetrics) {
@@ -2115,6 +2128,8 @@ export default function App() {
       }
       if (overriddenFinalCritique.liveMetrics) {
         applyProductionFinishGuardrail(overriddenFinalCritique, overriddenFinalCritique.liveMetrics);
+      } else {
+        captureA2BrowserUnavailable(overriddenFinalCritique);
       }
 
       const updatedTrack: StoredTrack = {

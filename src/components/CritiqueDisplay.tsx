@@ -7,6 +7,7 @@ import ExcelJS from "exceljs";
 import { getSourceVerificationRows } from "../lib/sourceVerificationDiagnostics";
 import { analyzeClimaxPeakCompetition, formatClimaxPeakDiagnostic } from "../lib/climaxPeakDiagnostics";
 import { getClimaxTrajectoryEvidenceRows } from "../lib/climaxEvidenceExport";
+import { appendA2ProvenanceToSourceDiagnostics } from "../lib/a2ScoringProvenance";
 import { getMudPreventionPublicCommentary } from "../lib/mudPreventionReporting";
 import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS } from "../lib/mudPreventionDiagnostic";
 import { 
@@ -1838,6 +1839,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       row.alignment = { vertical: "top", wrapText: true };
       if (evidence.field.includes("commentary")) row.height = 65;
     }
+    // A2 metric score provenance is emitted on this internal worksheet only.
+    // No data on this worksheet is ever consulted for public scores.
+    appendA2ProvenanceToSourceDiagnostics(wsSourceDiagnostics, critique);
     const wsGenreDiagnostics = critique?.genrePipelineDiagnostics
       ? workbook.addWorksheet("Genre Diagnostics", { views: [{ showGridLines: false }] })
       : null;

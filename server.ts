@@ -7,6 +7,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { GENRE_MAP } from "./src/data/musicData";
 import { computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC_SCORING_VERSION } from "./src/lib/mudPreventionDiagnostic";
+import { captureA2ServerProductionInputs, captureA2ServerMixInputs } from "./src/lib/a2ScoringProvenance";
+import { withholdA2RawEvidence, getRestrictedA2RawEvidence } from "./src/lib/a2InternalEvidence";
 
 dotenv.config();
 
@@ -353,6 +355,20 @@ function applyDeterministicProductionTierScores(call1: any): any {
     "stereoWidth",
   ];
 
+  // Audit-only snapshot of Gemini's original Call 1 output. Kept outside the
+  // structured provider response schema and never used to choose a score.
+  call1.a2ScoringProvenance = {};
+  for (const key of ["spaceAndDensity", "midrangeSpacing"]) {
+    const original = call1?.[key];
+    if (original) {
+      call1.a2ScoringProvenance[key] = {
+        rawQualityTier: original.qualityTier,
+        rawCommentary: original.commentary,
+        serverCap: key === "spaceAndDensity" ? null : undefined,
+        serverCapReason: key === "spaceAndDensity" ? "NONE" : "NOT_APPLICABLE",
+      };
+    }
+  }
   for (const key of tieredMetricKeys) {
     const metric = call1?.[key];
     if (!metric) continue;
@@ -361,6 +377,8 @@ function applyDeterministicProductionTierScores(call1: any): any {
       throw new Error(`Invalid production quality tier for ${key}: ${String(metric.qualityTier)}`);
     }
     metric.score = canonicalScore;
+    const a2Entry = call1?.a2ScoringProvenance?.[key];
+    if (a2Entry) a2Entry.canonicalMappedScore = canonicalScore;
   }
 
   return call1;
@@ -1331,7 +1349,11 @@ function enforceClassicalInstrumentalSourceNeutrality(parsedCritique: any): void
     if (typeof value === "string") return neutralize(value);
     if (Array.isArray(value)) return value.map(walk);
     if (value && typeof value === "object") {
-      for (const key of Object.keys(value)) value[key] = walk(value[key]);
+      for (const key of Object.keys(value)) {
+        // Preserve raw Gemini evidence verbatim in the internal A2 audit trail.
+        // Other report prose still receives the existing source-safety normalizers.
+        if (key !== "a2ScoringProvenance") value[key] = walk(value[key]);
+      }
     }
     return value;
   };
@@ -1436,7 +1458,11 @@ function enforceBlindReportIntegrity(critique: any, suppliedTitle: any): void {
     if (typeof value === "string") return neutralize(value);
     if (Array.isArray(value)) return value.map(walk);
     if (value && typeof value === "object") {
-      for (const key of Object.keys(value)) value[key] = walk(value[key]);
+      for (const key of Object.keys(value)) {
+        // Preserve raw Gemini evidence verbatim in the internal A2 audit trail.
+        // Other report prose still receives the existing source-safety normalizers.
+        if (key !== "a2ScoringProvenance") value[key] = walk(value[key]);
+      }
     }
     return value;
   };
@@ -1504,6 +1530,11 @@ function reconcileParentScores(parsedCritique: any): void {
       c1Ready.spaceAndDensity.score = spaceDensityCeiling;
       c1Ready.spaceAndDensity.commentary =
         `The arrangement may retain usable separation, but the delivered spectrum is too uneven to support a 90+ space-and-density result. Extreme finish outliers indicate that apparent openness is not translating as balanced, reference-level spectral occupancy. ${finishEvidence.summary}`;
+      const trace = c1Ready.a2ScoringProvenance?.spaceAndDensity;
+      if (trace) {
+        trace.serverCap = spaceDensityCeiling;
+        trace.serverCapReason = "PRODUCTION_FINISH_MULTI_SIGNAL_CEILING";
+      }
     }
     if (c1Ready.paletteCohesion && typeof c1Ready.paletteCohesion.score === "number" && c1Ready.paletteCohesion.score > paletteCohesionCeiling) {
       c1Ready.paletteCohesion.score = paletteCohesionCeiling;
@@ -1677,6 +1708,8 @@ function reconcileParentScores(parsedCritique: any): void {
         "Not applicable: this instrumental has no established vocal or spoken consonants.";
     }
 
+    // Evidence snapshot mirrors the exact server aggregation before it rounds/caps.
+    captureA2ServerProductionInputs(parsedCritique);
     const production = weightedAvg([
       [c1Ready.aestheticDesign?.score, 40],
       [c1Ready.spaceAndDensity?.score, 35],
@@ -1691,6 +1724,8 @@ function reconcileParentScores(parsedCritique: any): void {
       // Objective multi-signal production-finish ceilings remain authoritative.
       parsedCritique.scores.overallProduction =
         finishCeiling !== null ? Math.min(production, finishCeiling) : production;
+      const trace = c1Ready.a2ScoringProvenance?.spaceAndDensity;
+      if (trace) trace.serverProductionParentScore = parsedCritique.scores.overallProduction;
     }
 
     // Sibilance Shaving and Low-End Division can both be genuinely N/A. Their 0
@@ -1699,6 +1734,7 @@ function reconcileParentScores(parsedCritique: any): void {
     // Mud Prevention remains measurable/reportable but is not a beta score.
     // Keep the other four weights and their independent applicability rules.
     markMudPreventionDiagnosticOnly(parsedCritique);
+    captureA2ServerMixInputs(parsedCritique);
     const mixBalance = computeMixBalanceScore(c1Ready, true);
     if (mixBalance !== null && parsedCritique.mixQuality) {
       parsedCritique.mixQuality.score =
@@ -2164,6 +2200,19 @@ app.get("/api/config-status", (req, res) => {
   });
 });
 
+// Read-only raw A2 evidence: disabled unless a 32+ character private token is set.
+// No public route is capable of receiving the unsanitized model commentary.
+app.get("/api/internal/a2-evidence/:id", (req, res) => {
+  res.setHeader("Cache-Control", "no-store, private");
+  const result = getRestrictedA2RawEvidence(
+    req.params.id,
+    req.headers.authorization,
+    process.env.YSS_A2_INTERNAL_TOKEN,
+  );
+  if (!result) return res.status(404).json({ error: "Not available" });
+  res.json({ evidence: result });
+});
+
 // 2. Main File Critique API
 app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
   try {
@@ -2439,6 +2488,9 @@ app.post("/api/critique-file", upload.single("audio"), async (req, res) => {
     enforceClassicalInstrumentalSourceNeutrality(parsedCritique);
     enforceBlindReportIntegrity(parsedCritique, metaTitle);
 
+    // Withhold unfiltered Gemini text in a process-local, authenticated vault.
+    // Ordinary API responses and Excel reports never contain raw A2 commentary.
+    withholdA2RawEvidence(parsedCritique);
     res.json({ critique: parsedCritique });
   } catch (error: any) {
     console.error("Error processing file critique:", error);
@@ -2706,6 +2758,9 @@ app.post("/api/critique-url", async (req, res) => {
     enforceClassicalInstrumentalSourceNeutrality(parsedCritique);
     enforceBlindReportIntegrity(parsedCritique, metaTitle);
 
+    // Withhold unfiltered Gemini text in a process-local, authenticated vault.
+    // Ordinary API responses and Excel reports never contain raw A2 commentary.
+    withholdA2RawEvidence(parsedCritique);
     res.json({ critique: parsedCritique });
   } catch (error: any) {
     console.error("Error processing URL critique:", error);
@@ -2883,6 +2938,7 @@ app.post("/api/critique-spotify", async (req, res) => {
     enforceClassicalInstrumentalSourceNeutrality(critique);
     enforceBlindReportIntegrity(critique, trackName);
 
+    withholdA2RawEvidence(critique);
     res.json({
       critique,
       trackInfo: {
