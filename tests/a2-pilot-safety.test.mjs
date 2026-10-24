@@ -43,6 +43,39 @@ test("a completed case requires 5 or 6 finished provider operations", () => {
   assert.equal(completePilotCase(s, "BOSTON_CLEAN").completedCases, 1);
 });
 
+test("a seventh provider operation for one recording is rejected BEFORE dispatch", () => {
+  let s = startPilotCase(make(), "BOSTON_CLEAN");
+  for (let i = 0; i < 6; i++) s = success(s);
+  assert.equal(s.callsThisCase, 6);
+  assert.equal(s.requests, 6);
+  assert.equal(s.inFlight, false);
+  const refused = take(s);
+  assert.equal(refused.stopped, true);
+  assert.equal(refused.requests, 6);
+  assert.equal(refused.spentCents, 6);
+  assert.match(refused.stopReason, /six provider operations per recording/);
+  assert.throws(() => take(refused), /six provider operations/);
+});
+
+test("all four cases can settle exactly 24 authorized requests with six each", () => {
+  let s = make();
+  for (const caseId of A2_PILOT_CASES) {
+    s = startPilotCase(s, caseId);
+    for (let i = 0; i < 6; i++) s = settlePilotRequest(take(s, caseId), 1);
+    s = completePilotCase(s, caseId);
+  }
+  assert.equal(s.requests, 24);
+  assert.equal(s.completedCases, 4);
+  assert.equal(s.spentCents, 24);
+  assert.throws(() => startPilotCase(s, "BOSTON_CLEAN"), /incorrect or duplicate/);
+});
+
+test("genre verification exception is fatal to pilot, preserving normal fallback outside pilot", () => {
+  const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
+  assert.match(server, /if \(isA2PilotRequest\(\) \|\| isGeminiPrepayExhausted\(err\)\) throw err;/);
+  assert.match(server, /Verification failed; continuing with the original classification/);
+});
+
 test("concurrent provider attempt cannot double-spend an in-flight slot", () => {
   const first = take(startPilotCase(make(), "BOSTON_CLEAN"));
   assert.equal(first.requests, 1);
