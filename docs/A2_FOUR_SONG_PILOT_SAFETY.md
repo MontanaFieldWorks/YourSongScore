@@ -107,3 +107,37 @@ continuation, no dispatch after provider errors and no dispatch when an
 allowance is exhausted. Tests never make network calls or contact Gemini.
 The SQL tests use a fake persistent row, not a real PostgreSQL server; real
 PostgreSQL integration remains subject to separate authorization.
+
+## Real PostgreSQL integration verification (nonpaid, isolated)
+
+Workflow: `.github/workflows/yss-a2-postgres-integration.yml`.
+Only the dedicated `safety/a2-four-song-pilot-20261024` branch triggers
+this CI service automatically. GitHub Actions provisions a disposable
+`postgres:16` container with a temporary local-only `a2_pilot_ci`
+database, user `a2_ci`, and CI-only credentials. Every run starts a fresh
+database; the service disappears when the runner terminates. It is NOT
+Render PostgreSQL, a production DB, or a Gemini integration.
+
+Execute `node --test tests/a2-pilot-postgres.integration.mjs` with the
+explicit `A2_PG_INTEGRATION_DATABASE_URL` pointing to that isolated
+localhost service. The test enforces host, port, user and DB name and
+refuses execution if normal Gemini or YSS pilot DB credentials are in
+the environment. The integration file intentionally uses
+`.integration.mjs`, not `.test.mjs`, so routine `tests/*.test.mjs`
+runs never contact a database.
+
+Tests use the production `A2PilotLedger` SQL, real transactions and
+`SELECT ... FOR UPDATE` locks, and the exact production-used dispatch
+wrapper. They cover initial JSONB persistence, competing admissions
+from independent DB pools, in-flight exclusion, actual separate Node
+process races, committed reservations observed after a process exits,
+persistent two-phase browser-acknowledgment locks, provider-error
+fail-stop, SQL rollback, and budget rejection BEFORE any simulated
+provider transport. No Gem-ini calls, external HTTP requests, YSS
+deployments or production credential changes are made.
+
+**Remaining approval boundary:** Actual application-to-PostgreSQL
+runtime configuration, true browser uploads, and paid Gemini analyses
+are intentionally out of scope. Merge/deploy and credentials require
+separate authorization.
+
