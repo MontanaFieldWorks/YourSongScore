@@ -15,31 +15,6 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - run: npm install --package-lock=false --no-audit --no-fund
-      - name: TEMP A2 lockfile delta (nonpaid, remove after capture)
-        run: |
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          node <<'NODE'
-          const fs = require('node:fs');
-          const {execFileSync} = require('node:child_process');
-          const old = JSON.parse(execFileSync('git', ['show','HEAD:package-lock.json'], {encoding:'utf8'}));
-          const updated = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
-          const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
-          const changed = {};
-          const removed = [];
-          for (const [key, val] of Object.entries(updated.packages || {})) {
-            if (!same(old.packages?.[key], val)) changed[key] = val;
-          }
-          for (const key of Object.keys(old.packages || {})) {
-            if (!(key in (updated.packages || {}))) removed.push(key);
-          }
-          const patch = {changed, removed, version: updated.lockfileVersion,
-            requires:updated.requires, oldCount:Object.keys(old.packages||{}).length,
-            newCount:Object.keys(updated.packages||{}).length };
-          const data=Buffer.from(JSON.stringify(patch),'utf8').toString('base64');
-          const chunkSize=3000, count=Math.ceil(data.length/chunkSize);
-          console.log('A2_LOCK_PARTS='+count);
-          for(let i=0;i<count;i++) console.log('A2_LOCK_PART_'+i+'='+data.slice(i*chunkSize,(i+1)*chunkSize));
-          NODE
       - run: npm run build
       - name: TypeScript baseline check (informational while existing errors remain)
         run: npm run lint
