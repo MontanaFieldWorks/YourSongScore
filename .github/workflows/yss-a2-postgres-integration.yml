@@ -1,0 +1,44 @@
+name: YSS A2 PostgreSQL disposable integration
+on:
+  push:
+    branches:
+      - safety/a2-four-song-pilot-20261024
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  a2-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: a2_ci
+          POSTGRES_PASSWORD: a2_ci_ephemeral_only
+          POSTGRES_DB: a2_pilot_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U a2_ci -d a2_pilot_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      A2_PG_INTEGRATION_DATABASE_URL: postgresql://a2_ci:a2_ci_ephemeral_only@127.0.0.1:5432/a2_pilot_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install exact locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify isolation from production credentials
+        run: |
+          test -z "${GEMINI_API_KEY:-}"
+          test -z "${YSS_A2_PILOT_DATABASE_URL:-}"
+          test -z "${YSS_A2_PILOT_TOKEN:-}"
+          test -z "${YSS_A2_PILOT_ENABLED:-}"
+      - name: Run PostgreSQL integration against disposable local service
+        run: node --test tests/a2-pilot-postgres.integration.mjs
