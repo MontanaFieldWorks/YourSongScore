@@ -61,9 +61,9 @@ test("pilot refuses out-of-order or duplicate recording slots", () => {
 
 test("a completed case requires 5 or 6 finished provider operations", () => {
   let s = startPilotCase(make(), "BOSTON_CLEAN");
-  assert.throws(() => completePilotCase(s, "BOSTON_CLEAN"), /incomplete/);
+  assert.throws(() => markPilotServerComplete(s, "BOSTON_CLEAN"), /incomplete/);
   for (let i = 0; i < 4; i++) s = success(s);
-  assert.throws(() => completePilotCase(s, "BOSTON_CLEAN"), /incomplete/);
+  assert.throws(() => markPilotServerComplete(s, "BOSTON_CLEAN"), /incomplete/);
   s = success(s);
   assert.throws(() => completePilotCase(s, "BOSTON_CLEAN"), /browser A2 completion not confirmed/);
   s = markPilotServerComplete(s, "BOSTON_CLEAN");
@@ -111,7 +111,7 @@ test("concurrent provider attempt cannot double-spend an in-flight slot", () => 
   assert.equal(first.spentCents, 175);
   assert.equal(first.inFlight, true);
   assert.throws(() => take(first), /in flight/);
-  assert.throws(() => completePilotCase(first, "BOSTON_CLEAN"), /incomplete/);
+  assert.throws(() => markPilotServerComplete(first, "BOSTON_CLEAN"), /incomplete/);
 });
 
 test("reservation is charged before the attempt and never automatically refunded after failure", () => {
