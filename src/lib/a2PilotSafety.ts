@@ -23,6 +23,7 @@ export interface A2PilotState {
   activeCase: A2PilotCase | null;
   callsThisCase: number;
   inFlight: boolean;
+  awaitingClientAck: boolean;
   stopped: boolean;
   stopReason: string | null;
 }
@@ -31,7 +32,8 @@ export const a2PilotContext = new AsyncLocalStorage<A2PilotContext>();
 
 export const initialA2PilotState = (): A2PilotState => ({
   requests: 0, spentCents: 0, completedCases: 0, activeCase: null,
-  callsThisCase: 0, inFlight: false, stopped: false, stopReason: null,
+  callsThisCase: 0, inFlight: false, awaitingClientAck: false,
+  stopped: false, stopReason: null,
 });
 
 function deny(message: string): never { throw new Error("A2 PILOT STOP: " + message); }
@@ -40,7 +42,8 @@ function ensureNotStopped(state: A2PilotState): void {
 }
 export function startPilotCase(state: A2PilotState, caseId: A2PilotCase): A2PilotState {
   ensureNotStopped(state);
-  if (state.inFlight || state.activeCase) deny("another pilot case is unfinished");
+  if (state.inFlight || state.activeCase || state.awaitingClientAck)
+    deny("another pilot case is unfinished");
   if (state.completedCases >= A2_PILOT_CASES.length ||
       A2_PILOT_CASES[state.completedCases] !== caseId) deny("incorrect or duplicate case order");
   return { ...state, activeCase: caseId, callsThisCase: 0 };
@@ -48,6 +51,7 @@ export function startPilotCase(state: A2PilotState, caseId: A2PilotCase): A2Pilo
 export function reservePilotRequest(state: A2PilotState, caseId: A2PilotCase): A2PilotState {
   ensureNotStopped(state);
   if (state.activeCase !== caseId) deny("no active authorized pilot case");
+  if (state.awaitingClientAck) deny("awaiting verified browser completion");
   if (state.inFlight) deny("a provider request remains in flight");
   if (state.callsThisCase >= 6) {
     return { ...state, stopped: true,
@@ -89,14 +93,21 @@ export function settlePilotRequest(state: A2PilotState, cents: number): A2PilotS
 export function stopPilot(state: A2PilotState, reason: string): A2PilotState {
   return { ...state, stopped: true, stopReason: reason.slice(0, 180) };
 }
+export function markPilotServerComplete(state: A2PilotState, caseId: A2PilotCase): A2PilotState {
+  ensureNotStopped(state);
+  if (state.activeCase !== caseId || state.inFlight || state.awaitingClientAck ||
+      state.callsThisCase < 5 || state.callsThisCase > 6)
+    deny("incomplete server analysis or outstanding request");
+  // Browser DSP provenance is a required second phase. Without the acknowledgment,
+  // a crash or failed local calculation leaves the case active and blocks the next.
+  return { ...state, awaitingClientAck: true };
+}
 export function completePilotCase(state: A2PilotState, caseId: A2PilotCase): A2PilotState {
   ensureNotStopped(state);
-  if (state.activeCase !== caseId || state.inFlight ||
-      state.callsThisCase < 5 || state.callsThisCase > 6) {
-    deny("incomplete pilot analysis or outstanding request");
-  }
+  if (state.activeCase !== caseId || state.inFlight || !state.awaitingClientAck)
+    deny("server response or browser A2 completion not confirmed");
   return { ...state, activeCase: null, callsThisCase: 0,
-    completedCases: state.completedCases + 1 };
+    awaitingClientAck: false, completedCases: state.completedCases + 1 };
 }
 export function validA2PilotFile(caseId: A2PilotCase, filename: string): boolean {
   const safe = filename.trim().replace(/\\/g, "/").split("/").pop() || "";
@@ -137,7 +148,8 @@ export class A2PilotLedger {
       if (selected.rows.length !== 1) deny("persistent ledger missing");
       const old = selected.rows[0].state as A2PilotState;
       if (!Number.isSafeInteger(old.requests) || !Number.isSafeInteger(old.spentCents) ||
-          typeof old.inFlight !== "boolean") deny("invalid persistent ledger");
+          typeof old.inFlight !== "boolean" ||
+          typeof old.awaitingClientAck !== "boolean") deny("invalid persistent ledger");
       const next = mutator(old);
       await client.query("UPDATE yss_a2_pilot_ledger SET state=$2::jsonb WHERE id=$1",
         [A2_PILOT_ID, JSON.stringify(next)]);
@@ -205,6 +217,23 @@ export async function finishA2PilotIfActive(): Promise<void> {
   const context = a2PilotContext.getStore();
   if (!context) return;
   if (context.stopped) deny("provider error");
-  await configuredA2PilotLedger().transact(s => completePilotCase(s, context.caseId));
+  await configuredA2PilotLedger().transact(s => markPilotServerComplete(s, context.caseId));
+}
+export async function acknowledgeA2PilotBrowser(req: any, res: any): Promise<void> {
+  res.setHeader("Cache-Control", "no-store, private");
+  try {
+    const caseId = req.body?.a2PilotCase;
+    if (!A2_PILOT_CASES.includes(caseId) ||
+        !pilotAuthorized(req.get?.("X-YSS-A2-Pilot-Token"), process.env.YSS_A2_PILOT_TOKEN) ||
+        req.body?.spaceStage !== "COMPLETED" ||
+        req.body?.midrangeStage !== "COMPLETED") {
+      return void res.status(403).json({ error: "A2 browser acknowledgment denied" });
+    }
+    const result = await configuredA2PilotLedger().transact(s => completePilotCase(s, caseId));
+    res.json({ completedCases: result.completedCases, requests: result.requests,
+      estimatedCents: result.spentCents });
+  } catch(e:any) {
+    res.status(409).json({ error: String(e?.message || e) });
+  }
 }
 export function isA2PilotRequest(): boolean { return !!a2PilotContext.getStore(); }
