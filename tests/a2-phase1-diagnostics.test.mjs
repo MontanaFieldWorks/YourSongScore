@@ -107,6 +107,140 @@ test("legacy reports distinguish missing diagnostics from negative findings", ()
   assert.equal(got["A2 Key Detection/Browser provenance captured"],"NOT_CAPTURED");
   assert.equal(got["A2 Key Detection/Server key provenance captured"],"NOT_CAPTURED");
   assert.equal(got["Midrange Consistency/Parent/child review flag (not scored)"],"INSUFFICIENT_NARRATIVE_EVIDENCE");
+  assert.equal(got["Genre Consistency/Evidence-only review flag (not scored)"],"INSUFFICIENT_GENRE_OR_INSTRUMENT_EVIDENCE");
+});
+test("negated electric guitars, drums, and guitar solo never trigger a false Folk/Rock review", () => {
+  const input = {
+    vibe:{genre:"Folk / Singer-Songwriter",subgenre:"Folk Rock"},
+    subMetricsCall1:{dynamicVariety:{commentary:
+      "There are no electric guitars, no drums and no distorted leads or guitar solo."}},
+    mixQuality:{frequencyBalance:{midrange:
+      "An acoustic guitar and solo vocal stay balanced, without distortion or masking."}},
+  };
+  const before=structuredClone(input);
+  const got=inspectA2NarrativeConflicts(input);
+  assert.equal(got.genreFlag,"NO_DETERMINISTIC_CONTRADICTION_FLAG");
+  assert.deepEqual(got.genreSignals,["FOLK_FAMILY_OR_SUBGENRE"]);
+  assert.deepEqual(input,before);
+});
+test("explicit instrument absence after a noun is not treated as rock evidence", () => {
+  const input={
+    vibe:{genre:"Folk / Singer-Songwriter",subgenre:"Contemporary Folk"},
+    subMetricsCall1:{spaceAndDensity:{commentary:
+      "Electric guitars are absent; drums are not audible; the guitar solo is missing."}},
+  };
+  const got=inspectA2NarrativeConflicts(input);
+  assert.equal(got.genreFlag,"NO_DETERMINISTIC_CONTRADICTION_FLAG");
+  assert.deepEqual(got.genreSignals,["FOLK_FAMILY_OR_SUBGENRE"]);
+});
+test("qualified positive instruments after 'but' remain reviewable", () => {
+  const input={
+    vibe:{genre:"Folk / Singer-Songwriter",subgenre:"Folk Rock"},
+    subMetricsCall1:{dynamicVariety:{commentary:
+      "No electric guitars in the intro, but distorted electric guitars, drums and a guitar solo drive the chorus."}},
+  };
+  assert.equal(inspectA2NarrativeConflicts(input).genreFlag,
+    "REVIEW_FOLK_LABEL_VS_FULL_BAND_EVIDENCE");
+});
+test("absence language in one model commentary cannot negate a different source's positive cues", () => {
+  const input={
+    vibe:{genre:"Folk / Singer-Songwriter",subgenre:"Folk Rock"},
+    subMetricsCall1:{
+      dynamicVariety:{commentary:"There are no acoustic drum fills."},
+      spaceAndDensity:{commentary:"Distorted electric guitars and kick drums drive the chorus with a guitar solo."},
+    },
+  };
+  assert.equal(inspectA2NarrativeConflicts(input).genreFlag,
+    "REVIEW_FOLK_LABEL_VS_FULL_BAND_EVIDENCE");
+});
+test("parent denial of masking does not conflict with child denial", () => {
+  const input={
+    mixQuality:{frequencyBalance:{midrange:"There is no significant masking of lead vocal or guitars."}},
+    subMetricsCall1:{midrangeSpacing:{commentary:"There is no significant blurring or masking."}},
+  };
+  const got=inspectA2NarrativeConflicts(input);
+  assert.equal(got.midrangeFlag,"NO_DETERMINISTIC_CONTRADICTION_FLAG");
+  assert.deepEqual(got.midrangeSignals,["CHILD_DENIES_SIGNIFICANT_MASKING"]);
+});
+test("parent 'do not mask' or 'without masking' claims cannot be positive masking evidence", () => {
+  for (const parent of [
+    "The guitars do not mask the lead vocal.",
+    "A polished mix without masking of vocal clarity.",
+    "This approach prevents masking in the midrange.",
+    "The vocal is not masked by the guitars.",
+  ]) {
+    const input={
+      mixQuality:{frequencyBalance:{midrange:parent}},
+      subMetricsCall1:{midrangeSpacing:{commentary:"No significant masking between lead and guitars."}},
+    };
+    const got=inspectA2NarrativeConflicts(input);
+    assert.equal(got.midrangeFlag,"NO_DETERMINISTIC_CONTRADICTION_FLAG",parent);
+  }
+});
+test("positive Boston parent masking and separately negated child masking remain flagged", () => {
+  for (const child of [
+    "There is no significant blurring or masking in the dense chorus.",
+    "The lead vocal is not masked by distorted guitars.",
+    "Vocals remain clear without any masking from the guitars.",
+  ]) {
+    const input={
+      mixQuality:{frequencyBalance:{midrange:"Distorted guitars can lead to some masking of vocal clarity."}},
+      subMetricsCall1:{midrangeSpacing:{commentary:child}},
+    };
+    assert.equal(inspectA2NarrativeConflicts(input).midrangeFlag,
+      "REVIEW_PARENT_CHILD_MASKING_CONTRADICTION",child);
+  }
+});
+test("missing genre and instrumentation are distinguished from a checked non-conflict", () => {
+  for(const input of [
+    {},
+    {vibe:{genre:"Folk / Singer-Songwriter",subgenre:"Folk Rock"}},
+    {vibe:{genre:"Folk / Singer-Songwriter",subgenre:"Folk Rock"},
+      subMetricsCall1:{dynamicVariety:{commentary:"Warm and cinematic; uplifting mood."}}},
+    {subMetricsCall1:{dynamicVariety:{commentary:"Electric guitars and drums with distortion."}}},
+  ]) {
+    const got=inspectA2NarrativeConflicts(input);
+    assert.equal(got.genreFlag,"INSUFFICIENT_GENRE_OR_INSTRUMENT_EVIDENCE");
+  }
+  const present={
+    vibe:{genre:"Folk / Singer-Songwriter",subgenre:"Contemporary Folk"},
+    subMetricsCall1:{spaceAndDensity:{commentary:"Acoustic guitar and solo vocal, no drums."}},
+  };
+  assert.equal(inspectA2NarrativeConflicts(present).genreFlag,
+    "NO_DETERMINISTIC_CONTRADICTION_FLAG");
+});
+test("legacy Source Diagnostics marks missing genre evidence, with no score mutation", () => {
+  const legacy={vibe:{genre:"Folk / Singer-Songwriter",subgenre:"Folk Rock"}};
+  const before=structuredClone(legacy);
+  const rows=values(getSourceVerificationRows(legacy));
+  assert.equal(rows["Genre Consistency/Evidence-only review flag (not scored)"],
+    "INSUFFICIENT_GENRE_OR_INSTRUMENT_EVIDENCE");
+  assert.equal(rows["Genre Consistency/Matched existing model descriptions"],
+    "FOLK_FAMILY_OR_SUBGENRE");
+  assert.deepEqual(legacy,before);
+});
+test("simulated ExcelJS export preserves missing/negated flags without inventing genre evidence", async() => {
+  const critique={
+    vibe:{genre:"Folk / Singer-Songwriter",subgenre:"Folk Rock"},
+    subMetricsCall1:{dynamicVariety:{commentary:"No electric guitars and no drum kit or distorted guitar solo."},
+      midrangeSpacing:{commentary:"No significant masking."}},
+    mixQuality:{frequencyBalance:{midrange:"No significant masking of lead vocals."}},
+  };
+  const wb=new ExcelJS.Workbook(),sheet=wb.addWorksheet("Source Diagnostics");
+  sheet.columns=[{header:"Metric",key:"section"},{header:"Diagnostic field",key:"field"},
+    {header:"Recorded evidence / decision",key:"value"}];
+  for(const row of getSourceVerificationRows(critique)) sheet.addRow(row);
+  const disk=await wb.xlsx.writeBuffer();
+  const checked=new ExcelJS.Workbook(); await checked.xlsx.load(disk);
+  const found=[];
+  checked.getWorksheet("Source Diagnostics").eachRow((row,i)=>{
+    if(i>1) found.push({section:String(row.getCell(1).value),field:String(row.getCell(2).value),value:String(row.getCell(3).value)});
+  });
+  const v=values(found);
+  assert.equal(v["Genre Consistency/Evidence-only review flag (not scored)"],
+    "NO_DETERMINISTIC_CONTRADICTION_FLAG");
+  assert.equal(v["Midrange Consistency/Parent/child review flag (not scored)"],
+    "NO_DETERMINISTIC_CONTRADICTION_FLAG");
 });
 test("browser and server key provenance distinguishes detector estimate and constrained model echo", () => {
   const critique={
