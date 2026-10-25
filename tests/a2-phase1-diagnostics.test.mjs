@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import ExcelJS from "exceljs";
+import { appendA2ProvenanceToSourceDiagnostics } from "../src/lib/a2ScoringProvenance.ts";
 import {
   describeLowEndGateFactors,
   inspectA2NarrativeConflicts,
@@ -10,8 +11,8 @@ import {
 
 const sourceEvidence = (kind, name, cue) =>
   typeof cue === "string" && cue.length >= 12 &&
-  (kind === "KICK_DRUM" ? /\\b(kick|bass drum)\\b/i.test(name || "") :
-   kind === "BASS_DRUM" ? /\\bbass drum\\b/i.test(name || "") :
+  (kind === "KICK_DRUM" ? /\b(kick|bass drum)\b/i.test(name || "") :
+   kind === "BASS_DRUM" ? /\bbass drum\b/i.test(name || "") :
    kind === "OTHER_NAMED_LOW_PERCUSSION");
 
 const first = {
@@ -130,7 +131,13 @@ test("real ExcelJS simulated Source Diagnostics export preserves all rows, note,
           specificRejectionReasons:["SECOND_PASS_ROLES_INDEPENDENT"],
           corroborated:false,rejectionReasons:["LISTENING_PASSES_DISAGREE"],
         }},
-      a2ScoringProvenance:{spaceAndDensity:{rawEvidenceAccess:"RESTRICTED_INTERNAL_ONLY"}},
+      a2ScoringProvenance:{
+        spaceAndDensity:{rawEvidenceAccess:"RESTRICTED_INTERNAL_ONLY",
+          rawCommentary:"UNSANITIZED_INTERNAL_MODEL_SECRET",
+          rawQualityTier:"UNSANITIZED_INTERNAL_MODEL_SECRET"},
+        midrangeSpacing:{rawEvidenceAccess:"RESTRICTED_INTERNAL_ONLY",
+          rawCommentary:"UNSANITIZED_INTERNAL_MODEL_SECRET"},
+      },
     },
     liveMetrics:{a2KeyDetectionProvenance:{detector:"ESSENTIA_JS_KEYEXTRACTOR_MONO",status:"DETECTED",
       estimatedKey:"F major",rawStrength:0.936,payloadKeyIncluded:true}},
@@ -145,6 +152,8 @@ test("real ExcelJS simulated Source Diagnostics export preserves all rows, note,
   const noteIndex=ws.rowCount+1;
   ws.getCell("A"+noteIndex).value="NOT_CAPTURED means missing provenance, not proof of absence.";
   ws.mergeCells("A"+noteIndex+":C"+noteIndex);
+  // Exercise the exact A2 provenance append function used in the production workbook.
+  appendA2ProvenanceToSourceDiagnostics(ws, critique);
   const bytes=await report.xlsx.writeBuffer();
   const loaded=new ExcelJS.Workbook();
   await loaded.xlsx.load(bytes);
@@ -162,6 +171,9 @@ test("real ExcelJS simulated Source Diagnostics export preserves all rows, note,
   assert.deepEqual(critique,before);
   const all=JSON.stringify(restored);
   assert.doesNotMatch(all,/UNSANITIZED_INTERNAL_MODEL_SECRET|rawQualityTier|rawCommentary/i);
+  assert.doesNotMatch(JSON.stringify(loaded.getWorksheet("Source Diagnostics").getSheetValues()),
+    /UNSANITIZED_INTERNAL_MODEL_SECRET/);
+
 });
 test("production source retains the authoritative gates and uses diagnostics only after model results", async()=>{
   const server=await readFile("server.ts","utf8");
