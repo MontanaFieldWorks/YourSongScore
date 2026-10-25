@@ -1679,6 +1679,12 @@ function reconcileParentScores(parsedCritique: any): void {
       lowEnd.sourceVerification = {
         gateFactors: gateDiagnostics.factors,
         specificRejectionReasons: gateDiagnostics.failedChecks,
+        firstPassPercussionName: lowEnd.lowTransientSourceName ?? null,
+        secondPassPercussionName: audit?.percussionSourceName ?? null,
+        firstPassPercussionCertainty: lowEnd.lowTransientCertainty ?? null,
+        secondPassPercussionCertainty: audit?.percussionCertainty ?? null,
+        firstPassRolesIndependent: lowEnd.lowEndRolesIndependent ?? null,
+        secondPassRolesIndependent: audit?.rolesIndependent ?? null,
         firstPassPercussionType: lowEnd.lowTransientSourceType,
         secondPassPercussionType: audit?.percussionType ?? "NO_AUDIT",
         firstPassBassType: lowEnd.bassFoundationSourceType,
