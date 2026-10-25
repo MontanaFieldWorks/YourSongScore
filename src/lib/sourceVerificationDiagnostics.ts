@@ -100,11 +100,11 @@ export function describeLowEndGateFactors(
     const name = String(rawName || "").trim();
     const cue = String(rawCue || "").trim();
     const nameGeneric = /(?:transient(?:-like)?|pulse|ostinato|attack-like|percussive[- ](?:sounding|element)|rhythmic (?:element|layer)|low[- ]frequency (?:element|energy|sound|activity))/i.test(name) ||
-      /^(?:unknown|none|n\\/?a|not established|undetermined|percussion|drums?|other)$/i.test(name);
-    const cueGeneric = /^(?:unknown|none|n\\/?a|not (?:clear|established|audible)|unverified)$/i.test(cue);
-    const typeMatchesName = kind === "KICK_DRUM" ? /\\b(kick|bass drum)\\b/i.test(name)
-      : kind === "BASS_DRUM" ? /\\b(bass drum|concert bass drum|gran cassa)\\b/i.test(name)
-      : kind === "TIMPANI_OR_LOW_TOM" ? /\\b(timpani|tympani|kettledrum|kettle drum|low tom|floor tom)\\b/i.test(name)
+      /^(?:unknown|none|n\/?a|not established|undetermined|percussion|drums?|other)$/i.test(name);
+    const cueGeneric = /^(?:unknown|none|n\/?a|not (?:clear|established|audible)|unverified)$/i.test(cue);
+    const typeMatchesName = kind === "KICK_DRUM" ? /\b(kick|bass drum)\b/i.test(name)
+      : kind === "BASS_DRUM" ? /\b(bass drum|concert bass drum|gran cassa)\b/i.test(name)
+      : kind === "TIMPANI_OR_LOW_TOM" ? /\b(timpani|tympani|kettledrum|kettle drum|low tom|floor tom)\b/i.test(name)
       : kind === "OTHER_NAMED_LOW_PERCUSSION";
     return {
       SOURCE_NAME_PRESENT: name.length > 0,
