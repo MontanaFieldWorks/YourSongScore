@@ -149,9 +149,62 @@ export function describeLowEndGateFactors(
 const say = (v: unknown): string => typeof v === "string" ? v : "";
 
 /**
+ * Conservative lexical review cues, not an NLP judgment or source detector.
+ * Scope each cue to a clause to avoid interpreting negated instrument names,
+ * e.g. "no electric guitars", as affirmative acoustic evidence. Splitting
+ * adversative clauses permits "no acoustic drums, but a kick drum enters".
+ */
+const clauses = (source: string): string[] =>
+  source.split(/[.!?;\n]+|\b(?:but|however|though|although|whereas|yet)\b/gi)
+    .map(part => part.trim()).filter(Boolean);
+
+/**
+ * Only an explicit, nearby denial can suppress a positive cue. Ambiguous
+ * clauses are deliberately not promoted to ground-truth claims. "Not only"
+ * and "not just" are affirmative intensifiers, not absence assertions.
+ */
+function deniedAt(clause: string, start: number, end: number): boolean {
+  const before = clause.slice(Math.max(0, start - 110), start);
+  const negators = /\b(?:no|not|never|neither|nor|without|lacks?|lacking|absence\s+of|free\s+of|avoids?|prevents?|prevented|eliminates?|eliminated|doesn't|don't|isn't|aren't|cannot|can't)\b/gi;
+  const found = [...before.matchAll(negators)];
+  const last = found[found.length - 1];
+  if (last) {
+    const tail = before.slice((last.index ?? 0) + last[0].length);
+    if (!/^(?:\s+(?:only|just|merely|simply))\b/i.test(tail) &&
+        (tail.match(/\b[\w'-]+\b/g) || []).length <= 8) return true;
+  }
+  const after = clause.slice(end, end + 60);
+  // Postposed absence: "the drums are absent" / "guitars are not audible".
+  return /^\W*(?:\b(?:is|are|was|were|remain)\s+)?(?:not\s+(?:present|audible|heard)|absent|missing|unheard)\b/i.test(after);
+}
+
+function hasAffirmedCue(source: string, pattern: RegExp): boolean {
+  for (const clause of clauses(source)) {
+    // All patterns here are compiled as fresh /g expressions.
+    for (const match of clause.matchAll(pattern)) {
+      const start = match.index ?? 0;
+      if (!deniedAt(clause, start, start + match[0].length)) return true;
+    }
+  }
+  return false;
+}
+
+function hasExplicitMaskingDenial(source: string): boolean {
+  for (const clause of clauses(source)) {
+    for (const match of clause.matchAll(/\bmask(?:ing|ed|s)?\b|\bblurring\b/gi)) {
+      const start = match.index ?? 0;
+      if (deniedAt(clause, start, start + match[0].length)) return true;
+      const before = clause.slice(Math.max(0, start - 36), start);
+      if (/\b(?:minimal|negligible|little|no significant|no noticeable)\s*$/i.test(before)) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Conservative review hints from existing, sanitized model assertions only.
  * No reclassification, scoring, NLP API calls, or raw restricted evidence.
- * No flag is NOT a statement of ground-truth correctness.
+ * A missing flag never asserts that a genre or mix judgment was correct.
  */
 export function inspectA2NarrativeConflicts(critique: any): {
   genreFlag: string;
@@ -166,34 +219,38 @@ export function inspectA2NarrativeConflicts(critique: any): {
     say(critique?.subMetricsCall1?.spaceAndDensity?.commentary),
     say(critique?.mixQuality?.frequencyBalance?.midrange),
     say(critique?.arrangement?.instrumentation),
-  ].join(" ");
+  ].join(" ").trim();
   const folkLabel = /folk|singer.songwriter/i.test(family) || /folk/i.test(subgenre);
-  const electricGuitar = /\belectric guitars?\b/i.test(evidence);
-  const drumKit = /\bdrumm?(?:ing|er|s)?\b|\bkick drum\b|\bsnare\b/i.test(evidence);
-  const highGainOrSolo = /\bdistorted\b|\boverdriv(?:e|en)\b|\bhigh.gain\b|\bguitar solo\b/i.test(evidence);
+  // A generic mood adjective is not instrumentation evidence.
+  const usableGenreEvidence = !!(family.trim() || subgenre.trim()) && 
+    /\b(?:guitars?|drums?|drumming|kick|snare|bass|vocals?|synths?|piano|strings|percussion|instrumentation|acoustic|electric|distorted|overdriven|overdrive|solo)\b/i.test(evidence);
+  const electricGuitar = hasAffirmedCue(evidence, /\belectric guitars?\b/gi);
+  const drumKit = hasAffirmedCue(evidence, /\bdrum(?:s|ming|mer)?\b|\bkick drum\b|\bsnare\b/gi);
+  const highGainOrSolo = hasAffirmedCue(evidence, /\bdistorted\b|\boverdriv(?:e|en)\b|\bhigh.gain\b|\bguitar solo\b/gi);
   const genreSignals = [
     ...(folkLabel ? ["FOLK_FAMILY_OR_SUBGENRE"] : []),
     ...(electricGuitar ? ["ELECTRIC_GUITARS_DESCRIBED"] : []),
     ...(drumKit ? ["DRUM_KIT_DESCRIBED"] : []),
     ...(highGainOrSolo ? ["HIGH_GAIN_OR_SOLO_DESCRIBED"] : []),
   ];
-  const genreFlag = folkLabel && electricGuitar && drumKit && highGainOrSolo
-    ? "REVIEW_FOLK_LABEL_VS_FULL_BAND_EVIDENCE"
-    : "NO_DETERMINISTIC_CONTRADICTION_FLAG";
+  const genreFlag = !usableGenreEvidence ? "INSUFFICIENT_GENRE_OR_INSTRUMENT_EVIDENCE"
+    : folkLabel && electricGuitar && drumKit && highGainOrSolo
+      ? "REVIEW_FOLK_LABEL_VS_FULL_BAND_EVIDENCE"
+      : "NO_DETERMINISTIC_CONTRADICTION_FLAG";
 
   const parent = [
     say(critique?.mixQuality?.frequencyBalance?.midrange),
     say(critique?.mixQuality?.dominanceIssues),
-  ].join(" ");
-  const child = say(critique?.subMetricsCall1?.midrangeSpacing?.commentary);
-  const parentMasking = /\b(?:can lead to|causes?|creates?|noticeable|significant|some|occasional)\b.{0,35}\bmasking\b|\bmask(?:s|ed|ing)\b.{0,65}\b(?:vocal|lead|clarity)\b/i.test(parent);
-  const childDenies = /\bno\s+(?:significant\s+)?(?:\w+\s+){0,2}(?:masking|blurring)\b|\bwithout\s+(?:significant\s+)?(?:\w+\s+){0,2}masking\b|\bminimal\s+masking\b/i.test(child);
+  ].join(" ").trim();
+  const child = say(critique?.subMetricsCall1?.midrangeSpacing?.commentary).trim();
+  const parentMasking = hasAffirmedCue(parent, /\bmask(?:ing|ed|s)?\b/gi);
+  const childDenies = hasExplicitMaskingDenial(child);
   const midrangeSignals = [
     ...(parentMasking ? ["PARENT_ASSERTS_MIDRANGE_MASKING"] : []),
     ...(childDenies ? ["CHILD_DENIES_SIGNIFICANT_MASKING"] : []),
   ];
-  const midrangeFlag = !parent.trim() || !child.trim() ? "INSUFFICIENT_NARRATIVE_EVIDENCE"
+  const midrangeFlag = !parent || !child ? "INSUFFICIENT_NARRATIVE_EVIDENCE"
     : parentMasking && childDenies ? "REVIEW_PARENT_CHILD_MASKING_CONTRADICTION"
     : "NO_DETERMINISTIC_CONTRADICTION_FLAG";
-  return {genreFlag, genreSignals, midrangeFlag, midrangeSignals};
+  return { genreFlag, genreSignals, midrangeFlag, midrangeSignals };
 }
