@@ -17,7 +17,16 @@ import { captureA2BeforeClient, captureA2AfterClient, captureA2BrowserUnavailabl
 // UI's existing conditional render (only shows the card when calculatedKey is present)
 // correctly hides the card entirely when this happens, which is honest - showing nothing
 // is better than showing a confirmed-unreliable number as if it were the validated one.
-async function applyRealKeyDetection(audioBuffer: AudioBuffer, liveMetrics: any): Promise<void> {
+async function applyRealKeyDetection(audioBuffer: AudioBuffer, liveMetrics: any, captureA2Provenance = false): Promise<void> {
+  // Diagnostic-only fields; KeyExtractor and its scoring behavior are unchanged.
+  if (captureA2Provenance) liveMetrics.a2KeyDetectionProvenance = {
+    detector: "ESSENTIA_JS_KEYEXTRACTOR_MONO",
+    status: "NO_RESULT",
+    estimatedKey: null,
+    rawStrength: null,
+    payloadKeyIncluded: false,
+  };
+
   // Clear the old, unreliable value up front - it must never be shown as if it came
   // from the new, validated detector, regardless of what happens below.
   delete liveMetrics.calculatedKey;
@@ -26,6 +35,13 @@ async function applyRealKeyDetection(audioBuffer: AudioBuffer, liveMetrics: any)
     const keyResult = await detectMusicalKey(audioBuffer);
     if (keyResult) {
       liveMetrics.calculatedKey = `${keyResult.key} ${keyResult.scale}`;
+      if (captureA2Provenance) {
+        liveMetrics.a2KeyDetectionProvenance.status = "DETECTED";
+        liveMetrics.a2KeyDetectionProvenance.estimatedKey = liveMetrics.calculatedKey;
+        liveMetrics.a2KeyDetectionProvenance.rawStrength =
+          typeof keyResult.strength === "number" && Number.isFinite(keyResult.strength)
+            ? keyResult.strength : null;
+      }
     } else {
       console.warn("[App] Real key detection returned no result - key will not be displayed for this analysis.");
     }
@@ -1315,9 +1331,12 @@ export default function App() {
     try {
       const audioBuffer = await decodeAudioFile(selectedFile);
       preAnalysisLiveMetrics = analyzeAudioBuffer(audioBuffer);
-      await applyRealKeyDetection(audioBuffer, preAnalysisLiveMetrics);
+      await applyRealKeyDetection(audioBuffer, preAnalysisLiveMetrics, a2PilotEnabled);
       if (preAnalysisLiveMetrics?.calculatedKey) {
         formData.append("detectedKey", preAnalysisLiveMetrics.calculatedKey);
+        if (a2PilotEnabled && preAnalysisLiveMetrics.a2KeyDetectionProvenance) {
+          preAnalysisLiveMetrics.a2KeyDetectionProvenance.payloadKeyIncluded = true;
+        }
       }
     } catch (errAnalyz) {
       console.warn("Could not compute pre-analysis key; theory will proceed without an authoritative key:", errAnalyz);
@@ -1356,7 +1375,7 @@ export default function App() {
         try {
           const audioBuffer = await decodeAudioFile(selectedFile);
           liveMetrics = analyzeAudioBuffer(audioBuffer);
-          await applyRealKeyDetection(audioBuffer, liveMetrics);
+          await applyRealKeyDetection(audioBuffer, liveMetrics, a2PilotEnabled);
         } catch (errAnalyz) {
           console.warn("Could not decode audio files client-side, falling back:", errAnalyz);
         }
