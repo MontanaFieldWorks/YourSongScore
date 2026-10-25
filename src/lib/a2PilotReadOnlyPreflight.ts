@@ -5,7 +5,7 @@
  * No model or audio calls, no HTTP endpoint, no SQL writes, no secret logging.
  */
 import pg from "pg";
-import { A2_PILOT_ID, initialA2PilotState } from "./a2PilotSafety";
+import { A2_PILOT_ID, initialA2PilotState } from "./a2PilotSafety.ts";
 
 type ReadOnlyPool = {
   query: (sql: string, params: unknown[]) => Promise<{ rows: unknown[] }>;
