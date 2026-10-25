@@ -1800,11 +1800,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       row.alignment = { vertical: "top", wrapText: true };
       row.height = 32;
     }
-    wsSourceDiagnostics.getCell("A23").value =
-      "NOT_CAPTURED means the source-verification object or field was unavailable in this report; it does not establish source absence.";
-    wsSourceDiagnostics.mergeCells("A23:C23");
-    wsSourceDiagnostics.getCell("A23").font = { italic: true, color: { argb: "FF475569" } };
-    wsSourceDiagnostics.getRow(23).height = 30;
+    // Source-verification diagnostics can grow; a fixed A23 note would
+    // silently overwrite a gate-condition row or produce a merged-cell conflict.
+    const sourceNoteRow = wsSourceDiagnostics.rowCount + 1;
+    wsSourceDiagnostics.getCell(`A${sourceNoteRow}`).value =
+      "NOT_CAPTURED means a provenance field was not exported; it does not prove absence. Review flags are informational only and never affect scores.";
+    wsSourceDiagnostics.mergeCells(`A${sourceNoteRow}:C${sourceNoteRow}`);
+    wsSourceDiagnostics.getCell(`A${sourceNoteRow}`).font = { italic: true, color: { argb: "FF475569" } };
+    wsSourceDiagnostics.getRow(sourceNoteRow).height = 30;
     // This record is informational, not an alternative score. Existing
     // reports retain their legacy scored Mud Prevention rows unchanged.
     if (isMudDiagnosticCritique(critique)) {
