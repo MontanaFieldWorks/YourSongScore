@@ -219,7 +219,7 @@ export function inspectA2NarrativeConflicts(critique: any): {
     say(critique?.subMetricsCall1?.spaceAndDensity?.commentary),
     say(critique?.mixQuality?.frequencyBalance?.midrange),
     say(critique?.arrangement?.instrumentation),
-  ].join(" ").trim();
+  ].join(". ").trim();
   const folkLabel = /folk|singer.songwriter/i.test(family) || /folk/i.test(subgenre);
   // A generic mood adjective is not instrumentation evidence.
   const usableGenreEvidence = !!(family.trim() || subgenre.trim()) && 
@@ -241,7 +241,7 @@ export function inspectA2NarrativeConflicts(critique: any): {
   const parent = [
     say(critique?.mixQuality?.frequencyBalance?.midrange),
     say(critique?.mixQuality?.dominanceIssues),
-  ].join(" ").trim();
+  ].join(". ").trim();
   const child = say(critique?.subMetricsCall1?.midrangeSpacing?.commentary).trim();
   const parentMasking = hasAffirmedCue(parent, /\bmask(?:ing|ed|s)?\b/gi);
   const childDenies = hasExplicitMaskingDenial(child);
