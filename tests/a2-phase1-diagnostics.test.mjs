@@ -36,10 +36,10 @@ const second = {
 
 const values = rows => Object.fromEntries(rows.map(row => [row.section + "/" + row.field, row.value]));
 
-test("all thirteen independent role-gate conditions pass for corroborated sources", () => {
+test("all twenty-five independent and source-validity checks pass for corroborated sources", () => {
   const before1 = structuredClone(first), before2 = structuredClone(second);
   const result = describeLowEndGateFactors(first, second, sourceEvidence);
-  assert.equal(Object.keys(result.factors).length, 13);
+  assert.equal(Object.keys(result.factors).length, 25);
   assert.ok(Object.values(result.factors).every(x => x === true));
   assert.deepEqual(result.failedChecks, []);
   assert.deepEqual(first, before1); assert.deepEqual(second, before2);
@@ -54,7 +54,15 @@ test("named percussion/cue failure is reported separately from source types", ()
   const result = describeLowEndGateFactors(first, {...second, percussionSourceName: "low pulse"}, sourceEvidence);
   assert.equal(result.factors.SECOND_PASS_PERCUSSION_TYPE_MATCH, true);
   assert.ok(result.failedChecks.includes("SECOND_PASS_NAMED_PERCUSSION_EVIDENCE_VALID"));
+  assert.ok(result.failedChecks.includes("SECOND_PASS_SOURCE_NAME_SPECIFIC"));
+  assert.ok(result.failedChecks.includes("SECOND_PASS_SOURCE_NAME_MATCHES_PERCUSSION_TYPE"));
   assert.equal(result.failedChecks.includes("SECOND_PASS_PERCUSSION_TYPE_MATCH"), false);
+});
+test("cue that is too short is diagnosed without changing the positive source-name match", () => {
+  const got = describeLowEndGateFactors(first, {...second, percussionAudibleCue:"short"}, sourceEvidence);
+  assert.ok(got.failedChecks.includes("SECOND_PASS_NAMED_PERCUSSION_EVIDENCE_VALID"));
+  assert.ok(got.failedChecks.includes("SECOND_PASS_AUDIBLE_CUE_AT_LEAST_12_CHARS"));
+  assert.equal(got.factors.SECOND_PASS_SOURCE_NAME_MATCHES_PERCUSSION_TYPE, true);
 });
 test("absent audit fields are NOT_CAPTURED not inferred a source mismatch", () => {
   const result = describeLowEndGateFactors(first, null, sourceEvidence);
@@ -128,6 +136,9 @@ test("real ExcelJS simulated Source Diagnostics export preserves all rows, note,
           firstPassPercussionType:"KICK_DRUM",secondPassPercussionType:"KICK_DRUM",
           firstPassBassType:"DEDICATED_BASS_INSTRUMENT",secondPassBassType:"DEDICATED_BASS_INSTRUMENT",
           gateFactors:describeLowEndGateFactors(first,{...second, rolesIndependent:false},sourceEvidence).factors,
+          firstPassPercussionName:"kick drum",secondPassPercussionName:"kick drum",
+          firstPassPercussionCertainty:"CLEAR",secondPassPercussionCertainty:"CLEAR",
+          firstPassRolesIndependent:true,secondPassRolesIndependent:false,
           specificRejectionReasons:["SECOND_PASS_ROLES_INDEPENDENT"],
           corroborated:false,rejectionReasons:["LISTENING_PASSES_DISAGREE"],
         }},
@@ -163,6 +174,8 @@ test("real ExcelJS simulated Source Diagnostics export preserves all rows, note,
     field:String(row.getCell(2).value),value:String(row.getCell(3).value)});});
   const got=values(restored);
   assert.equal(got["Low-End Division/Gate check: SECOND_PASS_ROLES_INDEPENDENT"],"false");
+  assert.equal(got["Low-End Division/Second-pass role independence"],"false");
+  assert.equal(got["Low-End Division/Second-pass named percussion source"],"kick drum");
   assert.equal(got["Low-End Division/Precise failed checks"],"SECOND_PASS_ROLES_INDEPENDENT");
   assert.equal(got["Midrange Consistency/Parent/child review flag (not scored)"],"REVIEW_PARENT_CHILD_MASKING_CONTRADICTION");
   assert.equal(got["A2 Key Detection/Server-received detected key"],"F major");
