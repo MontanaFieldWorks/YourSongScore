@@ -10,6 +10,7 @@ import { GENRE_MAP } from "./src/data/musicData";
 import { computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC_SCORING_VERSION } from "./src/lib/mudPreventionDiagnostic";
 import { captureA2ServerProductionInputs, captureA2ServerMixInputs } from "./src/lib/a2ScoringProvenance";
 import { withholdA2RawEvidence, getRestrictedA2RawEvidence } from "./src/lib/a2InternalEvidence";
+import { describeLowEndGateFactors } from "./src/lib/sourceVerificationDiagnostics";
 import { a2PilotReadOnlyPreflight } from "./src/lib/a2PilotReadOnlyPreflight";
 import { a2PilotContext, a2PilotOnError, executeA2PilotProviderOperation,
   a2PilotGenerateContentOptions, configuredA2PilotLedger, beginA2Pilot,
@@ -1673,7 +1674,17 @@ function reconcileParentScores(parsedCritique: any): void {
         audit.percussionType === lowEnd.lowTransientSourceType &&
         audit.bassFoundationType === lowEnd.bassFoundationSourceType &&
         hasSpecificLowPercussionEvidence(audit.percussionType, audit.percussionSourceName, audit.percussionAudibleCue);
+      // Evidence-only diagnostic mirror; NOT consulted by the applicability gate.
+      const gateDiagnostics = describeLowEndGateFactors(lowEnd, audit, hasSpecificLowPercussionEvidence);
       lowEnd.sourceVerification = {
+        gateFactors: gateDiagnostics.factors,
+        specificRejectionReasons: gateDiagnostics.failedChecks,
+        firstPassPercussionName: lowEnd.lowTransientSourceName ?? null,
+        secondPassPercussionName: audit?.percussionSourceName ?? null,
+        firstPassPercussionCertainty: lowEnd.lowTransientCertainty ?? null,
+        secondPassPercussionCertainty: audit?.percussionCertainty ?? null,
+        firstPassRolesIndependent: lowEnd.lowEndRolesIndependent ?? null,
+        secondPassRolesIndependent: audit?.rolesIndependent ?? null,
         firstPassPercussionType: lowEnd.lowTransientSourceType,
         secondPassPercussionType: audit?.percussionType ?? "NO_AUDIT",
         firstPassBassType: lowEnd.bassFoundationSourceType,
@@ -2434,6 +2445,15 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
     );
     parsedCritique.productionFinishEvidence = productionFinishEvidence;
     parsedCritique.productionScoringVersion = MUD_DIAGNOSTIC_SCORING_VERSION;
+    if (isA2PilotRequest()) {
+      parsedCritique.a2KeyServerProvenance = {
+        receivedDetectedKey: detectedKey || null,
+        mainCritiqueKeyConstrained: !!detectedKey,
+        chordCallKeyConstrained: !!detectedKey,
+        constrainedChordResponseKey: null,
+        serverReappliedKey: false,
+      };
+    }
 
     try {
 
@@ -2458,6 +2478,13 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
     try {
       console.log("[Chord/Key] Starting direct Gemini chord/key analysis...");
       const chordKeyAnalysis = await performChordKeyAnalysis(audioPart, detectedKey);
+      // Already constrained by the browser estimate; not independent key evidence.
+      if (isA2PilotRequest() && parsedCritique.a2KeyServerProvenance) {
+        parsedCritique.a2KeyServerProvenance.constrainedChordResponseKey =
+          chordKeyAnalysis?.keySignature ?? null;
+        parsedCritique.a2KeyServerProvenance.serverReappliedKey =
+          !!detectedKey && !!chordKeyAnalysis;
+      }
       if (detectedKey && chordKeyAnalysis) chordKeyAnalysis.keySignature = detectedKey;
       parsedCritique.chordKeyAnalysis = chordKeyAnalysis;
       parsedCritique.chordKeyAnalysisFailed = false;
