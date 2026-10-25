@@ -10,6 +10,7 @@ import { GENRE_MAP } from "./src/data/musicData";
 import { computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC_SCORING_VERSION } from "./src/lib/mudPreventionDiagnostic";
 import { captureA2ServerProductionInputs, captureA2ServerMixInputs } from "./src/lib/a2ScoringProvenance";
 import { withholdA2RawEvidence, getRestrictedA2RawEvidence } from "./src/lib/a2InternalEvidence";
+import { a2PilotReadOnlyPreflight } from "./src/lib/a2PilotReadOnlyPreflight";
 import { a2PilotContext, a2PilotOnError, executeA2PilotProviderOperation,
   a2PilotGenerateContentOptions, configuredA2PilotLedger, beginA2Pilot,
   finishA2PilotIfActive, acknowledgeA2PilotBrowser, isA2PilotRequest } from "./src/lib/a2PilotSafety";
@@ -3166,6 +3167,15 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Independent Songwriter Critique server running on http://localhost:${PORT}`);
+    if (process.env.NODE_ENV === "production") {
+      // Diagnostics only; the enabled-only Gemini/ledger admission route stays
+      // locked. No public endpoint, writes, token output, or other YSS changes.
+      void a2PilotReadOnlyPreflight().then((status) => {
+        if (status !== "SKIPPED") {
+          console.info(`[A2 READONLY PREFLIGHT] ${status}`);
+        }
+      }).catch(() => console.warn("[A2 READONLY PREFLIGHT] FAIL_DATABASE"));
+    }
   });
 }
 
