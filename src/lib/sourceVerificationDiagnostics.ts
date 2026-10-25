@@ -40,6 +40,12 @@ export function getSourceVerificationRows(critique: any): SourceDiagnosticRow[] 
   add("Low-End Division", "Final applicable", low?.applicable);
   add("Low-End Division", "Final commentary", low?.commentary);
   // Do not infer a failed condition from the generic historical rejection code.
+  add("Low-End Division", "First-pass named percussion source", ls?.firstPassPercussionName);
+  add("Low-End Division", "Second-pass named percussion source", ls?.secondPassPercussionName);
+  add("Low-End Division", "First-pass low-percussion certainty", ls?.firstPassPercussionCertainty);
+  add("Low-End Division", "Second-pass low-percussion certainty", ls?.secondPassPercussionCertainty);
+  add("Low-End Division", "First-pass role independence", ls?.firstPassRolesIndependent);
+  add("Low-End Division", "Second-pass role independence", ls?.secondPassRolesIndependent);
   add("Low-End Division", "Precise gate checks captured", ls?.gateFactors ? "PRESENT" : "NOT_CAPTURED");
   for (const [name, passed] of Object.entries(ls?.gateFactors || {})) {
     add("Low-End Division", "Gate check: " + name, passed);
@@ -87,6 +93,28 @@ export function describeLowEndGateFactors(
 ): { factors: Record<string, boolean | null>; failedChecks: string[] } {
   const validBass = (kind: any) =>
     ["DEDICATED_BASS_INSTRUMENT", "DEDICATED_SYNTH_OR_SUB", "INDEPENDENT_ORCHESTRAL_BASS"].includes(kind);
+
+  // Explain the authoritative validator result in finer granularity without
+  // using these mirror checks for any score or applicability decision.
+  const evidenceDetails = (kind: any, rawName: any, rawCue: any) => {
+    const name = String(rawName || "").trim();
+    const cue = String(rawCue || "").trim();
+    const nameGeneric = /(?:transient(?:-like)?|pulse|ostinato|attack-like|percussive[- ](?:sounding|element)|rhythmic (?:element|layer)|low[- ]frequency (?:element|energy|sound|activity))/i.test(name) ||
+      /^(?:unknown|none|n\\/?a|not established|undetermined|percussion|drums?|other)$/i.test(name);
+    const cueGeneric = /^(?:unknown|none|n\\/?a|not (?:clear|established|audible)|unverified)$/i.test(cue);
+    const typeMatchesName = kind === "KICK_DRUM" ? /\\b(kick|bass drum)\\b/i.test(name)
+      : kind === "BASS_DRUM" ? /\\b(bass drum|concert bass drum|gran cassa)\\b/i.test(name)
+      : kind === "TIMPANI_OR_LOW_TOM" ? /\\b(timpani|tympani|kettledrum|kettle drum|low tom|floor tom)\\b/i.test(name)
+      : kind === "OTHER_NAMED_LOW_PERCUSSION";
+    return {
+      SOURCE_NAME_PRESENT: name.length > 0,
+      SOURCE_NAME_SPECIFIC: name.length > 0 && !nameGeneric,
+      SOURCE_NAME_MATCHES_PERCUSSION_TYPE: typeMatchesName,
+      AUDIBLE_CUE_PRESENT: cue.length > 0,
+      AUDIBLE_CUE_AT_LEAST_12_CHARS: cue.length >= 12,
+      AUDIBLE_CUE_NOT_GENERIC_PLACEHOLDER: cue.length > 0 && !cueGeneric,
+    };
+  };
   const firstEvidence = hasSpecificEvidence(first?.lowTransientSourceType, first?.lowTransientSourceName, first?.lowTransientAudibleCue);
   const secondEvidence = second
     ? hasSpecificEvidence(second.percussionType, second.percussionSourceName, second.percussionAudibleCue) : null;
@@ -104,6 +132,13 @@ export function describeLowEndGateFactors(
     SECOND_PASS_PERCUSSION_TYPE_MATCH: second ? second.percussionType === first?.lowTransientSourceType : null,
     SECOND_PASS_BASS_TYPE_MATCH: second ? second.bassFoundationType === first?.bassFoundationSourceType : null,
     SECOND_PASS_NAMED_PERCUSSION_EVIDENCE_VALID: secondEvidence,
+    ...Object.fromEntries(Object.entries(evidenceDetails(
+      first?.lowTransientSourceType, first?.lowTransientSourceName, first?.lowTransientAudibleCue,
+    )).map(([name, result]) => ["FIRST_PASS_" + name, result])),
+    ...(second ? Object.fromEntries(Object.entries(evidenceDetails(
+      second.percussionType, second.percussionSourceName, second.percussionAudibleCue,
+    )).map(([name, result]) => ["SECOND_PASS_" + name, result]))
+      : Object.fromEntries(Object.keys(evidenceDetails("", "", "")).map(name => ["SECOND_PASS_" + name, null]))),
   };
   return {
     factors,
