@@ -2536,8 +2536,8 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
     }
 
     validateGenrePair(parsedCritique);
-    // A2-only evidence snapshot: the model's controlled assertion codes, prior
-    // to N/A enforcement, parent reconciliation or later browser DSP rewrites.
+    // A2-only assertion-code snapshot after genre normalization and Call 3's
+    // applicability gate, but before parent reconciliation or browser DSP edits.
     // This is never consulted by scoring, applicability, routing or prompts.
     if (isA2PilotRequest()) {
       parsedCritique.a2OriginalAssertionSnapshot = captureA2OriginalAssertionSnapshot(parsedCritique);
