@@ -487,7 +487,7 @@ test("paired Boston fixtures can compare independent, controlled snapshots witho
     {fixture:"T01_B",critique:{
       vibe:{genre:"Rock",subgenre:"Heritage Rock / Mainstream Rock"},
       performance:{vocalApplicable:true,vocalsCritique:"Backing harmonies remain discernible."},
-      subMetricsCall3:{vocalTrackingSubs:{vocalLayerFit:{backingVocalLayersPresent:true}}}},
+      subMetricsCall3:{vocalTrackingSubs:{vocalLayerFit:{backingVocalLayersPresent:true}}},
     }},
   ];
   const captured=pair.map(x=>({fixture:x.fixture,snapshot:captureA2OriginalAssertionSnapshot(x.critique)}));
