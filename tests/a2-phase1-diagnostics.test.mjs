@@ -409,6 +409,35 @@ test("postposed absence is recognized, while speculative language is insufficien
     "AMBIGUOUS_CROSS_PASS_LAYER_DESCRIPTIONS");
 });
 
+test("hedged backing-layer language never becomes a categorical cross-pass assertion", () => {
+  const uncertain = [
+    "There may be backing harmonies behind the lead.",
+    "Possibly backing vocals enter in the chorus.",
+    "Backing vocals might be present in the chorus.",
+    "The mix suggests vocal doubling in spots.",
+    "Vocal harmonies are perhaps audible.",
+    "There might be no backing vocals at all.",
+    "The singer may not have backing vocals.",
+  ];
+  for (const phrase of uncertain) {
+    for (const present of [true, false]) {
+      const input = {
+        performance: { vocalsCritique: phrase },
+        subMetricsCall3: { vocalTrackingSubs: { vocalLayerFit: { backingVocalLayersPresent: present } } },
+      };
+      const got = inspectA2VocalLayerEvidence(input);
+      assert.equal(got.crossPassFlag, "INSUFFICIENT_CROSS_PASS_LAYER_EVIDENCE", phrase);
+      assert.deepEqual(got.crossPassSignals, [], phrase);
+    }
+  }
+  const definite = {
+    performance: { vocalsCritique: "The chorus clearly features backing harmonies." },
+    subMetricsCall3: { vocalTrackingSubs: { vocalLayerFit: { backingVocalLayersPresent: false } } },
+  };
+  assert.equal(inspectA2VocalLayerEvidence(definite).crossPassFlag,
+    "REVIEW_CONFLICTING_LAYER_ASSERTIONS");
+});
+
 test("legacy missing Call 3 and solo-vocal cases never invent a confirmed presence decision", () => {
   assert.equal(inspectA2VocalLayerEvidence({}).status,"NOT_CAPTURED");
   assert.equal(inspectA2VocalLayerEvidence({}).crossPassFlag,
@@ -563,6 +592,9 @@ test("static integration guard proves pre-reconciliation capture stays on A2 upl
   assert.equal([...server.matchAll(inserted)].length,1);
   assert.ok(server.indexOf("captureA2OriginalAssertionSnapshot(parsedCritique)")<
     server.indexOf("reconcileParentScores(parsedCritique)"));
+  assert.ok(server.indexOf("const subMetricsCall3 = await performSubMetricsCall3(") <
+    server.indexOf("captureA2OriginalAssertionSnapshot(parsedCritique)"),
+    "capture follows the existing Call 3 applicability handling");
   assert.match(server,/await finishA2PilotIfActive\(\);\s*withholdA2RawEvidence\(parsedCritique\);/);
   assert.match(server,/if \(!percussionPresent \|\| !bassPresent \|\| !corroborated\)/);
   assert.match(server,/if \(vocals\?\.vocalLayerFit && vocals\.vocalLayerFit\.backingVocalLayersPresent === false\)/);
