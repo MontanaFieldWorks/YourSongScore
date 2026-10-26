@@ -353,14 +353,28 @@ export interface StoredTrack {
   metaTitle?: string;
   metaArtist?: string;
   metaGenre?: string;
-  metrics?: {
-    overall: number;
-    mix: number;
-    performance: number;
-    engagement: number;
-    lyric: number;
-    theory: number;
-    seo: number;
-  };
+  // Historical lockers stored seven category scores; current analyses store
+  // five headline measurements plus overall/mix. Keep both shapes honest
+  // without inventing missing historical or current fields.
+  metrics?: (
+    | {
+        overall: number;
+        mix: number;
+        performance: number;
+        engagement: number;
+        lyric: number;
+        theory: number;
+        seo: number;
+      }
+    | {
+        overall: number;
+        mix: number;
+        streamingReadiness: number;
+        sonicSoundprint: number;
+        compositionalDepth: number;
+        echoNestAvgMatch: number;
+        loudnessComplianceScore: number;
+      }
+  );
 }
 
