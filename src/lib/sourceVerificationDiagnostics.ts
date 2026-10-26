@@ -64,6 +64,57 @@ export function getSourceVerificationRows(critique: any): SourceDiagnosticRow[] 
   add("Genre Consistency", "Matched existing model descriptions", narrative.genreSignals);
   add("Midrange Consistency", "Parent/child review flag (not scored)", narrative.midrangeFlag);
   add("Midrange Consistency", "Matched existing model assertions", narrative.midrangeSignals);
+  // The server creates this controlled-code snapshot before reconciliation.
+  // Never reconstruct an "original" from post-browser commentary or legacy reports.
+  const original = critique?.a2OriginalAssertionSnapshot;
+  const captured = original?.captureStage === "SERVER_PRE_RECONCILIATION" && original?.version === 1;
+  const safe = (value: unknown, allowed: readonly string[]): string =>
+    typeof value === "string" && allowed.includes(value) ? value : "NOT_CAPTURED";
+  const genreCodes = ["REVIEW_FOLK_LABEL_VS_FULL_BAND_EVIDENCE",
+    "NO_DETERMINISTIC_CONTRADICTION_FLAG", "INSUFFICIENT_GENRE_OR_INSTRUMENT_EVIDENCE"];
+  const midrangeCodes = ["REVIEW_PARENT_CHILD_MASKING_CONTRADICTION",
+    "NO_DETERMINISTIC_CONTRADICTION_FLAG", "INSUFFICIENT_NARRATIVE_EVIDENCE"];
+  const layerStatuses = ["PRESENT_SINGLE_PASS_UNVERIFIED", "ABSENT_SINGLE_PASS_UNVERIFIED", "NOT_CAPTURED"];
+  const layerFlags = ["REVIEW_CONFLICTING_LAYER_ASSERTIONS", "NO_DETERMINISTIC_LAYER_CONTRADICTION_FLAG",
+    "INSUFFICIENT_CROSS_PASS_LAYER_EVIDENCE", "AMBIGUOUS_CROSS_PASS_LAYER_DESCRIPTIONS", "NOT_CAPTURED"];
+  const genreSignalCodes = ["FOLK_FAMILY_OR_SUBGENRE", "ELECTRIC_GUITARS_DESCRIBED",
+    "DRUM_KIT_DESCRIBED", "HIGH_GAIN_OR_SOLO_DESCRIBED"];
+  const midrangeSignalCodes = ["PARENT_ASSERTS_MIDRANGE_MASKING", "CHILD_DENIES_SIGNIFICANT_MASKING"];
+  const layerSignalCodes = ["MAIN_CRITIQUE_DESCRIBES_BACKING_LAYERS",
+    "MAIN_CRITIQUE_EXPLICITLY_DENIES_BACKING_LAYERS"];
+  const safeSignals = (value: unknown, allowed: readonly string[]): string =>
+    Array.isArray(value) && value.every(v => typeof v === "string" && allowed.includes(v))
+      ? value.length ? value.join("; ") : "NONE" : "NOT_CAPTURED";
+  const tierCodes = ["REFERENCE", "EXCEPTIONAL", "ABOVE_AVERAGE", "PROFESSIONAL_HIGH",
+    "PROFESSIONAL", "LIMITED", "MATERIAL_ISSUE", "SEVERE"];
+  const currentLayer = inspectA2VocalLayerEvidence(critique);
+  add("Vocal Layer Fit", "Current single-pass presence status (not corroborated)", currentLayer.status);
+  add("Vocal Layer Fit", "Current cross-pass assertion review flag (not scored)", currentLayer.crossPassFlag);
+  add("Vocal Layer Fit", "Current cross-pass assertion codes", currentLayer.crossPassSignals);
+  add("A2 Original Assertions", "Immutable pre-reconciliation capture", captured ? "PRESENT" : "NOT_CAPTURED");
+  add("A2 Original Assertions", "Capture stage",
+    captured ? "SERVER_PRE_RECONCILIATION" : "NOT_CAPTURED");
+  add("A2 Original Assertions", "Original vocal-track genre review flag (not scored)",
+    captured ? safe(original.originalVocalTrackGenreFlag,
+      [...genreCodes, "NOT_CONFIRMED_VOCAL_TRACK"]) : "NOT_CAPTURED");
+  add("A2 Original Assertions", "Original genre review flag (not scored)",
+    captured ? safe(original.originalGenreFlag, genreCodes) : "NOT_CAPTURED");
+  add("A2 Original Assertions", "Original genre assertion codes",
+    captured ? safeSignals(original.originalGenreSignals, genreSignalCodes) : "NOT_CAPTURED");
+  add("A2 Original Assertions", "Original model Midrange Spacing qualityTier",
+    captured ? safe(original.originalMidrangeTier, tierCodes) : "NOT_CAPTURED");
+  add("A2 Original Assertions", "Original parent/child midrange review flag (not scored)",
+    captured ? safe(original.originalMidrangeFlag, midrangeCodes) : "NOT_CAPTURED");
+  add("A2 Original Assertions", "Original midrange assertion codes",
+    captured ? safeSignals(original.originalMidrangeSignals, midrangeSignalCodes) : "NOT_CAPTURED");
+  add("A2 Original Assertions", "Original vocal-layer presence status (single pass)",
+    captured ? safe(original.vocalLayerEvidenceStatus, layerStatuses) : "NOT_CAPTURED");
+  add("A2 Original Assertions", "Original vocal-layer cross-pass review flag (not scored)",
+    captured ? safe(original.vocalLayerCrossPassFlag, layerFlags) : "NOT_CAPTURED");
+  add("A2 Original Assertions", "Original vocal-layer assertion codes",
+    captured ? safeSignals(original.vocalLayerCrossPassSignals, layerSignalCodes) : "NOT_CAPTURED");
+  add("A2 Original Assertions", "Interpretation",
+    "Controlled assertion codes only; no independent audio verification. Captured after server genre normalization and Call 3 gates, before parent reconciliation and browser edits; never reconstructed for legacy reports.");
   add("A2 Key Detection", "Browser provenance captured", clientKey ? "PRESENT" : "NOT_CAPTURED");
   add("A2 Key Detection", "Browser detector", clientKey?.detector);
   add("A2 Key Detection", "Browser detector result status", clientKey?.status);
@@ -253,4 +304,90 @@ export function inspectA2NarrativeConflicts(critique: any): {
     : parentMasking && childDenies ? "REVIEW_PARENT_CHILD_MASKING_CONTRADICTION"
     : "NO_DETERMINISTIC_CONTRADICTION_FLAG";
   return { genreFlag, genreSignals, midrangeFlag, midrangeSignals };
+}
+
+
+/** Assertion audit only: model text cues are uncertain, never factual ground truth. */
+export function inspectA2VocalLayerEvidence(critique: any): {
+  status: "PRESENT_SINGLE_PASS_UNVERIFIED" | "ABSENT_SINGLE_PASS_UNVERIFIED" | "NOT_CAPTURED";
+  crossPassFlag: string;
+  crossPassSignals: string[];
+} {
+  const presence = critique?.subMetricsCall3?.vocalTrackingSubs?.vocalLayerFit?.backingVocalLayersPresent;
+  const status = presence === true ? "PRESENT_SINGLE_PASS_UNVERIFIED" :
+    presence === false ? "ABSENT_SINGLE_PASS_UNVERIFIED" : "NOT_CAPTURED";
+  // The main critique is a separate model operation. Never use Call 3's own
+  // vocal-layer commentary as independent confirmation of its boolean.
+  const mainVocal = say(critique?.performance?.vocalsCritique);
+  const layerCue = /\bback(?:ing|ground)\s+(?:vocals?|harmon(?:y|ies))\b|\bvocal\s+harmon(?:y|ies)\b|\b(?:vocal|voice)\s+doubl(?:ing|ed|es?)\b|\bdoubl(?:ed|ing)\s+vocals?\b|\b(?:stacked|layered)\s+vocals?\b|\bchoir\b|\bmultiple\s+vocal\s+(?:voices|layers)\b/gi;
+  // Hedged language is not a positive or negative assertion. Otherwise "there may
+  // be backing vocals" spuriously contradicts a definite Call 3 absence result.
+  const speculativeAt = (clause: string, start: number, end: number): boolean => {
+    const near = (clause.slice(Math.max(0, start - 95), start).match(/\b[\w'-]+\b/g) || []).slice(-6).join(" ");
+    const after = clause.slice(end, end + 45);
+    return /\b(?:may|might|could|perhaps|possibly|potentially|seems?|appears?|suggests?|suspected|maybe)\b/i.test(near) ||
+      /^\W*(?:(?:is|are|was|were)\s+)?(?:maybe|possibly|perhaps|potentially|may|might|could|uncertain)\b/i.test(after);
+  };
+  let affirmed = false;
+  let denied = false;
+  for (const clause of clauses(mainVocal)) {
+    for (const match of clause.matchAll(layerCue)) {
+      const start = match.index ?? 0;
+      if (speculativeAt(clause, start, start + match[0].length)) continue;
+      if (deniedAt(clause, start, start + match[0].length)) denied = true;
+      else affirmed = true;
+    }
+  }
+  const crossPassSignals = [
+    ...(affirmed ? ["MAIN_CRITIQUE_DESCRIBES_BACKING_LAYERS"] : []),
+    ...(denied ? ["MAIN_CRITIQUE_EXPLICITLY_DENIES_BACKING_LAYERS"] : []),
+  ];
+  const crossPassFlag = status === "NOT_CAPTURED" || (!affirmed && !denied)
+    ? "INSUFFICIENT_CROSS_PASS_LAYER_EVIDENCE"
+    : affirmed && denied ? "AMBIGUOUS_CROSS_PASS_LAYER_DESCRIPTIONS"
+    : (presence === false && affirmed) || (presence === true && denied)
+      ? "REVIEW_CONFLICTING_LAYER_ASSERTIONS"
+      : "NO_DETERMINISTIC_LAYER_CONTRADICTION_FLAG";
+  return {status, crossPassFlag, crossPassSignals};
+}
+
+/**
+ * Captured after model calls, genre-pair normalization and Call 3's vocal
+ * applicability gate, but before parent-score reconciliation and browser DSP edits.
+ * Serialize only allow-listed codes. A frozen in-memory object detaches this
+ * immutable historical record from all subsequently mutable critique fields.
+ */
+export function captureA2OriginalAssertionSnapshot(critique: any): Readonly<{
+  version: 1;
+  captureStage: "SERVER_PRE_RECONCILIATION";
+  originalGenreFlag: string;
+  originalVocalTrackGenreFlag: string;
+  originalGenreSignals: readonly string[];
+  originalMidrangeFlag: string;
+  originalMidrangeSignals: readonly string[];
+  originalMidrangeTier: string;
+  vocalLayerEvidenceStatus: string;
+  vocalLayerCrossPassFlag: string;
+  vocalLayerCrossPassSignals: readonly string[];
+}> {
+  const narrative = inspectA2NarrativeConflicts(critique);
+  const layer = inspectA2VocalLayerEvidence(critique);
+  const tier = critique?.subMetricsCall1?.midrangeSpacing?.qualityTier;
+  const tierCodes = ["REFERENCE", "EXCEPTIONAL", "ABOVE_AVERAGE",
+    "PROFESSIONAL_HIGH", "PROFESSIONAL", "LIMITED", "MATERIAL_ISSUE", "SEVERE"];
+  const snapshot = {
+    version: 1 as const,
+    captureStage: "SERVER_PRE_RECONCILIATION" as const,
+    originalGenreFlag: narrative.genreFlag,
+    originalVocalTrackGenreFlag: critique?.performance?.vocalApplicable === true
+      ? narrative.genreFlag : "NOT_CONFIRMED_VOCAL_TRACK",
+    originalGenreSignals: Object.freeze([...narrative.genreSignals]),
+    originalMidrangeFlag: narrative.midrangeFlag,
+    originalMidrangeSignals: Object.freeze([...narrative.midrangeSignals]),
+    originalMidrangeTier: typeof tier === "string" && tierCodes.includes(tier) ? tier : "NOT_CAPTURED",
+    vocalLayerEvidenceStatus: layer.status,
+    vocalLayerCrossPassFlag: layer.crossPassFlag,
+    vocalLayerCrossPassSignals: Object.freeze([...layer.crossPassSignals]),
+  };
+  return Object.freeze(snapshot);
 }

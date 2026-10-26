@@ -6,6 +6,8 @@ import { appendA2ProvenanceToSourceDiagnostics } from "../src/lib/a2ScoringProve
 import {
   describeLowEndGateFactors,
   inspectA2NarrativeConflicts,
+  inspectA2VocalLayerEvidence,
+  captureA2OriginalAssertionSnapshot,
   getSourceVerificationRows,
 } from "../src/lib/sourceVerificationDiagnostics.ts";
 
@@ -322,6 +324,282 @@ test("real ExcelJS simulated Source Diagnostics export preserves all rows, note,
     /UNSANITIZED_INTERNAL_MODEL_SECRET/);
 
 });
+test("A2 original assertion snapshot flags Boston-style vocal Folk and midrange conflicts without changing critique", () => {
+  const critique = {
+    ...structuredClone(genreAndMask),
+    performance: {
+      vocalApplicable: true,
+      vocalsCritique: "Layered backing harmonies blend with the lead in the chorus.",
+    },
+    subMetricsCall3: {vocalTrackingSubs: {vocalLayerFit: {
+      applicable:false, qualityTier:"PROFESSIONAL_HIGH",
+      backingVocalLayersPresent:false, commentary:"No distinct backing layers are audible.",
+    }}},
+  };
+  const before=structuredClone(critique);
+  const snapshot=captureA2OriginalAssertionSnapshot(critique);
+  assert.deepEqual(critique,before);
+  assert.equal(snapshot.captureStage,"SERVER_PRE_RECONCILIATION");
+  assert.equal(snapshot.version,1);
+  assert.equal(snapshot.originalVocalTrackGenreFlag,"REVIEW_FOLK_LABEL_VS_FULL_BAND_EVIDENCE");
+  assert.equal(snapshot.originalGenreFlag,"REVIEW_FOLK_LABEL_VS_FULL_BAND_EVIDENCE");
+  assert.equal(snapshot.originalMidrangeFlag,"REVIEW_PARENT_CHILD_MASKING_CONTRADICTION");
+  assert.equal(snapshot.originalMidrangeTier,"NOT_CAPTURED"); // Unspecified in this fixture.
+  assert.equal(snapshot.vocalLayerEvidenceStatus,"ABSENT_SINGLE_PASS_UNVERIFIED");
+  assert.equal(snapshot.vocalLayerCrossPassFlag,"REVIEW_CONFLICTING_LAYER_ASSERTIONS");
+  assert.deepEqual(snapshot.vocalLayerCrossPassSignals,["MAIN_CRITIQUE_DESCRIBES_BACKING_LAYERS"]);
+  assert.equal(Object.isFrozen(snapshot),true);
+  assert.equal(Object.isFrozen(snapshot.originalGenreSignals),true);
+  assert.equal(Object.isFrozen(snapshot.originalMidrangeSignals),true);
+  assert.equal(Object.isFrozen(snapshot.vocalLayerCrossPassSignals),true);
+});
+
+test("T01_B-style Rock plus Call 3 backing layers produces single-pass status, no invented disagreement", () => {
+  const critique={
+    vibe:{genre:"Rock",subgenre:"Heritage Rock / Mainstream Rock"},
+    performance:{vocalApplicable:true,vocalsCritique:"The backing harmonies lift the chorus."},
+    subMetricsCall1:{spaceAndDensity:{commentary:"Electric guitars, drum kit and driving bass in a dense chorus."},
+      midrangeSpacing:{qualityTier:"PROFESSIONAL_HIGH",commentary:"Elements are broadly clear."}},
+    mixQuality:{frequencyBalance:{midrange:"Strong low-mid energy remains noticeable."}},
+    subMetricsCall3:{vocalTrackingSubs:{vocalLayerFit:{backingVocalLayersPresent:true,
+      applicable:true,qualityTier:"PROFESSIONAL_HIGH"}}},
+  };
+  const snapshot=captureA2OriginalAssertionSnapshot(critique);
+  assert.equal(snapshot.originalVocalTrackGenreFlag,"NO_DETERMINISTIC_CONTRADICTION_FLAG");
+  assert.equal(snapshot.originalMidrangeTier,"PROFESSIONAL_HIGH");
+  assert.equal(snapshot.vocalLayerEvidenceStatus,"PRESENT_SINGLE_PASS_UNVERIFIED");
+  assert.equal(snapshot.vocalLayerCrossPassFlag,"NO_DETERMINISTIC_LAYER_CONTRADICTION_FLAG");
+  assert.deepEqual(snapshot.vocalLayerCrossPassSignals,["MAIN_CRITIQUE_DESCRIBES_BACKING_LAYERS"]);
+});
+
+test("the main critique, not a Call 3 self-justification, is the independent vocal-layer reference", () => {
+  const input={
+    performance:{vocalsCritique:"The lead voice is steady and clear."},
+    subMetricsCall3:{vocalTrackingSubs:{vocalLayerFit:{
+      backingVocalLayersPresent:true,commentary:"Backing harmonies lift the chorus."}}},
+  };
+  assert.equal(inspectA2VocalLayerEvidence(input).crossPassFlag,
+    "INSUFFICIENT_CROSS_PASS_LAYER_EVIDENCE");
+});
+
+test("explicit cross-pass denial conflicts with positive Call 3, but matched absence does not", () => {
+  const make = presence => ({
+    performance:{vocalsCritique:"There are no backing vocals or vocal harmonies."},
+    subMetricsCall3:{vocalTrackingSubs:{vocalLayerFit:{backingVocalLayersPresent:presence}}},
+  });
+  assert.equal(inspectA2VocalLayerEvidence(make(true)).crossPassFlag,
+    "REVIEW_CONFLICTING_LAYER_ASSERTIONS");
+  const negative=inspectA2VocalLayerEvidence(make(false));
+  assert.equal(negative.crossPassFlag,"NO_DETERMINISTIC_LAYER_CONTRADICTION_FLAG");
+  assert.deepEqual(negative.crossPassSignals,["MAIN_CRITIQUE_EXPLICITLY_DENIES_BACKING_LAYERS"]);
+  assert.equal(negative.status,"ABSENT_SINGLE_PASS_UNVERIFIED");
+});
+
+test("postposed absence is recognized, while speculative language is insufficient", () => {
+  const make=phrase=>({
+    performance:{vocalsCritique:phrase},
+    subMetricsCall3:{vocalTrackingSubs:{vocalLayerFit:{backingVocalLayersPresent:true}}},
+  });
+  assert.equal(inspectA2VocalLayerEvidence(make("Backing vocals are absent.")).crossPassFlag,
+    "REVIEW_CONFLICTING_LAYER_ASSERTIONS");
+  assert.equal(inspectA2VocalLayerEvidence(make("The lead may perhaps be doubled.")).crossPassFlag,
+    "INSUFFICIENT_CROSS_PASS_LAYER_EVIDENCE");
+  // An ambiguous cross-pass statement is not interpreted as ground truth.
+  assert.equal(inspectA2VocalLayerEvidence(make("There are no backing vocals; yet backing harmonies rise in the chorus.")).crossPassFlag,
+    "AMBIGUOUS_CROSS_PASS_LAYER_DESCRIPTIONS");
+});
+
+test("hedged backing-layer language never becomes a categorical cross-pass assertion", () => {
+  const uncertain = [
+    "There may be backing harmonies behind the lead.",
+    "Possibly backing vocals enter in the chorus.",
+    "Backing vocals might be present in the chorus.",
+    "The mix suggests vocal doubling in spots.",
+    "Vocal harmonies are perhaps audible.",
+    "There might be no backing vocals at all.",
+    "The singer may not have backing vocals.",
+  ];
+  for (const phrase of uncertain) {
+    for (const present of [true, false]) {
+      const input = {
+        performance: { vocalsCritique: phrase },
+        subMetricsCall3: { vocalTrackingSubs: { vocalLayerFit: { backingVocalLayersPresent: present } } },
+      };
+      const got = inspectA2VocalLayerEvidence(input);
+      assert.equal(got.crossPassFlag, "INSUFFICIENT_CROSS_PASS_LAYER_EVIDENCE", phrase);
+      assert.deepEqual(got.crossPassSignals, [], phrase);
+    }
+  }
+  const definite = {
+    performance: { vocalsCritique: "The chorus clearly features backing harmonies." },
+    subMetricsCall3: { vocalTrackingSubs: { vocalLayerFit: { backingVocalLayersPresent: false } } },
+  };
+  assert.equal(inspectA2VocalLayerEvidence(definite).crossPassFlag,
+    "REVIEW_CONFLICTING_LAYER_ASSERTIONS");
+});
+
+test("legacy missing Call 3 and solo-vocal cases never invent a confirmed presence decision", () => {
+  assert.equal(inspectA2VocalLayerEvidence({}).status,"NOT_CAPTURED");
+  assert.equal(inspectA2VocalLayerEvidence({}).crossPassFlag,
+    "INSUFFICIENT_CROSS_PASS_LAYER_EVIDENCE");
+  const solo={performance:{vocalApplicable:true,vocalsCritique:"No backing vocals."},
+    subMetricsCall3:{vocalTrackingSubs:{vocalLayerFit:{backingVocalLayersPresent:false,applicable:false,score:0}}}};
+  const before=structuredClone(solo);
+  assert.equal(captureA2OriginalAssertionSnapshot(solo).vocalLayerEvidenceStatus,
+    "ABSENT_SINGLE_PASS_UNVERIFIED");
+  assert.equal(solo.subMetricsCall3.vocalTrackingSubs.vocalLayerFit.applicable,false);
+  assert.equal(solo.subMetricsCall3.vocalTrackingSubs.vocalLayerFit.score,0);
+  assert.deepEqual(solo,before);
+});
+
+test("known instrumental, missing vocalist status, and missing instrument evidence remain unverified", () => {
+  const make=vocalApplicable=>({
+    performance:{vocalApplicable},
+    vibe:{genre:"Folk / Singer-Songwriter",subgenre:"Folk Rock"},
+    subMetricsCall1:{midrangeSpacing:{qualityTier:"PROFESSIONAL_HIGH"}},
+  });
+  for(const input of [make(false),make(undefined)]) {
+    const v=captureA2OriginalAssertionSnapshot(input);
+    assert.equal(v.originalVocalTrackGenreFlag,"NOT_CONFIRMED_VOCAL_TRACK");
+    assert.equal(v.originalGenreFlag,"INSUFFICIENT_GENRE_OR_INSTRUMENT_EVIDENCE");
+    assert.equal(v.originalMidrangeFlag,"INSUFFICIENT_NARRATIVE_EVIDENCE");
+  }
+});
+
+test("original snapshot survives browser DSP overwrites of child and parent commentary", () => {
+  const critique={...structuredClone(genreAndMask),
+    performance:{vocalApplicable:true,vocalsCritique:"The chorus contains layered backing harmonies."},
+    subMetricsCall3:{vocalTrackingSubs:{vocalLayerFit:{backingVocalLayersPresent:false,score:0,applicable:false}}},
+  };
+  critique.subMetricsCall1.midrangeSpacing.qualityTier="PROFESSIONAL_HIGH";
+  critique.subMetricsCall1.midrangeSpacing.score=88;
+  critique.a2OriginalAssertionSnapshot=captureA2OriginalAssertionSnapshot(critique);
+  const frozenCopy=structuredClone(critique.a2OriginalAssertionSnapshot);
+  critique.subMetricsCall1.midrangeSpacing.score=76;
+  critique.subMetricsCall1.midrangeSpacing.commentary="The measured midrange is congested; masking is audible.";
+  critique.mixQuality.frequencyBalance.midrange="The measured midrange is constricted.";
+  const rows=values(getSourceVerificationRows(critique));
+  assert.equal(rows["A2 Original Assertions/Original parent/child midrange review flag (not scored)"],
+    "REVIEW_PARENT_CHILD_MASKING_CONTRADICTION");
+  assert.equal(rows["Midrange Consistency/Parent/child review flag (not scored)"],
+    "NO_DETERMINISTIC_CONTRADICTION_FLAG");
+  assert.equal(rows["A2 Original Assertions/Original model Midrange Spacing qualityTier"],
+    "PROFESSIONAL_HIGH");
+  assert.equal(rows["A2 Original Assertions/Original vocal-layer cross-pass review flag (not scored)"],
+    "REVIEW_CONFLICTING_LAYER_ASSERTIONS");
+  assert.deepEqual(critique.a2OriginalAssertionSnapshot,frozenCopy);
+  assert.equal(critique.subMetricsCall1.midrangeSpacing.score,76);
+});
+
+test("real legacy critique has no original snapshot, even when current consistency flags are available", () => {
+  const old={...structuredClone(genreAndMask),
+    performance:{vocalApplicable:true,vocalsCritique:"Strong lead singer with harmonies."},
+    subMetricsCall3:{vocalTrackingSubs:{vocalLayerFit:{backingVocalLayersPresent:false,applicable:false,score:0}}},
+  };
+  const rows=values(getSourceVerificationRows(old));
+  assert.equal(rows["Genre Consistency/Evidence-only review flag (not scored)"],
+    "REVIEW_FOLK_LABEL_VS_FULL_BAND_EVIDENCE");
+  assert.equal(rows["A2 Original Assertions/Immutable pre-reconciliation capture"],"NOT_CAPTURED");
+  assert.equal(rows["A2 Original Assertions/Original genre review flag (not scored)"],"NOT_CAPTURED");
+  assert.equal(rows["A2 Original Assertions/Original vocal-layer presence status (single pass)"],"NOT_CAPTURED");
+  assert.equal(rows["A2 Original Assertions/Original parent/child midrange review flag (not scored)"],
+    "NOT_CAPTURED");
+  assert.equal(rows["Vocal Layer Fit/Current single-pass presence status (not corroborated)"],
+    "ABSENT_SINGLE_PASS_UNVERIFIED");
+});
+
+test("paired Boston fixtures can compare independent, controlled snapshots without contaminating the server", () => {
+  const pair=[
+    {fixture:"BOSTON_CLEAN",critique:{...structuredClone(genreAndMask),
+      performance:{vocalApplicable:true,vocalsCritique:"Subtle backing harmonies support the chorus."},
+      subMetricsCall3:{vocalTrackingSubs:{vocalLayerFit:{backingVocalLayersPresent:false}}}}},
+    {fixture:"T01_B",critique:{
+      vibe:{genre:"Rock",subgenre:"Heritage Rock / Mainstream Rock"},
+      performance:{vocalApplicable:true,vocalsCritique:"Backing harmonies remain discernible."},
+      subMetricsCall3:{vocalTrackingSubs:{vocalLayerFit:{backingVocalLayersPresent:true}}},
+    }},
+  ];
+  const captured=pair.map(x=>({fixture:x.fixture,snapshot:captureA2OriginalAssertionSnapshot(x.critique)}));
+  assert.deepEqual(captured.map(x=>x.snapshot.vocalLayerEvidenceStatus),
+    ["ABSENT_SINGLE_PASS_UNVERIFIED","PRESENT_SINGLE_PASS_UNVERIFIED"]);
+  assert.deepEqual(captured.map(x=>x.snapshot.originalVocalTrackGenreFlag),
+    ["REVIEW_FOLK_LABEL_VS_FULL_BAND_EVIDENCE","INSUFFICIENT_GENRE_OR_INSTRUMENT_EVIDENCE"]);
+  // Pair membership is benchmark-only; the runtime helpers accept no track identity.
+  const source=String(inspectA2VocalLayerEvidence)+String(captureA2OriginalAssertionSnapshot);
+  assert.doesNotMatch(source,/BOSTON_CLEAN|T01_B|More Than a Feeling/i);
+});
+
+test("ExcelJS roundtrip exports only controlled original assertion codes and no raw commentary", async()=>{
+  const rawMarker="UNSANITIZED_INTERNAL_MODEL_SECRET";
+  const critique={
+    ...structuredClone(genreAndMask),
+    performance:{vocalApplicable:true,vocalsCritique:"Backing harmonies support the chorus."},
+    subMetricsCall3:{vocalTrackingSubs:{vocalLayerFit:{
+      backingVocalLayersPresent:false,score:0,applicable:false}}},
+  };
+  critique.subMetricsCall1.midrangeSpacing.qualityTier="PROFESSIONAL_HIGH";
+  critique.a2OriginalAssertionSnapshot=captureA2OriginalAssertionSnapshot(critique);
+  critique.subMetricsCall1.a2ScoringProvenance={midrangeSpacing:{
+    rawQualityTier:rawMarker,rawCommentary:rawMarker,rawEvidenceAccess:"RESTRICTED_INTERNAL_ONLY"}};
+  const original=structuredClone(critique);
+  const wb=new ExcelJS.Workbook(),sheet=wb.addWorksheet("Source Diagnostics");
+  sheet.columns=[{header:"Metric",key:"section"},{header:"Diagnostic field",key:"field"},
+    {header:"Recorded evidence / decision",key:"value"}];
+  for(const row of getSourceVerificationRows(critique))sheet.addRow(row);
+  const note=sheet.rowCount+1;sheet.getCell("A"+note).value="NOT_CAPTURED is missing evidence.";
+  sheet.mergeCells("A"+note+":C"+note);
+  appendA2ProvenanceToSourceDiagnostics(sheet,critique);
+  const bytes=await wb.xlsx.writeBuffer();const read=new ExcelJS.Workbook();await read.xlsx.load(bytes);
+  const retrieved=[];read.getWorksheet("Source Diagnostics").eachRow((row,i)=>{
+    if(i>1 && i<note)retrieved.push({section:String(row.getCell(1).value),
+      field:String(row.getCell(2).value),value:String(row.getCell(3).value)});
+  });
+  const v=values(retrieved);
+  assert.equal(v["A2 Original Assertions/Immutable pre-reconciliation capture"],"PRESENT");
+  assert.equal(v["A2 Original Assertions/Original parent/child midrange review flag (not scored)"],
+    "REVIEW_PARENT_CHILD_MASKING_CONTRADICTION");
+  assert.equal(v["A2 Original Assertions/Original vocal-layer cross-pass review flag (not scored)"],
+    "REVIEW_CONFLICTING_LAYER_ASSERTIONS");
+  assert.equal(v["A2 Original Assertions/Original model Midrange Spacing qualityTier"],
+    "PROFESSIONAL_HIGH");
+  assert.doesNotMatch(JSON.stringify(read.worksheets.map(w=>w.getSheetValues())),
+    /UNSANITIZED_INTERNAL_MODEL_SECRET|rawQualityTier|rawCommentary/i);
+  assert.deepEqual(critique,original);
+});
+
+test("malformed or attacker-injected snapshot strings fail closed to NOT_CAPTURED", () => {
+  const dirty={a2OriginalAssertionSnapshot:{
+    captureStage:"SERVER_PRE_RECONCILIATION",version:1,
+    originalGenreFlag:"UNSANITIZED_INTERNAL_MODEL_SECRET",
+    originalGenreSignals:["UNSANITIZED_INTERNAL_MODEL_SECRET"],
+    originalMidrangeTier:"UNSANITIZED_INTERNAL_MODEL_SECRET",
+    vocalLayerCrossPassFlag:"UNSANITIZED_INTERNAL_MODEL_SECRET",
+  }};
+  const rows=values(getSourceVerificationRows(dirty));
+  for(const key of [
+    "Original genre review flag (not scored)",
+    "Original genre assertion codes",
+    "Original model Midrange Spacing qualityTier",
+    "Original vocal-layer cross-pass review flag (not scored)",
+  ])assert.equal(rows["A2 Original Assertions/"+key],"NOT_CAPTURED");
+  assert.doesNotMatch(JSON.stringify(getSourceVerificationRows(dirty)),/UNSANITIZED_INTERNAL_MODEL_SECRET/);
+});
+
+test("static integration guard proves pre-reconciliation capture stays on A2 upload route only", async()=>{
+  const server=await readFile("server.ts","utf8");
+  assert.match(server,/import \{ describeLowEndGateFactors, captureA2OriginalAssertionSnapshot \}/);
+  const inserted=/if \(isA2PilotRequest\(\)\) \{\s*parsedCritique\.a2OriginalAssertionSnapshot = captureA2OriginalAssertionSnapshot\(parsedCritique\);\s*\}\s*reconcileParentScores\(parsedCritique\);/g;
+  assert.equal([...server.matchAll(inserted)].length,1);
+  assert.ok(server.indexOf("captureA2OriginalAssertionSnapshot(parsedCritique)")<
+    server.indexOf("reconcileParentScores(parsedCritique)"));
+  assert.ok(server.indexOf("const subMetricsCall3 = await performSubMetricsCall3(") <
+    server.indexOf("captureA2OriginalAssertionSnapshot(parsedCritique)"),
+    "capture follows the existing Call 3 applicability handling");
+  assert.match(server,/await finishA2PilotIfActive\(\);\s*withholdA2RawEvidence\(parsedCritique\);/);
+  assert.match(server,/if \(!percussionPresent \|\| !bassPresent \|\| !corroborated\)/);
+  assert.match(server,/if \(vocals\?\.vocalLayerFit && vocals\.vocalLayerFit\.backingVocalLayersPresent === false\)/);
+});
+
 test("production source retains the authoritative gates and uses diagnostics only after model results", async()=>{
   const server=await readFile("server.ts","utf8");
   const client=await readFile("src/App.tsx","utf8");
