@@ -10,7 +10,7 @@ import { GENRE_MAP } from "./src/data/musicData";
 import { computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC_SCORING_VERSION } from "./src/lib/mudPreventionDiagnostic";
 import { captureA2ServerProductionInputs, captureA2ServerMixInputs } from "./src/lib/a2ScoringProvenance";
 import { withholdA2RawEvidence, getRestrictedA2RawEvidence } from "./src/lib/a2InternalEvidence";
-import { describeLowEndGateFactors } from "./src/lib/sourceVerificationDiagnostics";
+import { describeLowEndGateFactors, captureA2OriginalAssertionSnapshot } from "./src/lib/sourceVerificationDiagnostics";
 import { a2PilotReadOnlyPreflight } from "./src/lib/a2PilotReadOnlyPreflight";
 import { a2PilotContext, a2PilotOnError, executeA2PilotProviderOperation,
   a2PilotGenerateContentOptions, configuredA2PilotLedger, beginA2Pilot,
@@ -2536,6 +2536,12 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
     }
 
     validateGenrePair(parsedCritique);
+    // A2-only evidence snapshot: the model's controlled assertion codes, prior
+    // to N/A enforcement, parent reconciliation or later browser DSP rewrites.
+    // This is never consulted by scoring, applicability, routing or prompts.
+    if (isA2PilotRequest()) {
+      parsedCritique.a2OriginalAssertionSnapshot = captureA2OriginalAssertionSnapshot(parsedCritique);
+    }
     reconcileParentScores(parsedCritique);
     enforceClassicalInstrumentalSourceNeutrality(parsedCritique);
     enforceBlindReportIntegrity(parsedCritique, metaTitle);
