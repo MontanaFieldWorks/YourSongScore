@@ -114,7 +114,7 @@ export function getSourceVerificationRows(critique: any): SourceDiagnosticRow[] 
   add("A2 Original Assertions", "Original vocal-layer assertion codes",
     captured ? safeSignals(original.vocalLayerCrossPassSignals, layerSignalCodes) : "NOT_CAPTURED");
   add("A2 Original Assertions", "Interpretation",
-    "Controlled assertion codes only; no independent audio verification; original values never reconstructed from browser-revised commentary.");
+    "Controlled assertion codes only; no independent audio verification. Captured after server genre normalization and Call 3 gates, before parent reconciliation and browser edits; never reconstructed for legacy reports.");
   add("A2 Key Detection", "Browser provenance captured", clientKey ? "PRESENT" : "NOT_CAPTURED");
   add("A2 Key Detection", "Browser detector", clientKey?.detector);
   add("A2 Key Detection", "Browser detector result status", clientKey?.status);
@@ -320,11 +320,20 @@ export function inspectA2VocalLayerEvidence(critique: any): {
   // vocal-layer commentary as independent confirmation of its boolean.
   const mainVocal = say(critique?.performance?.vocalsCritique);
   const layerCue = /\bback(?:ing|ground)\s+(?:vocals?|harmon(?:y|ies))\b|\bvocal\s+harmon(?:y|ies)\b|\b(?:vocal|voice)\s+doubl(?:ing|ed|es?)\b|\bdoubl(?:ed|ing)\s+vocals?\b|\b(?:stacked|layered)\s+vocals?\b|\bchoir\b|\bmultiple\s+vocal\s+(?:voices|layers)\b/gi;
+  // Hedged language is not a positive or negative assertion. Otherwise "there may
+  // be backing vocals" spuriously contradicts a definite Call 3 absence result.
+  const speculativeAt = (clause: string, start: number, end: number): boolean => {
+    const near = (clause.slice(Math.max(0, start - 95), start).match(/\b[\w'-]+\b/g) || []).slice(-6).join(" ");
+    const after = clause.slice(end, end + 45);
+    return /\b(?:may|might|could|perhaps|possibly|potentially|seems?|appears?|suggests?|suspected|maybe)\b/i.test(near) ||
+      /^\W*(?:(?:is|are|was|were)\s+)?(?:maybe|possibly|perhaps|potentially|may|might|could|uncertain)\b/i.test(after);
+  };
   let affirmed = false;
   let denied = false;
   for (const clause of clauses(mainVocal)) {
     for (const match of clause.matchAll(layerCue)) {
       const start = match.index ?? 0;
+      if (speculativeAt(clause, start, start + match[0].length)) continue;
       if (deniedAt(clause, start, start + match[0].length)) denied = true;
       else affirmed = true;
     }
@@ -343,8 +352,8 @@ export function inspectA2VocalLayerEvidence(critique: any): {
 }
 
 /**
- * Captured only by the server after all original model calls, before any
- * final-score reconciliation, N/A enforcement or browser DSP narrative edits.
+ * Captured after model calls, genre-pair normalization and Call 3's vocal
+ * applicability gate, but before parent-score reconciliation and browser DSP edits.
  * Serialize only allow-listed codes. A frozen in-memory object detaches this
  * immutable historical record from all subsequently mutable critique fields.
  */
