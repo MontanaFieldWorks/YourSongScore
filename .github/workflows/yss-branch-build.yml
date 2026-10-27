@@ -14,22 +14,6 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-      - name: Generate temporary Phase 1 lockfile for review
-        if: github.event_name == 'pull_request' && github.head_ref == 'security/phase1-http-deps-20261027'
-        run: |
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          import crypto from 'node:crypto';
-          const s = fs.readFileSync('package-lock.json', 'utf8');
-          const j = JSON.parse(s);
-          console.log('LOCK_SHA256=' + crypto.createHash('sha256').update(s).digest('hex'));
-          console.log('LOCK_LENGTH=' + s.length);
-          for (let i=0; i<s.length; i+=1200) {
-            console.log('LOCKPIECE:' + i + ':' + JSON.stringify(s.slice(i, i+1200)));
-          }
-          console.log('LOCK_END=' + s.length);
-          NODE
       - run: npm ci --no-audit --no-fund
       - run: npm run build
       - name: TypeScript baseline check (informational while existing errors remain)
@@ -38,3 +22,32 @@ jobs:
       - name: Run regression tests
         run: |
           if ls tests/*.test.mjs >/dev/null 2>&1; then node --test tests/*.test.mjs; fi
+      - name: Phase 1 patched-package audit (branch only, no fixes)
+        if: github.event_name == 'pull_request' && github.head_ref == 'security/phase1-http-deps-20261027'
+        run: |
+          set +e
+          npm audit --json > /tmp/phase1-dependency-audit.json
+          code=$?
+          set -e
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const audit = JSON.parse(fs.readFileSync('/tmp/phase1-dependency-audit.json', 'utf8'));
+          if (audit.error || !audit.metadata?.vulnerabilities || !audit.vulnerabilities) {
+            console.error('Audit failed:', JSON.stringify(audit.error || audit));
+            process.exit(1);
+          }
+          console.log('PHASE1_AUDIT_COUNTS=' + JSON.stringify(audit.metadata.vulnerabilities));
+          const targets = ['multer', 'body-parser', 'proxy-addr', 'qs', 'express'];
+          for (const name of targets) {
+            const finding = audit.vulnerabilities[name];
+            console.log('PHASE1_TARGET=' + JSON.stringify({ name, residual: finding?.severity || 'none',
+              via: finding?.via || [], fixAvailable: finding?.fixAvailable || false }));
+            if (finding) process.exitCode = 1;
+          }
+          console.log('PHASE1_REMAINING=' + Object.entries(audit.vulnerabilities)
+            .map(([name, v]) => name + ':' + v.severity).join(', '));
+          NODE
+          if [ "$code" -gt 1 ]; then
+            echo "Unexpected npm audit error: $code"
+            exit "$code"
+          fi
