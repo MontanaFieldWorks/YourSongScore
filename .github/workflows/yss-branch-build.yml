@@ -24,7 +24,7 @@ jobs:
           if ls tests/*.test.mjs >/dev/null 2>&1; then node --test tests/*.test.mjs; fi
 
       - name: One-off read-only full npm audit (isolated branch only)
-        if: github.ref == 'refs/heads/audit/npm-json-readonly-20261027'
+        if: github.event_name == 'pull_request' && github.head_ref == 'audit/npm-json-readonly-20261027'
         shell: bash
         run: |
           mkdir -p audit-output
@@ -73,7 +73,7 @@ jobs:
             exit "$audit_exit"
           fi
       - name: Preserve full audit JSON as GitHub Actions artifact
-        if: always() && github.ref == 'refs/heads/audit/npm-json-readonly-20261027'
+        if: always() && github.event_name == 'pull_request' && github.head_ref == 'audit/npm-json-readonly-20261027'
         uses: actions/upload-artifact@v4
         with:
           name: yss-npm-audit-json-20261027
