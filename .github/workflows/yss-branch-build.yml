@@ -14,6 +14,22 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
+      - name: Generate temporary Phase 1 lockfile for review
+        if: github.event_name == 'pull_request' && github.head_ref == 'security/phase1-http-deps-20261027'
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          const s = fs.readFileSync('package-lock.json', 'utf8');
+          const j = JSON.parse(s);
+          console.log('LOCK_SHA256=' + crypto.createHash('sha256').update(s).digest('hex'));
+          console.log('LOCK_LENGTH=' + s.length);
+          for (let i=0; i<s.length; i+=1200) {
+            console.log('LOCKPIECE:' + i + ':' + JSON.stringify(s.slice(i, i+1200)));
+          }
+          console.log('LOCK_END=' + s.length);
+          NODE
       - run: npm ci --no-audit --no-fund
       - run: npm run build
       - name: TypeScript baseline check (informational while existing errors remain)
