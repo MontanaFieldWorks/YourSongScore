@@ -22,3 +22,61 @@ jobs:
       - name: Run regression tests
         run: |
           if ls tests/*.test.mjs >/dev/null 2>&1; then node --test tests/*.test.mjs; fi
+
+      - name: One-off read-only full npm audit (isolated branch only)
+        if: github.ref == 'refs/heads/audit/npm-json-readonly-20261027'
+        shell: bash
+        run: |
+          mkdir -p audit-output
+          set +e
+          npm audit --json > audit-output/yss-npm-audit.json
+          audit_exit=$?
+          set -e
+          echo "npm audit exit code: $audit_exit (1 means vulnerabilities were found)"
+          node --input-type=module - audit-output/yss-npm-audit.json <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const audit = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+          if (audit.error) {
+            console.error('Audit backend error:', JSON.stringify(audit.error));
+            process.exitCode = 1;
+          }
+          console.log('AUDIT SUMMARY:', JSON.stringify({
+            auditReportVersion: audit.auditReportVersion,
+            vulnerabilities: audit.metadata?.vulnerabilities,
+            dependencies: audit.metadata?.dependencies
+          }));
+          const entries = Object.entries(audit.vulnerabilities || {})
+            .sort(([a], [b]) => a.localeCompare(b));
+          console.log('VULNERABLE PACKAGE ENTRIES:', entries.length);
+          for (const [name, v] of entries) {
+            console.log('AUDIT FINDING:', JSON.stringify({
+              name,
+              severity: v.severity,
+              isDirect: v.isDirect,
+              range: v.range,
+              fixAvailable: v.fixAvailable,
+              nodes: v.nodes,
+              effects: v.effects,
+              advisories: (v.via || []).filter(x => typeof x === 'object')
+                .map(x => ({ title: x.title, url: x.url, severity: x.severity,
+                  range: x.range, cwe: x.cwe, source: x.source })),
+              viaPackages: (v.via || []).filter(x => typeof x === 'string')
+            }));
+          }
+          if (!audit.metadata?.vulnerabilities || !audit.vulnerabilities) {
+            console.error('Incomplete audit JSON; cannot certify findings');
+            process.exitCode = 1;
+          }
+          NODE
+          if [ "$audit_exit" -gt 1 ]; then
+            echo "npm audit returned an unexpected failure: $audit_exit"
+            exit "$audit_exit"
+          fi
+      - name: Preserve full audit JSON as GitHub Actions artifact
+        if: always() && github.ref == 'refs/heads/audit/npm-json-readonly-20261027'
+        uses: actions/upload-artifact@v4
+        with:
+          name: yss-npm-audit-json-20261027
+          path: audit-output/yss-npm-audit.json
+          if-no-files-found: error
+          retention-days: 7
