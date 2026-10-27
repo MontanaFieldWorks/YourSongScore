@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 
 // Regression truth table for the production-finish ceiling in server.ts.
 // Code-level validation must also verify this table stays aligned with the implementation.
@@ -16,4 +17,17 @@ test("production finish ceiling preserves prior behavior for all possible four-f
       const previous=(sf>=2 && flags>=5)?74:(sf>=2 && flags===4)?80:(sf>=2 && flags===3)?84:null;
       assert.equal(ceiling(sf, flags), previous, `crest=${crest},sub=${sub},mid=${mid},air=${air}`);
     }
+});
+
+test("streaming completion documentation describes the implemented heuristic and its bounds", () => {
+  const report = readFileSync(new URL("../src/components/CritiqueDisplay.tsx", import.meta.url), "utf8");
+  const explanation = readFileSync(new URL("../src/components/WhatItDoesPage.tsx", import.meta.url), "utf8");
+  const summary = readFileSync(new URL("../src/components/CritiqueSummary.tsx", import.meta.url), "utf8");
+
+  assert.match(report, /const baseSkipProb = Math\\.min\\(85, Math\\.max\\(0,/);
+  assert.match(report, /const completionRate = Math\\.min\\(100, Math\\.max\\(15, 100 - baseSkipProb\\)\\)/);
+  assert.match(explanation, /not observed listener behavior or a calibrated probability/);
+  assert.match(explanation, /completion proxy between 15 and 100/);
+  assert.match(summary, /Completion Proxy/);
+  assert.doesNotMatch(explanation, /honest 91% baseline|caps out at 99%|probability a listener finishes/);
 });
