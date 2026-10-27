@@ -613,3 +613,75 @@ test("production source retains the authoritative gates and uses diagnostics onl
   assert.match(exporter,/const sourceNoteRow = wsSourceDiagnostics\.rowCount \+ 1;/);
   assert.doesNotMatch(exporter,/mergeCells\("A23:C23"\)/);
 });
+
+
+test("Cars-style stereo-field evidence flags Call 3 false absence without changing scores", () => {
+  const critique = {
+    performance: { vocalApplicable: true, vocalsCritique: "The lead vocal is well centered." },
+    mixQuality: { stereoField: "Backing vocals are spread effectively, enhancing the chorus sections without cluttering the center." },
+    subMetricsCall3: { vocalTrackingSubs: { vocalLayerFit: {
+      backingVocalLayersPresent: false, applicable: false, score: 0,
+      commentary: "Not applicable: no distinct backing layer is established.",
+    } } },
+  };
+  const original = structuredClone(critique);
+  const result = inspectA2VocalLayerEvidence(critique);
+  assert.equal(result.status, "ABSENT_SINGLE_PASS_UNVERIFIED");
+  assert.equal(result.crossPassFlag, "REVIEW_CONFLICTING_LAYER_ASSERTIONS");
+  assert.deepEqual(result.crossPassSignals, ["MAIN_STEREO_DESCRIBES_BACKING_LAYERS"]);
+  const snapshot = captureA2OriginalAssertionSnapshot(critique);
+  assert.equal(snapshot.vocalLayerCrossPassFlag, "REVIEW_CONFLICTING_LAYER_ASSERTIONS");
+  const rows = values(getSourceVerificationRows({
+    ...critique, a2OriginalAssertionSnapshot: snapshot,
+  }));
+  assert.equal(rows["A2 Original Assertions/Original vocal-layer assertion codes"],
+    "MAIN_STEREO_DESCRIBES_BACKING_LAYERS");
+  assert.equal(rows["Vocal Layer Fit/Current cross-pass assertion review flag (not scored)"],
+    "REVIEW_CONFLICTING_LAYER_ASSERTIONS");
+  assert.deepEqual(critique, original);
+  assert.equal(critique.subMetricsCall3.vocalTrackingSubs.vocalLayerFit.applicable, false);
+  assert.equal(critique.subMetricsCall3.vocalTrackingSubs.vocalLayerFit.score, 0);
+});
+
+test("stereo evidence remains negation-aware, hedge-aware and diagnostic-only", () => {
+  const evaluate = (stereoField, present = false, vocalsCritique = "The lead is centered.") =>
+    inspectA2VocalLayerEvidence({
+      performance: { vocalsCritique },
+      mixQuality: { stereoField },
+      subMetricsCall3: { vocalTrackingSubs: { vocalLayerFit: {
+        backingVocalLayersPresent: present, applicable: present, score: present ? 88 : 0,
+      } } },
+    });
+  for (const phrase of [
+    "There may be backing vocals spread to the sides.",
+    "Possibly backing vocals widen the chorus.",
+    "The stereo image suggests vocal doubling.",
+    "Backing harmonies might be audible.",
+  ]) {
+    const got = evaluate(phrase);
+    assert.equal(got.crossPassFlag, "INSUFFICIENT_CROSS_PASS_LAYER_EVIDENCE", phrase);
+    assert.deepEqual(got.crossPassSignals, [], phrase);
+  }
+  const denied = evaluate("No backing vocals are audible.");
+  assert.equal(denied.crossPassFlag, "NO_DETERMINISTIC_LAYER_CONTRADICTION_FLAG");
+  assert.deepEqual(denied.crossPassSignals, ["MAIN_STEREO_EXPLICITLY_DENIES_BACKING_LAYERS"]);
+  assert.equal(evaluate("Backing vocals are absent.", true).crossPassFlag,
+    "REVIEW_CONFLICTING_LAYER_ASSERTIONS");
+  const both = evaluate("Backing vocals widen the chorus.",
+    false, "No backing vocals are present in the main vocal.");
+  assert.equal(both.crossPassFlag, "AMBIGUOUS_CROSS_PASS_LAYER_DESCRIPTIONS");
+  assert.deepEqual(both.crossPassSignals, [
+    "MAIN_CRITIQUE_EXPLICITLY_DENIES_BACKING_LAYERS",
+    "MAIN_STEREO_DESCRIBES_BACKING_LAYERS",
+  ]);
+  const selfReference = {
+    performance: { vocalsCritique: "The lead voice is centered." },
+    mixQuality: { stereoField: "The guitars are panned wide." },
+    subMetricsCall3: { vocalTrackingSubs: { vocalLayerFit: {
+      backingVocalLayersPresent: false,
+      commentary: "Backing harmonies blend perfectly with the lead.",
+    } } },
+  };
+  assert.equal(inspectA2VocalLayerEvidence(selfReference).crossPassFlag,
+    "INSUFFICIENT_CROSS_PASS_LAYER_EVIDENCE");
+});
