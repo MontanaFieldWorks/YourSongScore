@@ -24,8 +24,8 @@ test("streaming completion documentation describes the implemented heuristic and
   const explanation = readFileSync(new URL("../src/components/WhatItDoesPage.tsx", import.meta.url), "utf8");
   const summary = readFileSync(new URL("../src/components/CritiqueSummary.tsx", import.meta.url), "utf8");
 
-  assert.match(report, /const baseSkipProb = Math\\.min\\(85, Math\\.max\\(0,/);
-  assert.match(report, /const completionRate = Math\\.min\\(100, Math\\.max\\(15, 100 - baseSkipProb\\)\\)/);
+  assert.match(report, /const baseSkipProb = Math\.min\(85, Math\.max\(0,/);
+  assert.match(report, /const completionRate = Math\.min\(100, Math\.max\(15, 100 - baseSkipProb\)\)/);
   assert.match(explanation, /not observed listener behavior or a calibrated probability/);
   assert.match(explanation, /completion proxy between 15 and 100/);
   assert.match(summary, /Completion Proxy/);
