@@ -347,12 +347,12 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-blue-400 shrink-0" />
-                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">COMPLETION RATE (40%)</h4>
+                        <h4 className="text-[13px] font-bold text-slate-200 tracking-wider">MODELED COMPLETION (40%)</h4>
                       </div>
                       <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${isCompletionRateOpen ? "rotate-180 text-blue-400" : "group-hover/btn:text-slate-200"}`} />
                     </div>
                     <p className="text-[14px] text-slate-400 leading-relaxed font-sans">
-                      Predicts the probability a listener finishes the critical first-30-second window, built from a real, transparent formula rather than a black box. <span className="text-[12px] text-blue-400 font-semibold block mt-1 hover:underline">Click to {isCompletionRateOpen ? "collapse details" : "expand details"}</span>
+                      Simulates a first-30-second completion proxy from musical engagement and production scores. This is a transparent heuristic, not observed listener behavior or a calibrated probability. <span className="text-[12px] text-blue-400 font-semibold block mt-1 hover:underline">Click to {isCompletionRateOpen ? "collapse details" : "expand details"}</span>
                     </p>
                   </div>
 
@@ -368,10 +368,10 @@ export default function WhatItDoesPage({ onBack, onNavigateToRabbitHole, onNavig
                         <div className="border border-blue-500/15 bg-blue-950/20 rounded-xl p-4 flex flex-col gap-3 text-left font-sans text-[13px] shadow-xl relative my-1">
                           <div className="absolute top-0 right-0 w-[60px] h-[60px] bg-blue-500/5 rounded-full blur-[20px] pointer-events-none" />
                           <p className="text-[14px] text-slate-300 leading-[1.375] font-sans relative z-10">
-                            Starts from an honest 91% baseline (a small amount of real-world skip risk exists for any song), then subtracts a weighted score built from Engagement Power (70%) and Production Index (20%) - the same two real inputs behind Commercial Impact. The result is your predicted Skip Rate; Completion Rate is simply 100% minus that number.
+                            Starts with a 91-point modeled skip-risk baseline, subtracts 70% of Engagement Power and 20% of Production Index, and incorporates any applicable existing audio-analysis modifier. The completion proxy equals 100 minus the bounded skip-risk proxy. No actual stream completions or skips are measured.
                           </p>
                           <p className="text-[13px] text-slate-400 leading-[1.375] font-sans relative z-10">
-                            Because the formula starts at 91 rather than 100, even a flawless song caps out at 99% - never a full 100, since some real-world skip risk always exists.
+                            The implemented formula bounds modeled skip risk between 0 and 85 and completion proxy between 15 and 100. These are heuristic output values, not empirical listener percentages.
                           </p>
 
                           <div className="flex justify-center pt-2 border-t border-white/5 mt-1 relative z-10">
