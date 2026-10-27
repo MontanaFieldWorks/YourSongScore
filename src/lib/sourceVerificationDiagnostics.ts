@@ -81,7 +81,9 @@ export function getSourceVerificationRows(critique: any): SourceDiagnosticRow[] 
     "DRUM_KIT_DESCRIBED", "HIGH_GAIN_OR_SOLO_DESCRIBED"];
   const midrangeSignalCodes = ["PARENT_ASSERTS_MIDRANGE_MASKING", "CHILD_DENIES_SIGNIFICANT_MASKING"];
   const layerSignalCodes = ["MAIN_CRITIQUE_DESCRIBES_BACKING_LAYERS",
-    "MAIN_CRITIQUE_EXPLICITLY_DENIES_BACKING_LAYERS"];
+    "MAIN_CRITIQUE_EXPLICITLY_DENIES_BACKING_LAYERS",
+    "MAIN_STEREO_DESCRIBES_BACKING_LAYERS",
+    "MAIN_STEREO_EXPLICITLY_DENIES_BACKING_LAYERS"];
   const safeSignals = (value: unknown, allowed: readonly string[]): string =>
     Array.isArray(value) && value.every(v => typeof v === "string" && allowed.includes(v))
       ? value.length ? value.join("; ") : "NONE" : "NOT_CAPTURED";
@@ -316,9 +318,11 @@ export function inspectA2VocalLayerEvidence(critique: any): {
   const presence = critique?.subMetricsCall3?.vocalTrackingSubs?.vocalLayerFit?.backingVocalLayersPresent;
   const status = presence === true ? "PRESENT_SINGLE_PASS_UNVERIFIED" :
     presence === false ? "ABSENT_SINGLE_PASS_UNVERIFIED" : "NOT_CAPTURED";
-  // The main critique is a separate model operation. Never use Call 3's own
-  // vocal-layer commentary as independent confirmation of its boolean.
+  // The main critique is a separate model operation. Its vocal and stereo
+  // descriptions can each mention backing layers. Never use Call 3's own
+  // vocal-layer commentary to corroborate its presence decision.
   const mainVocal = say(critique?.performance?.vocalsCritique);
+  const mainStereo = say(critique?.mixQuality?.stereoField);
   const layerCue = /\bback(?:ing|ground)\s+(?:vocals?|harmon(?:y|ies))\b|\bvocal\s+harmon(?:y|ies)\b|\b(?:vocal|voice)\s+doubl(?:ing|ed|es?)\b|\bdoubl(?:ed|ing)\s+vocals?\b|\b(?:stacked|layered)\s+vocals?\b|\bchoir\b|\bmultiple\s+vocal\s+(?:voices|layers)\b/gi;
   // Hedged language is not a positive or negative assertion. Otherwise "there may
   // be backing vocals" spuriously contradicts a definite Call 3 absence result.
@@ -328,19 +332,28 @@ export function inspectA2VocalLayerEvidence(critique: any): {
     return /\b(?:may|might|could|perhaps|possibly|potentially|seems?|appears?|suggests?|suspected|maybe)\b/i.test(near) ||
       /^\W*(?:(?:is|are|was|were)\s+)?(?:maybe|possibly|perhaps|potentially|may|might|could|uncertain)\b/i.test(after);
   };
-  let affirmed = false;
-  let denied = false;
-  for (const clause of clauses(mainVocal)) {
-    for (const match of clause.matchAll(layerCue)) {
-      const start = match.index ?? 0;
-      if (speculativeAt(clause, start, start + match[0].length)) continue;
-      if (deniedAt(clause, start, start + match[0].length)) denied = true;
-      else affirmed = true;
+  const inspectField = (source: string) => {
+    let affirmed = false;
+    let denied = false;
+    for (const clause of clauses(source)) {
+      for (const match of clause.matchAll(layerCue)) {
+        const start = match.index ?? 0;
+        if (speculativeAt(clause, start, start + match[0].length)) continue;
+        if (deniedAt(clause, start, start + match[0].length)) denied = true;
+        else affirmed = true;
+      }
     }
-  }
+    return { affirmed, denied };
+  };
+  const vocal = inspectField(mainVocal);
+  const stereo = inspectField(mainStereo);
+  const affirmed = vocal.affirmed || stereo.affirmed;
+  const denied = vocal.denied || stereo.denied;
   const crossPassSignals = [
-    ...(affirmed ? ["MAIN_CRITIQUE_DESCRIBES_BACKING_LAYERS"] : []),
-    ...(denied ? ["MAIN_CRITIQUE_EXPLICITLY_DENIES_BACKING_LAYERS"] : []),
+    ...(vocal.affirmed ? ["MAIN_CRITIQUE_DESCRIBES_BACKING_LAYERS"] : []),
+    ...(vocal.denied ? ["MAIN_CRITIQUE_EXPLICITLY_DENIES_BACKING_LAYERS"] : []),
+    ...(stereo.affirmed ? ["MAIN_STEREO_DESCRIBES_BACKING_LAYERS"] : []),
+    ...(stereo.denied ? ["MAIN_STEREO_EXPLICITLY_DENIES_BACKING_LAYERS"] : []),
   ];
   const crossPassFlag = status === "NOT_CAPTURED" || (!affirmed && !denied)
     ? "INSUFFICIENT_CROSS_PASS_LAYER_EVIDENCE"
