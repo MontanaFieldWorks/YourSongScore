@@ -130,7 +130,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
       strokeColor: "#22d3ee",
       trackColor: "rgba(34, 211, 238, 0.1)",
       textColor: "text-cyan-400",
-      tags: ["Completion Rate", "Algorithmic Alignment", "Commercial Impact"]
+      tags: ["Completion Proxy", "Algorithmic Alignment", "Commercial Impact"]
     },
     {
       title: "SONIC SOUNDPRINT",
@@ -394,7 +394,7 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               <div className="absolute top-0 left-0 bg-[#3D80EB] h-[3px] w-full shadow-[0_0_8px_#3D80EB]" />
               <div className="flex items-center justify-between border-b border-white/5 pb-0 relative z-10 flex-shrink-0">
                 <span className="font-['Inter'] text-[16px] font-bold tracking-wider text-white uppercase">
-                  30s Skip & Completion Rate Simulator
+                  30s Skip & Completion Proxy Simulator
                 </span>
                 <div className="relative">
                   <button 
