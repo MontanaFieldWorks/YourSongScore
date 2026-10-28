@@ -685,3 +685,83 @@ test("stereo evidence remains negation-aware, hedge-aware and diagnostic-only", 
   assert.equal(inspectA2VocalLayerEvidence(selfReference).crossPassFlag,
     "INSUFFICIENT_CROSS_PASS_LAYER_EVIDENCE");
 });
+
+
+test("A2 diagnostic coverage never recasts missing audits as instrument absence", () => {
+  const noAudit = describeLowEndGateFactors(first, null, sourceEvidence);
+  const capture = {
+    subMetricsCall1: { lowEndDivision: { applicable: false,
+      sourceVerification: { gateFactors: noAudit.factors, specificRejectionReasons: noAudit.failedChecks } } },
+  };
+  const before = structuredClone(capture);
+  const got = values(getSourceVerificationRows(capture));
+  assert.equal(got["Low-End Division/Gate evidence coverage (not an applicability verdict)"], "ALL_25_CHECK_SLOTS_RECORDED");
+  assert.equal(got["Low-End Division/Second-pass presence (not proof of instrument absence)"], "UNAVAILABLE");
+  assert.match(got["Low-End Division/Gate factors true / false / unknown"], /^\d+ \/ \d+ \/ \d+$/);
+  assert.equal(got["Low-End Division/Factor/decision review flag (not scored)"],
+    "NO_DETERMINISTIC_FACTOR_DECISION_CONFLICT");
+  assert.deepEqual(capture, before);
+  const legacy = values(getSourceVerificationRows({
+    subMetricsCall1: { lowEndDivision: { applicable: false } },
+  }));
+  assert.equal(legacy["Low-End Division/Gate evidence coverage (not an applicability verdict)"], "NOT_CAPTURED");
+  assert.equal(legacy["Low-End Division/Gate factors true / false / unknown"], "NOT_CAPTURED");
+  assert.equal(legacy["Low-End Division/Factor/decision review flag (not scored)"], "NOT_CAPTURED");
+});
+
+test("A2 low-end review flag reports contradictions without changing actual applicability", () => {
+  const factors = describeLowEndGateFactors(first, { ...second, rolesIndependent: false }, sourceEvidence);
+  const c = { subMetricsCall1: { lowEndDivision: { applicable: true,
+    sourceVerification: { gateFactors: factors.factors, specificRejectionReasons: factors.failedChecks } } } };
+  const prior = structuredClone(c);
+  const got = values(getSourceVerificationRows(c));
+  assert.equal(got["Low-End Division/Factor/decision review flag (not scored)"],
+    "REVIEW_APPLICABLE_WITH_UNVERIFIED_DIAGNOSTIC_FACTORS");
+  assert.equal(c.subMetricsCall1.lowEndDivision.applicable, true);
+  assert.deepEqual(c, prior);
+});
+
+test("A2 all-true low-end diagnostic factors flag conflicting final N/A only", () => {
+  const factors = describeLowEndGateFactors(first, second, sourceEvidence);
+  const sample = { subMetricsCall1: { lowEndDivision: { applicable: false,
+    sourceVerification: { gateFactors: factors.factors, specificRejectionReasons: [] } } } };
+  const before = structuredClone(sample);
+  const got = values(getSourceVerificationRows(sample));
+  assert.equal(got["Low-End Division/Factor/decision review flag (not scored)"],
+    "REVIEW_NOT_APPLICABLE_DESPITE_ALL_DIAGNOSTIC_FACTORS_TRUE");
+  assert.equal(sample.subMetricsCall1.lowEndDivision.applicable, false);
+  assert.deepEqual(sample, before);
+});
+
+test("A2 vocal presence review distinguishes contradictory gates from true instrumental N/A", () => {
+  const example = (present, applicable, vocalApplicable = true) => ({
+    performance: { vocalApplicable },
+    subMetricsCall3: { vocalTrackingSubs: { vocalLayerFit: {
+      backingVocalLayersPresent: present, applicable,
+      sourceVerification: { rawLayerPresence: present, decisionSource: "CALL3_SINGLE_LISTEN" },
+    } } },
+  });
+  const missing = values(getSourceVerificationRows({}));
+  assert.equal(missing["Vocal Layer Fit/Presence versus final applicability review (not scored)"], "NOT_CAPTURED");
+  const absentButApplicable = example(false, true);
+  const original = structuredClone(absentButApplicable);
+  assert.equal(values(getSourceVerificationRows(absentButApplicable))[
+    "Vocal Layer Fit/Presence versus final applicability review (not scored)"],
+    "REVIEW_ABSENT_LAYER_MARKED_APPLICABLE");
+  assert.deepEqual(absentButApplicable, original);
+  assert.equal(values(getSourceVerificationRows(example(true, false)))[
+    "Vocal Layer Fit/Presence versus final applicability review (not scored)"],
+    "REVIEW_PRESENT_LAYER_MARKED_NOT_APPLICABLE");
+  assert.equal(values(getSourceVerificationRows(example(true, false, false)))[
+    "Vocal Layer Fit/Presence versus final applicability review (not scored)"],
+    "VOCAL_PERFORMANCE_NOT_APPLICABLE");
+  assert.equal(values(getSourceVerificationRows(example(false, false)))[
+    "Vocal Layer Fit/Presence versus final applicability review (not scored)"],
+    "CONSISTENT_WITH_UNVERIFIED_SINGLE_PASS");
+  const uncertain = example(undefined, false);
+  assert.equal(values(getSourceVerificationRows(uncertain))[
+    "Vocal Layer Fit/Presence versus final applicability review (not scored)"], "NOT_CAPTURED");
+  assert.equal(values(getSourceVerificationRows(absentButApplicable))[
+    "Vocal Layer Fit/Presence evidence qualification"],
+    "CALL3_SINGLE_LISTEN_UNVERIFIED; cross-pass statements are assertions, not acoustic proof");
+});

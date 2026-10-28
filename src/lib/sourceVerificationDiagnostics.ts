@@ -51,6 +51,29 @@ export function getSourceVerificationRows(critique: any): SourceDiagnosticRow[] 
     add("Low-End Division", "Gate check: " + name, passed);
   }
   add("Low-End Division", "Precise failed checks", ls?.specificRejectionReasons);
+  // Diagnostic mirror only. A missing second-pass check is UNKNOWN, not a
+  // failed or absent instrument; no result here influences the N/A gate.
+  const factorMap = ls?.gateFactors;
+  const factorValues = factorMap && typeof factorMap === "object" && !Array.isArray(factorMap)
+    ? Object.values(factorMap) : null;
+  const knownPasses = factorValues?.filter(value => value === true).length ?? 0;
+  const knownFailures = factorValues?.filter(value => value === false).length ?? 0;
+  const unknownFactors = factorValues?.filter(value => value !== true && value !== false).length ?? 0;
+  add("Low-End Division", "Gate evidence coverage (not an applicability verdict)",
+    !factorValues ? "NOT_CAPTURED" : factorValues.length === 25 ? "ALL_25_CHECK_SLOTS_RECORDED" : "PARTIAL_FACTOR_RECORD");
+  add("Low-End Division", "Gate factors true / false / unknown",
+    !factorValues ? "NOT_CAPTURED" : `${knownPasses} / ${knownFailures} / ${unknownFactors}`);
+  add("Low-End Division", "Second-pass presence (not proof of instrument absence)",
+    !factorValues ? "NOT_CAPTURED"
+      : factorMap.SECOND_PASS_AVAILABLE === true ? "RECORDED"
+      : factorMap.SECOND_PASS_AVAILABLE === false ? "UNAVAILABLE" : "NOT_CAPTURED");
+  add("Low-End Division", "Factor/decision review flag (not scored)",
+    !factorValues || typeof low?.applicable !== "boolean" ? "NOT_CAPTURED"
+      : low.applicable === true && (knownFailures > 0 || unknownFactors > 0)
+        ? "REVIEW_APPLICABLE_WITH_UNVERIFIED_DIAGNOSTIC_FACTORS"
+        : low.applicable === false && factorValues.length === 25 && knownPasses === 25
+          ? "REVIEW_NOT_APPLICABLE_DESPITE_ALL_DIAGNOSTIC_FACTORS_TRUE"
+          : "NO_DETERMINISTIC_FACTOR_DECISION_CONFLICT");
 
   add("Vocal Layer Fit", "Diagnostic capture", vs ? "PRESENT" : "NOT_CAPTURED");
   add("Vocal Layer Fit", "Raw backing layer presence", vs?.rawLayerPresence);
@@ -60,6 +83,22 @@ export function getSourceVerificationRows(critique: any): SourceDiagnosticRow[] 
   add("Vocal Layer Fit", "Decision source", vs?.decisionSource);
   add("Vocal Layer Fit", "Final applicable", lv?.applicable);
   add("Vocal Layer Fit", "Final commentary", lv?.commentary);
+  // Single-pass presence is a model assertion, never independent truth.
+  // A genuine instrumental overrides any presumed backing-layer applicability.
+  const layerDecisionReview = !vs || !lv ||
+    typeof vs.rawLayerPresence !== "boolean" || typeof lv.applicable !== "boolean"
+      ? "NOT_CAPTURED"
+      : critique?.performance?.vocalApplicable === false
+        ? "VOCAL_PERFORMANCE_NOT_APPLICABLE"
+        : vs.rawLayerPresence === false && lv.applicable === true
+          ? "REVIEW_ABSENT_LAYER_MARKED_APPLICABLE"
+          : vs.rawLayerPresence === true && lv.applicable === false
+            ? "REVIEW_PRESENT_LAYER_MARKED_NOT_APPLICABLE"
+            : "CONSISTENT_WITH_UNVERIFIED_SINGLE_PASS";
+  add("Vocal Layer Fit", "Presence versus final applicability review (not scored)", layerDecisionReview);
+  add("Vocal Layer Fit", "Presence evidence qualification",
+    vs ? "CALL3_SINGLE_LISTEN_UNVERIFIED; cross-pass statements are assertions, not acoustic proof"
+      : "NOT_CAPTURED");
   add("Genre Consistency", "Evidence-only review flag (not scored)", narrative.genreFlag);
   add("Genre Consistency", "Matched existing model descriptions", narrative.genreSignals);
   add("Midrange Consistency", "Parent/child review flag (not scored)", narrative.midrangeFlag);

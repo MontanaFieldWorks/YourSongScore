@@ -336,8 +336,95 @@ test("simulated sanitized API response roundtrips through ACTUAL A2 ExcelJS Sour
   assert.equal(readWorkbook(M,"Client cap reason"),"MIDRANGE_FLATNESS_CAP");
   assert.equal(readWorkbook(S,"Exact pre-round weighted contribution (points)"),30.8);
   assert.equal(readWorkbook(S,"Contribution basis"),"SERVER ORIGINAL AGGREGATION (not recomputed from post-client score)");
+  // The real workbook must preserve formula-only headline paths without
+  // implying an invented model call or reconstructed historical contribution.
+  assert.equal(readWorkbook(W,"Spectral Match direct path to Streaming Readiness (%)"),3);
+  assert.equal(readWorkbook(W,"Frozen Mix Balance denominator (weight units)"),75);
+  approx(readWorkbook(W,"Midrange conditional Sonic Soundprint path via Mix Balance (%)"),50/3);
+  assert.equal(readWorkbook(W,"Mix Balance denominator provenance"),"CAPTURED_POST_CLIENT");
+
   assert.equal(client.scores.overallProduction,originalScores.production);
   assert.equal(client.mixQuality.score,originalScores.mix);
   assert.equal(client.subMetricsCall1.spaceAndDensity.score,originalScores.space);
   assert.equal(originalScores.mids,88);
+});
+
+
+const W = "A2 Parent Weight Paths";
+
+test("A2 weight path captures exact effective mix share and unchanged parent scores", () => {
+  const c = f();
+  const frozenBefore = structuredClone(c);
+  captureA2ServerProductionInputs(c);
+  captureA2ServerMixInputs(c);
+  captureA2BeforeClient(c);
+  c.subMetricsCall1.midrangeSpacing.score = 76; // synthetic browser cap, not an A2 recording
+  captureA2AfterClient(c, { midrangeCap: 76, spaceDensityCeiling: null });
+  const state = structuredClone(c);
+  let rows = getA2ScoringProvenanceRows(c);
+  assert.equal(row(rows, W, "Diagnostic record scope"), "FORMULA_ONLY_PLUS_CAPTURED_A2_INPUTS");
+  assert.equal(row(rows, W, "Spectral Match direct weight in Production Index (%)"), 0);
+  assert.equal(row(rows, W, "Midrange Spacing direct weight in Production Index (%)"), 0);
+  assert.equal(row(rows, W, "Spectral Match nominal weight in Engagement Power (%)"), 10);
+  assert.equal(row(rows, W, "Spectral Match direct path to Streaming Readiness (%)"), 3);
+  assert.match(row(rows, W, "Streaming Readiness completion proxy caveat"), /not total sensitivity/);
+  assert.equal(row(rows, W, "Frozen Mix Balance denominator (weight units)"), 75);
+  approx(row(rows, W, "Midrange effective Mix Balance weight from frozen A2 denominator (%)"), 100/3);
+  approx(row(rows, W, "Midrange conditional Sonic Soundprint path via Mix Balance (%)"), 50/3);
+  assert.equal(row(rows, W, "Mix Balance denominator provenance"), "CAPTURED_POST_CLIENT");
+  assert.deepEqual(c, state); // pure report diagnostics
+  assert.deepEqual(c.scores, frozenBefore.scores);
+  assert.deepEqual(c.mixQuality, frozenBefore.mixQuality);
+
+  // Compare frozen 55-weight vs 75-weight applicability cases, not fabricated
+  // original Boston parent scores. Other inputs are held fixed for sensitivity.
+  const cleanCase = f();
+  cleanCase.subMetricsCall1.lowEndDivision.applicable = false;
+  captureA2ServerMixInputs(cleanCase);
+  captureA2BeforeClient(cleanCase);
+  captureA2AfterClient(cleanCase, { midrangeCap: null, spaceDensityCeiling: null });
+  rows = getA2ScoringProvenanceRows(cleanCase);
+  assert.equal(row(rows, W, "Frozen Mix Balance denominator (weight units)"), 55);
+  approx(row(rows, W, "Midrange effective Mix Balance weight from frozen A2 denominator (%)"), 2500/55);
+  approx(row(rows, W, "Midrange conditional Sonic Soundprint path via Mix Balance (%)"), 1250/55);
+});
+
+test("A2 parent dilution checks Boston arithmetic without asserting missing paired evidence", () => {
+  // Formula-only illustrative replay, NOT a reconstructed historical export.
+  const cleanProduction = Math.round(88*.40 + 88*.35 + 88*.25);
+  const alteredProduction = Math.round(90*.40 + 88*.35 + 88*.25);
+  assert.equal(cleanProduction, 88);
+  assert.equal(alteredProduction, 89);
+  const spectralToEngagement = (88-68) * .10;
+  assert.equal(spectralToEngagement, 2);
+  const streamingDirectPath = spectralToEngagement * .30;
+  approx(streamingDirectPath, .6);
+  const midrangeEffectWithCleanDenominator = (88-76)*25/55;
+  const midrangeEffectWithAlteredDenominator = (88-76)*25/75;
+  approx(midrangeEffectWithCleanDenominator, 60/11);
+  assert.equal(midrangeEffectWithAlteredDenominator, 4);
+  // Neither figure equals an observed Mix Balance delta: all other scores and
+  // applicability decisions would need to be frozen to make a causal claim.
+});
+
+test("legacy and incomplete browser A2 traces do not invent dilution contribution", () => {
+  const legacy=f();
+  delete legacy.subMetricsCall1.a2ScoringProvenance;
+  let rows=getA2ScoringProvenanceRows(legacy);
+  assert.equal(row(rows, W, "Diagnostic record scope"), "NOT_CAPTURED (legacy/non-A2)");
+  assert.equal(row(rows, W, "Frozen Mix Balance denominator (weight units)"), "NOT_CAPTURED");
+  assert.equal(row(rows, W, "Midrange conditional Sonic Soundprint path via Mix Balance (%)"), "NOT_CAPTURED");
+  const c=f();
+  captureA2ServerMixInputs(c);
+  captureA2BeforeClient(c);
+  c.subMetricsCall1.a2ScoringProvenance.midrangeSpacing.browserScoringStage="COMPLETED";
+  const rows2=getA2ScoringProvenanceRows(c);
+  assert.equal(row(rows2, W, "Frozen Mix Balance denominator (weight units)"), "NOT_CAPTURED");
+  assert.equal(row(rows2, W, "Mix Balance denominator provenance"),
+    "NOT_CAPTURED (missing frozen post-client denominator)");
+  c.subMetricsCall1.midrangeSpacing.applicable=false;
+  c.subMetricsCall1.a2ScoringProvenance.midrangeSpacing.browserScoringStage="BROWSER_DSP_UNAVAILABLE";
+  rows=getA2ScoringProvenanceRows(c);
+  assert.equal(row(rows, W, "Midrange conditional Sonic Soundprint path via Mix Balance (%)"), "NOT_APPLICABLE");
+  assert.equal(row(rows, W, "Mix Balance denominator provenance"), "SERVER_ONLY_BROWSER_UNAVAILABLE");
 });
