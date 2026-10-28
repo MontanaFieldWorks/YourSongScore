@@ -14,26 +14,6 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-      - name: Generate temporary advisory patch lockfile (Phase 3 only)
-        if: github.event_name == 'pull_request' && github.head_ref == 'security/phase3-protobufjs-esbuild-20261028'
-        shell: bash
-        run: |
-          npm update protobufjs esbuild --package-lock-only --ignore-scripts --no-audit --no-fund
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          import crypto from 'node:crypto';
-          const contents=fs.readFileSync('package-lock.json','utf8');
-          const lock=JSON.parse(contents);
-          console.log('PHASE3_LOCK_LENGTH='+contents.length);
-          console.log('PHASE3_LOCK_SHA256='+crypto.createHash('sha256').update(contents).digest('hex'));
-          const names=['protobufjs','esbuild','tsx/node_modules/esbuild','tsx','@grpc/proto-loader','firebase','@firebase/firestore','@grpc/grpc-js','exceljs','uuid'];
-          for(const name of names) console.log('PHASE3_LOCK_VERSION='+name+':'+lock.packages['node_modules/'+name]?.version);
-          for(let i=0;i<contents.length;i+=1800) console.log('PHASE3_LOCKPIECE:'+i+':'+JSON.stringify(contents.slice(i,i+1800)));
-          console.log('PHASE3_LOCK_END='+contents.length);
-          if(lock.packages['node_modules/protobufjs']?.version!=='7.6.6') throw Error('protobufjs not latest patched 7.x');
-          const eb=lock.packages['node_modules/tsx/node_modules/esbuild']?.version;
-          if(eb!=='0.28.1' && eb!=='0.28.2') throw Error('tsx esbuild not patched: '+eb);
-          NODE
       - run: npm ci --no-audit --no-fund
       - run: npm run build
       - name: TypeScript baseline check (informational while existing errors remain)
@@ -42,3 +22,29 @@ jobs:
       - name: Run regression tests
         run: |
           if ls tests/*.test.mjs >/dev/null 2>&1; then node --test tests/*.test.mjs; fi
+
+      - name: Phase 3 patched-library audit (PR only, no fixes)
+        if: github.event_name == 'pull_request' && github.head_ref == 'security/phase3-protobufjs-esbuild-20261028'
+        shell: bash
+        run: |
+          set +e
+          npm audit --json > /tmp/phase3-audit.json
+          audit_exit=$?
+          set -e
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const a=JSON.parse(fs.readFileSync('/tmp/phase3-audit.json','utf8'));
+          if(a.error || !a.vulnerabilities || !a.metadata?.vulnerabilities) {
+            console.error('Invalid audit JSON:', JSON.stringify(a.error||a));
+            process.exit(1);
+          }
+          console.log('PHASE3_AUDIT_COUNTS='+JSON.stringify(a.metadata.vulnerabilities));
+          console.log('PHASE3_REMAINING='+Object.entries(a.vulnerabilities)
+            .map(([name,v])=>name+':'+v.severity).join(', '));
+          for(const name of ['protobufjs','esbuild']) {
+            const v=a.vulnerabilities[name];
+            console.log('PHASE3_PATCH_TARGET='+JSON.stringify({name,status:v?'STILL_VULNERABLE':'RESOLVED',severity:v?.severity}));
+            if(v) process.exitCode=1;
+          }
+          NODE
+          if [ "$audit_exit" -gt 1 ]; then exit "$audit_exit"; fi
