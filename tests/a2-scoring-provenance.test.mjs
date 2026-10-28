@@ -336,6 +336,13 @@ test("simulated sanitized API response roundtrips through ACTUAL A2 ExcelJS Sour
   assert.equal(readWorkbook(M,"Client cap reason"),"MIDRANGE_FLATNESS_CAP");
   assert.equal(readWorkbook(S,"Exact pre-round weighted contribution (points)"),30.8);
   assert.equal(readWorkbook(S,"Contribution basis"),"SERVER ORIGINAL AGGREGATION (not recomputed from post-client score)");
+  // The real workbook must preserve formula-only headline paths without
+  // implying an invented model call or reconstructed historical contribution.
+  assert.equal(readWorkbook(W,"Spectral Match direct path to Streaming Readiness (%)"),3);
+  assert.equal(readWorkbook(W,"Frozen Mix Balance denominator (weight units)"),75);
+  approx(readWorkbook(W,"Midrange conditional Sonic Soundprint path via Mix Balance (%)"),50/3);
+  assert.equal(readWorkbook(W,"Mix Balance denominator provenance"),"CAPTURED_POST_CLIENT");
+
   assert.equal(client.scores.overallProduction,originalScores.production);
   assert.equal(client.mixQuality.score,originalScores.mix);
   assert.equal(client.subMetricsCall1.spaceAndDensity.score,originalScores.space);
