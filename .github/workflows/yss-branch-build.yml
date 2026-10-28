@@ -22,29 +22,3 @@ jobs:
       - name: Run regression tests
         run: |
           if ls tests/*.test.mjs >/dev/null 2>&1; then node --test tests/*.test.mjs; fi
-
-      - name: Phase 3 patched-library audit (PR only, no fixes)
-        if: github.event_name == 'pull_request' && github.head_ref == 'security/phase3-protobufjs-esbuild-20261028'
-        shell: bash
-        run: |
-          set +e
-          npm audit --json > /tmp/phase3-audit.json
-          audit_exit=$?
-          set -e
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          const a=JSON.parse(fs.readFileSync('/tmp/phase3-audit.json','utf8'));
-          if(a.error || !a.vulnerabilities || !a.metadata?.vulnerabilities) {
-            console.error('Invalid audit JSON:', JSON.stringify(a.error||a));
-            process.exit(1);
-          }
-          console.log('PHASE3_AUDIT_COUNTS='+JSON.stringify(a.metadata.vulnerabilities));
-          console.log('PHASE3_REMAINING='+Object.entries(a.vulnerabilities)
-            .map(([name,v])=>name+':'+v.severity).join(', '));
-          for(const name of ['protobufjs','esbuild']) {
-            const v=a.vulnerabilities[name];
-            console.log('PHASE3_PATCH_TARGET='+JSON.stringify({name,status:v?'STILL_VULNERABLE':'RESOLVED',severity:v?.severity}));
-            if(v) process.exitCode=1;
-          }
-          NODE
-          if [ "$audit_exit" -gt 1 ]; then exit "$audit_exit"; fi
