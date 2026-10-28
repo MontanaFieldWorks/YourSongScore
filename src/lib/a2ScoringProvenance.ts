@@ -262,6 +262,51 @@ export function getA2ScoringProvenanceRows(critique: any): A2DiagnosticRow[] {
     add(label, "Contribution interpretation",
       "Unrounded score × original integer weight / actual applicable denominator. Parent rounding, finish ceilings and penalties can change the final parent.");
   }
+
+  // Diagnostic-only weight-path disclosure. Formula values are not song
+  // judgments or an inferred historical browser pass. Only frozen A2 snapshots
+  // authorize the actual midrange denominator; never reconstruct a legacy
+  // contribution from mutable post-export child scores.
+  const midTrace = raw?.midrangeSpacing;
+  const spaceTrace = raw?.spaceAndDensity;
+  const hasA2Trace = Boolean(midTrace || spaceTrace);
+  const midStage = midTrace?.browserScoringStage;
+  const midFrozenDenominator = midStage === "COMPLETED"
+    ? midTrace?.postClientMixDenominator
+    : midTrace?.serverMixDenominator;
+  const denominatorValid = finite(midFrozenDenominator) && midFrozenDenominator > 0;
+  const midApplicable = call1?.midrangeSpacing?.applicable !== false;
+  const midEffective = midApplicable && denominatorValid
+    ? 100 * 25 / midFrozenDenominator : null;
+  const label = "A2 Parent Weight Paths";
+  add(label, "Diagnostic record scope",
+    hasA2Trace ? "FORMULA_ONLY_PLUS_CAPTURED_A2_INPUTS" : "NOT_CAPTURED (legacy/non-A2)");
+  add(label, "Production Index input weights (%)",
+    "AESTHETIC_DESIGN_40; SPACE_AND_DENSITY_35; PALETTE_COHESION_25");
+  add(label, "Spectral Match direct weight in Production Index (%)", 0);
+  add(label, "Midrange Spacing direct weight in Production Index (%)", 0);
+  add(label, "Spectral Match nominal weight in Engagement Power (%)", 10);
+  add(label, "Engagement Power direct weight in Streaming Readiness (%)", 30);
+  add(label, "Spectral Match direct path to Streaming Readiness (%)", 3);
+  add(label, "Streaming Readiness completion proxy caveat",
+    "Engagement Power also enters a nonlinear/rounded completion proxy; 3% is direct-path weight only, not total sensitivity");
+  add(label, "Mix Balance direct weight in Sonic Soundprint (%)", 50);
+  add(label, "Midrange effective Mix Balance weight from frozen A2 denominator (%)",
+    !midTrace || !denominatorValid ? "NOT_CAPTURED"
+      : !midApplicable ? "NOT_APPLICABLE" : roundTo(midEffective!));
+  add(label, "Midrange conditional Sonic Soundprint path via Mix Balance (%)",
+    !midTrace || !denominatorValid ? "NOT_CAPTURED"
+      : !midApplicable ? "NOT_APPLICABLE" : roundTo(midEffective! * 0.50));
+  add(label, "Frozen Mix Balance denominator (weight units)",
+    !midTrace || !denominatorValid ? "NOT_CAPTURED" : midFrozenDenominator);
+  add(label, "Mix Balance denominator provenance",
+    !midTrace ? "NOT_CAPTURED"
+      : midStage === "COMPLETED" && denominatorValid ? "CAPTURED_POST_CLIENT"
+      : midStage === "COMPLETED" ? "NOT_CAPTURED (missing frozen post-client denominator)"
+      : midStage === "BROWSER_DSP_UNAVAILABLE" ? "SERVER_ONLY_BROWSER_UNAVAILABLE"
+      : denominatorValid ? "SERVER_ONLY_BROWSER_NOT_CAPTURED" : "NOT_CAPTURED");
+  add(label, "Interpretation",
+    "Weight paths illustrate dilution under fixed other inputs; score rounding, N/A renormalization, production finish caps, and other child changes prevent direct causal attribution to a single component");
   return rows;
 }
 
