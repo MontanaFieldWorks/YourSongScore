@@ -108,3 +108,26 @@ test("Express 4 retains disabled trust proxy by default", async () => {
     assert.deepEqual(data.forwarded, []);
   });
 });
+
+test("Phase 2 build-tool patches remain on the existing compatible major lines", () => {
+  assert.equal(manifest.dependencies.vite, "^6.4.5");
+  assert.equal(manifest.devDependencies.vite, "^6.4.5");
+  const expected = {
+    vite: "6.4.5",
+    "@babel/core": "7.29.7",
+    "baseline-browser-mapping": "2.11.34",
+    "brace-expansion": "1.1.21",
+    browserslist: "4.29.5",
+    nanoid: "3.3.20",
+    postcss: "8.5.32",
+    "source-map-js": "1.2.2",
+  };
+  for (const [name, version] of Object.entries(expected)) {
+    assert.equal(installed(name), version, `installed ${name}`);
+  }
+  assert.equal(lock.packages["node_modules/readdir-glob/node_modules/brace-expansion"]?.version, "2.1.7");
+  // Firebase/gRPC and ExcelJS were deliberately excluded from this patch.
+  assert.equal(installed("firebase"), "12.14.0");
+  assert.equal(installed("@grpc/grpc-js"), "1.9.16");
+  assert.equal(installed("exceljs"), "4.4.0");
+});
