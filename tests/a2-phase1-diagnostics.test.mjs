@@ -695,7 +695,7 @@ test("A2 diagnostic coverage never recasts missing audits as instrument absence"
   };
   const before = structuredClone(capture);
   const got = values(getSourceVerificationRows(capture));
-  assert.equal(got["Low-End Division/Gate evidence coverage (not an applicability verdict)"], "FULL_25_FACTOR_RECORD");
+  assert.equal(got["Low-End Division/Gate evidence coverage (not an applicability verdict)"], "ALL_25_CHECK_SLOTS_RECORDED");
   assert.equal(got["Low-End Division/Second-pass presence (not proof of instrument absence)"], "UNAVAILABLE");
   assert.match(got["Low-End Division/Gate factors true / false / unknown"], /^\d+ \/ \d+ \/ \d+$/);
   assert.equal(got["Low-End Division/Factor/decision review flag (not scored)"],
@@ -719,6 +719,18 @@ test("A2 low-end review flag reports contradictions without changing actual appl
     "REVIEW_APPLICABLE_WITH_UNVERIFIED_DIAGNOSTIC_FACTORS");
   assert.equal(c.subMetricsCall1.lowEndDivision.applicable, true);
   assert.deepEqual(c, prior);
+});
+
+test("A2 all-true low-end diagnostic factors flag conflicting final N/A only", () => {
+  const factors = describeLowEndGateFactors(first, second, sourceEvidence);
+  const sample = { subMetricsCall1: { lowEndDivision: { applicable: false,
+    sourceVerification: { gateFactors: factors.factors, specificRejectionReasons: [] } } } };
+  const before = structuredClone(sample);
+  const got = values(getSourceVerificationRows(sample));
+  assert.equal(got["Low-End Division/Factor/decision review flag (not scored)"],
+    "REVIEW_NOT_APPLICABLE_DESPITE_ALL_DIAGNOSTIC_FACTORS_TRUE");
+  assert.equal(sample.subMetricsCall1.lowEndDivision.applicable, false);
+  assert.deepEqual(sample, before);
 });
 
 test("A2 vocal presence review distinguishes contradictory gates from true instrumental N/A", () => {
