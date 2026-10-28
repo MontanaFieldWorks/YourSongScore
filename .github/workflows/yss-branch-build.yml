@@ -30,7 +30,7 @@ jobs:
           for(const name of names) console.log('PHASE3_LOCK_VERSION='+name+':'+lock.packages['node_modules/'+name]?.version);
           for(let i=0;i<contents.length;i+=1800) console.log('PHASE3_LOCKPIECE:'+i+':'+JSON.stringify(contents.slice(i,i+1800)));
           console.log('PHASE3_LOCK_END='+contents.length);
-          if(lock.packages['node_modules/protobufjs']?.version!=='7.6.5') throw Error('protobufjs not 7.6.5');
+          if(lock.packages['node_modules/protobufjs']?.version!=='7.6.6') throw Error('protobufjs not latest patched 7.x');
           const eb=lock.packages['node_modules/tsx/node_modules/esbuild']?.version;
           if(eb!=='0.28.1' && eb!=='0.28.2') throw Error('tsx esbuild not patched: '+eb);
           NODE
