@@ -60,7 +60,7 @@ export function getSourceVerificationRows(critique: any): SourceDiagnosticRow[] 
   const knownFailures = factorValues?.filter(value => value === false).length ?? 0;
   const unknownFactors = factorValues?.filter(value => value !== true && value !== false).length ?? 0;
   add("Low-End Division", "Gate evidence coverage (not an applicability verdict)",
-    !factorValues ? "NOT_CAPTURED" : factorValues.length === 25 ? "FULL_25_FACTOR_RECORD" : "PARTIAL_FACTOR_RECORD");
+    !factorValues ? "NOT_CAPTURED" : factorValues.length === 25 ? "ALL_25_CHECK_SLOTS_RECORDED" : "PARTIAL_FACTOR_RECORD");
   add("Low-End Division", "Gate factors true / false / unknown",
     !factorValues ? "NOT_CAPTURED" : `${knownPasses} / ${knownFailures} / ${unknownFactors}`);
   add("Low-End Division", "Second-pass presence (not proof of instrument absence)",
@@ -71,7 +71,9 @@ export function getSourceVerificationRows(critique: any): SourceDiagnosticRow[] 
     !factorValues || typeof low?.applicable !== "boolean" ? "NOT_CAPTURED"
       : low.applicable === true && (knownFailures > 0 || unknownFactors > 0)
         ? "REVIEW_APPLICABLE_WITH_UNVERIFIED_DIAGNOSTIC_FACTORS"
-        : "NO_DETERMINISTIC_FACTOR_DECISION_CONFLICT");
+        : low.applicable === false && factorValues.length === 25 && knownPasses === 25
+          ? "REVIEW_NOT_APPLICABLE_DESPITE_ALL_DIAGNOSTIC_FACTORS_TRUE"
+          : "NO_DETERMINISTIC_FACTOR_DECISION_CONFLICT");
 
   add("Vocal Layer Fit", "Diagnostic capture", vs ? "PRESENT" : "NOT_CAPTURED");
   add("Vocal Layer Fit", "Raw backing layer presence", vs?.rawLayerPresence);
