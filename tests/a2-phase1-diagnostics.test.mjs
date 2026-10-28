@@ -765,3 +765,74 @@ test("A2 vocal presence review distinguishes contradictory gates from true instr
     "Vocal Layer Fit/Presence evidence qualification"],
     "CALL3_SINGLE_LISTEN_UNVERIFIED; cross-pass statements are assertions, not acoustic proof");
 });
+
+
+test("four frozen post-A2 vocal-layer decisions remain unverified paired observations", () => {
+  // These four presence decisions came from different single-listen Call 3
+  // outputs for clean/altered versions of the same underlying performances.
+  // They are not independent proof that the tracks contain or lack harmonies.
+  const cases=[
+    ["BOSTON_CLEAN","BOSTON",false,"ABSENT_SINGLE_PASS_UNVERIFIED"],
+    ["T01_B","BOSTON",true,"PRESENT_SINGLE_PASS_UNVERIFIED"],
+    ["DRAKE_CLEAN","DRAKE",true,"PRESENT_SINGLE_PASS_UNVERIFIED"],
+    ["T02_B","DRAKE",false,"ABSENT_SINGLE_PASS_UNVERIFIED"],
+  ];
+  const captured=[];
+  for(const [id,pair,present,status] of cases) {
+    const c={
+      performance:{vocalApplicable:true,vocalsCritique:"A lead vocal is present."},
+      subMetricsCall3:{vocalTrackingSubs:{vocalLayerFit:{
+        backingVocalLayersPresent:present,
+        applicable:present,score:present?88:0,
+        sourceVerification:{
+          rawLayerPresence:present,decisionSource:"CALL3_SINGLE_LISTEN",
+        },
+      }}},
+    };
+    const before=structuredClone(c);
+    const snapshot=captureA2OriginalAssertionSnapshot(c);
+    const rows=values(getSourceVerificationRows({...c,a2OriginalAssertionSnapshot:snapshot}));
+    assert.equal(snapshot.vocalLayerEvidenceStatus,status,id);
+    assert.equal(rows["A2 Original Assertions/Original vocal-layer presence status (single pass)"],status,id);
+    assert.equal(rows["Vocal Layer Fit/Presence evidence qualification"],
+      "CALL3_SINGLE_LISTEN_UNVERIFIED; cross-pass statements are assertions, not acoustic proof",id);
+    assert.deepEqual(c,before,"diagnostics must not change layer score or applicability");
+    captured.push({id,pair,present,status});
+  }
+  assert.deepEqual(captured.filter(x=>x.pair==="BOSTON").map(x=>x.present),[false,true]);
+  assert.deepEqual(captured.filter(x=>x.pair==="DRAKE").map(x=>x.present),[true,false]);
+  // The reporting helpers cannot silently force pair-membership agreement.
+  assert.doesNotMatch(String(inspectA2VocalLayerEvidence)+String(captureA2OriginalAssertionSnapshot),
+    /BOSTON_CLEAN|T01_B|DRAKE_CLEAN|T02_B/);
+});
+
+test("altered Drake-style original midrange contradiction survives final DSP commentary replacement", () => {
+  // A frozen pre-reconciliation assertion can disagree with a parent while the
+  // browser-corrected child is later consistent. Both facts must stay visible.
+  const c=structuredClone(genreAndMask);
+  c.vibe={genre:"Rap / Hip-Hop",subgenre:"Rhythmic / Urban Mainstream"};
+  c.performance={vocalApplicable:true,vocalsCritique:"The lead sits in the center."};
+  c.subMetricsCall3={vocalTrackingSubs:{vocalLayerFit:{
+    backingVocalLayersPresent:false,applicable:false,score:0,
+  }}};
+  c.subMetricsCall1.midrangeSpacing.qualityTier="PROFESSIONAL_HIGH";
+  const frozen=captureA2OriginalAssertionSnapshot(c);
+  assert.equal(frozen.originalMidrangeFlag,"REVIEW_PARENT_CHILD_MASKING_CONTRADICTION");
+  c.a2OriginalAssertionSnapshot=frozen;
+  const initial=structuredClone(frozen);
+  c.subMetricsCall1.midrangeSpacing.score=72;
+  c.subMetricsCall1.midrangeSpacing.commentary=
+    "Measured midrange structure does not support a high spacing tier.";
+  c.mixQuality.frequencyBalance.midrange=
+    "Measured spectral distinction is reduced through the central mix range.";
+  const rows=values(getSourceVerificationRows(c));
+  assert.equal(rows["A2 Original Assertions/Original parent/child midrange review flag (not scored)"],
+    "REVIEW_PARENT_CHILD_MASKING_CONTRADICTION");
+  assert.equal(rows["A2 Original Assertions/Original model Midrange Spacing qualityTier"],
+    "PROFESSIONAL_HIGH");
+  assert.equal(rows["Midrange Consistency/Parent/child review flag (not scored)"],
+    "NO_DETERMINISTIC_CONTRADICTION_FLAG");
+  assert.deepEqual(c.a2OriginalAssertionSnapshot,initial);
+  assert.equal(c.subMetricsCall1.midrangeSpacing.score,72);
+  assert.equal(c.subMetricsCall3.vocalTrackingSubs.vocalLayerFit.applicable,false);
+});
