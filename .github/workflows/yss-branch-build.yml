@@ -14,6 +14,23 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
+      - name: Phase 2 temporary lockfile generation (audit branch only)
+        if: github.event_name == 'pull_request' && github.head_ref == 'security/phase2-build-deps-20261028'
+        run: |
+          npm update vite @babel/core baseline-browser-mapping brace-expansion browserslist nanoid postcss source-map-js --package-lock-only --ignore-scripts --no-audit --no-fund
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          const lock = fs.readFileSync('package-lock.json', 'utf8');
+          const obj = JSON.parse(lock);
+          console.log('PHASE2_LOCK_LENGTH=' + lock.length);
+          console.log('PHASE2_LOCK_SHA256=' + crypto.createHash('sha256').update(lock).digest('hex'));
+          for (let i=0;i<lock.length;i+=1500) console.log('PHASE2_PIECE:' + i + ':' + JSON.stringify(lock.slice(i,i+1500)));
+          console.log('PHASE2_LOCK_END=' + lock.length);
+          for (const name of ['vite','@babel/core','baseline-browser-mapping','brace-expansion','browserslist','nanoid','postcss','source-map-js']) {
+            console.log('PHASE2_VERSION=' + name + ':' + obj.packages['node_modules/' + name]?.version);
+          }
+          NODE
       - run: npm ci --no-audit --no-fund
       - run: npm run build
       - name: TypeScript baseline check (informational while existing errors remain)
