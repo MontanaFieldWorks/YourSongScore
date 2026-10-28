@@ -428,3 +428,134 @@ test("legacy and incomplete browser A2 traces do not invent dilution contributio
   assert.equal(row(rows, W, "Midrange conditional Sonic Soundprint path via Mix Balance (%)"), "NOT_APPLICABLE");
   assert.equal(row(rows, W, "Mix Balance denominator provenance"), "SERVER_ONLY_BROWSER_UNAVAILABLE");
 });
+
+
+/**
+ * Post-A2 read-only fixtures transcribed from the four exported workbooks
+ * (October 28, 2026). These are frozen OBSERVATIONS, not DSP ground-truth
+ * scores and not a new production input or a causal paired-song correction.
+ */
+const A2_FOUR_CASE_OBSERVATIONS = Object.freeze([
+  { id: "BOSTON_CLEAN", pair: "BOSTON", spectral: 88, midrange: 88,
+    flatness: .571, midrangeCap: null, lowEndApplicable: false,
+    production: 88, mix: 86, vocal: 88, instrumental: 89,
+    sonic: 87, streaming: 89, backingLayers: false },
+  { id: "T01_B", pair: "BOSTON", spectral: 68, midrange: 76,
+    flatness: .445, midrangeCap: 76, lowEndApplicable: true,
+    production: 89, mix: 84, vocal: 91, instrumental: 89,
+    sonic: 87, streaming: 88, backingLayers: true },
+  { id: "DRAKE_CLEAN", pair: "DRAKE", spectral: 88, midrange: 88,
+    flatness: .515, midrangeCap: null, lowEndApplicable: true,
+    production: 89, mix: 89, vocal: 87, instrumental: 87,
+    sonic: 88, streaming: 91, backingLayers: true },
+  { id: "T02_B", pair: "DRAKE", spectral: 76, midrange: 72,
+    flatness: .365, midrangeCap: 72, lowEndApplicable: true,
+    production: 88, mix: 84, vocal: 87, instrumental: 88,
+    sonic: 86, streaming: 87, backingLayers: false },
+]);
+
+test("post-A2 four-case evidence fixes paired deltas without implying automatic validity", () => {
+  const c = A2_FOUR_CASE_OBSERVATIONS;
+  assert.deepEqual(c.map(x => x.id), ["BOSTON_CLEAN", "T01_B", "DRAKE_CLEAN", "T02_B"]);
+  assert.deepEqual([c[0].spectral-c[1].spectral, c[2].spectral-c[3].spectral], [20,12]);
+  assert.deepEqual([c[0].midrange-c[1].midrange, c[2].midrange-c[3].midrange], [12,16]);
+  assert.deepEqual([c[0].production-c[1].production, c[2].production-c[3].production], [-1,1]);
+  assert.deepEqual([c[0].sonic-c[1].sonic, c[2].sonic-c[3].sonic], [0,2]);
+  assert.deepEqual([c[0].streaming-c[1].streaming, c[2].streaming-c[3].streaming], [1,4]);
+  for (const [clean, altered] of [[c[0],c[1]],[c[2],c[3]]]) {
+    assert.equal(clean.pair, altered.pair);
+    assert.notEqual(clean.backingLayers, altered.backingLayers,
+      "single-listen presence flipped within unchanged underlying song");
+  }
+});
+
+test("post-A2 replay preserves four raw PROFESSIONAL_HIGH tiers, deterministic cap stages and exact mix denominators", () => {
+  const client = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.match(client, /midrangeFlatness <= 0\.40/);
+  assert.match(client, /midrangeFlatness < 0\.45/);
+  assert.match(client, /midrangeCap = 72/);
+  assert.match(client, /midrangeCap = 76/);
+  for (const item of A2_FOUR_CASE_OBSERVATIONS) {
+    const deterministicCap = item.flatness <= .40 ? 72 :
+      item.flatness < .45 ? 76 : null;
+    assert.equal(deterministicCap, item.midrangeCap, item.id);
+    const c = f();
+    c.subMetricsCall1.lowEndDivision.applicable = item.lowEndApplicable;
+    captureA2ServerMixInputs(c);
+    captureA2BeforeClient(c);
+    const originalModel = c.subMetricsCall1.midrangeSpacing.qualityTier;
+    assert.equal(originalModel, "PROFESSIONAL_HIGH");
+    c.subMetricsCall1.midrangeSpacing.score = item.midrange;
+    captureA2AfterClient(c, {
+      midrangeCap: deterministicCap, spaceDensityCeiling: null,
+    });
+    const rows = getA2ScoringProvenanceRows(c);
+    assert.equal(row(rows, M, "Model-selected qualityTier (existing public metric)"),
+      "PROFESSIONAL_HIGH", item.id);
+    assert.equal(row(rows, M, "Pre-client score after server reconciliation"), 88);
+    assert.equal(row(rows, M, "Post-client child score"), item.midrange, item.id);
+    assert.equal(row(rows, M, "Browser scoring stage"), "COMPLETED", item.id);
+    assert.equal(row(rows, M, "Client cap reason"),
+      deterministicCap === null ? "NONE" : "MIDRANGE_FLATNESS_CAP", item.id);
+    const denom = item.lowEndApplicable ? 75 : 55;
+    assert.equal(row(rows, M, "Actual aggregation denominator (weight units)"), denom, item.id);
+    approx(row(rows, M, "Exact pre-round weighted contribution (points)"),
+      item.midrange * 25 / denom);
+    assert.equal(c.scores.overallProduction, 88,
+      "provenance capture never recalculates the scored Production Index");
+  }
+});
+
+test("post-A2 Drake streaming-match counterfactual reproduces both final scores and isolates profile sensitivity", () => {
+  const display = readFileSync(new URL("../src/components/CritiqueDisplay.tsx", import.meta.url), "utf8")
+    .replace(/\s+/g, " ");
+  assert.ok(display.includes("(completionRate * 0.40) + (echoNestAvgMatch * 0.30) + (commercialReadinessVal * 0.30)"),
+    "replay must match current 40/30/30 production calculation");
+  assert.ok(display.includes("Math.round((commercialReadinessVal * 0.70) + (overallProductionVal * 0.20))"),
+    "replay must match current estimated skip-probability inputs");
+  const cleanMatches = [100,100,100,100,100,100,100];
+  const alteredMatches = [100,100,100,70,53,100,100];
+  const average = scores => scores.reduce((sum,n)=>sum+n,0)/scores.length;
+  assert.equal(average(cleanMatches), 100);
+  assert.equal(average(alteredMatches), 89);
+  // Explicitly hold liveSkipModifier at zero; both archived Drake masters
+  // exceed the -12.5 LUFS penalty floor, and no negative-phase penalty is
+  // established by these report fixtures. This is a conditional replay.
+  const streaming = (engagement, production, genreMatch) => {
+    const skip = Math.min(85, Math.max(0, 91-Math.round(engagement*.70+production*.20)));
+    const completion = Math.min(100, Math.max(15, 100-skip));
+    return Math.round(completion*.40+genreMatch*.30+engagement*.30);
+  };
+  assert.equal(streaming(87,89,average(cleanMatches)), 91);
+  assert.equal(streaming(86,88,average(alteredMatches)), 87);
+  assert.equal(streaming(86,88,average(cleanMatches)), 91,
+    "altered Drake with clean matching profile is a four-point counterfactual, not verified restoration");
+  assert.equal(streaming(86,88,average(cleanMatches))-streaming(86,88,average(alteredMatches)), 4);
+});
+
+test("post-A2 Sonic Soundprint cancellation and Production Index exclusion replay source formulas", () => {
+  const display = readFileSync(new URL("../src/components/CritiqueDisplay.tsx", import.meta.url), "utf8");
+  const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
+  assert.match(display, /critique\?\.mixQuality\?\.score \?\? 75\) \* 0\.50/);
+  assert.match(display, /critique\?\.performance\?\.vocalScore \?\? 75\) \* 0\.30/);
+  assert.match(display, /critique\?\.performance\?\.instrumentalScore \?\? 75\) \* 0\.20/);
+  assert.match(server, /\[c1Ready\.aestheticDesign\?\.score, 40\]/);
+  assert.match(server, /\[c1Ready\.spaceAndDensity\?\.score, 35\]/);
+  assert.match(server, /\[c1Ready\.paletteCohesion\?\.score, 25\]/);
+  const sonicBase = c => Math.round(c.mix*.50+c.vocal*.30+c.instrumental*.20);
+  for (const c of A2_FOUR_CASE_OBSERVATIONS)
+    assert.equal(sonicBase(c), c.sonic, c.id);
+  const b0=A2_FOUR_CASE_OBSERVATIONS[0],b1=A2_FOUR_CASE_OBSERVATIONS[1];
+  approx((b0.mix-b1.mix)*.50, 1);
+  approx((b0.vocal-b1.vocal)*.30, -.9);
+  assert.equal(sonicBase(b0)-sonicBase(b1), 0);
+  // Illustrative unchanged palette/space fixture. Do not attribute observed
+  // production parent movement to Spectral Match or Midrange Spacing.
+  assert.equal(Math.round(88*.4+88*.35+88*.25), 88);
+  assert.equal(Math.round(90*.4+88*.35+88*.25), 89);
+  const frozen = getA2ScoringProvenanceRows(f());
+  assert.equal(row(frozen, "A2 Parent Weight Paths",
+    "Spectral Match direct weight in Production Index (%)"), 0);
+  assert.equal(row(frozen, "A2 Parent Weight Paths",
+    "Midrange Spacing direct weight in Production Index (%)"), 0);
+});
