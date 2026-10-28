@@ -131,3 +131,26 @@ test("Phase 2 build-tool patches remain on the existing compatible major lines",
   assert.equal(installed("@grpc/grpc-js"), "1.9.16");
   assert.equal(installed("exceljs"), "4.4.0");
 });
+
+test("Phase 3 patch-only dependency versions and invariant SDKs", () => {
+  assert.equal(installed("protobufjs"), "7.6.6");
+  assert.equal(lock.packages["node_modules/tsx/node_modules/esbuild"]?.version, "0.28.2");
+  assert.equal(installed("tsx"), "4.22.3");
+  assert.equal(installed("esbuild"), "0.25.12"); // production bundler: unchanged
+  assert.equal(installed("firebase"), "12.14.0");
+  assert.equal(installed("@firebase/firestore"), "4.15.0");
+  assert.equal(installed("@grpc/grpc-js"), "1.9.16");
+  assert.equal(installed("@grpc/proto-loader"), "0.7.15");
+  assert.equal(installed("exceljs"), "4.4.0");
+  assert.equal(installed("uuid"), "8.3.2");
+  assert.ok(!lock.packages["node_modules/@protobufjs/inquire"]);
+});
+
+test("patched protobufjs retains trusted-schema encode/decode behavior", async () => {
+  const imported = await import("protobufjs");
+  const protobuf = imported.default ?? imported;
+  const root = protobuf.parse('syntax = "proto3"; message PatchSmoke { string track = 1; }').root;
+  const type = root.lookupType("PatchSmoke");
+  const encoded = type.encode({ track: "offline-smoke" }).finish();
+  assert.equal(type.decode(encoded).track, "offline-smoke");
+});
