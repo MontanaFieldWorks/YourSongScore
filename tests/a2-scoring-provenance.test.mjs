@@ -736,7 +736,7 @@ test("Stage B Excel six-band levels display raw normalized values, not invented 
   const report=readFileSync(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
   assert.match(report,/FREQUENCY BALANCE \(6-BAND NORMALIZED LEVELS, NOT %\)/);
   assert.match(report,/\["Band", "Frequency Range", "Level \(0-100\)", "Vs Genre Target"\]/);
-  assert.match(report,/wsEngineering\.getCell\(engRow, 4\)\.value = row\.val;/);
+  assert.match(report,/wsEngineering\.getCell\(engRow, 4\)\.value = String\(row\.val\);/);
   assert.doesNotMatch(report,/wsEngineering\.getCell\(engRow, 4\)\.value = \x60\$\{row\.val\}%\x60;/);
   for(const name of ["calculatedSubBassBandEnergy","calculatedBassBandEnergy","calculatedLowMidsBandEnergy",
     "calculatedCoreMidsBandEnergy","calculatedPresenceBandEnergy","calculatedAirBandEnergy"])
