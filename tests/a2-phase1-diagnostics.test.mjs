@@ -7,6 +7,8 @@ import {
   describeLowEndGateFactors,
   inspectA2NarrativeConflicts,
   inspectA2VocalLayerEvidence,
+  classifyA2VocalLayerAssertionSupport,
+  getStreamingReadinessLineageRows,
   captureA2OriginalAssertionSnapshot,
   getSourceVerificationRows,
 } from "../src/lib/sourceVerificationDiagnostics.ts";
@@ -835,4 +837,179 @@ test("altered Drake-style original midrange contradiction survives final DSP com
   assert.deepEqual(c.a2OriginalAssertionSnapshot,initial);
   assert.equal(c.subMetricsCall1.midrangeSpacing.score,72);
   assert.equal(c.subMetricsCall3.vocalTrackingSubs.vocalLayerFit.applicable,false);
+});
+
+
+// Stage 1 lineage assertions are report-only; representative source inputs are
+// explicitly synthetic. Historical A2 workbook scores remain in the separate
+// frozen four-case regression, not reconstructed into this new report format.
+const streamProfile = {
+  danceMin: .72, danceMax: .88, energyMin: .60, energyMax: .82,
+  acousticMin: .02, acousticMax: .18, valenceMin: .45, valenceMax: .75,
+  speechMin: .22, speechMax: .45, instMin: 0, instMax: .05,
+  liveMin: .08, liveMax: .22,
+};
+const streamLabels=["Danceability","Energy","Acousticness","Mood Valence","Speechiness","Instrumentalness","Liveness"];
+const scorecardFixture=(matches=[100,100,100,100,100,100,100])=>streamLabels.map((label,i)=>({
+  label,value:50,min:10,max:90,matchPercent:matches[i],
+}));
+const streamingFixture=(scores, matches)=> {
+  const prod=scores.overallProduction,eng=scores.commercialReadiness;
+  const skip=Math.min(85,Math.max(0,91-Math.round(eng*.70+prod*.20)));
+  const completion=Math.min(100,Math.max(15,100-skip));
+  const avg=matches.reduce((sum,x)=>sum+x,0)/matches.length;
+  return Math.round(completion*.40+avg*.30+eng*.30);
+};
+
+test("Stage 1 classifies vocal presence based on other assertions but never treats agreement as audio truth",()=>{
+  const examples=[
+    {flag:"REVIEW_CONFLICTING_LAYER_ASSERTIONS",signals:["MAIN_STEREO_DESCRIBES_BACKING_LAYERS"],
+      want:"CONFLICTING_MODEL_ASSERTIONS"},
+    {flag:"AMBIGUOUS_CROSS_PASS_LAYER_DESCRIPTIONS",signals:["MAIN_STEREO_DESCRIBES_BACKING_LAYERS"],
+      want:"MIXED_MODEL_ASSERTIONS"},
+    {flag:"NO_DETERMINISTIC_LAYER_CONTRADICTION_FLAG",signals:["MAIN_STEREO_DESCRIBES_BACKING_LAYERS"],
+      want:"CORROBORATING_MODEL_ASSERTIONS_UNVERIFIED"},
+    {flag:"INSUFFICIENT_CROSS_PASS_LAYER_EVIDENCE",signals:[],want:"INSUFFICIENT_INDEPENDENT_EVIDENCE"},
+  ];
+  for(const ex of examples){
+    const modelAssertions={status:"PRESENT_SINGLE_PASS_UNVERIFIED",
+      crossPassFlag:ex.flag,crossPassSignals:ex.signals};
+    const before=structuredClone(modelAssertions);
+    assert.equal(classifyA2VocalLayerAssertionSupport(modelAssertions),ex.want);
+    assert.deepEqual(modelAssertions,before);
+  }
+  assert.equal(classifyA2VocalLayerAssertionSupport({
+    status:"NOT_CAPTURED",crossPassFlag:"INSUFFICIENT_CROSS_PASS_LAYER_EVIDENCE",crossPassSignals:[],
+  }),"NOT_CAPTURED");
+  const withAssert={
+    performance:{vocalApplicable:true,vocalsCritique:"Backing harmonies widen the chorus."},
+    subMetricsCall3:{vocalTrackingSubs:{vocalLayerFit:{
+      backingVocalLayersPresent:false,applicable:false,score:0,sourceVerification:{
+        rawLayerPresence:false,decisionSource:"CALL3_SINGLE_LISTEN",
+      },
+    }}},
+  };
+  const saved=structuredClone(withAssert);
+  const rows=values(getSourceVerificationRows(withAssert));
+  assert.equal(rows["Vocal Layer Fit/Assertion support classification (not acoustic verification)"],
+    "CONFLICTING_MODEL_ASSERTIONS");
+  assert.equal(withAssert.subMetricsCall3.vocalTrackingSubs.vocalLayerFit.applicable,false);
+  assert.deepEqual(withAssert,saved);
+});
+
+test("Stage 1 source-lineage records actual selected paths for all seven dimensions",()=>{
+  const critique={
+    vibe:{genre:"Rap / Hip-Hop",subgenre:"Mainstream Rap"},
+    scores:{overallProduction:89,commercialReadiness:87},
+    arrangement:{flowScore:88},performance:{vocalApplicable:true,instrumentalScore:87},
+    musicTheory:{score:88},lyricalImpact:{score:88},mixQuality:{score:89},
+    spotifyOverrides:{acousticness:20,liveness:55},
+    subMetricsCall2:{moodValence:{score:75},speechiness:{score:35}},
+    liveMetrics:{calculatedLufs:-10,calculatedHighEnergy:14,calculatedBassEnergy:20,calculatedStereoCorrelation:.6},
+  };
+  const saved=structuredClone(critique);
+  const matches=[100,85,90,100,100,100,75];
+  const scorecard=scorecardFixture(matches);
+  scorecard[0].value=86;scorecard[1].value=56;scorecard[2].value=20;
+  scorecard[3].value=75;scorecard[4].value=35;
+  scorecard[5].value=2;scorecard[6].value=55;
+  const summary={streamingReadiness:streamingFixture(critique.scores,matches)};
+  const rows=values(getStreamingReadinessLineageRows(critique,streamProfile,scorecard,summary,null));
+  const selected=k=>rows["Streaming Profile: "+k+"/Selected source branch (current export)"];
+  assert.equal(selected("Danceability"),"SCORE_DERIVED_FLOW");
+  assert.equal(selected("Energy"),"DSP_LUFS_HIGH_ENERGY");
+  assert.equal(selected("Acousticness"),"MANUAL_OVERRIDE");
+  assert.equal(selected("Mood Valence"),"GEMINI_CALL2");
+  assert.equal(selected("Speechiness"),"GEMINI_CALL2");
+  assert.equal(selected("Instrumentalness"),"VOCAL_STATUS_PRESENT_PROXY_2");
+  assert.equal(selected("Liveness"),"MANUAL_OVERRIDE");
+  assert.equal(rows["Streaming Profile: Energy/Fallback offset USED"],"NOT_APPLICABLE");
+  assert.match(rows["Streaming Profile: Liveness/Fallback expression (may not have executed)"],/mixScore.*% 10/);
+  assert.match(rows["Streaming Profile: Energy/Selected source inputs (raw; missing = NOT_CAPTURED)"],/calculatedLufs=-10/);
+  assert.equal(rows["Streaming Readiness Lineage/Diagnostic arithmetic parity"],"MATCH");
+  assert.equal(rows["Streaming Readiness Lineage/Actual unchanged exported Streaming Readiness"],String(summary.streamingReadiness));
+  assert.equal(rows["Streaming Profile: Energy/Contribution to Streaming Readiness BEFORE ROUNDING (points)"],String(Math.round(85*.30/7*1e6)/1e6));
+  assert.deepEqual(critique,saved);
+});
+
+test("Stage 1 explicitly differentiates liveness stereo-correlation from the Mix Balance modulo fallback",()=>{
+  const c={scores:{overallProduction:89,commercialReadiness:87},mixQuality:{score:89}};
+  const card=scorecardFixture();
+  const make=()=>values(getStreamingReadinessLineageRows(c,streamProfile,card,
+    {streamingReadiness:streamingFixture(c.scores,card.map(x=>x.matchPercent))},null));
+  let rows=make();
+  assert.equal(rows["Streaming Profile: Liveness/Selected source branch (current export)"],"FALLBACK_MIX_MOD10");
+  assert.equal(rows["Streaming Profile: Liveness/Fallback offset USED"],"5");
+  c.liveMetrics={calculatedStereoCorrelation:.61};
+  rows=make();
+  assert.equal(rows["Streaming Profile: Liveness/Selected source branch (current export)"],"DSP_STEREO_CORRELATION_PROXY");
+  assert.equal(rows["Streaming Profile: Liveness/Fallback offset USED"],"NOT_APPLICABLE");
+  assert.match(rows["Streaming Profile: Liveness/Selected source inputs (raw; missing = NOT_CAPTURED)"],/calculatedStereoCorrelation=0.61/);
+  c.spotifyOverrides={liveness:47};
+  rows=make();
+  assert.equal(rows["Streaming Profile: Liveness/Selected source branch (current export)"],"MANUAL_OVERRIDE");
+});
+
+test("Stage 1 85-to-96 walkthrough records known 89-to-90 modulo discontinuities without changing scoring",()=>{
+  const fallback=(v,d,mod)=>Math.round(v%mod-d);
+  for(let score=85;score<=96;score++){
+    const c={scores:{overallProduction:score,commercialReadiness:87},
+      mixQuality:{score},performance:{instrumentalScore:score}};
+    const card=scorecardFixture();
+    const rows=values(getStreamingReadinessLineageRows(c,streamProfile,card,
+      {streamingReadiness:streamingFixture(c.scores,card.map(x=>x.matchPercent))},null));
+    assert.equal(rows["Streaming Profile: Energy/Fallback offset USED"],String(fallback(score,4,15)));
+    assert.equal(rows["Streaming Profile: Acousticness/Fallback offset USED"],String(fallback(score,7,15)));
+    assert.equal(rows["Streaming Profile: Liveness/Fallback offset USED"],String(fallback(score,4,10)));
+  }
+  assert.equal(fallback(90,4,15)-fallback(89,4,15),-14);
+  assert.equal(fallback(90,7,15)-fallback(89,7,15),-14);
+  assert.equal(fallback(90,4,10)-fallback(89,4,10),-9);
+  // Diagnostic must currently assert observed discontinuity; the future
+  // BEHAVIORAL fix may separately assert continuity with an approved change.
+});
+
+test("Stage 1 four frozen A2 headline observations remain unchanged under diagnostic inspection",()=>{
+  const four=[
+    {id:"BOSTON_CLEAN",eng:89,prod:88,match:89,expected:89},
+    {id:"T01_B",eng:87,prod:89,match:89,expected:88},
+    {id:"DRAKE_CLEAN",eng:87,prod:89,match:100,expected:91},
+    {id:"T02_B",eng:86,prod:88,match:89,expected:87},
+  ];
+  for(const item of four){
+    // Profile-match inputs for Boston are illustrative values that reproduce
+    // its published headlines; they are NOT archived original source values.
+    const c={scores:{commercialReadiness:item.eng,overallProduction:item.prod}};
+    const card=scorecardFixture(Array(7).fill(item.match));
+    const previous=structuredClone(c);
+    assert.equal(streamingFixture(c.scores,card.map(x=>x.matchPercent)),item.expected,item.id);
+    const rows=values(getStreamingReadinessLineageRows(c,streamProfile,card,
+      {streamingReadiness:item.expected},null));
+    assert.equal(rows["Streaming Readiness Lineage/Diagnostic arithmetic parity"],"MATCH",item.id);
+    assert.equal(rows["Streaming Readiness Lineage/Actual unchanged exported Streaming Readiness"],String(item.expected));
+    assert.deepEqual(c,previous);
+  }
+});
+
+test("Stage 1 legacy missing inputs remain marked NOT_CAPTURED, and Excel output includes no model secrets",async()=>{
+  const critique={performance:{vocalsCritique:"RAW_INTERNAL_MODEL_TEXT_SECRET"}};
+  const before=structuredClone(critique);
+  const card=scorecardFixture();
+  const rows=getStreamingReadinessLineageRows(critique,streamProfile,card,
+    {streamingReadiness:streamingFixture({commercialReadiness:75,overallProduction:75},
+      card.map(x=>x.matchPercent))},null);
+  const entries=values(rows);
+  assert.equal(entries["Streaming Readiness Lineage/Subgenre profile"],"NOT_CAPTURED");
+  assert.match(entries["Streaming Profile: Energy/Selected source inputs (raw; missing = NOT_CAPTURED)"],/NOT_CAPTURED/);
+  assert.match(entries["Streaming Profile: Liveness/Selected source inputs (raw; missing = NOT_CAPTURED)"],/NOT_CAPTURED/);
+  assert.match(entries["Streaming Readiness Lineage/Capture scope"],/CURRENT_EXPORT_REPLAY_ONLY/);
+  const wb=new ExcelJS.Workbook(),sheet=wb.addWorksheet("Source Diagnostics");
+  sheet.columns=[{header:"Metric",key:"section"},{header:"Field",key:"field"},{header:"Value",key:"value"}];
+  for(const row of rows)sheet.addRow(row);
+  const bytes=await wb.xlsx.writeBuffer(),read=new ExcelJS.Workbook();
+  await read.xlsx.load(bytes);
+  const cells=JSON.stringify(read.getWorksheet("Source Diagnostics").getSheetValues());
+  assert.match(cells,/DSP_STEREO_CORRELATION_PROXY/); // provenance expressions are exported as safe strings
+  assert.doesNotMatch(cells,/RAW_INTERNAL_MODEL_TEXT_SECRET/);
+  assert.deepEqual(critique,before);
 });
