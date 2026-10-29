@@ -666,7 +666,7 @@ test("Stage A guards the exact DSP correction path and does not invent a Space &
   // silently create a new automatic Space & Density penalty in the test.
 });
 
-test("Stage A documents existing tier-only versus numeric-band rubric ambiguities without modifying prompts", () => {
+test("Stage B resolves the two Call 1 tier-only rubric ambiguities while retaining genre and cap safeguards", () => {
   const server=readFileSync(new URL("../server.ts",import.meta.url),"utf8");
   const start=server.indexOf("const SUBMETRIC_SYSTEM_PROMPT =");
   const end=server.indexOf("async function performSubMetricsCall1(",start);
@@ -681,15 +681,117 @@ test("Stage A documents existing tier-only versus numeric-band rubric ambiguitie
   assert.match(prompt,/- PROFESSIONAL_HIGH: notably strong and well-controlled professional execution/);
   assert.match(prompt,/- PROFESSIONAL: clean, competent, release-ready execution/);
   assert.match(prompt,/THIS is the correct default for problem-free commercial work/);
-  assert.match(space,/before assigning a numeric score for spaceAndDensity/);
-  assert.match(space,/score it at 82-88 per the master calibration/);
-  assert.match(space,/Deductions below the 82-88 professional band are reserved exclusively for unintended clutter/);
-  assert.match(mid,/a score of 90-100 requires the midrange/);
-  assert.match(mid,/A score of 70-85 applies when the mix is generally functional/);
-  assert.doesNotMatch(mid,/PROFESSIONAL_HIGH|86-89/i,
-    "known gap: this metric-specific rubric does not articulate the 85-vs-88 boundary");
-  assert.match(prompt,/Intentional arrangement density/);
-  assert.match(prompt,/neither number alone determines whether the density represents genuine crowding/);
-  // Known contract tensions are captured by passing regression assertions; this
-  // is NOT a judgment that the existing rubric is valid or that Gemini improved.
+  assert.doesNotMatch(space,/before assigning a numeric score for spaceAndDensity/);
+  assert.match(space,/before selecting a qualityTier for spaceAndDensity/);
+  for(const [label,section] of [["Space",space],["Midrange",mid]]) {
+    assert.match(section,/QUALITY-TIER EVIDENCE GATE \(return qualityTier, never a numeric score\)/,label);
+    for(const [tier,score] of [["PROFESSIONAL",85],["PROFESSIONAL_HIGH",88],["ABOVE_AVERAGE",90],
+      ["LIMITED",79],["MATERIAL_ISSUE",71],["SEVERE",58]]) {
+      assert.match(section,new RegExp("- "+tier+" \\("+score+"\\):"),label+" "+tier);
+    }
+    assert.match(section,/DEFAULT/,label);
+    assert.match(section,/not|NOT/,label);
+  }
+  assert.match(space,/Intentional arrangement density/);
+  assert.match(mid,/Protect genre-appropriate shoegaze walls/);
+  assert.match(prompt,/SOURCE-CLAIM GATE/);
+  assert.match(mid,/Never invent competing instruments/);
+  assert.match(server,/const PRODUCTION_QUALITY_TIER_SCORES/);
+  // Contract assertions do not prove Gemini's future behavior or acoustic truth.
+});
+
+
+test("Stage B six-band contract uses original normalized magnitudes, not relative power percentages", () => {
+  const dsp=readFileSync(new URL("../src/lib/liveAudioAnalyzer.ts",import.meta.url),"utf8");
+  const server=readFileSync(new URL("../server.ts",import.meta.url),"utf8");
+  const app=readFileSync(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const bandStart=dsp.indexOf("const bandRanges = [");
+  const bandEnd=dsp.indexOf("const finishBandTotal =",bandStart);
+  assert.ok(bandStart>=0&&bandEnd>bandStart);
+  const calc=dsp.slice(bandStart,bandEnd);
+  for(const [min,max] of [[20,64],[64,250],[250,1000],[1000,4000],[4000,8000],[8000,20000]])
+    assert.ok(calc.includes("{ min: "+min+", max: "+max+" }"),"original band range "+min+"-"+max);
+  assert.match(calc,/const bandDbFloor = -22/);
+  assert.match(calc,/const bandDbCeiling = 45/);
+  assert.match(calc,/let db = 20 \* Math\.log10\(avgMag \|\| 0\.0001\)/);
+  assert.match(calc,/bandEnergies\[b\] = Math\.max\(0, Math\.min\(100, Math\.round\(score\)\)\)/);
+  assert.match(calc,/const finishBandRanges = \[/);
+  assert.match(calc,/const finishBandPowerSums = new Float64Array\(6\)/);
+  assert.match(app,/formData\.append\("lowMidsBandEnergy", String\(liveMetrics\?\.calculatedLowMidsBandEnergy \?\? ""\)\)/);
+  assert.match(server,/const bandEnergySummary = measuredBandEnergies/);
+  const summary=server.split("const bandEnergySummary = measuredBandEnergies")[1]
+    ?.split("const mudEvidenceSummary =",1)[0];
+  assert.ok(summary);
+  for(const field of ["subBass","bass","lowMids","coreMids","presence","air"])
+    assert.ok(summary.includes("measuredBandEnergies."+field),field);
+  assert.doesNotMatch(summary,/\?\? 'N\/A'\}%/,"normalized levels must not be marked %");
+  assert.match(server,/SIX INDEPENDENT NORMALIZED BAND-LEVEL INDICES/);
+  assert.match(server,/NOT relative-power shares/);
+  assert.match(server,/DIFFERENT frequency boundaries/);
+  assert.doesNotMatch(server,/relative energy per band - Sub-Bass/);
+  // Level changes alter evidence prose, never the raw measurement fields or their serialization.
+});
+
+test("Stage B Excel six-band levels display raw normalized values, not invented percentages", () => {
+  const report=readFileSync(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  assert.match(report,/FREQUENCY BALANCE \(6-BAND NORMALIZED LEVELS, NOT %\)/);
+  assert.match(report,/\["Band", "Frequency Range", "Level \(0-100\)", "Vs Genre Target"\]/);
+  assert.match(report,/wsEngineering\.getCell\(engRow, 4\)\.value = String\(row\.val\);/);
+  assert.doesNotMatch(report,/wsEngineering\.getCell\(engRow, 4\)\.value = \x60\$\{row\.val\}%\x60;/);
+  for(const name of ["calculatedSubBassBandEnergy","calculatedBassBandEnergy","calculatedLowMidsBandEnergy",
+    "calculatedCoreMidsBandEnergy","calculatedPresenceBandEnergy","calculatedAirBandEnergy"])
+    assert.ok(report.includes(name),"frozen sensor input "+name);
+});
+
+test("Stage B neither changes the DSP thresholds nor turns mud diagnostic-only into a score", () => {
+  const server=readFileSync(new URL("../server.ts",import.meta.url),"utf8");
+  const app=readFileSync(new URL("../src/App.tsx",import.meta.url),"utf8");
+  assert.match(server,/REFERENCE: 96/);
+  assert.match(server,/PROFESSIONAL_HIGH: 88/);
+  assert.match(server,/PROFESSIONAL: 85/);
+  assert.match(server,/metric\.score = canonicalScore/);
+  assert.match(app,/midrangeFlatness <= 0\.40/);
+  assert.match(app,/midrangeFlatness < 0\.45/);
+  assert.match(app,/const mudCap: number \| null = null/);
+  assert.match(server,/captureA2ServerMixInputs\(parsedCritique\)/);
+  assert.match(server,/captureA2ServerProductionInputs\(parsedCritique\)/);
+  assert.match(server,/withholdA2RawEvidence\(parsedCritique\)/);
+});
+
+
+test("Stage B Space/Midrange examples use valid canonical tiers and preserve the 85 default", () => {
+  const server=readFileSync(new URL("../server.ts",import.meta.url),"utf8");
+  const start=server.indexOf("const SUBMETRIC_SYSTEM_PROMPT =");
+  const end=server.indexOf("async function performSubMetricsCall1(",start);
+  assert.ok(start>=0 && end>start);
+  const prompt=server.slice(start,end);
+  const space=prompt.split("RUBRIC ANCHOR FOR SPACE & DENSITY:")[1]
+    ?.split("RUBRIC ANCHOR FOR PALETTE COHESION:")[0];
+  const mid=prompt.split("RUBRIC ANCHOR FOR MIDRANGE SPACING:")[1]
+    ?.split("RUBRIC ANCHOR FOR LOW-END DIVISION:")[0];
+  assert.ok(space && mid);
+  const tierMap={
+    REFERENCE:96,EXCEPTIONAL:93,ABOVE_AVERAGE:90,PROFESSIONAL_HIGH:88,
+    PROFESSIONAL:85,LIMITED:79,MATERIAL_ISSUE:71,SEVERE:58
+  };
+  for(const [label,section] of [["Space & Density",space],["Midrange Spacing",mid]]) {
+    assert.doesNotMatch(section,/- Example (?:landing at|for|at)\s+\d+\b/,
+      label+" must not instruct the model to aim for arbitrary numeric calibration targets");
+    const tierExamples=[...section.matchAll(/^- Example for ([A-Z_]+):/gm)].map(m=>m[1]);
+    for(const tier of tierExamples)
+      assert.ok(Object.hasOwn(tierMap,tier),label+" has unrecognized calibration tier: "+tier);
+    assert.doesNotMatch(section,/score it at 82-88|reserving 89\+/,
+      label+" must not override canonical default and promotion criteria");
+  }
+  assert.deepEqual([...space.matchAll(/^- Example for ([A-Z_]+):/gm)].map(m=>m[1]),
+    ["REFERENCE","PROFESSIONAL","LIMITED","SEVERE"],
+    "four Space examples must be intentionally attached to canonical tier names");
+  assert.match(space,/If NO:.*select PROFESSIONAL by default/);
+  assert.match(space,/Select PROFESSIONAL_HIGH only with an audible/);
+  assert.match(space,/select ABOVE_AVERAGE or higher only when a demonstrably unusual achievement/);
+  assert.match(mid,/- PROFESSIONAL \(85\):/);
+  assert.match(mid,/- PROFESSIONAL_HIGH \(88\):/);
+  assert.match(mid,/- ABOVE_AVERAGE \(90\):/);
+  // Other Call 1 metrics have legacy numerical examples; this check deliberately
+  // covers only the two approved rubrics. It cannot establish Gemini behavior.
 });
