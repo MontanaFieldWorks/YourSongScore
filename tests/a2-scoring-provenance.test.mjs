@@ -436,19 +436,19 @@ test("legacy and incomplete browser A2 traces do not invent dilution contributio
  * scores and not a new production input or a causal paired-song correction.
  */
 const A2_FOUR_CASE_OBSERVATIONS = Object.freeze([
-  { id: "BOSTON_CLEAN", pair: "BOSTON", spectral: 88, midrange: 88,
+  { id: "BOSTON_CLEAN", pair: "BOSTON", spectral: 88, space: 88, modelTier: "PROFESSIONAL_HIGH", midrange: 88,
     flatness: .571, midrangeCap: null, lowEndApplicable: false,
     production: 88, mix: 86, vocal: 88, instrumental: 89,
     sonic: 87, streaming: 89, backingLayers: false },
-  { id: "T01_B", pair: "BOSTON", spectral: 68, midrange: 76,
+  { id: "T01_B", pair: "BOSTON", spectral: 68, space: 88, modelTier: "PROFESSIONAL_HIGH", midrange: 76,
     flatness: .445, midrangeCap: 76, lowEndApplicable: true,
     production: 89, mix: 84, vocal: 91, instrumental: 89,
     sonic: 87, streaming: 88, backingLayers: true },
-  { id: "DRAKE_CLEAN", pair: "DRAKE", spectral: 88, midrange: 88,
+  { id: "DRAKE_CLEAN", pair: "DRAKE", spectral: 88, space: 88, modelTier: "PROFESSIONAL_HIGH", midrange: 88,
     flatness: .515, midrangeCap: null, lowEndApplicable: true,
     production: 89, mix: 89, vocal: 87, instrumental: 87,
     sonic: 88, streaming: 91, backingLayers: true },
-  { id: "T02_B", pair: "DRAKE", spectral: 76, midrange: 72,
+  { id: "T02_B", pair: "DRAKE", spectral: 76, space: 88, modelTier: "PROFESSIONAL_HIGH", midrange: 72,
     flatness: .365, midrangeCap: 72, lowEndApplicable: true,
     production: 88, mix: 84, vocal: 87, instrumental: 88,
     sonic: 86, streaming: 87, backingLayers: false },
@@ -558,4 +558,138 @@ test("post-A2 Sonic Soundprint cancellation and Production Index exclusion repla
     "Spectral Match direct weight in Production Index (%)"), 0);
   assert.equal(row(frozen, "A2 Parent Weight Paths",
     "Midrange Spacing direct weight in Production Index (%)"), 0);
+});
+
+
+/**
+ * Stage A: nonpaid contract diagnostics only. The observations below are frozen
+ * A2 workbook transcriptions, not source-isolated masking labels. No new Gemini
+ * calls, scoring formulas, cap policies, or production diagnostics are used.
+ * The fixture's modelTier captures the observed choice, not a raw model narrative.
+ */
+test("Stage A freezes model tier mapping for both 88-saturated Call 1 metrics", () => {
+  const server=readFileSync(new URL("../server.ts",import.meta.url),"utf8");
+  const start=server.indexOf("const PRODUCTION_QUALITY_TIER_SCORES:");
+  const end=server.indexOf("const tierMetricProperties",start);
+  assert.ok(start>=0 && end>start,"tier map must be found in current production source");
+  const mapping=server.slice(start,end);
+  const frozenTiers={
+    REFERENCE:96, EXCEPTIONAL:93, ABOVE_AVERAGE:90,
+    PROFESSIONAL_HIGH:88, PROFESSIONAL:85, LIMITED:79,
+    MATERIAL_ISSUE:71, SEVERE:58,
+  };
+  for(const [tier,score] of Object.entries(frozenTiers))
+    assert.match(mapping,new RegExp("\\b"+tier+"\\s*:\\s*"+score+"\\b"),tier);
+  assert.match(server,/metric\.score = canonicalScore/);
+  assert.match(server,/rawQualityTier: original\.qualityTier/);
+  assert.match(server,/rawCommentary: original\.commentary/);
+  for(const caseRecord of A2_FOUR_CASE_OBSERVATIONS) {
+    assert.equal(caseRecord.modelTier,"PROFESSIONAL_HIGH",caseRecord.id);
+    assert.equal(frozenTiers[caseRecord.modelTier],caseRecord.space,caseRecord.id);
+    assert.equal(caseRecord.space,88,caseRecord.id);
+    assert.equal(caseRecord.midrange<=88,true,caseRecord.id);
+  }
+});
+
+test("Stage A frozen A2 replay distinguishes captured tier, server parent, browser cap and missing raw evidence", () => {
+  for(const item of A2_FOUR_CASE_OBSERVATIONS) {
+    const c=f();
+    const originalScores=structuredClone(c.scores);
+    const originalRaw=structuredClone(c.subMetricsCall1.a2ScoringProvenance);
+    assert.equal(item.modelTier,c.subMetricsCall1.spaceAndDensity.qualityTier,item.id);
+    assert.equal(item.modelTier,c.subMetricsCall1.midrangeSpacing.qualityTier,item.id);
+    c.subMetricsCall1.lowEndDivision.applicable=item.lowEndApplicable;
+    captureA2ServerProductionInputs(c);
+    captureA2ServerMixInputs(c);
+    captureA2BeforeClient(c);
+    c.subMetricsCall1.midrangeSpacing.score=item.midrange; // frozen final value, NOT replayed DSP
+    captureA2AfterClient(c,{midrangeCap:item.midrangeCap,spaceDensityCeiling:null});
+    const rows=getA2ScoringProvenanceRows(c);
+    assert.equal(row(rows,S,"Model-selected qualityTier (existing public metric)"),item.modelTier,item.id);
+    assert.equal(row(rows,S,"Canonical mapped score before server caps"),88,item.id);
+    assert.equal(row(rows,S,"Post-client child score"),item.space,item.id);
+    assert.equal(row(rows,S,"Server-side cap"),"NONE",item.id);
+    assert.equal(row(rows,S,"Applied client cap"),"NONE",item.id);
+    assert.equal(row(rows,M,"Model-selected qualityTier (existing public metric)"),item.modelTier,item.id);
+    assert.equal(row(rows,M,"Canonical mapped score before server caps"),88,item.id);
+    assert.equal(row(rows,M,"Post-client child score"),item.midrange,item.id);
+    assert.equal(row(rows,M,"Actual aggregation denominator (weight units)"),
+      item.lowEndApplicable?75:55,item.id);
+    assert.equal(row(rows,S,"Exact pre-round weighted contribution (points)"),30.8,item.id);
+    approx(row(rows,M,"Exact pre-round weighted contribution (points)"),
+      item.midrange*25/(item.lowEndApplicable?75:55));
+    assert.equal(row(rows,S,"Raw Gemini qualityTier/commentary access"),"NOT_CAPTURED",item.id);
+    assert.equal(row(rows,M,"Raw Gemini qualityTier/commentary access"),"NOT_CAPTURED",item.id);
+    assert.ok(!JSON.stringify(rows).includes("RAW PRIVATE"),"private synthetic fixture text must not export");
+    assert.equal(c.subMetricsCall1.a2ScoringProvenance.spaceAndDensity.rawCommentary,
+      originalRaw.spaceAndDensity.rawCommentary,"capture must not rewrite raw model text");
+    assert.equal(c.subMetricsCall1.a2ScoringProvenance.midrangeSpacing.rawQualityTier,
+      originalRaw.midrangeSpacing.rawQualityTier,"capture must not rewrite original tier");
+    assert.deepEqual(c.scores,originalScores,"diagnostics do not recompute a production parent");
+    assert.equal(c.mixQuality.score,88,"diagnostics do not recompute Mix Balance");
+    assert.equal(item.production,[88,89,89,88][A2_FOUR_CASE_OBSERVATIONS.indexOf(item)],
+      "actual frozen A2 parent is a separate observed value, not reconstructed from synthetic inputs");
+  }
+  const legacy={subMetricsCall1:{spaceAndDensity:{score:88},midrangeSpacing:{score:88}}};
+  const snapshot=structuredClone(legacy);
+  const rows=getA2ScoringProvenanceRows(legacy);
+  assert.deepEqual(legacy,snapshot);
+  assert.equal(row(rows,S,"Canonical mapped score before server caps"),"NOT_CAPTURED");
+  assert.equal(row(rows,M,"Canonical mapped score before server caps"),"NOT_CAPTURED");
+  assert.equal(row(rows,S,"Raw Gemini qualityTier/commentary access"),"NOT_CAPTURED");
+});
+
+test("Stage A guards the exact DSP correction path and does not invent a Space & Density midrange cap", () => {
+  const client=readFileSync(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=readFileSync(new URL("../server.ts",import.meta.url),"utf8");
+  assert.match(client,/midrangeFlatness <= 0\.40/);
+  assert.match(client,/midrangeFlatness < 0\.45/);
+  assert.match(client,/midrangeCap = 72/);
+  assert.match(client,/midrangeCap = 76/);
+  assert.match(client,/const mudCap: number \| null = null/);
+  assert.match(client,/if \(midrangeCap !== null && call1\?\.midrangeSpacing/);
+  assert.match(client,/spaceDensityCeiling = Math\.min\(88, ceiling \+ 4\)/);
+  assert.match(server,/spaceDensityCeiling = Math\.min\(88, finishCeiling \+ 4\)/);
+  assert.match(server,/\[c1Ready\.spaceAndDensity\?\.score, 35\]/);
+  assert.match(server,/\[c1Ready\.aestheticDesign\?\.score, 40\]/);
+  assert.match(server,/\[c1Ready\.paletteCohesion\?\.score, 25\]/);
+  for(const item of A2_FOUR_CASE_OBSERVATIONS) {
+    const cap=item.flatness<=.40?72:item.flatness<.45?76:null;
+    assert.equal(cap,item.midrangeCap,item.id);
+    assert.equal(Math.min(88,cap??88),item.midrange,item.id);
+    assert.equal(item.space,88,item.id);
+  }
+  for(const [flatness,expected] of [[.399,72],[.40,72],[.401,76],[.449,76],[.45,null],[.571,null]]) {
+    assert.equal(flatness<=.40?72:flatness<.45?76:null,expected,String(flatness));
+  }
+  // A spectrum-only deviation is not proof of unintended crowding, so do not
+  // silently create a new automatic Space & Density penalty in the test.
+});
+
+test("Stage A documents existing tier-only versus numeric-band rubric ambiguities without modifying prompts", () => {
+  const server=readFileSync(new URL("../server.ts",import.meta.url),"utf8");
+  const start=server.indexOf("const SUBMETRIC_SYSTEM_PROMPT =");
+  const end=server.indexOf("async function performSubMetricsCall1(",start);
+  assert.ok(start>=0 && end>start);
+  const prompt=server.slice(start,end);
+  const space=prompt.split("RUBRIC ANCHOR FOR SPACE & DENSITY:")[1]
+    ?.split("RUBRIC ANCHOR FOR PALETTE COHESION:")[0];
+  const mid=prompt.split("RUBRIC ANCHOR FOR MIDRANGE SPACING:")[1]
+    ?.split("RUBRIC ANCHOR FOR LOW-END DIVISION:")[0];
+  assert.ok(space && mid,"both exact Call 1 rubric sections must be found");
+  assert.match(prompt,/you are NOT authorized to choose an exact numeric score/);
+  assert.match(prompt,/- PROFESSIONAL_HIGH: notably strong and well-controlled professional execution/);
+  assert.match(prompt,/- PROFESSIONAL: clean, competent, release-ready execution/);
+  assert.match(prompt,/THIS is the correct default for problem-free commercial work/);
+  assert.match(space,/before assigning a numeric score for spaceAndDensity/);
+  assert.match(space,/score it at 82-88 per the master calibration/);
+  assert.match(space,/Deductions below the 82-88 professional band are reserved exclusively for unintended clutter/);
+  assert.match(mid,/a score of 90-100 requires the midrange/);
+  assert.match(mid,/A score of 70-85 applies when the mix is generally functional/);
+  assert.doesNotMatch(mid,/PROFESSIONAL_HIGH|86-89/i,
+    "known gap: this metric-specific rubric does not articulate the 85-vs-88 boundary");
+  assert.match(prompt,/Intentional arrangement density/);
+  assert.match(prompt,/neither number alone determines whether the density represents genuine crowding/);
+  // Known contract tensions are captured by passing regression assertions; this
+  // is NOT a judgment that the existing rubric is valid or that Gemini improved.
 });
