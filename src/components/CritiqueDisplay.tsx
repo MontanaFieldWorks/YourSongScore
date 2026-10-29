@@ -4,7 +4,7 @@ import { CritiqueData, TrackInfo, LiveAudioMetrics } from "../types";
 import { getSubgenreProfile, getVectorTargets, getCritiqueAndFix } from "../data/musicData";
 import { updateTrackFields } from "../firebase";
 import ExcelJS from "exceljs";
-import { getSourceVerificationRows } from "../lib/sourceVerificationDiagnostics";
+import { getSourceVerificationRows, getStreamingReadinessLineageRows } from "../lib/sourceVerificationDiagnostics";
 import { analyzeClimaxPeakCompetition, formatClimaxPeakDiagnostic } from "../lib/climaxPeakDiagnostics";
 import { getClimaxTrajectoryEvidenceRows } from "../lib/climaxEvidenceExport";
 import { appendA2ProvenanceToSourceDiagnostics } from "../lib/a2ScoringProvenance";
@@ -1796,6 +1796,19 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     wsSourceDiagnostics.getRow(1).alignment = { vertical: "middle" };
     wsSourceDiagnostics.views = [{ state: "frozen", ySplit: 1, showGridLines: false }];
     for (const diagnostic of getSourceVerificationRows(critique)) {
+      const row = wsSourceDiagnostics.addRow(diagnostic);
+      row.alignment = { vertical: "top", wrapText: true };
+      row.height = 32;
+    }
+    // Source-lineage replay uses ACTUAL unchanged scorecard and summary
+    // functions. Its output is report-only, never an input to scoring.
+    for (const diagnostic of getStreamingReadinessLineageRows(
+      critique,
+      getSubgenreProfile(critique?.vibe?.genre || "", critique?.vibe?.subgenre || ""),
+      computeEchoNestScorecard(critique),
+      computeCategoryScores(critique),
+      getVerifiedProductionFinishCeiling(critique),
+    )) {
       const row = wsSourceDiagnostics.addRow(diagnostic);
       row.alignment = { vertical: "top", wrapText: true };
       row.height = 32;
