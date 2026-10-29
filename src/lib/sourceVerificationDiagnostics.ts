@@ -132,6 +132,10 @@ export function getSourceVerificationRows(critique: any): SourceDiagnosticRow[] 
   add("Vocal Layer Fit", "Current single-pass presence status (not corroborated)", currentLayer.status);
   add("Vocal Layer Fit", "Current cross-pass assertion review flag (not scored)", currentLayer.crossPassFlag);
   add("Vocal Layer Fit", "Current cross-pass assertion codes", currentLayer.crossPassSignals);
+  add("Vocal Layer Fit", "Assertion support classification (not acoustic verification)",
+    classifyA2VocalLayerAssertionSupport(currentLayer));
+  add("Vocal Layer Fit", "Assertion classification limitation",
+    "Same-source narratives are model assertions, not independent audio corroboration; never used to change applicability.");
   add("A2 Original Assertions", "Immutable pre-reconciliation capture", captured ? "PRESENT" : "NOT_CAPTURED");
   add("A2 Original Assertions", "Capture stage",
     captured ? "SERVER_PRE_RECONCILIATION" : "NOT_CAPTURED");
@@ -347,6 +351,23 @@ export function inspectA2NarrativeConflicts(critique: any): {
   return { genreFlag, genreSignals, midrangeFlag, midrangeSignals };
 }
 
+
+/**
+ * Read-only review classification of already-observed model assertions.
+ * "CORROBORATING" means other model narrative statements agree, NOT a new
+ * listening pass, independent acoustic confirmation or eligibility decision.
+ */
+export function classifyA2VocalLayerAssertionSupport(evidence: ReturnType<typeof inspectA2VocalLayerEvidence>): string {
+  if (evidence.status === "NOT_CAPTURED") return "NOT_CAPTURED";
+  if (evidence.crossPassFlag === "REVIEW_CONFLICTING_LAYER_ASSERTIONS")
+    return "CONFLICTING_MODEL_ASSERTIONS";
+  if (evidence.crossPassFlag === "AMBIGUOUS_CROSS_PASS_LAYER_DESCRIPTIONS")
+    return "MIXED_MODEL_ASSERTIONS";
+  if (evidence.crossPassFlag === "NO_DETERMINISTIC_LAYER_CONTRADICTION_FLAG" &&
+      evidence.crossPassSignals.length > 0)
+    return "CORROBORATING_MODEL_ASSERTIONS_UNVERIFIED";
+  return "INSUFFICIENT_INDEPENDENT_EVIDENCE";
+}
 
 /** Assertion audit only: model text cues are uncertain, never factual ground truth. */
 export function inspectA2VocalLayerEvidence(critique: any): {
