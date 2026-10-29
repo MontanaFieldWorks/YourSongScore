@@ -369,6 +369,203 @@ export function classifyA2VocalLayerAssertionSupport(evidence: ReturnType<typeof
   return "INSUFFICIENT_INDEPENDENT_EVIDENCE";
 }
 
+/**
+ * Current-export Streaming Readiness lineage, exclusively informational.
+ *
+ * Caller supplies the ACTUAL scorecard and category-score outputs of the
+ * unchanged scoring functions. The logic below describes branch precedence
+ * and their arithmetic; it never supplies feature values to the scorer.
+ * This cannot reconstruct the originally selected branch for historical
+ * reports with missing inputs: mark those inputs NOT_CAPTURED.
+ */
+export function getStreamingReadinessLineageRows(
+  critique: any,
+  profile: any,
+  actualScorecard: Array<{label: string; value: number; min: number; max: number; matchPercent: number}>,
+  actualSummary: {streamingReadiness: number},
+  verifiedFinishCeiling: number | null,
+): SourceDiagnosticRow[] {
+  const rows: SourceDiagnosticRow[] = [];
+  const add = (section: string, field: string, value: unknown) =>
+    rows.push({section, field, value: observed(value)});
+  const n = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? String(value) : "NOT_CAPTURED";
+  const isRecorded = (value: unknown) => value !== undefined && value !== null;
+  const part = (label: string) => actualScorecard.find(item => item.label === label);
+  const base = (a: string, b: string) => Math.round(((profile?.[a] ?? 0) + (profile?.[b] ?? 0)) * 50);
+  const live = critique?.liveMetrics;
+  const scores = critique?.scores;
+  const call2 = critique?.subMetricsCall2;
+  const overrides = critique?.spotifyOverrides;
+  const mix = critique?.mixQuality?.score ?? 75;
+  const production = scores?.overallProduction ?? 75;
+  const flow = critique?.arrangement?.flowScore ?? 75;
+  const instrumental = critique?.performance?.instrumentalScore ?? 75;
+  const theory = critique?.musicTheory?.score ?? 72;
+  const lyrics = critique?.lyricalImpact?.score ?? 70;
+  const energyOffset = Math.round(((production || 75) % 15) - 4);
+  const acousticOffset = Math.round(((instrumental || 70) % 15) - 7);
+  const liveOffset = Math.round(((mix || 75) % 10) - 4);
+  const danceOffset = Math.round(((flow || 70) - 72) * 0.4);
+  const valenceOffset = Math.round(((theory || 72) - 72) * 0.3);
+  const speechOffset = Math.round(((lyrics || 70) - 70) * 0.2);
+  const descriptors: Array<{
+    label: string; source: string; inputs: string; baseline: number;
+    fallbackFormula: string; fallbackOffset: number | null;
+    fallbackInput: string;
+  }> = [];
+  const push = (label: string, source: string, inputs: string, baseline: number,
+    fallbackFormula: string, fallbackOffset: number | null, fallbackInput: string) => {
+    descriptors.push({label, source, inputs, baseline, fallbackFormula, fallbackOffset, fallbackInput});
+  };
+
+  push("Danceability", "SCORE_DERIVED_FLOW",
+    "arrangement.flowScore=" + n(critique?.arrangement?.flowScore),
+    base("danceMin", "danceMax"),
+    "round(((flowScore || 70) - 72) * 0.4); clamp(base + offset, 15, 95)",
+    danceOffset, "flowScore=" + n(critique?.arrangement?.flowScore) + "; effective=" + flow);
+  const acousticSource = isRecorded(overrides?.acousticness) ? "MANUAL_OVERRIDE"
+    : isRecorded(call2?.acousticness?.score) ? "GEMINI_CALL2"
+    : live?.calculatedBassEnergy !== undefined && live?.calculatedHighEnergy !== undefined && !!live
+      ? "DSP_BASS_HIGH_ENERGY_RATIO" : "FALLBACK_INSTRUMENTAL_MOD15";
+  push("Acousticness", acousticSource,
+    acousticSource === "MANUAL_OVERRIDE" ? "spotifyOverrides.acousticness=" + n(overrides?.acousticness)
+      : acousticSource === "GEMINI_CALL2" ? "subMetricsCall2.acousticness.score=" + n(call2?.acousticness?.score)
+      : acousticSource === "DSP_BASS_HIGH_ENERGY_RATIO"
+        ? "liveMetrics.calculatedBassEnergy=" + n(live?.calculatedBassEnergy) +
+          "; calculatedHighEnergy=" + n(live?.calculatedHighEnergy)
+        : "performance.instrumentalScore=" + n(critique?.performance?.instrumentalScore),
+    base("acousticMin", "acousticMax"),
+    "round(((instrumentalScore || 70) % 15) - 7); clamp(base + offset, 5, 95)",
+    acousticSource === "FALLBACK_INSTRUMENTAL_MOD15" ? acousticOffset : null,
+    "instrumentalScore=" + n(critique?.performance?.instrumentalScore) + "; effective=" + instrumental);
+  const energySource = live?.calculatedLufs !== undefined &&
+    live?.calculatedHighEnergy !== undefined && !!live
+    ? "DSP_LUFS_HIGH_ENERGY" : "FALLBACK_PRODUCTION_MOD15";
+  push("Energy", energySource,
+    energySource === "DSP_LUFS_HIGH_ENERGY"
+      ? "liveMetrics.calculatedLufs=" + n(live?.calculatedLufs) +
+        "; calculatedHighEnergy=" + n(live?.calculatedHighEnergy)
+      : "scores.overallProduction=" + n(scores?.overallProduction),
+    base("energyMin", "energyMax"),
+    "round(((overallProduction || 75) % 15) - 4); clamp(base + offset, 10, 96)",
+    energySource === "FALLBACK_PRODUCTION_MOD15" ? energyOffset : null,
+    "overallProduction=" + n(scores?.overallProduction) + "; effective=" + production);
+  const valenceSource = isRecorded(overrides?.valence) ? "MANUAL_OVERRIDE"
+    : isRecorded(call2?.moodValence?.score) ? "GEMINI_CALL2" : "FALLBACK_THEORY_SCORE";
+  push("Mood Valence", valenceSource,
+    valenceSource === "MANUAL_OVERRIDE" ? "spotifyOverrides.valence=" + n(overrides?.valence)
+      : valenceSource === "GEMINI_CALL2" ? "subMetricsCall2.moodValence.score=" + n(call2?.moodValence?.score)
+      : "musicTheory.score=" + n(critique?.musicTheory?.score),
+    base("valenceMin", "valenceMax"),
+    "round(((theoryScore || 72) - 72) * 0.3); clamp(base + offset, 8, 95)",
+    valenceSource === "FALLBACK_THEORY_SCORE" ? valenceOffset : null,
+    "theoryScore=" + n(critique?.musicTheory?.score) + "; effective=" + theory);
+  const speechSource = isRecorded(call2?.speechiness?.score) ? "GEMINI_CALL2" : "FALLBACK_LYRICS_SCORE";
+  push("Speechiness", speechSource,
+    speechSource === "GEMINI_CALL2" ? "subMetricsCall2.speechiness.score=" + n(call2?.speechiness?.score)
+      : "lyricalImpact.score=" + n(critique?.lyricalImpact?.score),
+    base("speechMin", "speechMax"),
+    "round(((lyricsScore || 70) - 70) * 0.2); clamp(base + offset, 2, 92)",
+    speechSource === "FALLBACK_LYRICS_SCORE" ? speechOffset : null,
+    "lyricsScore=" + n(critique?.lyricalImpact?.score) + "; effective=" + lyrics);
+
+  const manualInstrumental = overrides?.instrumentalness;
+  const vocalStatus = critique?.performance?.vocalApplicable;
+  const vocalSubs = critique?.subMetricsCall3?.vocalTrackingSubs;
+  const statuses = [vocalSubs?.pitchAccuracy?.applicable, vocalSubs?.dynamicDelivery?.applicable];
+  const instrumentalSource = typeof manualInstrumental === "number" && Number.isFinite(manualInstrumental)
+    ? "MANUAL_OVERRIDE"
+    : vocalStatus === false || (vocalStatus == null && statuses.every(status => status === false))
+      ? "VOCAL_STATUS_ABSENT_PROXY_98"
+      : vocalStatus === true || (vocalStatus == null && statuses.some(status => status === true))
+        ? "VOCAL_STATUS_PRESENT_PROXY_2"
+        : "FALLBACK_INSTRUMENTAL_SCORE";
+  const instOffset = Math.round(((instrumental || 75) - 75) * 0.3);
+  push("Instrumentalness", instrumentalSource,
+    instrumentalSource === "MANUAL_OVERRIDE" ? "spotifyOverrides.instrumentalness=" + n(manualInstrumental)
+      : instrumentalSource.startsWith("VOCAL_STATUS")
+        ? "performance.vocalApplicable=" + observed(vocalStatus) +
+          "; pitchAccuracy.applicable=" + observed(statuses[0]) +
+          "; dynamicDelivery.applicable=" + observed(statuses[1])
+        : "performance.instrumentalScore=" + n(critique?.performance?.instrumentalScore),
+    base("instMin", "instMax"),
+    "round(((instrumentalScore || 75) - 75) * 0.3); clamp(base + offset, 1, 98); vocal status proxies 2/98",
+    instrumentalSource === "FALLBACK_INSTRUMENTAL_SCORE" ? instOffset : null,
+    "instrumentalScore=" + n(critique?.performance?.instrumentalScore) + "; effective=" + instrumental);
+  const liveSource = isRecorded(overrides?.liveness) ? "MANUAL_OVERRIDE"
+    : live?.calculatedStereoCorrelation !== undefined && !!live
+      ? "DSP_STEREO_CORRELATION_PROXY" : "FALLBACK_MIX_MOD10";
+  push("Liveness", liveSource,
+    liveSource === "MANUAL_OVERRIDE" ? "spotifyOverrides.liveness=" + n(overrides?.liveness)
+      : liveSource === "DSP_STEREO_CORRELATION_PROXY"
+        ? "liveMetrics.calculatedStereoCorrelation=" + n(live?.calculatedStereoCorrelation)
+        : "mixQuality.score=" + n(critique?.mixQuality?.score),
+    base("liveMin", "liveMax"),
+    "round(((mixScore || 75) % 10) - 4); clamp(base + offset, 5, 95); DSP alternative=round(clamp((1-correlation)*100,5,95))",
+    liveSource === "FALLBACK_MIX_MOD10" ? liveOffset : null,
+    "mixScore=" + n(critique?.mixQuality?.score) + "; effective=" + mix);
+
+  add("Streaming Readiness Lineage", "Capture scope",
+    "CURRENT_EXPORT_REPLAY_ONLY; no immutable earlier feature-source trace exists; historical selected paths are not independently captured");
+  add("Streaming Readiness Lineage", "Subgenre profile",
+    critique?.vibe?.genre && critique?.vibe?.subgenre
+      ? "GENRE_AND_SUBGENRE_PRESENT" : "NOT_CAPTURED");
+  for (const descriptor of descriptors) {
+    const section = "Streaming Profile: " + descriptor.label;
+    const actual = part(descriptor.label);
+    add(section, "Selected source branch (current export)", descriptor.source);
+    add(section, "Selected source inputs (raw; missing = NOT_CAPTURED)", descriptor.inputs);
+    add(section, "Profile baseline (before fallback offset)", descriptor.baseline);
+    add(section, "Fallback expression (may not have executed)", descriptor.fallbackFormula);
+    add(section, "Fallback source score", descriptor.fallbackInput);
+    add(section, "Fallback offset USED", descriptor.fallbackOffset === null ? "NOT_APPLICABLE" : descriptor.fallbackOffset);
+    add(section, "Final feature value from existing scorecard", actual?.value);
+    add(section, "Profile target corridor (inclusive)", actual ? actual.min + " to " + actual.max : "NOT_CAPTURED");
+    add(section, "Match percent from existing scorecard", actual?.matchPercent);
+    add(section, "Contribution to Streaming Readiness BEFORE ROUNDING (points)",
+      typeof actual?.matchPercent === "number" ? Math.round(actual.matchPercent * 0.30 / 7 * 1e6) / 1e6 : "NOT_CAPTURED");
+  }
+
+  // Replicate for PROVENANCE ONLY, never supply these values to computeCategoryScores.
+  const commercial = scores?.commercialReadiness ?? 75;
+  let skipModifier = 0;
+  if (live) {
+    if (live.calculatedLufs !== undefined && live.calculatedLufs < -12.5)
+      skipModifier += Math.round(Math.abs(live.calculatedLufs + 12.5) * 1.8);
+    if (live.calculatedStereoCorrelation !== undefined && live.calculatedStereoCorrelation < -0.15)
+      skipModifier += 14;
+  }
+  const skip = Math.min(85, Math.max(0, 91 - Math.round(commercial * 0.70 + production * 0.20) + skipModifier));
+  const completion = Math.min(100, Math.max(15, 100 - skip));
+  const validMatches = actualScorecard.map(x => x.matchPercent ?? 0);
+  const matchAverage = validMatches.length ? validMatches.reduce((sum, x) => sum + x, 0) / validMatches.length : 75;
+  const preCap = Math.round(completion * 0.40 + matchAverage * 0.30 + commercial * 0.30);
+  const postCap = verifiedFinishCeiling === null ? preCap : Math.min(preCap, verifiedFinishCeiling);
+  const group = "Streaming Readiness Lineage";
+  add(group, "Original input Engagement Power", n(scores?.commercialReadiness));
+  add(group, "Original input Production Index", n(scores?.overallProduction));
+  add(group, "Effective input Engagement Power (default 75 if missing)", commercial);
+  add(group, "Effective input Production Index (default 75 if missing)", production);
+  add(group, "Estimated skip modifier (LUFS / negative stereo correlation)", skipModifier);
+  add(group, "Estimated skip probability", skip);
+  add(group, "Estimated completion rate", completion);
+  add(group, "Completion weighted contribution (40%; points)", Math.round(completion * .40 * 1e6)/1e6);
+  add(group, "Seven-dimension profile match unrounded", matchAverage);
+  add(group, "Profile match weighted contribution (30%; points)", Math.round(matchAverage * .30 * 1e6)/1e6);
+  add(group, "Engagement weighted contribution (30%; points)", Math.round(commercial * .30 * 1e6)/1e6);
+  add(group, "Weighted total BEFORE ROUNDING", Math.round((completion * .40 + matchAverage * .30 + commercial * .30)*1e6)/1e6);
+  add(group, "Rounded Streaming Readiness BEFORE verified-finish cap", preCap);
+  add(group, "Verified-finish ceiling applied", verifiedFinishCeiling === null ? "NONE" : verifiedFinishCeiling);
+  add(group, "Replayed Streaming Readiness AFTER cap", postCap);
+  add(group, "Actual unchanged exported Streaming Readiness", actualSummary?.streamingReadiness);
+  add(group, "Diagnostic arithmetic parity",
+    actualSummary && postCap === actualSummary.streamingReadiness ? "MATCH"
+      : "REVIEW_REPLAY_MISMATCH_OR_MISSING_VALUE");
+  add(group, "Interpretation",
+    "Genre compatibility is an estimated profile match, NOT a verified streaming-platform measurement; audio-feature paths can reuse other YSS scores and contain modulo discontinuities.");
+  return rows;
+}
+
 /** Assertion audit only: model text cues are uncertain, never factual ground truth. */
 export function inspectA2VocalLayerEvidence(critique: any): {
   status: "PRESENT_SINGLE_PASS_UNVERIFIED" | "ABSENT_SINGLE_PASS_UNVERIFIED" | "NOT_CAPTURED";
