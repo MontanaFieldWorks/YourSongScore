@@ -391,7 +391,7 @@ export function getStreamingReadinessLineageRows(
   const n = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? String(value) : "NOT_CAPTURED";
   const isRecorded = (value: unknown) => value !== undefined && value !== null;
   const part = (label: string) => actualScorecard.find(item => item.label === label);
-  const base = (a: string, b: string) => Math.round(((profile?.[a] ?? 0) + (profile?.[b] ?? 0)) * 50);
+  const base = (a: string, b: string) => Math.round((((profile?.[a] ?? 0) + (profile?.[b] ?? 0)) / 2) * 100);
   const live = critique?.liveMetrics;
   const scores = critique?.scores;
   const call2 = critique?.subMetricsCall2;
@@ -514,6 +514,23 @@ export function getStreamingReadinessLineageRows(
     const section = "Streaming Profile: " + descriptor.label;
     const actual = part(descriptor.label);
     add(section, "Selected source branch (current export)", descriptor.source);
+    const selectedFormula: Record<string, string> = {
+      SCORE_DERIVED_FLOW: "round(clamp(base + round(((flowScore || 70) - 72) * 0.4), 15, 95))",
+      MANUAL_OVERRIDE: "explicit spotifyOverrides input (no score-based inference)",
+      GEMINI_CALL2: "subMetricsCall2 model-generated score (not DSP-verified)",
+      DSP_BASS_HIGH_ENERGY_RATIO: "bassRatio=bassEnergy/max(1,highEnergy); round(clamp((bassRatio/3)*100, 5,95))",
+      DSP_LUFS_HIGH_ENERGY: "lufsFactor=clamp((LUFS+22)/16,0,1); highFactor=min(1,highEnergy/50); round(clamp((lufsFactor*0.6+highFactor*0.4)*100,10,96))",
+      FALLBACK_INSTRUMENTAL_MOD15: descriptor.fallbackFormula,
+      FALLBACK_PRODUCTION_MOD15: descriptor.fallbackFormula,
+      FALLBACK_THEORY_SCORE: descriptor.fallbackFormula,
+      FALLBACK_LYRICS_SCORE: descriptor.fallbackFormula,
+      VOCAL_STATUS_ABSENT_PROXY_98: "vocal presence explicitly absent; return proxy 98 (NOT observed live instrumentalness)",
+      VOCAL_STATUS_PRESENT_PROXY_2: "vocal presence explicitly true; return proxy 2 (NOT measured instrumentalness)",
+      FALLBACK_INSTRUMENTAL_SCORE: descriptor.fallbackFormula,
+      DSP_STEREO_CORRELATION_PROXY: "round(clamp((1-stereoCorrelation)*100,5,95)); not a validated live-performance detector",
+      FALLBACK_MIX_MOD10: descriptor.fallbackFormula,
+    };
+    add(section, "Actual selected derivation", selectedFormula[descriptor.source] ?? "NOT_CAPTURED");
     add(section, "Selected source inputs (raw; missing = NOT_CAPTURED)", descriptor.inputs);
     add(section, "Profile baseline (before fallback offset)", descriptor.baseline);
     add(section, "Fallback expression (may not have executed)", descriptor.fallbackFormula);
