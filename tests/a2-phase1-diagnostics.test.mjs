@@ -1009,7 +1009,7 @@ test("Stage 1 legacy missing inputs remain marked NOT_CAPTURED, and Excel output
   const bytes=await wb.xlsx.writeBuffer(),read=new ExcelJS.Workbook();
   await read.xlsx.load(bytes);
   const cells=JSON.stringify(read.getWorksheet("Source Diagnostics").getSheetValues());
-  assert.match(cells,/DSP_STEREO_CORRELATION_PROXY/); // provenance expressions are exported as safe strings
+  assert.match(cells,/FALLBACK_MIX_MOD10/); // provenance expressions are exported as safe strings
   assert.doesNotMatch(cells,/RAW_INTERNAL_MODEL_TEXT_SECRET/);
   assert.deepEqual(critique,before);
 });
