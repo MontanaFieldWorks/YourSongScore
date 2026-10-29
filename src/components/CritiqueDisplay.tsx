@@ -2409,7 +2409,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       wsEngineering.getCell(engRow, 3).value = row.range;
       wsEngineering.getCell(engRow, 3).font = { name: "Calibri", size: 10, color: { argb: "FF888888" } };
       wsEngineering.getCell(engRow, 3).border = fullBorder;
-      wsEngineering.getCell(engRow, 4).value = row.val;
+      wsEngineering.getCell(engRow, 4).value = String(row.val);
       wsEngineering.getCell(engRow, 4).font = { name: "Calibri", size: 10 };
       wsEngineering.getCell(engRow, 4).border = fullBorder;
       wsEngineering.getCell(engRow, 5).value = status;
