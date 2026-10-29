@@ -757,3 +757,41 @@ test("Stage B neither changes the DSP thresholds nor turns mud diagnostic-only i
   assert.match(server,/captureA2ServerProductionInputs\(parsedCritique\)/);
   assert.match(server,/withholdA2RawEvidence\(parsedCritique\)/);
 });
+
+
+test("Stage B Space/Midrange examples use valid canonical tiers and preserve the 85 default", () => {
+  const server=readFileSync(new URL("../server.ts",import.meta.url),"utf8");
+  const start=server.indexOf("const SUBMETRIC_SYSTEM_PROMPT =");
+  const end=server.indexOf("async function performSubMetricsCall1(",start);
+  assert.ok(start>=0 && end>start);
+  const prompt=server.slice(start,end);
+  const space=prompt.split("RUBRIC ANCHOR FOR SPACE & DENSITY:")[1]
+    ?.split("RUBRIC ANCHOR FOR PALETTE COHESION:")[0];
+  const mid=prompt.split("RUBRIC ANCHOR FOR MIDRANGE SPACING:")[1]
+    ?.split("RUBRIC ANCHOR FOR LOW-END DIVISION:")[0];
+  assert.ok(space && mid);
+  const tierMap={
+    REFERENCE:96,EXCEPTIONAL:93,ABOVE_AVERAGE:90,PROFESSIONAL_HIGH:88,
+    PROFESSIONAL:85,LIMITED:79,MATERIAL_ISSUE:71,SEVERE:58
+  };
+  for(const [label,section] of [["Space & Density",space],["Midrange Spacing",mid]]) {
+    assert.doesNotMatch(section,/- Example (?:landing at|for|at)\s+\d+\b/,
+      label+" must not instruct the model to aim for arbitrary numeric calibration targets");
+    const tierExamples=[...section.matchAll(/^- Example for ([A-Z_]+):/gm)].map(m=>m[1]);
+    for(const tier of tierExamples)
+      assert.ok(Object.hasOwn(tierMap,tier),label+" has unrecognized calibration tier: "+tier);
+    assert.doesNotMatch(section,/score it at 82-88|reserving 89\+/,
+      label+" must not override canonical default and promotion criteria");
+  }
+  assert.deepEqual([...space.matchAll(/^- Example for ([A-Z_]+):/gm)].map(m=>m[1]),
+    ["REFERENCE","PROFESSIONAL","LIMITED","SEVERE"],
+    "four Space examples must be intentionally attached to canonical tier names");
+  assert.match(space,/If NO:.*select PROFESSIONAL by default/);
+  assert.match(space,/Select PROFESSIONAL_HIGH only with an audible/);
+  assert.match(space,/select ABOVE_AVERAGE or higher only when a demonstrably unusual achievement/);
+  assert.match(mid,/- PROFESSIONAL \(85\):/);
+  assert.match(mid,/- PROFESSIONAL_HIGH \(88\):/);
+  assert.match(mid,/- ABOVE_AVERAGE \(90\):/);
+  // Other Call 1 metrics have legacy numerical examples; this check deliberately
+  // covers only the two approved rubrics. It cannot establish Gemini behavior.
+});
