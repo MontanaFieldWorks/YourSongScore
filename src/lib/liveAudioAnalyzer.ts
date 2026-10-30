@@ -1,4 +1,4 @@
-import { LiveAudioMetrics } from "../types";
+import type { LiveAudioMetrics } from "../types";
 import FFT from "fft.js";
 
 // Lazily-loaded essentia.js instance - loaded once per page session, reused across
@@ -171,6 +171,219 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
  * analyzeAudioBuffer(), but accepts plain Float32Array channels so the temporary batch
  * runner can execute it inside a Web Worker without blocking the browser UI thread.
  */
+
+// Stage 1A: opt-in, reference-oriented meters for offline comparisons.
+// Not called by analyzeAudioBuffer / analyzePcmData or any scoring/report path.
+// Existing calculatedLufs, calculatedTruePeak, calculatedLra, RMS and crest remain unchanged.
+// Acceptance targets (fixed before the prototype): LUFS +/-0.5 LU; LRA +/-1 LU;
+// sample peak +/-0.1 dB; 4x true peak +/-0.5 dBTP; convention-matched crest +/-0.5 dB.
+// Input is the original decoded mono/stereo PCM at its actual sample rate.
+export interface Stage1aMeterReadings {
+  samplePeakDbfs: number | null;
+  truePeakDbtp4x: number | null;
+  rmsDbfs: number | null;
+  midRmsDbfs: number | null;
+  crestFactorDb: number | null;
+  midCrestFactorDb: number | null;
+  integratedLufs: number | null;
+  loudnessRangeLu: number | null;
+}
+export interface Stage1aMeterComparison {
+  method: "stage1a-reference-v1";
+  sampleRate: number;
+  channelCount: number;
+  sampleCount: number;
+  measurements: Stage1aMeterReadings;
+  // Corrected value minus the unchanged legacy value, in the same units.
+  differences: Record<string, number>;
+  limitations: string[];
+}
+
+export function analyzeStage1aMeterReference(
+  channels: Float32Array[],
+  sampleRate: number,
+  legacy?: Partial<LiveAudioMetrics>,
+): Stage1aMeterComparison {
+  if (!Array.isArray(channels) || channels.length < 1 || channels.length > 2 ||
+      !Number.isFinite(sampleRate) || sampleRate < 8000 || sampleRate > 192000) {
+    throw new RangeError("Stage 1A requires mono/stereo PCM with a supported sample rate");
+  }
+  const count = Math.min(...channels.map(channel => channel.length));
+  if (!Number.isFinite(count) || count < 1) throw new RangeError("No PCM samples");
+  const db = (amplitude: number): number | null => amplitude > 0 ? 20 * Math.log10(amplitude) : null;
+  let sampleMax = 0;
+  let sumSq = 0;
+  let midSq = 0;
+  for (let i = 0; i < count; i++) {
+    let mid = 0;
+    for (const channel of channels) {
+      const value = channel[i];
+      if (!Number.isFinite(value)) throw new RangeError("Nonfinite PCM sample");
+      sampleMax = Math.max(sampleMax, Math.abs(value));
+      sumSq += value * value;
+      mid += value;
+    }
+    mid /= channels.length;
+    midSq += mid * mid;
+  }
+  const samplePeakDbfs = db(sampleMax);
+  const rmsDbfs = db(Math.sqrt(sumSq / (count * channels.length)));
+  const midRmsDbfs = db(Math.sqrt(midSq / count));
+  const crestFactorDb = samplePeakDbfs !== null && rmsDbfs !== null
+    ? samplePeakDbfs - rmsDbfs : null;
+  const midCrestFactorDb = samplePeakDbfs !== null && midRmsDbfs !== null
+    ? samplePeakDbfs - midRmsDbfs : null;
+
+  // Four-times interpolation with 32-tap Blackman-windowed sinc kernels.
+  // This is a bounded, independent approximation of the intersample peak
+  // suitable for diagnostic comparison; it is not a certified BS.1770 meter.
+  const taps = 32;
+  const half = taps / 2;
+  const kernels: number[][] = [];
+  for (let phase = 1; phase < 4; phase++) {
+    const fraction = phase / 4;
+    const kernel: number[] = [];
+    let norm = 0;
+    for (let tap = 0; tap < taps; tap++) {
+      const distance = tap - (half - 1) - fraction;
+      const sinc = distance === 0 ? 1 : Math.sin(Math.PI * distance) / (Math.PI * distance);
+      const window = 0.42 - 0.5 * Math.cos(2 * Math.PI * tap / (taps - 1))
+        + 0.08 * Math.cos(4 * Math.PI * tap / (taps - 1));
+      const coefficient = sinc * window;
+      norm += coefficient;
+      kernel.push(coefficient);
+    }
+    kernels.push(kernel.map(value => value / norm));
+  }
+  let interpolatedPeak = sampleMax;
+  for (const channel of channels) {
+    for (let index = 0; index < count - 1; index++) {
+      for (const kernel of kernels) {
+        let estimate = 0;
+        for (let tap = 0; tap < taps; tap++) {
+          const position = index + tap - (half - 1);
+          if (position >= 0 && position < count) estimate += channel[position] * kernel[tap];
+        }
+        interpolatedPeak = Math.max(interpolatedPeak, Math.abs(estimate));
+      }
+    }
+  }
+  const truePeakDbtp4x = db(interpolatedPeak);
+
+  // ITU-R BS.1770 K-weighting design: pre-shelf and RLB high-pass are derived
+  // for the ACTUAL input sample rate. Do not stride through the signal without
+  // redesigning the filters (the legacy implementation does this).
+  const kPre = Math.tan(Math.PI * 1681.974450955533 / sampleRate);
+  const qPre = 0.7071752369554196;
+  const vh = Math.pow(10, 3.999843853973347 / 20);
+  const vb = Math.pow(vh, 0.4996667741545416);
+  const preDen = 1 + kPre / qPre + kPre * kPre;
+  const preB = [
+    (vh + vb * kPre / qPre + kPre * kPre) / preDen,
+    2 * (kPre * kPre - vh) / preDen,
+    (vh - vb * kPre / qPre + kPre * kPre) / preDen,
+  ];
+  const preA = [1, 2 * (kPre * kPre - 1) / preDen, (1 - kPre / qPre + kPre * kPre) / preDen];
+  const kHp = Math.tan(Math.PI * 38.13547087602444 / sampleRate);
+  const qHp = 0.5003270373238773;
+  const hpDen = 1 + kHp / qHp + kHp * kHp;
+  const hpB = [1, -2, 1];
+  const hpA = [1, 2 * (kHp * kHp - 1) / hpDen, (1 - kHp / qHp + kHp * kHp) / hpDen];
+
+  const filter = (input: ArrayLike<number>, b: number[], a: number[]): Float64Array => {
+    const output = new Float64Array(count);
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    for (let i = 0; i < count; i++) {
+      const x = input[i];
+      const y = b[0] * x + b[1] * x1 + b[2] * x2 - a[1] * y1 - a[2] * y2;
+      output[i] = y;
+      x2 = x1; x1 = x; y2 = y1; y1 = y;
+    }
+    return output;
+  };
+  const filtered = channels.map(channel => filter(filter(channel, preB, preA), hpB, hpA));
+  const powers = new Float64Array(count + 1);
+  for (let i = 0; i < count; i++) {
+    let energy = 0;
+    for (const channel of filtered) energy += channel[i] * channel[i];
+    powers[i + 1] = powers[i] + energy;
+  }
+  const blockPowers = (seconds: number, stepSeconds: number): number[] => {
+    const length = Math.round(sampleRate * seconds);
+    const hop = Math.round(sampleRate * stepSeconds);
+    const result: number[] = [];
+    for (let start = 0; start + length <= count; start += hop) {
+      result.push((powers[start + length] - powers[start]) / length);
+    }
+    return result;
+  };
+  const loudness = (power: number): number =>
+    power > 0 ? -0.691 + 10 * Math.log10(power) : -Infinity;
+  const mean = (values: number[]): number =>
+    values.reduce((sum, value) => sum + value, 0) / values.length;
+  const gated = (values: number[], absolute: number, relative: number): number[] => {
+    const aboveAbsolute = values.filter(power => loudness(power) > absolute);
+    if (!aboveAbsolute.length) return [];
+    const threshold = loudness(mean(aboveAbsolute)) - relative;
+    return aboveAbsolute.filter(power => loudness(power) > threshold);
+  };
+  const integrated = gated(blockPowers(0.4, 0.1), -70, 10);
+  const integratedLufs = integrated.length ? loudness(mean(integrated)) : null;
+
+  // EBU Tech 3342: 3-second short-term windows (one-second hop);
+  // absolute -70 LUFS and relative -20 LU gating; 10th–95th percentile.
+  const lraPowers = gated(blockPowers(3, 1), -70, 20);
+  let loudnessRangeLu: number | null = null;
+  if (lraPowers.length >= 2) {
+    const sorted = lraPowers.map(loudness).sort((a, b) => a - b);
+    const percentile = (fraction: number): number => {
+      const index = (sorted.length - 1) * fraction;
+      const lo = Math.floor(index);
+      const hi = Math.ceil(index);
+      return sorted[lo] + (sorted[hi] - sorted[lo]) * (index - lo);
+    };
+    loudnessRangeLu = percentile(0.95) - percentile(0.1);
+  }
+  const measurements: Stage1aMeterReadings = {
+    samplePeakDbfs, truePeakDbtp4x, rmsDbfs, midRmsDbfs,
+    crestFactorDb, midCrestFactorDb, integratedLufs, loudnessRangeLu,
+  };
+  const differences: Record<string, number> = {};
+  if (legacy) {
+    const pairs: Array<[keyof LiveAudioMetrics, keyof Stage1aMeterReadings]> = [
+      ["calculatedLufs", "integratedLufs"],
+      ["calculatedLra", "loudnessRangeLu"],
+      ["calculatedTruePeak", "truePeakDbtp4x"],
+      ["calculatedRmsDbfs", "rmsDbfs"],
+      ["calculatedCrestFactorDb", "crestFactorDb"],
+    ];
+    for (const [oldName, newName] of pairs) {
+      const oldValue = legacy[oldName];
+      const newValue = measurements[newName];
+      if (typeof oldValue === "number" && Number.isFinite(oldValue) &&
+          typeof newValue === "number" && Number.isFinite(newValue)) {
+        differences[oldName] = newValue - oldValue;
+      }
+    }
+    if (typeof legacy.calculatedTruePeak === "number" && samplePeakDbfs !== null) {
+      differences.legacyPeakVsFullSamplePeak = samplePeakDbfs - legacy.calculatedTruePeak;
+    }
+    if (typeof legacy.calculatedCrestFactorDb === "number" && midCrestFactorDb !== null) {
+      differences.legacyCrestVsFullMidCrest = midCrestFactorDb - legacy.calculatedCrestFactorDb;
+    }
+  }
+  return {
+    method: "stage1a-reference-v1", sampleRate, channelCount: channels.length,
+    sampleCount: count, measurements, differences,
+    limitations: [
+      "4x windowed-sinc true peak is an offline diagnostic approximation, not a certified meter",
+      "Full-channel RMS crest and stereo mid-signal RMS crest use different definitions",
+      "LRA below two eligible 3-second windows is unknown, not a nominal fallback",
+      "No new score or applicability decision is made by this module",
+    ],
+  };
+}
+
 export function analyzePcmData(
   sampleRate: number,
   numChannels: number,
