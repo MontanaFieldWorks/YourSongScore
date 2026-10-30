@@ -987,12 +987,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   const speechinessOffset = Math.round(((lyricsScoreVal || 70) - 70) * 0.2);
   const speechiness = critique?.subMetricsCall2?.speechiness?.score ?? Math.max(2, Math.min(92, baseSpeechiness + speechinessOffset));
 
-  // Liveness — driven by stereo correlation when live metrics available
-  // Studio recordings have high correlation (near 1.0); live/room recordings have lower correlation
+  // Liveness — stereo correlation is a signal-width/phase proxy, NOT a detector
+  // of live recording, room decay, ambience, or audience presence.
   const livenessOffset = Math.round(((mixScoreVal || 75) % 10) - 4);
   const liveness = critique?.spotifyOverrides?.liveness ?? (() => {
     if (liveMetrics?.calculatedStereoCorrelation !== undefined) {
-      // Invert correlation: high correlation = studio (low liveness), low correlation = live (high liveness)
+      // Historical inverse correlation proxy; do not present it as live-performance evidence.
       const livenessFromCorrelation = Math.round(Math.min(95, Math.max(5, (1 - liveMetrics.calculatedStereoCorrelation) * 100)));
       return livenessFromCorrelation;
     }
@@ -2208,9 +2208,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     });
 
     // Sections not part of the core scored critique - informational status only
-    addAggRow(CATS["STREAMING READINESS"], "STREAMING ALIGNMENT", null, "INFO ONLY - Echo Nest-style data (Danceability, Energy, Acousticness, Valence, Speechiness, Liveness). Most fields are now genuinely live (real audio measurements or real Gemini judgment); this section intentionally carries no separate numeric score, since its former duplicate score was retired.", true);
+    addAggRow(CATS["STREAMING READINESS"], "STREAMING ALIGNMENT", null, "INFO ONLY - Echo Nest-style genre-target comparisons mix DSP proxies, Gemini estimates, manual overrides, vocal-status inferences and score-derived fallbacks. They are not verified Spotify observations. This row has no separate score; the seven feature matches still contribute through the existing Streaming Readiness calculation.", true);
     addAggRow(CATS["STREAMING READINESS"], "ALGO SANDBOX", null, "INFO ONLY - Interactive tools (Cosine Similarity Mapping, Circumplex Mood Plotter, Sequential Variance Lab). Now seeded with real per-song data; target playlist coordinates remain illustrative estimates, not precise real values.", true);
-    addAggRow(CATS["SONIC SOUNDPRINT"], "ENGINEERING STUDIO", null, "INFO ONLY - Full diagnostic toolkit (Harmonic Resolution, Signal & Levels, Dynamics Profile, Visualizations, Genre Compliance, Noise & Artifacts, Arrangement Patterns, Stereo Azimuth). Fully audited and genre-aware throughout; true independent 6-band FFT measurement remains a planned future upgrade.", true);
+    addAggRow(CATS["SONIC SOUNDPRINT"], "ENGINEERING STUDIO", null, "INFO ONLY - Audio engineering diagnostics include Harmonic Resolution, Signal & Levels, Dynamics Profile, Visualizations, Genre Compliance, Noise & Artifacts, Arrangement Patterns and Stereo Azimuth. Existing six-band FFT-derived normalized measurements are independent levels, not percent-of-total spectral shares or source-level masking detectors.", true);
 
     // === ECHO NEST SCORECARD TAB ===
     wsEchoNest.getColumn(1).width = 4;
@@ -5515,7 +5515,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                               "valence": "Your track's harmonic intervals, chord structure, and spectral brightness are registering the correct emotional tone for your subgenre. The algorithm will place this in the right emotional neighborhood.",
                               "speechiness": "Your track's vocal delivery density - the ratio of spoken word to sung melody - falls within the correct zone for your subgenre. The algorithm is correctly reading your vocal approach.",
                               "instrumentalness": "Your track's vocal-to-instrumental balance is registering within the correct confidence range for your subgenre. The algorithm is detecting the right presence or absence of vocal content.",
-                              "liveness": "Your track's ambient noise floor, room decay, and audience presence signatures are within the target range. The algorithm is correctly reading this as a studio recording consistent with your subgenre."
+                              "liveness": "This Liveness value matches the illustrative genre corridor, but is a heuristic based on stereo correlation, an optional override, or a score-derived fallback. It does not detect room decay, audience presence, or whether the performance was recorded live."
                             };
                             const responseText = optimalMap[item.key] || `Rhythm compliance for ${item.idealDesc} is perfectly aligned to trigger target-filtering ingestion standards.`;
                             return (
