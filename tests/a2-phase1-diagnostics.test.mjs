@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import ExcelJS from "exceljs";
+import { analyzeStage1aMeterReference } from "../src/lib/liveAudioAnalyzer.ts";
 import { appendA2ProvenanceToSourceDiagnostics } from "../src/lib/a2ScoringProvenance.ts";
 import {
   describeLowEndGateFactors,
@@ -1012,4 +1013,87 @@ test("Stage 1 legacy missing inputs remain marked NOT_CAPTURED, and Excel output
   assert.match(cells,/FALLBACK_MIX_MOD10/); // provenance expressions are exported as safe strings
   assert.doesNotMatch(cells,/RAW_INTERNAL_MODEL_TEXT_SECRET/);
   assert.deepEqual(critique,before);
+});
+
+
+// Frozen offline reference expectations: FFmpeg ebur128=peak=true from 7.5s,
+// 16-kHz mono and 44.1/48-kHz stereo PCM16 WAVs synthesized independently.
+// Acceptance: LUFS +/-0.5, LRA +/-1 LU, sample peak +/-0.1 dB,
+// true peak +/-0.5 dBTP and convention-matched crest +/-0.5 dB.
+test("Stage 1A offline reference meters match frozen FFmpeg fixtures without scoring side effects", () => {
+  const near = (actual, expected, tol, metric) => {
+    assert.equal(Number.isFinite(actual), true, metric + " must be finite");
+    assert.ok(Math.abs(actual - expected) <= tol,
+      metric + ": " + actual + " versus " + expected + " (tolerance " + tol + ")");
+  };
+  const fixture = (sr, stereo) => {
+    const length = Math.round(sr * 7.5);
+    const left = new Float32Array(length), right = stereo ? new Float32Array(length) : null;
+    for(let i=0;i<length;i++) {
+      const t=i/sr;
+      const level=t<3.3 ? 0.4 : 1.0;
+      // PCM16 quantization matches the archived offline WAV references.
+      const l = (0.12*Math.sin(2*Math.PI*997*t) + 0.06*Math.sin(2*Math.PI*251*t))*level;
+      left[i] = Math.trunc(Math.max(-1, Math.min(1,l))*32767)/32768;
+      if (right) {
+        const r = (0.09*Math.sin(2*Math.PI*502*t)+0.025*Math.sin(2*Math.PI*1351*t))*
+          (t<3.3 ? 0.6 : 1.0);
+        right[i] = Math.trunc(Math.max(-1,Math.min(1,r))*32767)/32768;
+      }
+    }
+    return right ? [left,right] : [left];
+  };
+  for (const [sr,stereo,refLUFS,refLRA] of [
+    [16000,false,-22.6,7.3],
+    [44100,true,-20.8,6.1],
+    [48000,true,-20.8,6.1],
+  ]) {
+    const channels=fixture(sr,stereo);
+    const legacy={calculatedLufs:-15, calculatedTruePeak:-16, calculatedLra:5.4,
+      calculatedCrestFactorDb:10,calculatedRmsDbfs:-25};
+    const saved=channels.map(channel=>Float32Array.from(channel));
+    const snapshot=structuredClone(legacy);
+    const result=analyzeStage1aMeterReference(channels,sr,legacy);
+    const m=result.measurements;
+    near(m.integratedLufs,refLUFS,0.5,sr+" LUFS");
+    near(m.loudnessRangeLu,refLRA,1,sr+" LRA");
+    near(m.samplePeakDbfs,-14.9,0.1,sr+" sample peak");
+    near(m.truePeakDbtp4x,-14.9,0.5,sr+" true peak");
+    near(m.crestFactorDb,m.samplePeakDbfs-m.rmsDbfs,0.000001,sr+" crest");
+    near(m.midCrestFactorDb,m.samplePeakDbfs-m.midRmsDbfs,0.000001,sr+" mid crest");
+    assert.equal(result.method,"stage1a-reference-v1");
+    assert.equal(result.sampleRate,sr);
+    assert.equal(result.channelCount,stereo?2:1);
+    assert.equal(result.differences.calculatedLufs,m.integratedLufs-legacy.calculatedLufs);
+    assert.equal(result.differences.legacyPeakVsFullSamplePeak,m.samplePeakDbfs-legacy.calculatedTruePeak);
+    assert.deepEqual(legacy,snapshot);
+    for(let c=0;c<channels.length;c++) assert.deepEqual(channels[c],saved[c]);
+  }
+});
+
+test("Stage 1A distinguishes true peak from sample peak and mid crest from full-channel crest", () => {
+  const sr=48000, mono=new Float32Array(sr);
+  mono.set([0,-0.6,0.6,0.6,-0.6,0],100);
+  const clipped=analyzeStage1aMeterReference([mono],sr);
+  assert.ok(clipped.measurements.truePeakDbtp4x>clipped.measurements.samplePeakDbfs+1,
+    "bandlimited intersample ringing should exceed samples");
+  assert.equal(clipped.measurements.loudnessRangeLu,null,
+    "loudness range must not invent 5.4 LU for sub-3s audio");
+
+  const stereo=analyzeStage1aMeterReference([mono,Float32Array.from(mono,x=>-x)],sr);
+  assert.ok(Number.isFinite(stereo.measurements.crestFactorDb));
+  assert.equal(stereo.measurements.midRmsDbfs,null);
+  assert.equal(stereo.measurements.midCrestFactorDb,null);
+  assert.throws(()=>analyzeStage1aMeterReference([new Float32Array(0)],48000), /No PCM samples/);
+});
+
+test("Stage 1A new meters remain explicitly unconnected to production scoring", async () => {
+  const source=await readFile(new URL("../src/lib/liveAudioAnalyzer.ts",import.meta.url),"utf8");
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  assert.match(source,/Stage 1A: opt-in, reference-oriented meters/);
+  assert.equal(source.match(/analyzeStage1aMeterReference\(/g)?.length,1,
+    "prototype is exported but not called by the existing analyzer");
+  assert.doesNotMatch(app,/analyzeStage1aMeterReference/);
+  assert.doesNotMatch(server,/analyzeStage1aMeterReference/);
 });
