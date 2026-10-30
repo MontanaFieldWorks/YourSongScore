@@ -1013,3 +1013,22 @@ test("Stage 1 legacy missing inputs remain marked NOT_CAPTURED, and Excel output
   assert.doesNotMatch(cells,/RAW_INTERNAL_MODEL_TEXT_SECRET/);
   assert.deepEqual(critique,before);
 });
+
+
+test("Audio DNA and Excel provenance qualify liveness and other unverified proxies without modifying scoring", async () => {
+  const source = await readFile(new URL("../src/components/CritiqueDisplay.tsx", import.meta.url), "utf8");
+  assert.match(source, /This Liveness value matches the illustrative genre corridor, but is a heuristic/);
+  assert.match(source, /It does not detect room decay, audience presence, or whether the performance was recorded live/);
+  assert.doesNotMatch(source, /Your track's ambient noise floor, room decay, and audience presence signatures are within the target range/);
+  assert.match(source, /They are not verified Spotify observations/);
+  assert.match(source, /seven feature matches still contribute through the existing Streaming Readiness calculation/);
+  assert.doesNotMatch(source, /Most fields are now genuinely live/);
+  assert.match(source, /Existing six-band FFT-derived normalized measurements are independent levels/);
+  assert.doesNotMatch(source, /true independent 6-band FFT measurement remains a planned future upgrade/);
+
+  // This branch changes prose only; preserve the historical quantitative formulas.
+  assert.match(source, /livenessFromCorrelation = Math\.round\(Math\.min\(95, Math\.max\(5, \(1 - liveMetrics\.calculatedStereoCorrelation\) \* 100\)\)\)/);
+  assert.match(source, /const echoNestAvgMatch = echoNestData\.length > 0/);
+  assert.match(source, /\(echoNestAvgMatch \* 0\.30\)/);
+  assert.match(source, /\(commercialReadinessVal \* 0\.30\)/);
+});
