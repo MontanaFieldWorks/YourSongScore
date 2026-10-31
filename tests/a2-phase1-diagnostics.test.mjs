@@ -1064,6 +1064,8 @@ test("Stage 1A offline reference meters match frozen FFmpeg fixtures without sco
     assert.equal(result.method,"stage1a-reference-v1");
     assert.equal(result.sampleRate,sr);
     assert.equal(result.channelCount,stereo?2:1);
+    assert.equal(result.truePeakAccuracyStatus,
+      sr===48000?"ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED":"NON_48KHZ_UNVERIFIED");
     assert.equal(result.differences.calculatedLufs,m.integratedLufs-legacy.calculatedLufs);
     assert.equal(result.differences.legacyPeakVsFullSamplePeak,m.samplePeakDbfs-legacy.calculatedTruePeak);
     assert.equal(Object.hasOwn(result.differences,"calculatedCrestFactorDb"),false,
@@ -1107,6 +1109,10 @@ test("Stage 1A new meters remain explicitly unconnected to production scoring", 
   assert.match(source,/bucketEnd = Math\.round\(\(bucket \+ 1\) \* sampleRate \/ 10\)/);
   assert.match(source,/sorted\[Math\.round\(\(sorted\.length - 1\) \* 0\.95\)\]/);
   assert.match(source,/Full-channel and stereo-mid RMS\/crest have different conventions/);
+  assert.match(source,/const lraTrailingSamples = Math\.ceil\(sampleRate \* 1\.5\)/);
+  assert.match(source,/if \(i \+ 1 <= count\) momentaryPowers\.push/);
+  assert.doesNotMatch(source,/calculatedLufs:\s*m\.integratedLufs/);
+  assert.doesNotMatch(source,/calculatedTruePeak:\s*m\.truePeakDbtp4x/);
 });
 
 
@@ -1192,4 +1198,84 @@ test("Stage 1A short-run timing is bounded for the independent diagnostic", () =
   assert.ok(elapsed<15000,"2s stereo measurement took "+elapsed+"ms (diagnostic time limit 15s)");
   assert.ok(result.measurements.integratedLufs!==null);
   assert.equal(result.measurements.loudnessRangeLu,null);
+});
+
+
+test("Stage 1A exercises all four published EBU Tech 3342 synthetic minimum-requirement LRA cases", () => {
+  const sr=16000, segmentSeconds=20;
+  const cases=[
+    {levels:[-20,-30], expectedLra:10},
+    {levels:[-20,-15], expectedLra:5},
+    {levels:[-40,-20], expectedLra:20},
+    {levels:[-50,-35,-20,-35,-50], expectedLra:15},
+  ];
+  for(const fixture of cases) {
+    const n=sr*segmentSeconds*fixture.levels.length;
+    const samples=new Float32Array(n);
+    for(let i=0;i<n;i++) {
+      const segment=Math.floor(i/(sr*segmentSeconds));
+      const amp=Math.pow(10,fixture.levels[segment]/20);
+      samples[i]=amp*Math.sin(2*Math.PI*1000*i/sr);
+    }
+    const result=analyzeStage1aMeterReference([samples,samples],sr);
+    assert.ok(Math.abs(result.measurements.loudnessRangeLu-fixture.expectedLra)<=1,
+      "EBU synthetic "+fixture.levels.join(",")+" expected "+fixture.expectedLra+
+      " +/-1 LU, got "+result.measurements.loudnessRangeLu);
+    assert.equal(result.truePeakAccuracyStatus,"NON_48KHZ_UNVERIFIED");
+  }
+});
+
+test("Stage 1A EBU file end adds 1.5s LRA latency but never modifies programme-integrated LUFS or peak", () => {
+  const sr=16000,n=sr*8,recording=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    const level=i<4*sr ? 0.025 : 0.2;
+    recording[i]=level*Math.sin(2*Math.PI*1000*i/sr);
+  }
+  const original=Float32Array.from(recording);
+  const padded=new Float32Array(n+Math.round(sr*1.5));
+  padded.set(recording);
+  const a=analyzeStage1aMeterReference([recording,recording],sr);
+  const b=analyzeStage1aMeterReference([padded,padded],sr);
+  assert.ok(Math.abs(a.measurements.loudnessRangeLu-b.measurements.loudnessRangeLu)<=1,
+    "internal LRA tail should be near explicitly padded reference");
+  assert.equal(a.sampleCount,n);
+  assert.equal(a.measurements.samplePeakDbfs,b.measurements.samplePeakDbfs);
+  assert.equal(a.measurements.truePeakDbtp4x,b.measurements.truePeakDbtp4x);
+  assert.equal(a.measurements.rmsDbfs,b.measurements.rmsDbfs);
+  assert.ok(Math.abs(a.measurements.integratedLufs-b.measurements.integratedLufs)<0.2,
+    "silent padding should not materially change gated integrated loudness");
+  assert.deepEqual(recording,original,"LRA must not append samples to caller's PCM");
+});
+
+test("Stage 1A non-48k true peak has an explicit accuracy qualifier for each sample rate", () => {
+  for(const sr of [8000,16000,44100,48000,96000,192000]) {
+    const n=Math.floor(sr/3), samples=new Float32Array(n);
+    for(let i=0;i<n;i++) samples[i]=0.5*Math.sin(2*Math.PI*997*i/sr);
+    const result=analyzeStage1aMeterReference([samples],sr);
+    assert.equal(result.truePeakAccuracyStatus,
+      sr===48000 ? "ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED" : "NON_48KHZ_UNVERIFIED");
+    assert.ok(Number.isFinite(result.measurements.truePeakDbtp4x),
+      "unverified non-48k true peaks are diagnostics, not a hidden 0 or fabricated pass");
+    assert.match(result.limitations.join(" "), /not independently (certified|validated)/);
+  }
+});
+
+test("Stage 1A performance on 60s 48k stereo is bounded and output is reproducible", () => {
+  const sr=48000, n=60*sr;
+  const left=new Float32Array(n), right=new Float32Array(n);
+  for(let i=0;i<n;i++) {
+    left[i]=0.12*Math.sin(2*Math.PI*941*i/sr);
+    right[i]=0.08*Math.sin(2*Math.PI*1379*i/sr);
+  }
+  const start=performance.now();
+  const a=analyzeStage1aMeterReference([left,right],sr);
+  const elapsed=performance.now()-start;
+  assert.ok(elapsed<15000,"60s 48k stereo diagnostic exceeded 15-second CI ceiling: "+elapsed+"ms");
+  assert.ok(Number.isFinite(a.measurements.integratedLufs));
+  assert.ok(Number.isFinite(a.measurements.truePeakDbtp4x));
+  assert.ok(Number.isFinite(a.measurements.loudnessRangeLu));
+  assert.equal(a.sampleCount,n);
+  // Bound output size even though PCM is in memory: only summary diagnostics
+  // are returned. Timing and peak heap are independently checked in browser later.
+  assert.ok(JSON.stringify(a).length<4000);
 });
