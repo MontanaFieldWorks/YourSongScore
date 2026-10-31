@@ -3025,3 +3025,25 @@ export function assembleStage2c1EngineeringEvidence(
     ],
   };
 }
+
+
+// Stage 2C2A: opt-in, browser-only engineering diagnostics. Does not touch
+// LiveAudioMetrics, critique data, scoring, server requests or audio buffers.
+export function runStage2c2aBrowserDiagnostics(
+  audio: Pick<AudioBuffer, "numberOfChannels"|"sampleRate"|"getChannelData">,
+  enabled: boolean,
+): {status:"DISABLED"|"AVAILABLE"|"UNAVAILABLE"; evidence?:ReturnType<typeof assembleStage2c1EngineeringEvidence>; reason?:string} {
+  if(!enabled)return {status:"DISABLED"};
+  try {
+    if(audio.numberOfChannels!==1&&audio.numberOfChannels!==2)
+      return {status:"UNAVAILABLE",reason:"UNSUPPORTED_CHANNEL_COUNT"};
+    const channels=Array.from({length:audio.numberOfChannels},(_,i)=>audio.getChannelData(i));
+    const spectral=analyzeStage2aSpectralPower(channels,audio.sampleRate);
+    const temporal=analyzeStage2b1LowFrequency(channels,audio.sampleRate);
+    const stereo=analyzeStage2b2Stereo(channels,audio.sampleRate);
+    return {status:"AVAILABLE",evidence:assembleStage2c1EngineeringEvidence(spectral,temporal,stereo)};
+  } catch {
+    // Diagnostic failure must never fail a user analysis or expose raw audio.
+    return {status:"UNAVAILABLE",reason:"DIAGNOSTIC_COMPUTATION_FAILED"};
+  }
+}
