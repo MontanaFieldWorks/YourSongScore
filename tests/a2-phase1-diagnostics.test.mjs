@@ -1879,3 +1879,70 @@ test("Stage 2B2 is not connected to production scoring",async()=>{
   assert.doesNotMatch(app,/analyzeStage2b2Stereo/);
   assert.doesNotMatch(server,/analyzeStage2b2Stereo/);
 });
+
+
+test("Stage 2B2 independent direct mono FFT and unequal-gain reference",()=>{
+  for(const sr of [44100,48000]){
+    const N=4096,k=Math.round(110*N/sr), gain=.13;
+    const l=Float32Array.from({length:N},(_,i)=>.2*Math.sin(2*Math.PI*k*i/N));
+    const r=Float32Array.from(l,v=>gain*v);
+    const mono=Float32Array.from(l,(v,i)=>(v+r[i])/2);
+    // Reference mono power comes from the independently tested Stage 2A
+    // spectral analyzer of a physically summed PCM waveform, not 2B2.
+    const independent=analyzeStage2aSpectralPower([mono],sr).channelBandPower[0][1];
+    const measurement=analyzeStage2b2Stereo([l,r],sr).frames[0].bands[1];
+    assert.ok(Math.abs(measurement.monoPower-independent)<2e-8);
+    assert.ok(Math.abs(measurement.asymmetryDb-20*Math.log10(1/gain))<.001);
+    assert.ok(Math.abs(measurement.correlation-1)<1e-6);
+    const avg=(measurement.leftPower+measurement.rightPower)/2;
+    assert.ok(Math.abs(measurement.monoChangeDb-10*Math.log10(independent/avg))<.001);
+  }
+});
+
+test("Stage 2B2 relative near-cancellation crossing and small phase offsets",()=>{
+  for(const sr of [44100,48000]){
+    const N=4096,k=Math.round(110*N/sr), amp=.2;
+    const left=Float32Array.from({length:N},(_,i)=>amp*Math.sin(2*Math.PI*k*i/N));
+    for(const epsilon of [4e-7,4e-6,1e-4]){
+      // Analytic gain mismatch: R=-(1-epsilon)L.
+      // Relative mono power is epsilon^2/[2*(1+(1-epsilon)^2)].
+      const right=Float32Array.from(left,x=>-(1-epsilon)*x);
+      const b=analyzeStage2b2Stereo([left,right],sr).frames[0].bands[1];
+      const expected=epsilon*epsilon/(2*(1+(1-epsilon)**2));
+      const reference=analyzeStage2aSpectralPower([Float32Array.from(left,(x,i)=>(x+right[i])/2)],sr).channelBandPower[0][1];
+      assert.ok(Math.abs(b.monoPower-reference)<2e-8);
+      const observed=b.monoPower/((b.leftPower+b.rightPower)/2);
+      assert.ok(Math.abs(observed-expected)<1e-10);
+      assert.equal(b.status,expected<=1e-12?"COMPLETE_CANCELLATION":"VALID");
+    }
+    for(const phase of [.001,.02]){
+      const right=Float32Array.from({length:N},(_,i)=>-amp*Math.sin(2*Math.PI*k*i/N+phase));
+      const b=analyzeStage2b2Stereo([left,right],sr).frames[0].bands[1];
+      const independent=analyzeStage2aSpectralPower([Float32Array.from(left,(x,i)=>(x+right[i])/2)],sr).channelBandPower[0][1];
+      assert.ok(Math.abs(b.monoPower-independent)<2e-8);
+      assert.equal(b.status,"VALID");
+      assert.ok(b.monoChangeDb<0);
+    }
+  }
+});
+
+test("Stage 2B2 distinct-frequency orthogonality and 60 Hz Hann leakage",()=>{
+  for(const sr of [44100,48000]){
+    const N=4096,step=sr/N,edgeBin=Math.ceil(60/step);
+    const kA=Math.round(100/step),kB=kA+4;
+    const sine=(k)=>Float32Array.from({length:N},(_,i)=>.2*Math.sin(2*Math.PI*k*i/N));
+    const distinct=analyzeStage2b2Stereo([sine(kA),sine(kB)],sr).frames[0].bands[1];
+    assert.ok(Math.abs(distinct.correlation)<1e-6);
+    assert.ok(Math.abs(distinct.monoChangeDb+10*Math.log10(2))<.001);
+    // Periodic Hann exact-bin tone occupies k-1,k,k+1; compare
+    // left/right band power with independent Stage2A reference.
+    for(const k of [edgeBin-1,edgeBin,edgeBin+1]){
+      const x=sine(k);
+      const ref=analyzeStage2aSpectralPower([x],sr).channelBandPower[0].slice(0,2);
+      const measured=analyzeStage2b2Stereo([x,x],sr).frames[0].bands;
+      for(let band=0;band<2;band++)
+        assert.ok(Math.abs(measured[band].leftPower-ref[band])<2e-8);
+      assert.ok(Math.abs(measured[0].leftPower+measured[1].leftPower-.02)<2e-7);
+    }
+  }
+});
