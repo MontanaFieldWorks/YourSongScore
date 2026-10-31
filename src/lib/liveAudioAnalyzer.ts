@@ -193,6 +193,9 @@ export interface Stage1aMeterComparison {
   sampleRate: number;
   channelCount: number;
   sampleCount: number;
+  // The Annex 2 coefficient set assumes 48 kHz PCM. At other rates a
+  // numeric 4x estimate remains exploratory until independently validated.
+  truePeakAccuracyStatus: "ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED" | "NON_48KHZ_UNVERIFIED";
   measurements: Stage1aMeterReadings;
   // Corrected value minus the unchanged legacy value, in the same units.
   differences: Record<string, number>;
@@ -319,9 +322,15 @@ export function analyzeStage1aMeterReference(
   const momentaryPowers: number[] = [], shortTermPowers: number[] = [];
   let bucket = 0, bucketEnd = Math.round(sampleRate / 10);
   let bucketEnergy = 0, bucketSamples = 0;
-  for (let i = 0; i < count; i++) {
+  // EBU Tech 3342, file-based LRA: continue the K-weighted stream for
+  // >=1.5 s of zero input after the programme. This permits the last
+  // programme samples to contribute to the trailing 3-second windows.
+  // The synthetic silence is NOT included in integrated loudness,
+  // peak, RMS, crest, or the supplied audio duration.
+  const lraTrailingSamples = Math.ceil(sampleRate * 1.5);
+  for (let i = 0; i < count + lraTrailingSamples; i++) {
     for (let ch = 0; ch < channels.length; ch++) {
-      const weighted = kFilters[ch](channels[ch][i]);
+      const weighted = kFilters[ch](i < count ? channels[ch][i] : 0);
       bucketEnergy += weighted * weighted;
     }
     bucketSamples++;
@@ -336,7 +345,9 @@ export function analyzeStage1aMeterReference(
         const at = (bucket - 1 - j) % 30;
         power += energyRing[at]; samples += countRing[at];
       }
-      momentaryPowers.push(power / samples);
+      // Keep integrated loudness programme-only. Post-programme silence
+      // is a measurement-latency convention for LRA, not extra content.
+      if (i + 1 <= count) momentaryPowers.push(power / samples);
     }
     if (bucket >= 30) {
       let power = 0, samples = 0;
@@ -414,11 +425,18 @@ export function analyzeStage1aMeterReference(
   }
   return {
     method: "stage1a-reference-v1", sampleRate, channelCount: channels.length,
-    sampleCount: count, measurements, differences,
+    sampleCount: count,
+    truePeakAccuracyStatus: sampleRate === 48000
+      ? "ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED"
+      : "NON_48KHZ_UNVERIFIED",
+    measurements, differences,
     limitations: [
       "4x BS.1770 Annex 2 polyphase FIR diagnostic is not independently certified at all sample rates",
       "Full-channel and stereo-mid RMS/crest have different conventions; only like-for-like error deltas are reported",
-      "LRA measured at 10 Hz using rounded percentile rank; less than two gated windows is unavailable",
+      "LRA measured at 10 Hz with 1.5 s of post-programme silence and rounded percentile rank; fewer than two gated windows is unavailable",
+      sampleRate === 48000
+        ? "True peak uses the ITU Annex 2 48 kHz reference configuration; not independently certified"
+        : "True-peak estimate at this sample rate is exploratory and not independently validated",
       "No new score or applicability decision is made by this module",
     ],
   };
