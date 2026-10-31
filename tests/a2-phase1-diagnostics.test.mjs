@@ -2052,3 +2052,59 @@ test("Stage 2C1 bounded assembly over 60s synthetic precomputed frames",()=>{
     console.log("Stage 2C1 60s "+sr+" assembly: "+elapsed.toFixed(1)+"ms; frames="+t.frames.length);
   }
 });
+
+
+test("Stage 2C1 rejects malformed provenance, nested evidence and tampered frame statuses",()=>{
+  for(const sr of [44100,48000]){
+    const N=8192,k=Math.round(110*4096/sr);
+    const l=Float32Array.from({length:N},(_,i)=>.15*Math.sin(2*Math.PI*k*i/4096));
+    const r=Float32Array.from(l,x=>-.5*x);
+    const spectral=analyzeStage2aSpectralPower([l,r],sr);
+    const temporal=analyzeStage2b1LowFrequency([l,r],sr);
+    const stereo=analyzeStage2b2Stereo([l,r],sr);
+    const clone=x=>JSON.parse(JSON.stringify(x));
+    const assertRejected=(modify)=>{
+      const a=clone(spectral),b=clone(temporal),c=clone(stereo);
+      modify(a,b,c);
+      assert.throws(()=>assembleStage2c1EngineeringEvidence(a,b,c),RangeError);
+    };
+    assert.doesNotThrow(()=>assembleStage2c1EngineeringEvidence(spectral,temporal,stereo));
+    assertRejected((a)=>{a.frames+=1});
+    assertRejected((a)=>{a.channelBandPower[0][0]=-1});
+    assertRejected((a)=>{a.normalization="tampered"});
+    assertRejected((a)=>{a.representedSampleCount-=1});
+    assertRejected((a)=>{a.channelCount=1});
+    assertRejected((a,b)=>{b.frames[0].centerSeconds+=.01});
+    assertRejected((a,b,c)=>{b.frames[0].centerSeconds+=.01;c.frames[0].centerSeconds+=.01});
+    assertRejected((a,b)=>{b.frames[1].channelBandPowerChangeDb[0]=null});
+    assertRejected((a,b)=>{b.frames[1].channelBandPower[0][1]=NaN});
+    assertRejected((a,b)=>{b.frames[1].transientLikeRise[0][1]="true"});
+    assertRejected((a,b)=>{b.frames[1].transientLikeRise[0][1]=null});
+    assertRejected((a,b)=>{b.frames[1].transientLikeRise[0][1]=!b.frames[1].transientLikeRise[0][1]});
+    assertRejected((a,b)=>{b.frames[1].channelBandPowerChangeDb[0][1]+=3});
+    assertRejected((a,b,c)=>{c.frames[0].bands[0].status="MONO_NOT_APPLICABLE"});
+    assertRejected((a,b,c)=>{c.frames[0].bands[1].status="MALFORMED"});
+    assertRejected((a,b,c)=>{c.frames[1].bands[1].correlation=Infinity});
+    assertRejected((a,b,c)=>{c.frames[1].bands[1].monoPower=-.1});
+    assertRejected((a,b,c)=>{c.frames[1].bands[1].status="COMPLETE_CANCELLATION"});
+    const summary=assembleStage2c1EngineeringEvidence(spectral,temporal,stereo);
+    for(const band of summary.bands){
+      assert.equal(Object.values(band.stereoStatusCounts).reduce((x,y)=>x+y,0),band.frameCount);
+      assert.ok(band.riseValidComparisons<=band.frameCount*2);
+      assert.ok(band.riseCount<=band.riseValidComparisons);
+    }
+  }
+});
+
+test("Stage 2C1 rejects inconsistent mono status across frames",()=>{
+  for(const sr of [44100,48000]){
+    const pcm=new Float32Array(6144);
+    const a=analyzeStage2aSpectralPower([pcm],sr);
+    const b=analyzeStage2b1LowFrequency([pcm],sr);
+    const c=analyzeStage2b2Stereo([pcm],sr);
+    assert.doesNotThrow(()=>assembleStage2c1EngineeringEvidence(a,b,c));
+    const tampered=JSON.parse(JSON.stringify(c));
+    tampered.frames[1].bands[1].status="INSUFFICIENT_ENERGY";
+    assert.throws(()=>assembleStage2c1EngineeringEvidence(a,b,tampered),RangeError);
+  }
+});
