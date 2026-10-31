@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import ExcelJS from "exceljs";
-import { analyzeStage1aMeterReference, analyzeStage2aSpectralPower, analyzeStage2b1LowFrequency } from "../src/lib/liveAudioAnalyzer.ts";
+import { analyzeStage1aMeterReference, analyzeStage2aSpectralPower, analyzeStage2b1LowFrequency, analyzeStage2b2Stereo } from "../src/lib/liveAudioAnalyzer.ts";
 import { appendA2ProvenanceToSourceDiagnostics } from "../src/lib/a2ScoringProvenance.ts";
 import {
   describeLowEndGateFactors,
@@ -1801,5 +1801,148 @@ test("Stage 2B1 bounded synthetic 60s stereo performance at both sample rates",(
     assert.equal(result.frames[0].channelBandPower.length,2);
     assert.ok(elapsed<20000,"Stage 2B1 60s stereo "+sr+" exceeded 20s: "+elapsed.toFixed(1)+"ms");
     console.log("Stage 2B1 60s stereo "+sr+": "+elapsed.toFixed(1)+"ms; frames="+expected+"; FFTs="+expected*2+"; PCM bytes="+(l.byteLength+r.byteLength));
+  }
+});
+
+
+test("Stage 2B2 analytical stereo polarity, gain, quadrature and mono sum",()=>{
+  for(const sr of [44100,48000]){
+    const N=4096,k1=Math.round(40*N/sr),k2=Math.round(120*N/sr);
+    for(const k of [k1,k2]){
+      const x=Float32Array.from({length:N},(_,i)=>.2*Math.sin(2*Math.PI*k*i/N));
+      const neg=Float32Array.from(x,v=>-v);
+      const half=Float32Array.from(x,v=>v/2);
+      const orth=Float32Array.from({length:N},(_,i)=>.2*Math.cos(2*Math.PI*k*i/N));
+      const idx=k===k1?0:1;
+      const same=analyzeStage2b2Stereo([x,x],sr).frames[0].bands[idx];
+      assert.equal(same.status,"VALID");
+      assert.ok(Math.abs(same.correlation-1)<1e-6);
+      assert.ok(Math.abs(same.monoChangeDb)<.001);
+      assert.ok(Math.abs(same.monoPower-.02)<2e-7);
+      const opposite=analyzeStage2b2Stereo([x,neg],sr).frames[0].bands[idx];
+      assert.equal(opposite.status,"COMPLETE_CANCELLATION");
+      assert.equal(opposite.monoChangeDb,null);
+      assert.ok(Math.abs(opposite.correlation+1)<1e-6);
+      const gain=analyzeStage2b2Stereo([x,half],sr).frames[0].bands[idx];
+      assert.ok(Math.abs(gain.asymmetryDb-20*Math.log10(2))<.001);
+      const quadrature=analyzeStage2b2Stereo([x,orth],sr).frames[0].bands[idx];
+      assert.ok(Math.abs(quadrature.correlation)<1e-6);
+      assert.ok(Math.abs(quadrature.monoChangeDb+10*Math.log10(2))<.001);
+      assert.ok(Math.abs(quadrature.monoPower-(quadrature.leftPower+quadrature.rightPower)/4)<2e-7);
+    }
+  }
+});
+
+test("Stage 2B2 silence, mono, one-sided, coverage, invalid tail and bands",()=>{
+  for(const sr of [44100,48000]){
+    const N=4096,k=Math.round(105*N/sr);
+    const x=Float32Array.from({length:N},(_,i)=>.2*Math.sin(2*Math.PI*k*i/N));
+    const zero=new Float32Array(N);
+    assert.equal(analyzeStage2b2Stereo([x],sr).frames[0].bands[1].status,"MONO_NOT_APPLICABLE");
+    assert.equal(analyzeStage2b2Stereo([zero,zero],sr).frames[0].bands[1].status,"INSUFFICIENT_ENERGY");
+    const single=analyzeStage2b2Stereo([x,zero],sr).frames[0].bands[1];
+    assert.equal(single.status,"SINGLE_CHANNEL");
+    assert.equal(single.correlation,null);
+    assert.equal(single.asymmetryDb,null);
+    assert.ok(Math.abs(single.monoChangeDb+10*Math.log10(2))<.001);
+    const short=analyzeStage2b2Stereo([new Float32Array(777),new Float32Array(777)],sr);
+    assert.equal(short.zeroPaddedSampleCount,3319);
+    const a=new Float32Array(6244),b=new Float32Array(6244);
+    const baseline=analyzeStage2b2Stereo([a,b],sr);
+    a.fill(.3,6144);
+    const changed=analyzeStage2b2Stereo([a,b],sr);
+    assert.equal(changed.omittedTrailingSampleCount,100);
+    assert.deepEqual(changed.frames,baseline.frames);
+    a[6243]=NaN;
+    assert.throws(()=>analyzeStage2b2Stereo([a,b],sr),RangeError);
+  }
+});
+
+test("Stage 2B2 60-second stereo synthetic bounded performance",()=>{
+  for(const sr of [44100,48000]){
+    const n=sr*60,l=new Float32Array(n),r=new Float32Array(n);
+    for(let i=0;i<n;i++){
+      l[i]=.08*Math.sin(2*Math.PI*83*i/sr);
+      r[i]=.07*Math.sin(2*Math.PI*83*i/sr);
+    }
+    const start=performance.now(),result=analyzeStage2b2Stereo([l,r],sr);
+    const elapsed=performance.now()-start;
+    assert.equal(result.frames.length,1+Math.floor((n-4096)/2048));
+    assert.ok(elapsed<20000,"Stage 2B2 60s "+sr+" exceeded 20s: "+elapsed+"ms");
+    console.log("Stage 2B2 60s stereo "+sr+": "+elapsed.toFixed(1)+"ms; frames="+result.frames.length);
+  }
+});
+
+test("Stage 2B2 is not connected to production scoring",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  assert.doesNotMatch(app,/analyzeStage2b2Stereo/);
+  assert.doesNotMatch(server,/analyzeStage2b2Stereo/);
+});
+
+
+test("Stage 2B2 independent direct mono FFT and unequal-gain reference",()=>{
+  for(const sr of [44100,48000]){
+    const N=4096,k=Math.round(110*N/sr), gain=.13;
+    const l=Float32Array.from({length:N},(_,i)=>.2*Math.sin(2*Math.PI*k*i/N));
+    const r=Float32Array.from(l,v=>gain*v);
+    const mono=Float32Array.from(l,(v,i)=>(v+r[i])/2);
+    // Reference mono power comes from the independently tested Stage 2A
+    // spectral analyzer of a physically summed PCM waveform, not 2B2.
+    const independent=analyzeStage2aSpectralPower([mono],sr).channelBandPower[0][1];
+    const measurement=analyzeStage2b2Stereo([l,r],sr).frames[0].bands[1];
+    assert.ok(Math.abs(measurement.monoPower-independent)<2e-8);
+    assert.ok(Math.abs(measurement.asymmetryDb-20*Math.log10(1/gain))<.001);
+    assert.ok(Math.abs(measurement.correlation-1)<1e-6);
+    const avg=(measurement.leftPower+measurement.rightPower)/2;
+    assert.ok(Math.abs(measurement.monoChangeDb-10*Math.log10(independent/avg))<.001);
+  }
+});
+
+test("Stage 2B2 relative near-cancellation crossing and small phase offsets",()=>{
+  for(const sr of [44100,48000]){
+    const N=4096,k=Math.round(110*N/sr), amp=.2;
+    const left=Float32Array.from({length:N},(_,i)=>amp*Math.sin(2*Math.PI*k*i/N));
+    for(const epsilon of [4e-7,4e-6,1e-4]){
+      // Analytic gain mismatch: R=-(1-epsilon)L.
+      // Relative mono power is epsilon^2/[2*(1+(1-epsilon)^2)].
+      const right=Float32Array.from(left,x=>-(1-epsilon)*x);
+      const b=analyzeStage2b2Stereo([left,right],sr).frames[0].bands[1];
+      const expected=epsilon*epsilon/(2*(1+(1-epsilon)**2));
+      const reference=analyzeStage2aSpectralPower([Float32Array.from(left,(x,i)=>(x+right[i])/2)],sr).channelBandPower[0][1];
+      assert.ok(Math.abs(b.monoPower-reference)<2e-8);
+      const observed=b.monoPower/((b.leftPower+b.rightPower)/2);
+      assert.ok(Math.abs(observed-expected)<1e-10);
+      assert.equal(b.status,expected<=1e-12?"COMPLETE_CANCELLATION":"VALID");
+    }
+    for(const phase of [.001,.02]){
+      const right=Float32Array.from({length:N},(_,i)=>-amp*Math.sin(2*Math.PI*k*i/N+phase));
+      const b=analyzeStage2b2Stereo([left,right],sr).frames[0].bands[1];
+      const independent=analyzeStage2aSpectralPower([Float32Array.from(left,(x,i)=>(x+right[i])/2)],sr).channelBandPower[0][1];
+      assert.ok(Math.abs(b.monoPower-independent)<2e-8);
+      assert.equal(b.status,"VALID");
+      assert.ok(b.monoChangeDb<0);
+    }
+  }
+});
+
+test("Stage 2B2 distinct-frequency orthogonality and 60 Hz Hann leakage",()=>{
+  for(const sr of [44100,48000]){
+    const N=4096,step=sr/N,edgeBin=Math.ceil(60/step);
+    const kA=Math.round(100/step),kB=kA+4;
+    const sine=(k)=>Float32Array.from({length:N},(_,i)=>.2*Math.sin(2*Math.PI*k*i/N));
+    const distinct=analyzeStage2b2Stereo([sine(kA),sine(kB)],sr).frames[0].bands[1];
+    assert.ok(Math.abs(distinct.correlation)<1e-6);
+    assert.ok(Math.abs(distinct.monoChangeDb+10*Math.log10(2))<.001);
+    // Periodic Hann exact-bin tone occupies k-1,k,k+1; compare
+    // left/right band power with independent Stage2A reference.
+    for(const k of [edgeBin-1,edgeBin,edgeBin+1]){
+      const x=sine(k);
+      const ref=analyzeStage2aSpectralPower([x],sr).channelBandPower[0].slice(0,2);
+      const measured=analyzeStage2b2Stereo([x,x],sr).frames[0].bands;
+      for(let band=0;band<2;band++)
+        assert.ok(Math.abs(measured[band].leftPower-ref[band])<2e-8);
+      assert.ok(Math.abs(measured[0].leftPower+measured[1].leftPower-.02)<2e-7);
+    }
   }
 });
