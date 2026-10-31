@@ -1546,3 +1546,85 @@ test("Stage 2A is diagnostic only, immutable PCM, has no scoring call sites", as
   assert.equal(r.frames,1);
   assert.throws(()=>analyzeStage2aSpectralPower([new Float32Array(0)],44100),RangeError);
 });
+
+
+test("Stage 2A independently matches time-domain windowed Parseval power", () => {
+  const N=4096, hop=2048;
+  const window=Float64Array.from({length:N},(_,i)=>0.5-0.5*Math.cos(2*Math.PI*i/N));
+  const wsum=window.reduce((a,v)=>a+v*v,0);
+  const expected=(pcm,frames)=> {
+    let power=0;
+    for(let frame=0;frame<frames;frame++)
+      for(let i=0;i<N;i++){
+        const v=pcm[frame*hop+i]??0;
+        power+=(v*window[i])**2/(wsum*frames);
+      }
+    return power;
+  };
+  for(const sr of [44100,48000]){
+    const n=N+2*hop;
+    const pcm=Float32Array.from({length:n},(_,i)=>
+      .21*Math.sin(2*Math.PI*941*i/sr)+.08*Math.cos(2*Math.PI*4271*i/sr));
+    const r=analyzeStage2aSpectralPower([pcm],sr);
+    assert.equal(r.frames,3);
+    assert.ok(Math.abs(r.channelTotalPower[0]-expected(pcm,3))<1e-11);
+    assert.ok(Math.abs(r.channelBandPower[0].reduce((a,b)=>a+b,0)+r.channelUnassignedPower[0]-expected(pcm,3))<1e-11);
+    const short=pcm.slice(0,777);
+    const s=analyzeStage2aSpectralPower([short],sr);
+    assert.equal(s.frames,1);
+    assert.ok(Math.abs(s.channelTotalPower[0]-expected(short,1))<1e-11,
+      "zero-padded short buffer must match independent Hann-weighted time energy");
+    // Last few samples fall outside the last complete frame.
+    const withTail=new Float32Array(N+hop+100);
+    withTail.fill(.1);
+    const tail=analyzeStage2aSpectralPower([withTail],sr);
+    assert.equal(tail.frames,2);
+    const changed=Float32Array.from(withTail);
+    changed.fill(.9,N+hop);
+    const changedResult=analyzeStage2aSpectralPower([changed],sr);
+    assert.ok(Math.abs(changedResult.channelTotalPower[0]-tail.channelTotalPower[0])<1e-12,
+      "document existing omitted-tail behavior without treating as full-programme RMS");
+  }
+});
+
+test("Stage 2A independent boundary-bin and leakage accounting", () => {
+  for(const sr of [44100,48000]){
+    const N=4096;
+    for(const edge of [60,250,500,2000,6000,11000,20000]){
+      const above=Math.ceil(edge*N/sr), below=above-1;
+      if(above>=N/2)continue;
+      for(const k of [below,above]){
+        const hz=k*sr/N;
+        const samples=Float32Array.from({length:N},(_,i)=>.25*Math.sin(2*Math.PI*k*i/N));
+        const r=analyzeStage2aSpectralPower([samples],sr);
+        const target=r.bandEdgesHz.findIndex((lo,j)=>j<7&&lo<=hz&&hz<r.bandEdgesHz[j+1]);
+        const assigned=target>=0?r.channelBandPower[0][target]:r.channelUnassignedPower[0];
+        // Periodic Hann spreads sine energy to k-1,k,k+1 (1/6,4/6,1/6).
+        assert.ok(assigned/r.channelTotalPower[0]>.65,
+          "center bin must dominate its declared half-open band "+sr+" "+edge+" "+k);
+        assert.ok(Math.abs(r.channelBandPower[0].reduce((a,b)=>a+b,0)+r.channelUnassignedPower[0]-r.channelTotalPower[0])<1e-11);
+      }
+    }
+  }
+});
+
+test("Stage 2A deterministic noise references and omitted-tail invalid PCM", () => {
+  const N=4096;
+  const win=Float64Array.from({length:N},(_,i)=>.5-.5*Math.cos(2*Math.PI*i/N));
+  const norm=win.reduce((a,x)=>a+x*x,0);
+  for(const sr of [44100,48000]){
+    let state=0x31415926;
+    const noise=Float32Array.from({length:N},()=>{
+      state=(Math.imul(state,1664525)+1013904223)>>>0;
+      return (state/4294967296-.5)*.4;
+    });
+    const direct=noise.reduce((s,v,i)=>s+(v*win[i])**2,0)/norm;
+    const r=analyzeStage2aSpectralPower([noise],sr);
+    assert.ok(Math.abs(r.channelTotalPower[0]-direct)<1e-11,
+      "deterministic noise must agree with independently computed weighted variance");
+    const bad=new Float32Array(N+200);
+    bad[bad.length-1]=Number.NaN;
+    assert.throws(()=>analyzeStage2aSpectralPower([bad],sr),RangeError,
+      "invalid trailing PCM must not pass validation just because final frame is omitted");
+  }
+});
