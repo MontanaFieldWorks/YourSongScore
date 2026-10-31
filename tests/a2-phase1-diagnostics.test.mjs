@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import ExcelJS from "exceljs";
+import { analyzeStage1aMeterReference } from "../src/lib/liveAudioAnalyzer.ts";
 import { appendA2ProvenanceToSourceDiagnostics } from "../src/lib/a2ScoringProvenance.ts";
 import {
   describeLowEndGateFactors,
@@ -1012,4 +1013,278 @@ test("Stage 1 legacy missing inputs remain marked NOT_CAPTURED, and Excel output
   assert.match(cells,/FALLBACK_MIX_MOD10/); // provenance expressions are exported as safe strings
   assert.doesNotMatch(cells,/RAW_INTERNAL_MODEL_TEXT_SECRET/);
   assert.deepEqual(critique,before);
+});
+
+
+// Frozen offline reference expectations: FFmpeg ebur128=peak=true from 7.5s
+// with 1.5 s post-programme silence (apad=pad_dur=1.5),
+// 16-kHz mono and 44.1/48-kHz stereo PCM16 WAVs synthesized independently.
+// Acceptance: LUFS +/-0.5, LRA +/-1 LU, sample peak +/-0.1 dB,
+// true peak +/-0.5 dBTP and convention-matched crest +/-0.5 dB.
+test("Stage 1A offline reference meters match frozen FFmpeg fixtures without scoring side effects", () => {
+  const near = (actual, expected, tol, metric) => {
+    assert.equal(Number.isFinite(actual), true, metric + " must be finite");
+    assert.ok(Math.abs(actual - expected) <= tol,
+      metric + ": " + actual + " versus " + expected + " (tolerance " + tol + ")");
+  };
+  const fixture = (sr, stereo) => {
+    const length = Math.round(sr * 7.5);
+    const left = new Float32Array(length), right = stereo ? new Float32Array(length) : null;
+    for(let i=0;i<length;i++) {
+      const t=i/sr;
+      const level=t<3.3 ? 0.4 : 1.0;
+      // PCM16 quantization matches the archived offline WAV references.
+      const l = (0.12*Math.sin(2*Math.PI*997*t) + 0.06*Math.sin(2*Math.PI*251*t))*level;
+      left[i] = Math.trunc(Math.max(-1, Math.min(1,l))*32767)/32768;
+      if (right) {
+        const r = (0.09*Math.sin(2*Math.PI*502*t)+0.025*Math.sin(2*Math.PI*1351*t))*
+          (t<3.3 ? 0.6 : 1.0);
+        right[i] = Math.trunc(Math.max(-1,Math.min(1,r))*32767)/32768;
+      }
+    }
+    return right ? [left,right] : [left];
+  };
+  for (const [sr,stereo,refLUFS,refLRA] of [
+    [16000,false,-22.6,6.7],
+    [44100,true,-20.8,5.6],
+    [48000,true,-20.8,5.6],
+  ]) {
+    const channels=fixture(sr,stereo);
+    const legacy={calculatedLufs:-15, calculatedTruePeak:-16, calculatedLra:5.4,
+      calculatedCrestFactorDb:10,calculatedRmsDbfs:-25};
+    const saved=channels.map(channel=>Float32Array.from(channel));
+    const snapshot=structuredClone(legacy);
+    const result=analyzeStage1aMeterReference(channels,sr,legacy);
+    const m=result.measurements;
+    near(m.integratedLufs,refLUFS,0.5,sr+" LUFS");
+    near(m.loudnessRangeLu,refLRA,1,sr+" LRA");
+    near(m.samplePeakDbfs,-14.9,0.1,sr+" sample peak");
+    near(m.truePeakDbtp4x,-14.9,0.5,sr+" true peak");
+    near(m.crestFactorDb,m.samplePeakDbfs-m.rmsDbfs,0.000001,sr+" crest");
+    near(m.midCrestFactorDb,m.samplePeakDbfs-m.midRmsDbfs,0.000001,sr+" mid crest");
+    assert.equal(result.method,"stage1a-reference-v1");
+    assert.equal(result.sampleRate,sr);
+    assert.equal(result.channelCount,stereo?2:1);
+    assert.equal(result.truePeakAccuracyStatus,
+      sr===48000?"ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED":"NON_48KHZ_UNVERIFIED");
+    assert.equal(result.differences.calculatedLufs,m.integratedLufs-legacy.calculatedLufs);
+    assert.equal(result.differences.legacyPeakVsFullSamplePeak,m.samplePeakDbfs-legacy.calculatedTruePeak);
+    assert.equal(Object.hasOwn(result.differences,"calculatedCrestFactorDb"),false,
+      "cross-convention crest factor difference must never be presented as numeric error");
+    assert.equal(Object.hasOwn(result.differences,"calculatedRmsDbfs"),false,
+      "cross-convention RMS difference must never be presented as numeric error");
+    assert.equal(result.differences.legacyMidRmsVsReferenceMidRms,m.midRmsDbfs-legacy.calculatedRmsDbfs);
+    assert.deepEqual(legacy,snapshot);
+    for(let c=0;c<channels.length;c++) assert.deepEqual(channels[c],saved[c]);
+  }
+});
+
+test("Stage 1A distinguishes true peak from sample peak and mid crest from full-channel crest", () => {
+  const sr=48000, mono=new Float32Array(sr);
+  mono.set([0,-0.6,0.6,0.6,-0.6,0],100);
+  const clipped=analyzeStage1aMeterReference([mono],sr);
+  assert.ok(clipped.measurements.truePeakDbtp4x>clipped.measurements.samplePeakDbfs+1,
+    "bandlimited intersample ringing should exceed samples");
+  assert.equal(clipped.measurements.loudnessRangeLu,null,
+    "loudness range must not invent 5.4 LU for sub-3s audio");
+
+  const stereo=analyzeStage1aMeterReference([mono,Float32Array.from(mono,x=>-x)],sr);
+  assert.ok(Number.isFinite(stereo.measurements.crestFactorDb));
+  assert.equal(stereo.measurements.midRmsDbfs,null);
+  assert.equal(stereo.measurements.midCrestFactorDb,null);
+  assert.throws(()=>analyzeStage1aMeterReference([new Float32Array(0)],48000), /No PCM samples/);
+});
+
+test("Stage 1A new meters remain explicitly unconnected to production scoring", async () => {
+  const source=await readFile(new URL("../src/lib/liveAudioAnalyzer.ts",import.meta.url),"utf8");
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  assert.match(source,/Stage 1A: opt-in, reference-oriented meters/);
+  assert.equal(source.match(/analyzeStage1aMeterReference\(/g)?.length,1,
+    "prototype is exported but not called by the existing analyzer");
+  assert.doesNotMatch(app,/analyzeStage1aMeterReference/);
+  assert.doesNotMatch(server,/analyzeStage1aMeterReference/);
+  assert.doesNotMatch(source,/new Float64Array\(count \+ 1\)/,
+    "must not retain a full-length filtered PCM or prefix-power array");
+  assert.match(source,/shortTermPowers\.push\(power \/ samples\)/);
+  assert.match(source,/bucketEnd = Math\.round\(\(bucket \+ 1\) \* sampleRate \/ 10\)/);
+  assert.match(source,/sorted\[Math\.round\(\(sorted\.length - 1\) \* 0\.95\)\]/);
+  assert.match(source,/Full-channel and stereo-mid RMS\/crest have different conventions/);
+  assert.match(source,/const lraTrailingSamples = Math\.ceil\(sampleRate \* 1\.5\)/);
+  assert.match(source,/if \(i \+ 1 <= count\) momentaryPowers\.push/);
+  assert.doesNotMatch(source,/calculatedLufs:\s*m\.integratedLufs/);
+  assert.doesNotMatch(source,/calculatedTruePeak:\s*m\.truePeakDbtp4x/);
+});
+
+
+test("Stage 1A EBU Tech 3342 two 20s stereo tones resolve the 10 LU loudness range", () => {
+  // EBU Tech 3342 v4 minimum-requirements Test 1: in-phase stereo 1kHz,
+  // 20 s at -20 dBFS per channel followed by 20 s at -30 dBFS.
+  const sr=16000, seconds=40, left=new Float32Array(sr*seconds);
+  for(let i=0;i<left.length;i++) {
+    const amp=i<20*sr ? 0.1 : 0.03162277660168379;
+    left[i]=amp*Math.sin(2*Math.PI*1000*i/sr);
+  }
+  const m=analyzeStage1aMeterReference([left,left],sr).measurements;
+  assert.ok(Math.abs(m.loudnessRangeLu-10)<=1,
+    "EBU Test 1 expected 10 +/-1 LU; got "+m.loudnessRangeLu);
+});
+
+test("Stage 1A handles silence, short clips, rejected channels, nonfinite samples and atypical rate", () => {
+  for(const sr of [8000,11025,48000,96000]) {
+    const n=Math.floor(sr/4);
+    const m=analyzeStage1aMeterReference([new Float32Array(n)],sr).measurements;
+    assert.equal(m.samplePeakDbfs,null);
+    assert.equal(m.truePeakDbtp4x,null);
+    assert.equal(m.rmsDbfs,null);
+    assert.equal(m.integratedLufs,null);
+    assert.equal(m.loudnessRangeLu,null);
+  }
+  assert.throws(()=>analyzeStage1aMeterReference([new Float32Array(40),new Float32Array(39)],48000),
+    /equally sized/);
+  assert.throws(()=>analyzeStage1aMeterReference([new Float32Array([NaN,0])],48000),
+    /Nonfinite PCM sample/);
+  assert.throws(()=>analyzeStage1aMeterReference([new Float32Array([Infinity,0])],48000),
+    /Nonfinite PCM sample/);
+  assert.throws(()=>analyzeStage1aMeterReference([new Float32Array(10)],7999),
+    /supported sample rate/);
+  assert.throws(()=>analyzeStage1aMeterReference([],48000),/mono\/stereo/);
+});
+
+test("Stage 1A reports gain shifts without changing LRA or input arrays", () => {
+  const sr=16000,n=sr*8,a=new Float32Array(n),b=new Float32Array(n);
+  for(let i=0;i<n;i++) {
+    const amplitude=(i/sr<3?0.05:0.11);
+    a[i]=amplitude*Math.sin(2*Math.PI*440*i/sr);
+    b[i]=a[i]*2;
+  }
+  const before=Float32Array.from(a);
+  const first=analyzeStage1aMeterReference([a],sr).measurements;
+  const louder=analyzeStage1aMeterReference([b],sr).measurements;
+  assert.ok(Math.abs(louder.integratedLufs-first.integratedLufs-6.020599913)<0.1);
+  assert.ok(Math.abs(louder.samplePeakDbfs-first.samplePeakDbfs-6.020599913)<0.01);
+  assert.ok(Math.abs(louder.truePeakDbtp4x-first.truePeakDbtp4x-6.020599913)<0.05);
+  assert.ok(Math.abs(louder.loudnessRangeLu-first.loudnessRangeLu)<0.15);
+  assert.deepEqual(a,before);
+});
+
+test("Stage 1A true-peak FIR measures high-frequency intersample peaks and boundary transients", () => {
+  const sr=48000,n=sr*2,a=new Float32Array(n),amplitude=0.6;
+  for(let i=0;i<n;i++) a[i]=amplitude*Math.sin(2*Math.PI*12000*i/sr + Math.PI/4);
+  const m=analyzeStage1aMeterReference([a],sr).measurements;
+  assert.ok(m.truePeakDbtp4x>m.samplePeakDbfs+1.8,
+    "true peak must recognize phase-offset quarter-rate signal");
+  assert.ok(Math.abs(m.truePeakDbtp4x-20*Math.log10(amplitude))<0.5,
+    "true peak must be within the declared 0.5dB high-frequency tolerance");
+
+  const nearStart=new Float32Array(200),nearEnd=new Float32Array(200);
+  nearStart[0]=1; nearEnd[199]=1;
+  const p=analyzeStage1aMeterReference([nearStart],48000).measurements;
+  const q=analyzeStage1aMeterReference([nearEnd],48000).measurements;
+  assert.ok(p.truePeakDbtp4x>=p.samplePeakDbfs-0.000001);
+  assert.ok(q.truePeakDbtp4x>=q.samplePeakDbfs-0.000001);
+  assert.ok(Math.abs(p.truePeakDbtp4x-q.truePeakDbtp4x)<0.1,
+    "identical boundary impulses should yield symmetric peaks");
+});
+
+test("Stage 1A short-run timing is bounded for the independent diagnostic", () => {
+  const sr=48000,n=sr*2,channels=[new Float32Array(n),new Float32Array(n)];
+  for(let i=0;i<n;i++) {
+    channels[0][i]=0.45*Math.sin(2*Math.PI*1499*i/sr);
+    channels[1][i]=0.3*Math.sin(2*Math.PI*3111*i/sr);
+  }
+  const start=performance.now();
+  const result=analyzeStage1aMeterReference(channels,sr);
+  const elapsed=performance.now()-start;
+  assert.ok(elapsed<15000,"2s stereo measurement took "+elapsed+"ms (diagnostic time limit 15s)");
+  assert.ok(result.measurements.integratedLufs!==null);
+  assert.equal(result.measurements.loudnessRangeLu,null);
+});
+
+
+test("Stage 1A exercises all four published EBU Tech 3342 synthetic minimum-requirement LRA cases", () => {
+  const sr=16000, segmentSeconds=20;
+  const cases=[
+    {levels:[-20,-30], expectedLra:10},
+    {levels:[-20,-15], expectedLra:5},
+    {levels:[-40,-20], expectedLra:20},
+    {levels:[-50,-35,-20,-35,-50], expectedLra:15},
+  ];
+  for(const fixture of cases) {
+    const n=sr*segmentSeconds*fixture.levels.length;
+    const samples=new Float32Array(n);
+    for(let i=0;i<n;i++) {
+      const segment=Math.floor(i/(sr*segmentSeconds));
+      const amp=Math.pow(10,fixture.levels[segment]/20);
+      samples[i]=amp*Math.sin(2*Math.PI*1000*i/sr);
+    }
+    const result=analyzeStage1aMeterReference([samples,samples],sr);
+    assert.ok(Math.abs(result.measurements.loudnessRangeLu-fixture.expectedLra)<=1,
+      "EBU synthetic "+fixture.levels.join(",")+" expected "+fixture.expectedLra+
+      " +/-1 LU, got "+result.measurements.loudnessRangeLu);
+    assert.equal(result.truePeakAccuracyStatus,"NON_48KHZ_UNVERIFIED");
+  }
+});
+
+test("Stage 1A EBU file end adds 1.5s LRA latency but never modifies programme-integrated LUFS or peak", () => {
+  const sr=16000,n=sr*8,recording=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    const level=i<4*sr ? 0.025 : 0.2;
+    recording[i]=level*Math.sin(2*Math.PI*1000*i/sr);
+  }
+  const original=Float32Array.from(recording);
+  const padded=new Float32Array(n+Math.round(sr*1.5));
+  padded.set(recording);
+  const a=analyzeStage1aMeterReference([recording,recording],sr);
+  const b=analyzeStage1aMeterReference([padded,padded],sr);
+  assert.ok(Math.abs(a.measurements.loudnessRangeLu-b.measurements.loudnessRangeLu)<=1,
+    "internal LRA tail should be near explicitly padded reference");
+  assert.equal(a.sampleCount,n);
+  assert.equal(a.measurements.samplePeakDbfs,b.measurements.samplePeakDbfs);
+  // Explicitly padding a source file changes the true-peak FIR's boundary
+  // neighborhood. The sample peaks are comparable, but the true-peak FIR
+  // values from different-length files need not be identical.
+  assert.ok(a.measurements.truePeakDbtp4x >= a.measurements.samplePeakDbfs);
+  assert.ok(b.measurements.truePeakDbtp4x >= b.measurements.samplePeakDbfs);
+  // Full-programme RMS must decrease when the reference itself contains
+  // 1.5 seconds more silence; this is a duration effect, not a meter defect.
+  const expectedPaddedRmsDelta=10*Math.log10((n+Math.round(sr*1.5))/n);
+  assert.ok(Math.abs(a.measurements.rmsDbfs-b.measurements.rmsDbfs-expectedPaddedRmsDelta)<0.02,
+    "RMS delta must equal the time-normalisation difference");
+  assert.ok(Math.abs(a.measurements.integratedLufs-b.measurements.integratedLufs)<0.2,
+    "silent padding should not materially change gated integrated loudness");
+  assert.deepEqual(recording,original,"LRA must not append samples to caller's PCM");
+});
+
+test("Stage 1A non-48k true peak has an explicit accuracy qualifier for each sample rate", () => {
+  for(const sr of [8000,16000,44100,48000,96000,192000]) {
+    const n=Math.floor(sr/3), samples=new Float32Array(n);
+    for(let i=0;i<n;i++) samples[i]=0.5*Math.sin(2*Math.PI*997*i/sr);
+    const result=analyzeStage1aMeterReference([samples],sr);
+    assert.equal(result.truePeakAccuracyStatus,
+      sr===48000 ? "ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED" : "NON_48KHZ_UNVERIFIED");
+    assert.ok(Number.isFinite(result.measurements.truePeakDbtp4x),
+      "unverified non-48k true peaks are diagnostics, not a hidden 0 or fabricated pass");
+    assert.match(result.limitations.join(" "), /not independently (certified|validated)/);
+  }
+});
+
+test("Stage 1A performance on 60s 48k stereo is bounded and output is reproducible", () => {
+  const sr=48000, n=60*sr;
+  const left=new Float32Array(n), right=new Float32Array(n);
+  for(let i=0;i<n;i++) {
+    left[i]=0.12*Math.sin(2*Math.PI*941*i/sr);
+    right[i]=0.08*Math.sin(2*Math.PI*1379*i/sr);
+  }
+  const start=performance.now();
+  const a=analyzeStage1aMeterReference([left,right],sr);
+  const elapsed=performance.now()-start;
+  assert.ok(elapsed<15000,"60s 48k stereo diagnostic exceeded 15-second CI ceiling: "+elapsed+"ms");
+  assert.ok(Number.isFinite(a.measurements.integratedLufs));
+  assert.ok(Number.isFinite(a.measurements.truePeakDbtp4x));
+  assert.ok(Number.isFinite(a.measurements.loudnessRangeLu));
+  assert.equal(a.sampleCount,n);
+  // Bound output size even though PCM is in memory: only summary diagnostics
+  // are returned. Timing and peak heap are independently checked in browser later.
+  assert.ok(JSON.stringify(a).length<4000);
 });

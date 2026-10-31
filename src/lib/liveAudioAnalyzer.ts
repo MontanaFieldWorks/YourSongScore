@@ -1,4 +1,4 @@
-import { LiveAudioMetrics } from "../types";
+import type { LiveAudioMetrics } from "../types";
 import FFT from "fft.js";
 
 // Lazily-loaded essentia.js instance - loaded once per page session, reused across
@@ -171,6 +171,277 @@ export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
  * analyzeAudioBuffer(), but accepts plain Float32Array channels so the temporary batch
  * runner can execute it inside a Web Worker without blocking the browser UI thread.
  */
+
+// Stage 1A: opt-in, reference-oriented meters for offline comparisons.
+// Not called by analyzeAudioBuffer / analyzePcmData or any scoring/report path.
+// Existing calculatedLufs, calculatedTruePeak, calculatedLra, RMS and crest remain unchanged.
+// Acceptance targets (fixed before the prototype): LUFS +/-0.5 LU; LRA +/-1 LU;
+// sample peak +/-0.1 dB; 4x true peak +/-0.5 dBTP; convention-matched crest +/-0.5 dB.
+// Input is the original decoded mono/stereo PCM at its actual sample rate.
+export interface Stage1aMeterReadings {
+  samplePeakDbfs: number | null;
+  truePeakDbtp4x: number | null;
+  rmsDbfs: number | null;
+  midRmsDbfs: number | null;
+  crestFactorDb: number | null;
+  midCrestFactorDb: number | null;
+  integratedLufs: number | null;
+  loudnessRangeLu: number | null;
+}
+export interface Stage1aMeterComparison {
+  method: "stage1a-reference-v1";
+  sampleRate: number;
+  channelCount: number;
+  sampleCount: number;
+  // The Annex 2 coefficient set assumes 48 kHz PCM. At other rates a
+  // numeric 4x estimate remains exploratory until independently validated.
+  truePeakAccuracyStatus: "ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED" | "NON_48KHZ_UNVERIFIED";
+  measurements: Stage1aMeterReadings;
+  // Corrected value minus the unchanged legacy value, in the same units.
+  differences: Record<string, number>;
+  limitations: string[];
+}
+
+export function analyzeStage1aMeterReference(
+  channels: Float32Array[],
+  sampleRate: number,
+  legacy?: Partial<LiveAudioMetrics>,
+): Stage1aMeterComparison {
+  if (!Array.isArray(channels) || channels.length < 1 || channels.length > 2 ||
+      !Number.isFinite(sampleRate) || sampleRate < 8000 || sampleRate > 192000) {
+    throw new RangeError("Stage 1A requires mono/stereo PCM with a supported sample rate");
+  }
+  const count = channels[0].length;
+  if (!count) throw new RangeError("No PCM samples");
+  if (channels.some(channel => !(channel instanceof Float32Array) || channel.length !== count)) {
+    throw new RangeError("Stage 1A channels must be equally sized Float32Arrays");
+  }
+  const db = (amplitude: number): number | null => amplitude > 0 ? 20 * Math.log10(amplitude) : null;
+  let sampleMax = 0;
+  let sumSq = 0;
+  let midSq = 0;
+  for (let i = 0; i < count; i++) {
+    let mid = 0;
+    for (const channel of channels) {
+      const value = channel[i];
+      if (!Number.isFinite(value)) throw new RangeError("Nonfinite PCM sample");
+      sampleMax = Math.max(sampleMax, Math.abs(value));
+      sumSq += value * value;
+      mid += value;
+    }
+    mid /= channels.length;
+    midSq += mid * mid;
+  }
+  const samplePeakDbfs = db(sampleMax);
+  const rmsDbfs = db(Math.sqrt(sumSq / (count * channels.length)));
+  const midRmsDbfs = db(Math.sqrt(midSq / count));
+  const crestFactorDb = samplePeakDbfs !== null && rmsDbfs !== null
+    ? samplePeakDbfs - rmsDbfs : null;
+  const midCrestFactorDb = samplePeakDbfs !== null && midRmsDbfs !== null
+    ? samplePeakDbfs - midRmsDbfs : null;
+
+  // Four-phase 12-tap FIR from ITU-R BS.1770-5 Annex 2, in floating point.
+  // Avoids the old 96-tap operations per sample; coefficients are static.
+  const firRows = [
+    [0.001708984375, -0.0291748046875, -0.0189208984375, -0.00830078125],
+    [0.010986328125, 0.029296875, 0.0330810546875, 0.014892578125],
+    [-0.0196533203125, -0.0517578125, -0.0582275390625, -0.026611328125],
+    [0.033203125, 0.089111328125, 0.1015625, 0.047607421875],
+    [-0.0594482421875, -0.16650390625, -0.2003173828125, -0.102294921875],
+    [0.1373291015625, 0.465087890625, 0.77978515625, 0.97216796875],
+    [0.97216796875, 0.77978515625, 0.465087890625, 0.1373291015625],
+    [-0.102294921875, -0.2003173828125, -0.16650390625, -0.0594482421875],
+    [0.047607421875, 0.1015625, 0.089111328125, 0.033203125],
+    [-0.026611328125, -0.0582275390625, -0.0517578125, -0.0196533203125],
+    [0.014892578125, 0.0330810546875, 0.029296875, 0.010986328125],
+    [-0.00830078125, -0.0189208984375, -0.0291748046875, 0.001708984375],
+  ];
+  const polyphase = [0, 1, 2, 3].map(phase => firRows.map(row => row[phase]));
+  const kernelAbsBound = Math.max(...polyphase.map(kernel =>
+    kernel.reduce((sum, value) => sum + Math.abs(value), 0)));
+  let interpolatedPeak = sampleMax;
+  // Rigorous local envelope bound: a FIR phase cannot exceed the maximum
+  // absolute input in its 12-sample footprint times its kernel L1 norm.
+  // Evaluate negative/last sample indices with zero-padding for edge transients.
+  for (const channel of channels) {
+    for (let index = -6; index < count + 6; index++) {
+      let envelope = 0;
+      for (let tap = 0; tap < 12; tap++) {
+        const at = index + tap - 5;
+        if (at >= 0 && at < count) envelope = Math.max(envelope, Math.abs(channel[at]));
+      }
+      if (envelope * kernelAbsBound <= interpolatedPeak) continue;
+      for (const kernel of polyphase) {
+        let estimate = 0;
+        for (let tap = 0; tap < 12; tap++) {
+          const at = index + tap - 5;
+          if (at >= 0 && at < count) estimate += channel[at] * kernel[tap];
+        }
+        interpolatedPeak = Math.max(interpolatedPeak, Math.abs(estimate));
+      }
+    }
+  }
+  const truePeakDbtp4x = db(interpolatedPeak);
+
+  // ITU-R BS.1770 K-weighting design: pre-shelf and RLB high-pass are derived
+  // for the ACTUAL input sample rate. Do not stride through the signal without
+  // redesigning the filters (the legacy implementation does this).
+  const kPre = Math.tan(Math.PI * 1681.974450955533 / sampleRate);
+  const qPre = 0.7071752369554196;
+  const vh = Math.pow(10, 3.999843853973347 / 20);
+  const vb = Math.pow(vh, 0.4996667741545416);
+  const preDen = 1 + kPre / qPre + kPre * kPre;
+  const preB = [
+    (vh + vb * kPre / qPre + kPre * kPre) / preDen,
+    2 * (kPre * kPre - vh) / preDen,
+    (vh - vb * kPre / qPre + kPre * kPre) / preDen,
+  ];
+  const preA = [1, 2 * (kPre * kPre - 1) / preDen, (1 - kPre / qPre + kPre * kPre) / preDen];
+  const kHp = Math.tan(Math.PI * 38.13547087602444 / sampleRate);
+  const qHp = 0.5003270373238773;
+  const hpDen = 1 + kHp / qHp + kHp * kHp;
+  const hpB = [1, -2, 1];
+  const hpA = [1, 2 * (kHp * kHp - 1) / hpDen, (1 - kHp / qHp + kHp * kHp) / hpDen];
+
+  // Bounded-memory sample-rate-correct K-weighted analysis. Reuse biquad
+  // state and only retain 100ms bucket energies (30-bucket rolling window)
+  // and 400ms/3s power observations, not full-track filtered PCM arrays.
+  const biquad = (b: number[], a: number[]) => {
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    return (x: number) => {
+      const y = b[0] * x + b[1] * x1 + b[2] * x2 - a[1] * y1 - a[2] * y2;
+      x2 = x1; x1 = x; y2 = y1; y1 = y;
+      return y;
+    };
+  };
+  const kFilters = channels.map(() => {
+    const pre = biquad(preB, preA), hp = biquad(hpB, hpA);
+    return (v: number) => hp(pre(v));
+  });
+  const energyRing = new Float64Array(30), countRing = new Uint32Array(30);
+  const momentaryPowers: number[] = [], shortTermPowers: number[] = [];
+  let bucket = 0, bucketEnd = Math.round(sampleRate / 10);
+  let bucketEnergy = 0, bucketSamples = 0;
+  // EBU Tech 3342, file-based LRA: continue the K-weighted stream for
+  // >=1.5 s of zero input after the programme. This permits the last
+  // programme samples to contribute to the trailing 3-second windows.
+  // The synthetic silence is NOT included in integrated loudness,
+  // peak, RMS, crest, or the supplied audio duration.
+  const lraTrailingSamples = Math.ceil(sampleRate * 1.5);
+  for (let i = 0; i < count + lraTrailingSamples; i++) {
+    for (let ch = 0; ch < channels.length; ch++) {
+      const weighted = kFilters[ch](i < count ? channels[ch][i] : 0);
+      bucketEnergy += weighted * weighted;
+    }
+    bucketSamples++;
+    if (i + 1 !== bucketEnd) continue;
+    const slot = bucket % 30;
+    energyRing[slot] = bucketEnergy;
+    countRing[slot] = bucketSamples;
+    bucket++;
+    if (bucket >= 4) {
+      let power = 0, samples = 0;
+      for (let j = 0; j < 4; j++) {
+        const at = (bucket - 1 - j) % 30;
+        power += energyRing[at]; samples += countRing[at];
+      }
+      // Keep integrated loudness programme-only. Post-programme silence
+      // is a measurement-latency convention for LRA, not extra content.
+      if (i + 1 <= count) momentaryPowers.push(power / samples);
+    }
+    if (bucket >= 30) {
+      let power = 0, samples = 0;
+      for (let j = 0; j < 30; j++) {
+        const at = (bucket - 1 - j) % 30;
+        power += energyRing[at]; samples += countRing[at];
+      }
+      shortTermPowers.push(power / samples);
+    }
+    bucketEnergy = 0; bucketSamples = 0;
+    // This boundary expression remains accurate for fractional 100ms
+    // sample counts, such as a 11025 Hz decoded recording.
+    bucketEnd = Math.round((bucket + 1) * sampleRate / 10);
+  }
+  const loudness = (power: number): number =>
+    power > 0 ? -0.691 + 10 * Math.log10(power) : -Infinity;
+  const mean = (values: number[]): number =>
+    values.reduce((sum, value) => sum + value, 0) / values.length;
+  const gated = (values: number[], absolute: number, relative: number): number[] => {
+    const aboveAbsolute = values.filter(power => loudness(power) > absolute);
+    if (!aboveAbsolute.length) return [];
+    const threshold = loudness(mean(aboveAbsolute)) - relative;
+    return aboveAbsolute.filter(power => loudness(power) > threshold);
+  };
+  const integrated = gated(momentaryPowers, -70, 10);
+  const integratedLufs = integrated.length ? loudness(mean(integrated)) : null;
+
+  // EBU Tech 3342 v4: short-term 3-second measurements at >=10 Hz,
+  // with -70 LUFS absolute gating and -20 LU relative gating.
+  // FFmpeg/libebur128 rounded percentile ranks: round((N-1) * p).
+  // EBU specifies percentile ESTIMATES; this convention is documented rather
+  // than misrepresenting it as a uniquely mandated EBU estimator.
+  const lraPowers = gated(shortTermPowers, -70, 20);
+  let loudnessRangeLu: number | null = null;
+  if (count >= Math.round(3 * sampleRate) && lraPowers.length >= 2) {
+    const sorted = lraPowers.map(loudness).sort((a, b) => a - b);
+    loudnessRangeLu =
+      sorted[Math.round((sorted.length - 1) * 0.95)] -
+      sorted[Math.round((sorted.length - 1) * 0.1)];
+  }
+  const measurements: Stage1aMeterReadings = {
+    samplePeakDbfs, truePeakDbtp4x, rmsDbfs, midRmsDbfs,
+    crestFactorDb, midCrestFactorDb, integratedLufs, loudnessRangeLu,
+  };
+  const differences: Record<string, number> = {};
+  if (legacy) {
+    const pairs: Array<[keyof LiveAudioMetrics, keyof Stage1aMeterReadings]> = [
+      ["calculatedLufs", "integratedLufs"],
+      ["calculatedLra", "loudnessRangeLu"],
+      ["calculatedTruePeak", "truePeakDbtp4x"],
+      ["calculatedRmsDbfs", "rmsDbfs"],
+      ["calculatedCrestFactorDb", "crestFactorDb"],
+    ];
+    for (const [oldName, newName] of pairs) {
+      const oldValue = legacy[oldName];
+      const newValue = measurements[newName];
+      if (typeof oldValue === "number" && Number.isFinite(oldValue) &&
+          typeof newValue === "number" && Number.isFinite(newValue)) {
+        if (oldName !== "calculatedRmsDbfs" && oldName !== "calculatedCrestFactorDb") {
+          differences[oldName] = newValue - oldValue;
+        }
+      }
+    }
+    // Compare the old mid-channel RMS against the reference mid-channel RMS,
+    // not against full-stereo RMS (a different definition).
+    if (typeof legacy.calculatedRmsDbfs === "number" && midRmsDbfs !== null) {
+      differences.legacyMidRmsVsReferenceMidRms = midRmsDbfs - legacy.calculatedRmsDbfs;
+    }
+    if (typeof legacy.calculatedTruePeak === "number" && samplePeakDbfs !== null) {
+      differences.legacyPeakVsFullSamplePeak = samplePeakDbfs - legacy.calculatedTruePeak;
+    }
+    if (typeof legacy.calculatedCrestFactorDb === "number" && midCrestFactorDb !== null) {
+      differences.legacyCrestVsFullMidCrest = midCrestFactorDb - legacy.calculatedCrestFactorDb;
+    }
+  }
+  return {
+    method: "stage1a-reference-v1", sampleRate, channelCount: channels.length,
+    sampleCount: count,
+    truePeakAccuracyStatus: sampleRate === 48000
+      ? "ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED"
+      : "NON_48KHZ_UNVERIFIED",
+    measurements, differences,
+    limitations: [
+      "4x BS.1770 Annex 2 polyphase FIR diagnostic is not independently certified at all sample rates",
+      "Full-channel and stereo-mid RMS/crest have different conventions; only like-for-like error deltas are reported",
+      "LRA measured at 10 Hz with 1.5 s of post-programme silence and rounded percentile rank; programme shorter than 3 s or fewer than two gated windows is unavailable",
+      sampleRate === 48000
+        ? "True peak uses the ITU Annex 2 48 kHz reference configuration; not independently certified"
+        : "True-peak estimate at this sample rate is exploratory and not independently validated",
+      "No new score or applicability decision is made by this module",
+    ],
+  };
+}
+
 export function analyzePcmData(
   sampleRate: number,
   numChannels: number,
