@@ -195,9 +195,9 @@ export interface Stage1aMeterComparison {
   sampleCount: number;
   // Diagnostic-only validity status, not a production applicability decision.
   lraAvailability: "AVAILABLE" | "SILENCE" | "TOO_SHORT" |
-    "SPARSE_TRANSIENT" | "INSUFFICIENT_GATED_WINDOWS";
-  // Signal duration at the equivalent maximum-sample power. Values below
-  // 50 ms are too sparse for a meaningful programme LRA in this prototype.
+    "INSUFFICIENT_GATED_WINDOWS";
+  // Exploratory peak-relative energy-duration observation, not an LRA
+  // availability criterion; an isolated peak can skew this value.
   equivalentPeakPowerDurationSeconds: number;
   // The Annex 2 coefficient set assumes 48 kHz PCM. At other rates a
   // numeric 4x estimate remains exploratory until independently validated.
@@ -243,7 +243,7 @@ export function analyzeStage1aMeterReference(
   // definition. Equal to the number of seconds at the observed global peak
   // whose energy would equal the programme's mean per-channel energy.
   // For a 6-sample isolated impulse this is <1 ms; a 5-second constant
-  // sinusoid is ~2.5 s. Suppress misleading 0-LU LRA from isolated spikes.
+  // sinusoid is ~2.5 s. This is diagnostic evidence only.
   const equivalentPeakPowerDurationSeconds = sampleMax > 0
     ? sumSq / (channels.length * sampleMax * sampleMax * sampleRate)
     : 0;
@@ -402,16 +402,13 @@ export function analyzeStage1aMeterReference(
       sorted[Math.round((sorted.length - 1) * 0.95)] -
       sorted[Math.round((sorted.length - 1) * 0.1)];
   }
-  // EBU Tech 3342 warns that sparse utterances/isolated transients can
-  // produce misleadingly high LRA. This heuristic intentionally errs on
-  // the side of "not available" for <50 ms peak-equivalent programme energy.
-  // It does not modify the separate programme LUFS or any scoring metric.
+  // Availability follows existing gated-window support. The experimental
+  // peak-equivalent duration cannot independently invalidate LRA: a single
+  // peak within an otherwise continuous programme may make it very small.
   const lraAvailability: Stage1aMeterComparison["lraAvailability"] =
     sampleMax === 0 ? "SILENCE" :
     count < Math.round(3 * sampleRate) ? "TOO_SHORT" :
-    equivalentPeakPowerDurationSeconds < 0.05 ? "SPARSE_TRANSIENT" :
     loudnessRangeLu === null ? "INSUFFICIENT_GATED_WINDOWS" : "AVAILABLE";
-  if (lraAvailability !== "AVAILABLE") loudnessRangeLu = null;
   const measurements: Stage1aMeterReadings = {
     samplePeakDbfs, truePeakDbtp4x, rmsDbfs, midRmsDbfs,
     crestFactorDb, midCrestFactorDb, integratedLufs, loudnessRangeLu,
@@ -458,7 +455,7 @@ export function analyzeStage1aMeterReference(
       "4x BS.1770 Annex 2 polyphase FIR diagnostic is not independently certified at all sample rates",
       "Full-channel and stereo-mid RMS/crest have different conventions; only like-for-like error deltas are reported",
       "LRA measured at 10 Hz with 1.5 s of post-programme silence and rounded percentile rank; programme shorter than 3 s or fewer than two gated windows is unavailable",
-      "Sparse-transient LRA exclusion (<50 ms equivalent peak-power duration) is a conservative diagnostic heuristic, not an EBU-mandated threshold",
+      "Peak-equivalent energy duration is exploratory diagnostic evidence only; no 50 ms LRA availability threshold is applied",
       sampleRate === 48000
         ? "True peak uses the ITU Annex 2 48 kHz reference configuration; not independently certified"
         : "True-peak estimate at this sample rate is exploratory and not independently validated",
