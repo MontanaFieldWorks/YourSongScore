@@ -1628,3 +1628,51 @@ test("Stage 2A deterministic noise references and omitted-tail invalid PCM", () 
       "invalid trailing PCM must not pass validation just because final frame is omitted");
   }
 });
+
+
+test("Stage 2A coverage reports sample union, omitted tail and zero padding", () => {
+  for(const sr of [44100,48000]){
+    for(const [length,frames,represented,omitted,padded] of [
+      [777,1,777,0,3319],[4096,1,4096,0,0],
+      [6144,2,6144,0,0],[6244,2,6144,100,0],
+      [8192,3,8192,0,0],[8292,3,8192,100,0],
+    ]){
+      const r=analyzeStage2aSpectralPower([new Float32Array(length)],sr);
+      assert.equal(r.inputSampleCount,length);
+      assert.equal(r.frames,frames);
+      assert.equal(r.representedSampleCount,represented);
+      assert.equal(r.omittedTrailingSampleCount,omitted);
+      assert.equal(r.zeroPaddedSampleCount,padded);
+      assert.equal(r.representedSampleCount+r.omittedTrailingSampleCount,length);
+    }
+  }
+});
+
+test("Stage 2A independent analytic per-band spectral power reference", () => {
+  const N=4096,edges=[20,60,250,500,2000,6000,11000,20000],amp=.3;
+  for(const sr of [44100,48000]){
+    const hzPerBin=sr/N;
+    // Exact-bin tone has periodic-Hann bin weights 1/6, 4/6, 1/6
+    // of A²/2. This expected result does not use the implementation FFT.
+    for(let b=0;b<7;b++){
+      const center=(edges[b]+edges[b+1])/2;
+      const k=Math.round(center/hzPerBin);
+      if(k<3||k>N/2-3)continue;
+      const samples=Float32Array.from({length:N},(_,i)=>amp*Math.sin(2*Math.PI*k*i/N));
+      const measured=analyzeStage2aSpectralPower([samples],sr);
+      const expectedBands=new Array(7).fill(0);
+      let expectedUnassigned=0;
+      for(const [bin,weight] of [[k-1,1/6],[k,4/6],[k+1,1/6]]){
+        const freq=bin*hzPerBin, power=(amp*amp/2)*weight;
+        const band=edges.findIndex((lo,j)=>j<7&&freq>=lo&&freq<edges[j+1]);
+        if(band<0)expectedUnassigned+=power;
+        else expectedBands[band]+=power;
+      }
+      for(let j=0;j<7;j++)
+        assert.ok(Math.abs(measured.channelBandPower[0][j]-expectedBands[j])<2e-8,
+          "analytic Hann band "+sr+" target "+b+" measured "+j);
+      assert.ok(Math.abs(measured.channelUnassignedPower[0]-expectedUnassigned)<2e-8);
+      assert.ok(Math.abs(measured.channelTotalPower[0]-amp*amp/2)<2e-8);
+    }
+  }
+});
