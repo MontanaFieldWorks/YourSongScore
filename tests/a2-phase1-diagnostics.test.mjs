@@ -1246,7 +1246,11 @@ test("Stage 1A EBU file end adds 1.5s LRA latency but never modifies programme-i
   // values from different-length files need not be identical.
   assert.ok(a.measurements.truePeakDbtp4x >= a.measurements.samplePeakDbfs);
   assert.ok(b.measurements.truePeakDbtp4x >= b.measurements.samplePeakDbfs);
-  assert.equal(a.measurements.rmsDbfs,b.measurements.rmsDbfs);
+  // Full-programme RMS must decrease when the reference itself contains
+  // 1.5 seconds more silence; this is a duration effect, not a meter defect.
+  const expectedPaddedRmsDelta=10*Math.log10((n+Math.round(sr*1.5))/n);
+  assert.ok(Math.abs(a.measurements.rmsDbfs-b.measurements.rmsDbfs-expectedPaddedRmsDelta)<0.02,
+    "RMS delta must equal the time-normalisation difference");
   assert.ok(Math.abs(a.measurements.integratedLufs-b.measurements.integratedLufs)<0.2,
     "silent padding should not materially change gated integrated loudness");
   assert.deepEqual(recording,original,"LRA must not append samples to caller's PCM");
