@@ -2851,3 +2851,177 @@ export function analyzeStage2b2Stereo(channels:Float32Array[],sampleRate:number)
       "Low-energy and mono cases are unavailable for normalized stereo measures",
     ]};
 }
+
+
+// Stage 2C1 — pure, deterministic engineering-evidence assembly. NEVER scoring.
+export function assembleStage2c1EngineeringEvidence(
+  spectral: Stage2aSpectralPowerResult,
+  temporal: Stage2b1LowFrequencyResult,
+  stereo: Stage2b2StereoResult,
+) {
+  const fail=():never=>{throw new RangeError("Stage 2C1 incompatible engineering evidence provenance, value or coverage");};
+  const finite=(x:unknown):x is number=>typeof x==="number"&&Number.isFinite(x);
+  const count=spectral?.inputSampleCount;
+  const channelCount=spectral?.channelCount;
+  if(!spectral||!temporal||!stereo||
+     spectral.method!=="stage2a-hann-fft-power-v1"||
+     temporal.method!=="stage2b1-low-frame-power-v1"||
+     stereo.method!=="stage2b2-band-stereo-v1"||
+     !finite(spectral.sampleRate)||spectral.sampleRate<8000||spectral.sampleRate>192000||
+     temporal.sampleRate!==spectral.sampleRate||stereo.sampleRate!==spectral.sampleRate||
+     !Number.isSafeInteger(count)||count<1||
+     temporal.inputSampleCount!==count||stereo.inputSampleCount!==count||
+     (channelCount!==1&&channelCount!==2)||temporal.channelCount!==channelCount||
+     spectral.fftSize!==4096||temporal.fftSize!==4096||stereo.fftSize!==4096||
+     spectral.hopSize!==2048||temporal.hopSize!==2048||stereo.hopSize!==2048||
+     spectral.window!=="periodic-hann"||
+     spectral.normalization!=="one-sided-parseval-sum-window-squared"||
+     spectral.units!=="mean-square-full-scale-pcm"||
+     temporal.units!=="mean-square-full-scale-pcm"||
+     !Array.isArray(spectral.channelBandPower)||spectral.channelBandPower.length!==channelCount||
+     !Array.isArray(spectral.bandEdgesHz)||spectral.bandEdgesHz.join(",")!=="20,60,250,500,2000,6000,11000,20000"||
+     !Array.isArray(temporal.bandsHz)||temporal.bandsHz.join(",")!=="20,60,250"||
+     !Array.isArray(stereo.bandsHz)||stereo.bandsHz.join(",")!=="20,60,250"||
+     temporal.minimumValidBandPower!==1e-12||stereo.minimumValidBandPower!==1e-12||
+     stereo.completeCancellationRelativePowerTolerance!==1e-12||
+     !Array.isArray(temporal.frames)||!Array.isArray(stereo.frames))fail();
+  const expectedFrames=count<4096?1:1+Math.floor((count-4096)/2048);
+  const represented=Math.min(count,(expectedFrames-1)*2048+4096);
+  const padded=Math.max(0,4096-count);
+  if(spectral.frames!==expectedFrames||temporal.frames.length!==expectedFrames||
+     stereo.frames.length!==expectedFrames||
+     [spectral,temporal,stereo].some(source=>source.representedSampleCount!==represented||
+       source.omittedTrailingSampleCount!==count-represented||
+       source.zeroPaddedSampleCount!==padded))fail();
+  for(const ch of spectral.channelBandPower)
+    if(!Array.isArray(ch)||ch.length!==7||ch.some(x=>!finite(x)||x<0))fail();
+  const validStatuses=new Set(["VALID","MONO_NOT_APPLICABLE","INSUFFICIENT_ENERGY","SINGLE_CHANNEL","COMPLETE_CANCELLATION"]);
+  const frameCount=expectedFrames;
+  for(let i=0;i<frameCount;i++){
+    const t=temporal.frames[i],s=stereo.frames[i],expectedStart=i*2048;
+    const expectedCenter=(expectedStart+2048)/spectral.sampleRate;
+    if(!t||!s||t.startSample!==expectedStart||s.startSample!==expectedStart||
+      !finite(t.startSeconds)||Math.abs(t.startSeconds-expectedStart/spectral.sampleRate)>1e-10||
+      !finite(t.centerSeconds)||!finite(s.centerSeconds)||
+      Math.abs(t.centerSeconds-expectedCenter)>1e-10||
+      Math.abs(s.centerSeconds-expectedCenter)>1e-10||
+      !Array.isArray(t.channelBandPower)||t.channelBandPower.length!==channelCount||
+      !Array.isArray(t.channelBandPowerChangeDb)||t.channelBandPowerChangeDb.length!==channelCount||
+      !Array.isArray(t.transientLikeRise)||t.transientLikeRise.length!==channelCount||
+      !Array.isArray(s.bands)||s.bands.length!==2)fail();
+    for(let ch=0;ch<channelCount;ch++){
+      const powers=t.channelBandPower[ch],changes=t.channelBandPowerChangeDb[ch],rises=t.transientLikeRise[ch];
+      if(!Array.isArray(powers)||powers.length!==2||powers.some(x=>!finite(x)||x<0)||
+         !Array.isArray(changes)||changes.length!==2||
+         !Array.isArray(rises)||rises.length!==2)fail();
+      for(let b=0;b<2;b++){
+        const change=changes[b],rise=rises[b];
+        if(!(change===null||finite(change))||
+           !(rise===null||typeof rise==="boolean")||
+           (change===null)!==(rise===null)||
+           (change!==null&&rise!==(change>=6)))fail();
+        if(i===0&&change!==null)fail();
+        if(i>0){
+          const prior=t===temporal.frames[0]?null:temporal.frames[i-1].channelBandPower[ch][b];
+          const measurable=powers[b]>1e-12&&finite(prior)&&prior>1e-12;
+          if(measurable!==(change!==null))fail();
+          if(measurable&&Math.abs(change!-10*Math.log10(powers[b]/prior!))>1e-7)fail();
+        }
+      }
+    }
+    for(let b=0;b<2;b++){
+      const x=s.bands[b];
+      if(!x||!validStatuses.has(x.status)||
+        !finite(x.leftPower)||x.leftPower<0||!finite(x.rightPower)||x.rightPower<0||
+        !finite(x.crossPower)||!finite(x.monoPower)||x.monoPower<0||
+        !(x.asymmetryDb===null||finite(x.asymmetryDb))||
+        !(x.correlation===null||finite(x.correlation))||
+        !(x.monoChangeDb===null||finite(x.monoChangeDb)))fail();
+      if(channelCount===1){
+        if(x.status!=="MONO_NOT_APPLICABLE"||x.rightPower!==0||x.crossPower!==0||
+           x.monoPower!==0||x.asymmetryDb!==null||x.correlation!==null||x.monoChangeDb!==null)fail();
+        continue;
+      }
+      if(x.status==="MONO_NOT_APPLICABLE")fail();
+      const mean=(x.leftPower+x.rightPower)/2;
+      const both=x.leftPower>1e-12&&x.rightPower>1e-12;
+      const expectedStatus=mean<=1e-12?"INSUFFICIENT_ENERGY":!both?"SINGLE_CHANNEL":
+        x.monoPower/mean<=1e-12?"COMPLETE_CANCELLATION":"VALID";
+      if(x.status!==expectedStatus)fail();
+      if(Math.abs(x.monoPower-Math.max(0,(x.leftPower+x.rightPower+2*x.crossPower)/4))>Math.max(1e-14,mean*1e-10))fail();
+      if(!both){
+        if(x.correlation!==null||x.asymmetryDb!==null)fail();
+      }else{
+        if(x.correlation===null||x.asymmetryDb===null||
+           Math.abs(x.correlation-x.crossPower/Math.sqrt(x.leftPower*x.rightPower))>1e-8||
+           Math.abs(x.asymmetryDb-10*Math.log10(x.leftPower/x.rightPower))>1e-7)fail();
+      }
+      const expectedMonoDb=mean>1e-12&&x.monoPower>0&&expectedStatus!=="COMPLETE_CANCELLATION"?
+        10*Math.log10(x.monoPower/mean):null;
+      if((x.monoChangeDb===null)!==(expectedMonoDb===null)||
+        (expectedMonoDb!==null&&Math.abs(x.monoChangeDb!-expectedMonoDb)>1e-7))fail();
+    }
+  }
+  const bands=([0,1] as const).map(bandIndex=>{
+    const evidence=temporal.frames.map((frame,i)=>({
+      frameIndex:i,
+      startSample:frame.startSample,
+      temporalPower:frame.channelBandPower.map(ch=>ch[bandIndex]),
+      powerChangesDb:frame.channelBandPowerChangeDb.map(ch=>ch[bandIndex]),
+      rises:frame.transientLikeRise.map(ch=>ch[bandIndex]),
+      stereoStatus:stereo.frames[i].bands[bandIndex].status,
+      correlation:stereo.frames[i].bands[bandIndex].correlation,
+      monoChangeDb:stereo.frames[i].bands[bandIndex].monoChangeDb,
+      asymmetryDb:stereo.frames[i].bands[bandIndex].asymmetryDb,
+    }));
+    const validStereo=evidence.filter(x=>x.stereoStatus==="VALID");
+    const cancellations=evidence.filter(x=>x.stereoStatus==="COMPLETE_CANCELLATION");
+    const riseDenominator=evidence.reduce((n,x)=>n+x.rises.filter(v=>v!==null).length,0);
+    const rises=evidence.reduce((n,x)=>n+x.rises.filter(v=>v===true).length,0);
+    const statusCounts:Record<string,number>={};
+    for(const e of evidence)statusCounts[e.stereoStatus]=(statusCounts[e.stereoStatus]??0)+1;
+    return {
+      bandHz:bandIndex===0?[20,60]:[60,250],
+      spectralChannelPower:spectral.channelBandPower.map(ch=>ch[bandIndex]),
+      frameCount,
+      stereoValidFrames:validStereo.length,
+      stereoValidDenominator:frameCount,
+      cancellationFrames:cancellations.length,
+      cancellationDenominator:frameCount,
+      cancellationFrameIndices:cancellations.map(x=>x.frameIndex),
+      riseCount:rises,
+      riseValidComparisons:riseDenominator,
+      stereoStatusCounts:statusCounts,
+      frameEvidence:evidence,
+      description:"Observed calibrated band-energy, relative power changes and stereo relationships; no quality judgment.",
+      applicability:"Measurements describe a completed mix; arrangement and instrument identity are unknown.",
+    };
+  });
+  return {
+    schemaVersion:"stage2c1-engineering-evidence-v1" as const,
+    scoringImpact:"NONE" as const,
+    sourceProvenance:{
+      methods:[spectral.method,temporal.method,stereo.method],
+      sampleRate:spectral.sampleRate,
+      channelCount:spectral.channelCount,
+      fftSize:4096,
+      hopSize:2048,
+      window:"periodic-hann" as const,
+      spectralNormalization:spectral.normalization,
+      numericBandPowerFloor:1e-12,
+      cancellationRelativePowerTolerance:1e-12,
+      inputSampleCount:count,
+      representedSampleCount:spectral.representedSampleCount,
+      omittedTrailingSampleCount:spectral.omittedTrailingSampleCount,
+      zeroPaddedSampleCount:spectral.zeroPaddedSampleCount,
+    },
+    bands,
+    limitations:[
+      "Not a score, mix-quality judgment, genre classification or instrument/source identification",
+      "Windowed overlapping frames are correlated; event counts are not independent observations",
+      "A cancellation proportion is a frame count over all measured frames, not a duration-weighted estimate",
+      "Thresholds are numerical/illustrative, not auditory or genre-specific quality standards",
+      "Stage 2A aggregate band power and Stage 2B1/B2 per-frame evidence use compatible windows but different aggregation semantics",
+    ],
+  };
+}
