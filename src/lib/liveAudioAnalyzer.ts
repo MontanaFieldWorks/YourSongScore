@@ -2751,3 +2751,103 @@ export function analyzeStage2b1LowFrequency(
       "No stereo correlation or source separation; that work is reserved for Stage 2B2",
     ]};
 }
+
+
+// Stage 2B2: independent diagnostic stereo-band evidence, never scoring.
+// Mono=(L+R)/2, comparator is (P_L+P_R)/2 (not the stereo sum).
+export interface Stage2b2StereoResult {
+  method: "stage2b2-band-stereo-v1";
+  fftSize: 4096; hopSize: 2048; sampleRate: number;
+  inputSampleCount: number; representedSampleCount: number;
+  omittedTrailingSampleCount: number; zeroPaddedSampleCount: number;
+  bandsHz: [number,number,number];
+  minimumValidBandPower: number;
+  completeCancellationRelativePowerTolerance: number;
+  frames: { startSample:number; centerSeconds:number;
+    bands: {leftPower:number;rightPower:number;crossPower:number;monoPower:number;
+      asymmetryDb:number|null; correlation:number|null;monoChangeDb:number|null;
+      status:"VALID"|"MONO_NOT_APPLICABLE"|"INSUFFICIENT_ENERGY"|"SINGLE_CHANNEL"|"COMPLETE_CANCELLATION";
+    }[];
+  }[];
+  limitations:string[];
+}
+export function analyzeStage2b2Stereo(channels:Float32Array[],sampleRate:number):Stage2b2StereoResult {
+  if(channels.length<1||channels.length>2||!channels[0]?.length||
+    !channels.every(ch=>ch.length===channels[0].length)||
+    !Number.isFinite(sampleRate)||sampleRate<8000||sampleRate>192000)
+    throw new RangeError("Stage 2B2 requires mono/stereo equal-length PCM and supported rate");
+  const fftSize=4096 as const,hopSize=2048 as const, count=channels[0].length;
+  const frameCount=count<fftSize?1:1+Math.floor((count-fftSize)/hopSize);
+  const representedSampleCount=Math.min(count,(frameCount-1)*hopSize+fftSize);
+  const omittedTrailingSampleCount=count-representedSampleCount;
+  const zeroPaddedSampleCount=Math.max(0,fftSize-count);
+  for(const ch of channels)for(let i=0;i<count;i++)
+    if(!Number.isFinite(ch[i]))throw new RangeError("Stage 2B2 PCM must be finite");
+  const minimumValidBandPower=1e-12;
+  // Tolerance is relative to the mean channel power; not audibility.
+  const completeCancellationRelativePowerTolerance=1e-12;
+  const fft=new FFT(fftSize);
+  const window=Float64Array.from({length:fftSize},(_,i)=>.5-.5*Math.cos(2*Math.PI*i/fftSize));
+  const w2=window.reduce((s,x)=>s+x*x,0);
+  const input=fft.createComplexArray(),out=fft.createComplexArray();
+  const frames:Stage2b2StereoResult["frames"]=[];
+  for(let frame=0;frame<frameCount;frame++){
+    const startSample=frame*hopSize;
+    const spectra:number[][]=[];
+    for(const ch of channels){
+      for(let i=0;i<fftSize;i++){
+        input[2*i]=(ch[startSample+i]??0)*window[i];
+        input[2*i+1]=0;
+      }
+      fft.transform(out,input);
+      spectra.push(Array.from(out));
+    }
+    const accum=Array.from({length:2},()=>({leftPower:0,rightPower:0,crossPower:0}));
+    for(let k=0;k<=fftSize/2;k++){
+      const hz=k*sampleRate/fftSize;
+      const band=hz>=20&&hz<60?0:hz>=60&&hz<250?1:-1;
+      if(band<0)continue;
+      const a=spectra[0],b=spectra[1]??spectra[0];
+      const ar=a[2*k],ai=a[2*k+1],br=b[2*k],bi=b[2*k+1];
+      const factor=(k===0||k===fftSize/2?1:2)/(fftSize*w2);
+      const target=accum[band];
+      target.leftPower+=(ar*ar+ai*ai)*factor;
+      if(channels.length===2){
+        target.rightPower+=(br*br+bi*bi)*factor;
+        target.crossPower+=(ar*br+ai*bi)*factor;
+      }
+    }
+    const bands=accum.map(({leftPower,rightPower,crossPower})=>{
+      if(channels.length===1)return {leftPower,rightPower,crossPower,monoPower:0,
+        asymmetryDb:null,correlation:null,monoChangeDb:null,status:"MONO_NOT_APPLICABLE" as const};
+      const average=(leftPower+rightPower)/2;
+      const monoPower=Math.max(0,(leftPower+rightPower+2*crossPower)/4);
+      let asymmetryDb:number|null=null,correlation:number|null=null,monoChangeDb:number|null=null;
+      let status:Stage2b2StereoResult["frames"][number]["bands"][number]["status"]="VALID";
+      if(average<=minimumValidBandPower)status="INSUFFICIENT_ENERGY";
+      else if(leftPower<=minimumValidBandPower||rightPower<=minimumValidBandPower){
+        status="SINGLE_CHANNEL";
+        if(monoPower>0)monoChangeDb=10*Math.log10(monoPower/average);
+      }else{
+        asymmetryDb=10*Math.log10(leftPower/rightPower);
+        correlation=crossPower/Math.sqrt(leftPower*rightPower);
+        // Preserve tiny floating-point errors; never silently clip r.
+        const ratio=monoPower/average;
+        if(ratio<=completeCancellationRelativePowerTolerance)status="COMPLETE_CANCELLATION";
+        else monoChangeDb=10*Math.log10(ratio);
+      }
+      return {leftPower,rightPower,crossPower,monoPower,asymmetryDb,correlation,monoChangeDb,status};
+    });
+    frames.push({startSample,centerSeconds:(startSample+fftSize/2)/sampleRate,bands});
+  }
+  return {method:"stage2b2-band-stereo-v1",fftSize,hopSize,sampleRate,
+    inputSampleCount:count,representedSampleCount,omittedTrailingSampleCount,
+    zeroPaddedSampleCount,bandsHz:[20,60,250],minimumValidBandPower,
+    completeCancellationRelativePowerTolerance,frames,limitations:[
+      "Diagnostic only; band cross-power is not an instrument, masking or mix-quality verdict",
+      "Mono fold-down is (L+R)/2; change is relative to average channel power",
+      "Complete cancellation means mono power <= 1e-12 times average channel power",
+      "Finite FFT resolution/window leakage and omitted trailing samples apply",
+      "Low-energy and mono cases are unavailable for normalized stereo measures",
+    ]};
+}
