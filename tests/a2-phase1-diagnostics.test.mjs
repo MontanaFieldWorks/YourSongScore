@@ -1713,8 +1713,9 @@ test("Stage 2B1 synthetic silence, burst rise and independent stereo channels",(
     assert.equal(r.frames[0].channelBandPower[1][1],0);
     assert.equal(r.frames[0].channelBandPowerChangeDb[0][1],null);
     assert.equal(r.frames[1].channelBandPowerChangeDb[1][1],null);
-    assert.equal(r.frames[2].transientLikeRise[0][1],true);
-    assert.ok(r.frames[2].channelBandPowerChangeDb[0][1]>6);
+    assert.equal(r.frames[1].transientLikeRise[0][1],true);
+    assert.ok(r.frames[1].channelBandPowerChangeDb[0][1]>6);
+    assert.equal(r.frames[2].transientLikeRise[0][1],false);
     const z=analyzeStage2b1LowFrequency([silent],sr);
     assert.ok(z.frames.every(f=>f.channelBandPower[0].every(v=>v===0)));
     assert.ok(z.frames.every(f=>f.channelBandPowerChangeDb[0].every(v=>v===null)));
