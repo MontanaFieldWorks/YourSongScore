@@ -382,7 +382,7 @@ export function analyzeStage1aMeterReference(
   // than misrepresenting it as a uniquely mandated EBU estimator.
   const lraPowers = gated(shortTermPowers, -70, 20);
   let loudnessRangeLu: number | null = null;
-  if (lraPowers.length >= 2) {
+  if (count >= Math.round(3 * sampleRate) && lraPowers.length >= 2) {
     const sorted = lraPowers.map(loudness).sort((a, b) => a - b);
     loudnessRangeLu =
       sorted[Math.round((sorted.length - 1) * 0.95)] -
@@ -433,7 +433,7 @@ export function analyzeStage1aMeterReference(
     limitations: [
       "4x BS.1770 Annex 2 polyphase FIR diagnostic is not independently certified at all sample rates",
       "Full-channel and stereo-mid RMS/crest have different conventions; only like-for-like error deltas are reported",
-      "LRA measured at 10 Hz with 1.5 s of post-programme silence and rounded percentile rank; fewer than two gated windows is unavailable",
+      "LRA measured at 10 Hz with 1.5 s of post-programme silence and rounded percentile rank; programme shorter than 3 s or fewer than two gated windows is unavailable",
       sampleRate === 48000
         ? "True peak uses the ITU Annex 2 48 kHz reference configuration; not independently certified"
         : "True-peak estimate at this sample rate is exploratory and not independently validated",
