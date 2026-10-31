@@ -2555,6 +2555,10 @@ export interface Stage2aSpectralPowerResult {
   fftSize: number;
   hopSize: number;
   frames: number;
+  inputSampleCount: number;
+  representedSampleCount: number;
+  omittedTrailingSampleCount: number;
+  zeroPaddedSampleCount: number;
   channelCount: number;
   units: "mean-square-full-scale-pcm";
   window: "periodic-hann";
@@ -2580,15 +2584,18 @@ export function analyzeStage2aSpectralPower(
   const windowPower = window.reduce((s, w) => s + w * w, 0);
   const count = channels[0].length;
   const frames = count < fftSize ? 1 : 1 + Math.floor((count - fftSize) / hopSize);
+  // Union of samples touched by at least one selected frame, not the
+  // sum of overlapping frame lengths. Short buffers are zero-padded.
+  const representedSampleCount = Math.min(count, (frames - 1) * hopSize + fftSize);
+  const omittedTrailingSampleCount = count - representedSampleCount;
+  const zeroPaddedSampleCount = Math.max(0, fftSize - count);
   const channelBandPower: number[][] = [];
   const channelUnassignedPower: number[] = [];
   const channelTotalPower: number[] = [];
   const nyquist = sampleRate / 2;
   for (const ch of channels) {
     // Full PCM validity includes the tail omitted by complete-frame analysis.
-    const coveredThrough = frames === 1 ? Math.min(count, fftSize)
-      : Math.min(count, (frames - 1) * hopSize + fftSize);
-    for (let i = coveredThrough; i < count; i++) {
+    for (let i = representedSampleCount; i < count; i++) {
       if (!Number.isFinite(ch[i])) throw new RangeError("Stage 2A PCM must be finite");
     }
     const bands = new Array(STAGE2A_BANDS_HZ.length - 1).fill(0);
@@ -2628,7 +2635,9 @@ export function analyzeStage2aSpectralPower(
   }
   return {
     method: "stage2a-hann-fft-power-v1", sampleRate, fftSize, hopSize,
-    frames, channelCount: channels.length, units: "mean-square-full-scale-pcm",
+    frames, inputSampleCount: count, representedSampleCount,
+    omittedTrailingSampleCount, zeroPaddedSampleCount,
+    channelCount: channels.length, units: "mean-square-full-scale-pcm",
     window: "periodic-hann", normalization: "one-sided-parseval-sum-window-squared",
     bandEdgesHz: [...STAGE2A_BANDS_HZ], channelBandPower,
     channelUnassignedPower, channelTotalPower,
@@ -2636,7 +2645,7 @@ export function analyzeStage2aSpectralPower(
       "Non-scoring diagnostic; not a mastering-quality or masking judgment",
       "Bin-center allocation; frequency boundary leakage and finite FFT resolution apply",
       "Power is window-weighted frame mean-square, not whole-programme RMS",
-      "Only complete overlapping frames are used except one zero-padded short frame",
+      "Only complete overlapping frames are used except one zero-padded short frame; explicit sample coverage fields count each represented input sample once",
       "Bands above Nyquist are unavailable; DC and out-of-band energy are unassigned",
     ],
   };
