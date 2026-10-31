@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import ExcelJS from "exceljs";
-import { analyzeStage1aMeterReference, analyzeStage2aSpectralPower, analyzeStage2b1LowFrequency, analyzeStage2b2Stereo, assembleStage2c1EngineeringEvidence } from "../src/lib/liveAudioAnalyzer.ts";
+import { analyzeStage1aMeterReference, analyzeStage2aSpectralPower, analyzeStage2b1LowFrequency, analyzeStage2b2Stereo, assembleStage2c1EngineeringEvidence, runStage2c2aBrowserDiagnostics } from "../src/lib/liveAudioAnalyzer.ts";
 import { appendA2ProvenanceToSourceDiagnostics } from "../src/lib/a2ScoringProvenance.ts";
 import {
   describeLowEndGateFactors,
@@ -2106,5 +2106,55 @@ test("Stage 2C1 rejects inconsistent mono status across frames",()=>{
     const tampered=JSON.parse(JSON.stringify(c));
     tampered.frames[1].bands[1].status="INSUFFICIENT_ENERGY";
     assert.throws(()=>assembleStage2c1EngineeringEvidence(a,b,tampered),RangeError);
+  }
+});
+
+
+test("Stage 2C2A enabled/disabled equivalence, failure isolation and provenance",()=>{
+  for(const sr of [44100,48000]){
+    const N=6144,one=Float32Array.from({length:N},(_,i)=>.07*Math.sin(2*Math.PI*105*i/sr));
+    for(const channels of [[one],[one,Float32Array.from(one,x=>-x)],[new Float32Array(N),new Float32Array(N)]]){
+      const originals=channels.map(x=>Array.from(x));
+      const audio={sampleRate:sr,numberOfChannels:channels.length,getChannelData:i=>channels[i]};
+      const disabled=runStage2c2aBrowserDiagnostics(audio,false);
+      assert.deepEqual(disabled,{status:"DISABLED"});
+      const available=runStage2c2aBrowserDiagnostics(audio,true);
+      assert.equal(available.status,"AVAILABLE");
+      assert.equal(available.evidence.scoringImpact,"NONE");
+      assert.equal(available.evidence.sourceProvenance.sampleRate,sr);
+      assert.equal(available.evidence.sourceProvenance.channelCount,channels.length);
+      assert.deepEqual(channels.map(x=>Array.from(x)),originals);
+      if(channels.length===1)assert.equal(available.evidence.bands[0].stereoStatusCounts.MONO_NOT_APPLICABLE,2);
+    }
+    assert.deepEqual(runStage2c2aBrowserDiagnostics({sampleRate:sr,numberOfChannels:3,getChannelData:()=>one},true),{status:"UNAVAILABLE",reason:"UNSUPPORTED_CHANNEL_COUNT"});
+    assert.deepEqual(runStage2c2aBrowserDiagnostics({sampleRate:sr,numberOfChannels:1,getChannelData:()=>{throw Error("decoding unavailable")}},true),{status:"UNAVAILABLE",reason:"DIAGNOSTIC_COMPUTATION_FAILED"});
+  }
+});
+
+test("Stage 2C2A browser hook defaults off and never feeds scoring or report",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  assert.match(app,/const STAGE2C2A_DIAGNOSTICS_ENABLED = false/);
+  assert.match(app,/if \(STAGE2C2A_DIAGNOSTICS_ENABLED\)/);
+  assert.doesNotMatch(server,/runStage2c2aBrowserDiagnostics/);
+  assert.doesNotMatch(app,/overriddenCritique\.engineeringEvidence|formData\.append\("engineeringEvidence"/);
+});
+
+
+test("Stage 2C2A 60s stereo bounded end-to-end diagnostic computation",()=>{
+  for(const sr of [44100,48000]){
+    const n=sr*60,left=new Float32Array(n),right=new Float32Array(n);
+    for(let i=0;i<n;i++){
+      left[i]=.06*Math.sin(2*Math.PI*85*i/sr);
+      right[i]=.04*Math.sin(2*Math.PI*85*i/sr);
+    }
+    const audio={sampleRate:sr,numberOfChannels:2,getChannelData:i=>i===0?left:right};
+    const start=performance.now(),out=runStage2c2aBrowserDiagnostics(audio,true);
+    const elapsed=performance.now()-start;
+    assert.equal(out.status,"AVAILABLE");
+    assert.equal(out.evidence.scoringImpact,"NONE");
+    assert.equal(out.evidence.bands[0].frameCount,1+Math.floor((n-4096)/2048));
+    assert.ok(elapsed<20000,"Stage 2C2A 60s exceeded 20s: "+elapsed.toFixed(1)+"ms");
+    console.log("Stage 2C2A 60s "+sr+": "+elapsed.toFixed(1)+"ms; input PCM bytes="+(left.byteLength+right.byteLength));
   }
 });
