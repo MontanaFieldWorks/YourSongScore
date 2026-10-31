@@ -1771,17 +1771,15 @@ test("Stage 2B1 low-energy floor, silence and zero-to-signal transitions",()=>{
 test("Stage 2B1 exploratory 6 dB rise marker brackets threshold",()=>{
   for(const sr of [44100,48000]){
     const N=4096,k=Math.round(110*N/sr);
-    // Two overlapping Hann windows; linearly increasing envelope
-    // yields a smooth, reproducible relative frame-power change.
-    const make=(targetDb)=>Float32Array.from({length:N+2048},(_,i)=>{
-      const gain=Math.pow(10,targetDb/20);
-      return .02*(1+(gain-1)*i/(N+2048-1))*Math.sin(2*Math.PI*k*i/N);
-    });
-    const below=analyzeStage2b1LowFrequency([make(9)],sr);
-    const above=analyzeStage2b1LowFrequency([make(18)],sr);
+    // Exponential envelope scales samples one hop apart by exactly
+    // 10^(targetDb/20), preserving Hann-windowed power-ratio expectations.
+    const make=(targetDb)=>Float32Array.from({length:N+2048},(_,i)=>
+      .001*Math.pow(10,(targetDb/20)*(i/2048))*Math.sin(2*Math.PI*k*i/N));
+    const below=analyzeStage2b1LowFrequency([make(5.9)],sr);
+    const above=analyzeStage2b1LowFrequency([make(6.1)],sr);
     const low=below.frames[1].channelBandPowerChangeDb[0][1];
     const high=above.frames[1].channelBandPowerChangeDb[0][1];
-    assert.ok(low!==null&&high!==null&&low<6&&high>6,
+    assert.ok(low!==null&&high!==null&&Math.abs(low-5.9)<.001&&Math.abs(high-6.1)<.001&&low<6&&high>6,
       "actual calibrated frame-power ratio must straddle 6 dB");
     assert.equal(below.frames[1].transientLikeRise[0][1],false);
     assert.equal(above.frames[1].transientLikeRise[0][1],true);
