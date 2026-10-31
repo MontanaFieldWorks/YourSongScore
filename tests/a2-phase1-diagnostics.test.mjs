@@ -1343,7 +1343,7 @@ test("Stage 1D freezes independent peak references across 44.1 and 48 kHz synthe
   ]);
 });
 
-test("Stage 1D marks start and mid-file isolated-transient LRA unavailable", () => {
+test("Stage 1D isolated transients use gated-window LRA availability", () => {
   for(const sr of [44100,48000]) {
     const n=5*sr, initial=new Float32Array(n), middle=new Float32Array(n);
     const impulse=[0,-0.6,0.6,0.6,-0.6,0];
@@ -1351,8 +1351,8 @@ test("Stage 1D marks start and mid-file isolated-transient LRA unavailable", () 
     for(const samples of [initial,middle]) {
       const before=Float32Array.from(samples);
       const result=analyzeStage1aMeterReference([samples,samples],sr);
-      assert.equal(result.lraAvailability,"SPARSE_TRANSIENT");
-      assert.equal(result.measurements.loudnessRangeLu,null);
+      assert.equal(result.lraAvailability,
+        result.measurements.loudnessRangeLu === null ? "INSUFFICIENT_GATED_WINDOWS" : "AVAILABLE");
       assert.ok(result.equivalentPeakPowerDurationSeconds>0 &&
                 result.equivalentPeakPowerDurationSeconds<0.001);
       assert.ok(Number.isFinite(result.measurements.integratedLufs));
@@ -1394,15 +1394,15 @@ test("Stage 1D LRA validity and true-peak evidence remain disconnected from scor
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
   assert.match(source,/equivalentPeakPowerDurationSeconds/);
-  assert.match(source,/SPARSE_TRANSIENT/);
-  assert.match(source,/not an EBU-mandated threshold/);
+  assert.doesNotMatch(source,/equivalentPeakPowerDurationSeconds < 0\\.05/);
+  assert.match(source,/no 50 ms LRA availability threshold is applied/);
   assert.equal((source.match(/analyzeStage1aMeterReference\(/g)||[]).length,1);
   assert.doesNotMatch(app,/analyzeStage1aMeterReference/);
   assert.doesNotMatch(server,/analyzeStage1aMeterReference/);
 });
 
 
-test("Stage 1D probes 50 ms LRA sparsity decision at both sample rates", () => {
+test("Stage 1D probes 49/51 ms peak energy without imposing LRA availability cutoff", () => {
   for (const sr of [44100, 48000]) {
     const n = 5 * sr;
     // Use 1.0 amplitude to make peak-equivalent duration exactly the pulse
@@ -1416,15 +1416,17 @@ test("Stage 1D probes 50 ms LRA sparsity decision at both sample rates", () => {
     const above = probe(0.051);
     assert.ok(below.equivalentPeakPowerDurationSeconds < 0.05);
     assert.ok(above.equivalentPeakPowerDurationSeconds > 0.05);
-    assert.equal(below.lraAvailability, "SPARSE_TRANSIENT");
-    assert.equal(below.measurements.loudnessRangeLu, null);
-    assert.notEqual(above.lraAvailability, "SPARSE_TRANSIENT");
-    // Other gating conditions may still make LRA unavailable above 50 ms.
-    assert.ok(["AVAILABLE", "INSUFFICIENT_GATED_WINDOWS"].includes(above.lraAvailability));
+    for (const result of [below, above]) {
+      assert.equal(result.lraAvailability,
+        result.measurements.loudnessRangeLu === null ? "INSUFFICIENT_GATED_WINDOWS" : "AVAILABLE");
+    }
+    // Neither side of the old cutoff automatically suppresses a result.
+    assert.ok(Number.isFinite(below.measurements.integratedLufs));
+    assert.ok(Number.isFinite(above.measurements.integratedLufs));
   }
 });
 
-test("Stage 1D documents quiet programme plus one peak false-sparse counterexample", () => {
+test("Stage 1D quiet programme plus one peak does not force LRA suppression", () => {
   for (const sr of [44100, 48000]) {
     const n = 10 * sr;
     const pcm = new Float32Array(n);
@@ -1432,11 +1434,10 @@ test("Stage 1D documents quiet programme plus one peak false-sparse counterexamp
     pcm[0] = 1;
     const result = analyzeStage1aMeterReference([pcm, pcm], sr);
     assert.ok(result.equivalentPeakPowerDurationSeconds < 0.05);
-    // KNOWN LIMITATION: the unweighted peak-relative rule mislabels ten
-    // seconds of quieter, otherwise continuous audio when one peak dominates.
-    // Keep this explicit to prevent claiming general-purpose LRA validation.
-    assert.equal(result.lraAvailability, "SPARSE_TRANSIENT");
-    assert.equal(result.measurements.loudnessRangeLu, null);
+    // An isolated peak may distort the exploratory ratio, but cannot
+    // independently change LRA availability from the gated-window result.
+    assert.equal(result.lraAvailability,
+      result.measurements.loudnessRangeLu === null ? "INSUFFICIENT_GATED_WINDOWS" : "AVAILABLE");
     assert.ok(Number.isFinite(result.measurements.integratedLufs));
   }
 });
