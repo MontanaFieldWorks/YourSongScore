@@ -1288,3 +1288,110 @@ test("Stage 1A performance on 60s 48k stereo is bounded and output is reproducib
   // are returned. Timing and peak heap are independently checked in browser later.
   assert.ok(JSON.stringify(a).length<4000);
 });
+
+
+/*
+ * Stage 1D synthetic-only accuracy snapshot; independently measured using
+ * FFmpeg 7.1.5 ebur128=peak=true with 1.5s apad for programme measurements,
+ * and high-precision SoXR 384kHz FLOAT output for reconstructed peaks:
+ * aresample=resampler=soxr:precision=33:osr=384000:osf=fltp
+ * astats=metadata=0:reset=0; -c:a pcm_f32le.
+ * Neither reference is claimed to be a unique certified true-peak oracle.
+ */
+test("Stage 1D freezes independent peak references across 44.1 and 48 kHz synthetic signals", () => {
+  const cases = [
+    // sample rate, kind, Stage 1A peak baseline, FFmpeg peak, SoXR peak
+    [44100,"tone",-19.992054,-20.0,-20.000000],
+    [48000,"tone",-19.993304,-20.0,-19.992944],
+    [44100,"hf12",-4.243968,-3.8,-4.306186],
+    [48000,"hf12",-4.354327,-3.8,-4.339518],
+    [44100,"hf19",-3.830563,-3.8,-4.123987],
+    [48000,"hf19",-4.065826,-4.4,-4.107921],
+    [44100,"nearNyquist",-3.885391,-3.1,-3.446720],
+    [48000,"nearNyquist",-3.885391,-3.2,-3.419157],
+    [44100,"initialTransient",-0.291321,0.4,0.084005],
+    [48000,"initialTransient",-0.291321,0.4,0.095829],
+  ];
+  const observedFFmpegDisagreements = [];
+  for(const [sr,kind,yssBaseline,ffmpegPeak,soxrPeak] of cases) {
+    const n=5*sr, left=new Float32Array(n);
+    for(let i=0;i<n;i++) {
+      if(kind==="tone") left[i]=0.1*Math.sin(2*Math.PI*1000*i/sr);
+      if(kind==="hf12") left[i]=0.6*Math.sin(2*Math.PI*12000*i/sr+Math.PI/4);
+      if(kind==="hf19") left[i]=0.6*Math.sin(2*Math.PI*19000*i/sr+Math.PI/4);
+      if(kind==="nearNyquist") left[i]=0.6*Math.sin(2*Math.PI*0.46*i+Math.PI/4);
+    }
+    if(kind==="initialTransient") left.set([0,-0.6,0.6,0.6,-0.6,0],0);
+    const result=analyzeStage1aMeterReference([left,left],sr);
+    const peak=result.measurements.truePeakDbtp4x;
+    assert.ok(Math.abs(peak-yssBaseline)<0.05,
+      String(sr)+" "+kind+": changed reference-meter baseline "+peak+" vs "+yssBaseline);
+    assert.ok(Math.abs(peak-soxrPeak)<0.5,
+      String(sr)+" "+kind+": exploratory SoXR deviation exceeds 0.5 dB: "+peak+" vs "+soxrPeak);
+    if(Math.abs(peak-ffmpegPeak)>0.5) observedFFmpegDisagreements.push(sr+" "+kind);
+    assert.equal(result.truePeakAccuracyStatus,sr===48000
+      ? "ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED" : "NON_48KHZ_UNVERIFIED");
+    assert.ok(peak >= result.measurements.samplePeakDbfs-0.000001);
+  }
+  // FFmpeg and SoXR apply different reconstruction filters. We record
+  // divergences but do NOT make reduced divergence fail a future improvement.
+  assert.ok(Array.isArray(observedFFmpegDisagreements));
+});
+
+test("Stage 1D marks start and mid-file isolated-transient LRA unavailable", () => {
+  for(const sr of [44100,48000]) {
+    const n=5*sr, initial=new Float32Array(n), middle=new Float32Array(n);
+    const impulse=[0,-0.6,0.6,0.6,-0.6,0];
+    initial.set(impulse,0); middle.set(impulse,2*sr);
+    for(const samples of [initial,middle]) {
+      const before=Float32Array.from(samples);
+      const result=analyzeStage1aMeterReference([samples,samples],sr);
+      assert.equal(result.lraAvailability,"SPARSE_TRANSIENT");
+      assert.equal(result.measurements.loudnessRangeLu,null);
+      assert.ok(result.equivalentPeakPowerDurationSeconds>0 &&
+                result.equivalentPeakPowerDurationSeconds<0.001);
+      assert.ok(Number.isFinite(result.measurements.integratedLufs));
+      assert.deepEqual(samples,before);
+    }
+    const silent=analyzeStage1aMeterReference([new Float32Array(n)],sr);
+    assert.equal(silent.lraAvailability,"SILENCE");
+    assert.equal(silent.measurements.loudnessRangeLu,null);
+    assert.equal(silent.equivalentPeakPowerDurationSeconds,0);
+    const tooShort=new Float32Array(sr);
+    for(let i=0;i<sr;i++) tooShort[i]=0.1*Math.sin(2*Math.PI*1000*i/sr);
+    const shorter=analyzeStage1aMeterReference([tooShort],sr);
+    assert.equal(shorter.lraAvailability,"TOO_SHORT");
+    assert.equal(shorter.measurements.loudnessRangeLu,null);
+  }
+});
+
+test("Stage 1D preserves ordinary LRA and separates absolute-gate unavailable cases", () => {
+  for(const sr of [44100,48000]) {
+    const n=20*sr, samples=new Float32Array(n);
+    for(let i=0;i<n;i++) samples[i]=(i<10*sr?0.1:0.03162277660168379)*
+      Math.sin(2*Math.PI*1000*i/sr);
+    const result=analyzeStage1aMeterReference([samples,samples],sr);
+    assert.equal(result.lraAvailability,"AVAILABLE");
+    assert.ok(Math.abs(result.measurements.loudnessRangeLu-10)<0.15);
+    assert.ok(result.equivalentPeakPowerDurationSeconds>0.05);
+    const belowGate=new Float32Array(5*sr);
+    for(let i=0;i<belowGate.length;i++)
+      belowGate[i]=1e-6*Math.sin(2*Math.PI*1000*i/sr);
+    const quiet=analyzeStage1aMeterReference([belowGate],sr);
+    assert.equal(quiet.lraAvailability,"INSUFFICIENT_GATED_WINDOWS");
+    assert.equal(quiet.measurements.integratedLufs,null);
+    assert.equal(quiet.measurements.loudnessRangeLu,null);
+  }
+});
+
+test("Stage 1D LRA validity and true-peak evidence remain disconnected from scoring", async () => {
+  const source=await readFile(new URL("../src/lib/liveAudioAnalyzer.ts",import.meta.url),"utf8");
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  assert.match(source,/equivalentPeakPowerDurationSeconds/);
+  assert.match(source,/SPARSE_TRANSIENT/);
+  assert.match(source,/not an EBU-mandated threshold/);
+  assert.equal((source.match(/analyzeStage1aMeterReference\(/g)||[]).length,1);
+  assert.doesNotMatch(app,/analyzeStage1aMeterReference/);
+  assert.doesNotMatch(server,/analyzeStage1aMeterReference/);
+});
