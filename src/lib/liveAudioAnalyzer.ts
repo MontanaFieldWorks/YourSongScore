@@ -2542,3 +2542,96 @@ export function analyzePcmData(
     calculatedSectionBoundaries: sectionBoundaries
   };
 }
+
+
+// Stage 2A experimental engineering evidence. Never consumed by scoring.
+// Window-power normalized, one-sided FFT power in mean-square PCM units.
+// Bin centers are allocated to half-open engineering bands; unassigned
+// DC / out-of-range bins are explicit so energy is never silently discarded.
+export const STAGE2A_BANDS_HZ = [20, 60, 250, 500, 2000, 6000, 11000, 20000] as const;
+export interface Stage2aSpectralPowerResult {
+  method: "stage2a-hann-fft-power-v1";
+  sampleRate: number;
+  fftSize: number;
+  hopSize: number;
+  frames: number;
+  channelCount: number;
+  units: "mean-square-full-scale-pcm";
+  window: "periodic-hann";
+  normalization: "one-sided-parseval-sum-window-squared";
+  bandEdgesHz: number[];
+  channelBandPower: number[][];
+  channelUnassignedPower: number[];
+  channelTotalPower: number[];
+  limitations: string[];
+}
+export function analyzeStage2aSpectralPower(
+  channels: Float32Array[], sampleRate: number,
+): Stage2aSpectralPowerResult {
+  if (!channels.length || channels.length > 2 || !channels[0]?.length ||
+      !channels.every(ch => ch.length === channels[0].length) ||
+      !Number.isFinite(sampleRate) || sampleRate < 8000 || sampleRate > 192000) {
+    throw new RangeError("Stage 2A requires nonempty equal-length mono/stereo PCM and valid sample rate");
+  }
+  const fftSize = 4096, hopSize = 2048;
+  const fft = new FFT(fftSize);
+  const window = Float64Array.from({ length: fftSize }, (_, n) =>
+    0.5 - 0.5 * Math.cos(2 * Math.PI * n / fftSize));
+  const windowPower = window.reduce((s, w) => s + w * w, 0);
+  const count = channels[0].length;
+  const frames = count < fftSize ? 1 : 1 + Math.floor((count - fftSize) / hopSize);
+  const channelBandPower: number[][] = [];
+  const channelUnassignedPower: number[] = [];
+  const channelTotalPower: number[] = [];
+  const nyquist = sampleRate / 2;
+  for (const ch of channels) {
+    const bands = new Array(STAGE2A_BANDS_HZ.length - 1).fill(0);
+    let unassigned = 0, total = 0;
+    const input = fft.createComplexArray();
+    const output = fft.createComplexArray();
+    for (let frame = 0; frame < frames; frame++) {
+      const offset = frame * hopSize;
+      for (let j = 0; j < fftSize; j++) {
+        const value = offset + j < count ? ch[offset + j] : 0;
+        if (!Number.isFinite(value)) throw new RangeError("Stage 2A PCM must be finite");
+        input[2 * j] = value * window[j];
+        input[2 * j + 1] = 0;
+      }
+      fft.transform(output, input);
+      for (let k = 0; k <= fftSize / 2; k++) {
+        const hz = k * sampleRate / fftSize;
+        const factor = k === 0 || k === fftSize / 2 ? 1 : 2;
+        const real = output[2 * k], imag = output[2 * k + 1];
+        const power = factor * (real * real + imag * imag) / (fftSize * windowPower * frames);
+        total += power;
+        let assigned = false;
+        for (let b = 0; b < bands.length; b++) {
+          if (hz >= STAGE2A_BANDS_HZ[b] &&
+              hz < Math.min(STAGE2A_BANDS_HZ[b + 1], nyquist + Number.EPSILON)) {
+            bands[b] += power;
+            assigned = true;
+            break;
+          }
+        }
+        if (!assigned) unassigned += power;
+      }
+    }
+    channelBandPower.push(bands);
+    channelUnassignedPower.push(unassigned);
+    channelTotalPower.push(total);
+  }
+  return {
+    method: "stage2a-hann-fft-power-v1", sampleRate, fftSize, hopSize,
+    frames, channelCount: channels.length, units: "mean-square-full-scale-pcm",
+    window: "periodic-hann", normalization: "one-sided-parseval-sum-window-squared",
+    bandEdgesHz: [...STAGE2A_BANDS_HZ], channelBandPower,
+    channelUnassignedPower, channelTotalPower,
+    limitations: [
+      "Non-scoring diagnostic; not a mastering-quality or masking judgment",
+      "Bin-center allocation; frequency boundary leakage and finite FFT resolution apply",
+      "Power is window-weighted frame mean-square, not whole-programme RMS",
+      "Only complete overlapping frames are used except one zero-padded short frame",
+      "Bands above Nyquist are unavailable; DC and out-of-band energy are unassigned",
+    ],
+  };
+}
