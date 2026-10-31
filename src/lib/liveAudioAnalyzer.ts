@@ -253,7 +253,7 @@ export function analyzeStage1aMeterReference(
     [0.014892578125, 0.0330810546875, 0.029296875, 0.010986328125],
     [-0.00830078125, -0.0189208984375, -0.0291748046875, 0.001708984375],
   ];
-  const polyphase = [1, 2, 3].map(phase => firRows.map(row => row[phase]));
+  const polyphase = [0, 1, 2, 3].map(phase => firRows.map(row => row[phase]));
   const kernelAbsBound = Math.max(...polyphase.map(kernel =>
     kernel.reduce((sum, value) => sum + Math.abs(value), 0)));
   let interpolatedPeak = sampleMax;
