@@ -2014,3 +2014,41 @@ test("Stage 2C1 remains absent from scoring and report routes",async()=>{
   assert.doesNotMatch(app,/assembleStage2c1EngineeringEvidence/);
   assert.doesNotMatch(server,/assembleStage2c1EngineeringEvidence/);
 });
+
+
+test("Stage 2C1 reports brief cancellation separately from sustained coverage",()=>{
+  for(const sr of [44100,48000]){
+    const N=8192,k=Math.round(110*4096/sr);
+    const l=Float32Array.from({length:N},(_,i)=>.2*Math.sin(2*Math.PI*k*i/4096));
+    const r=Float32Array.from(l,(x,i)=>i<4096?-x:x);
+    const summary=assembleStage2c1EngineeringEvidence(
+      analyzeStage2aSpectralPower([l,r],sr),
+      analyzeStage2b1LowFrequency([l,r],sr),
+      analyzeStage2b2Stereo([l,r],sr));
+    assert.deepEqual(summary.bands[1].cancellationFrameIndices,[0]);
+    assert.equal(summary.bands[1].cancellationFrames,1);
+    assert.equal(summary.bands[1].cancellationDenominator,3);
+    assert.equal(summary.bands[1].stereoValidFrames,2);
+    assert.equal(summary.scoringImpact,"NONE");
+  }
+});
+
+test("Stage 2C1 bounded assembly over 60s synthetic precomputed frames",()=>{
+  for(const sr of [44100,48000]){
+    const n=sr*60;
+    const l=new Float32Array(n),r=new Float32Array(n);
+    for(let i=0;i<n;i++){
+      l[i]=.06*Math.sin(2*Math.PI*85*i/sr);
+      r[i]=.04*Math.sin(2*Math.PI*85*i/sr);
+    }
+    const s=analyzeStage2aSpectralPower([l,r],sr);
+    const t=analyzeStage2b1LowFrequency([l,r],sr);
+    const p=analyzeStage2b2Stereo([l,r],sr);
+    const before=performance.now();
+    const summary=assembleStage2c1EngineeringEvidence(s,t,p);
+    const elapsed=performance.now()-before;
+    assert.equal(summary.bands[0].frameCount,t.frames.length);
+    assert.ok(elapsed<1000,"Stage 2C1 assembly exceeded 1 second: "+elapsed.toFixed(1)+" ms");
+    console.log("Stage 2C1 60s "+sr+" assembly: "+elapsed.toFixed(1)+"ms; frames="+t.frames.length);
+  }
+});
