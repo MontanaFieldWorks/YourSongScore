@@ -1333,9 +1333,14 @@ test("Stage 1D freezes independent peak references across 44.1 and 48 kHz synthe
       ? "ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED" : "NON_48KHZ_UNVERIFIED");
     assert.ok(peak >= result.measurements.samplePeakDbfs-0.000001);
   }
-  // FFmpeg and SoXR apply different reconstruction filters. We record
-  // divergences but do NOT make reduced divergence fail a future improvement.
-  assert.ok(Array.isArray(observedFFmpegDisagreements));
+  // Freeze the actual >0.5 dB FFmpeg disagreements, rather than asserting
+  // merely that an array was allocated. This is a diagnostic discrepancy
+  // inventory, NOT an acceptance/certification threshold for either meter.
+  // A deliberate change to the reference meter must re-review this snapshot.
+  assert.deepEqual(observedFFmpegDisagreements, [
+    "48000 hf12", "44100 nearNyquist", "48000 nearNyquist",
+    "44100 initialTransient", "48000 initialTransient",
+  ]);
 });
 
 test("Stage 1D marks start and mid-file isolated-transient LRA unavailable", () => {
@@ -1394,4 +1399,44 @@ test("Stage 1D LRA validity and true-peak evidence remain disconnected from scor
   assert.equal((source.match(/analyzeStage1aMeterReference\(/g)||[]).length,1);
   assert.doesNotMatch(app,/analyzeStage1aMeterReference/);
   assert.doesNotMatch(server,/analyzeStage1aMeterReference/);
+});
+
+
+test("Stage 1D probes 50 ms LRA sparsity decision at both sample rates", () => {
+  for (const sr of [44100, 48000]) {
+    const n = 5 * sr;
+    // Use 1.0 amplitude to make peak-equivalent duration exactly the pulse
+    // duration, apart from integer sample rounding.
+    const probe = (durationSeconds) => {
+      const pcm = new Float32Array(n);
+      pcm.fill(1, sr, sr + Math.round(durationSeconds * sr));
+      return analyzeStage1aMeterReference([pcm, pcm], sr);
+    };
+    const below = probe(0.049);
+    const above = probe(0.051);
+    assert.ok(below.equivalentPeakPowerDurationSeconds < 0.05);
+    assert.ok(above.equivalentPeakPowerDurationSeconds > 0.05);
+    assert.equal(below.lraAvailability, "SPARSE_TRANSIENT");
+    assert.equal(below.measurements.loudnessRangeLu, null);
+    assert.notEqual(above.lraAvailability, "SPARSE_TRANSIENT");
+    // Other gating conditions may still make LRA unavailable above 50 ms.
+    assert.ok(["AVAILABLE", "INSUFFICIENT_GATED_WINDOWS"].includes(above.lraAvailability));
+  }
+});
+
+test("Stage 1D documents quiet programme plus one peak false-sparse counterexample", () => {
+  for (const sr of [44100, 48000]) {
+    const n = 10 * sr;
+    const pcm = new Float32Array(n);
+    for (let i = 0; i < n; i++) pcm[i] = 0.001 * Math.sin(2 * Math.PI * 1000 * i / sr);
+    pcm[0] = 1;
+    const result = analyzeStage1aMeterReference([pcm, pcm], sr);
+    assert.ok(result.equivalentPeakPowerDurationSeconds < 0.05);
+    // KNOWN LIMITATION: the unweighted peak-relative rule mislabels ten
+    // seconds of quieter, otherwise continuous audio when one peak dominates.
+    // Keep this explicit to prevent claiming general-purpose LRA validation.
+    assert.equal(result.lraAvailability, "SPARSE_TRANSIENT");
+    assert.equal(result.measurements.loudnessRangeLu, null);
+    assert.ok(Number.isFinite(result.measurements.integratedLufs));
+  }
 });
