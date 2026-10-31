@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import ExcelJS from "exceljs";
-import { analyzeStage1aMeterReference, analyzeStage2aSpectralPower } from "../src/lib/liveAudioAnalyzer.ts";
+import { analyzeStage1aMeterReference, analyzeStage2aSpectralPower, analyzeStage2b1LowFrequency } from "../src/lib/liveAudioAnalyzer.ts";
 import { appendA2ProvenanceToSourceDiagnostics } from "../src/lib/a2ScoringProvenance.ts";
 import {
   describeLowEndGateFactors,
@@ -1674,5 +1674,132 @@ test("Stage 2A independent analytic per-band spectral power reference", () => {
       assert.ok(Math.abs(measured.channelUnassignedPower[0]-expectedUnassigned)<2e-8);
       assert.ok(Math.abs(measured.channelTotalPower[0]-amp*amp/2)<2e-8);
     }
+  }
+});
+
+
+test("Stage 2B1 calibrated low-band steady PCM references at 44.1/48k",()=>{
+  for(const sr of [44100,48000]){
+    const N=4096,kSub=Math.round(40*N/sr),kBass=Math.round(120*N/sr);
+    const samples=Float32Array.from({length:8192},(_,i)=>
+      .2*Math.sin(2*Math.PI*kSub*i/N)+.3*Math.sin(2*Math.PI*kBass*i/N));
+    const r=analyzeStage2b1LowFrequency([samples],sr);
+    assert.equal(r.frames.length,3);
+    for(const fr of r.frames){
+      assert.ok(Math.abs(fr.channelBandPower[0][0]-.2**2/2)<2e-7);
+      assert.ok(Math.abs(fr.channelBandPower[0][1]-.3**2/2)<2e-7);
+      assert.equal(fr.startSeconds,fr.startSample/sr);
+      assert.equal(fr.centerSeconds,(fr.startSample+2048)/sr);
+    }
+    assert.deepEqual(r.frames[0].channelBandPowerChangeDb,[[null,null]]);
+    for(const fr of r.frames.slice(1)){
+      assert.ok(Math.abs(fr.channelBandPowerChangeDb[0][0])<1e-7);
+      assert.ok(Math.abs(fr.channelBandPowerChangeDb[0][1])<1e-7);
+      assert.deepEqual(fr.transientLikeRise,[[false,false]]);
+    }
+    assert.equal(r.omittedTrailingSampleCount,0);
+  }
+});
+
+test("Stage 2B1 synthetic silence, burst rise and independent stereo channels",()=>{
+  for(const sr of [44100,48000]){
+    const N=4096,k=Math.round(110*N/sr);
+    const quiet=Float32Array.from({length:8192},(_,i)=>
+      i<4096?0.025*Math.sin(2*Math.PI*k*i/N):.25*Math.sin(2*Math.PI*k*i/N));
+    const silent=new Float32Array(8192);
+    const r=analyzeStage2b1LowFrequency([quiet,silent],sr);
+    assert.equal(r.channelCount,2);
+    assert.equal(r.frames.length,3);
+    assert.equal(r.frames[0].channelBandPower[1][1],0);
+    assert.equal(r.frames[0].channelBandPowerChangeDb[0][1],null);
+    assert.equal(r.frames[1].channelBandPowerChangeDb[1][1],null);
+    assert.equal(r.frames[1].transientLikeRise[0][1],true);
+    assert.ok(r.frames[1].channelBandPowerChangeDb[0][1]>6);
+    assert.equal(r.frames[2].transientLikeRise[0][1],false);
+    const z=analyzeStage2b1LowFrequency([silent],sr);
+    assert.ok(z.frames.every(f=>f.channelBandPower[0].every(v=>v===0)));
+    assert.ok(z.frames.every(f=>f.channelBandPowerChangeDb[0].every(v=>v===null)));
+  }
+});
+
+test("Stage 2B1 short input and unmeasured tail expose honest coverage",()=>{
+  for(const sr of [44100,48000]){
+    const x=new Float32Array(777);
+    const short=analyzeStage2b1LowFrequency([x],sr);
+    assert.equal(short.frames.length,1);
+    assert.equal(short.representedSampleCount,777);
+    assert.equal(short.zeroPaddedSampleCount,3319);
+    assert.equal(short.omittedTrailingSampleCount,0);
+    const y=new Float32Array(6244);
+    const before=analyzeStage2b1LowFrequency([y],sr);
+    y.fill(.9,6144);
+    const after=analyzeStage2b1LowFrequency([y],sr);
+    assert.equal(after.omittedTrailingSampleCount,100);
+    assert.deepEqual(after.frames.map(f=>f.channelBandPower),before.frames.map(f=>f.channelBandPower));
+    y[6243]=NaN;
+    assert.throws(()=>analyzeStage2b1LowFrequency([y],sr),RangeError);
+  }
+});
+
+test("Stage 2B1 remains unconnected to production scoring",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  assert.doesNotMatch(app,/analyzeStage2b1LowFrequency/);
+  assert.doesNotMatch(server,/analyzeStage2b1LowFrequency/);
+});
+
+
+test("Stage 2B1 low-energy floor, silence and zero-to-signal transitions",()=>{
+  for(const sr of [44100,48000]){
+    const N=4096,k=Math.round(110*N/sr);
+    const generate=(amp)=>Float32Array.from({length:N+2048},(_,i)=>amp*Math.sin(2*Math.PI*k*i/N));
+    const silent=analyzeStage2b1LowFrequency([generate(0)],sr);
+    assert.equal(silent.frames[1].channelBandPowerChangeDb[0][1],null);
+    const near=analyzeStage2b1LowFrequency([generate(1e-7)],sr);
+    assert.equal(near.frames[1].channelBandPowerChangeDb[0][1],null);
+    const measured=analyzeStage2b1LowFrequency([generate(.1)],sr);
+    assert.equal(measured.minimumValidBandPower,1e-12);
+    assert.ok(Math.abs(measured.frames[1].channelBandPowerChangeDb[0][1])<1e-8);
+    const x=new Float32Array(N+2048);
+    for(let i=N;i<x.length;i++)x[i]=.1*Math.sin(2*Math.PI*k*i/N);
+    const onset=analyzeStage2b1LowFrequency([x],sr);
+    assert.equal(onset.frames[1].channelBandPowerChangeDb[0][1],null);
+    assert.equal(onset.frames[1].transientLikeRise[0][1],null);
+  }
+});
+
+test("Stage 2B1 exploratory 6 dB rise marker brackets threshold",()=>{
+  for(const sr of [44100,48000]){
+    const N=4096,k=Math.round(110*N/sr);
+    // Exponential envelope scales samples one hop apart by exactly
+    // 10^(targetDb/20), preserving Hann-windowed power-ratio expectations.
+    const make=(targetDb)=>Float32Array.from({length:N+2048},(_,i)=>
+      .001*Math.pow(10,(targetDb/20)*(i/2048))*Math.sin(2*Math.PI*k*i/N));
+    const below=analyzeStage2b1LowFrequency([make(5.9)],sr);
+    const above=analyzeStage2b1LowFrequency([make(6.1)],sr);
+    const low=below.frames[1].channelBandPowerChangeDb[0][1];
+    const high=above.frames[1].channelBandPowerChangeDb[0][1];
+    assert.ok(low!==null&&high!==null&&Math.abs(low-5.9)<.001&&Math.abs(high-6.1)<.001&&low<6&&high>6,
+      "actual calibrated frame-power ratio must straddle 6 dB");
+    assert.equal(below.frames[1].transientLikeRise[0][1],false);
+    assert.equal(above.frames[1].transientLikeRise[0][1],true);
+  }
+});
+
+test("Stage 2B1 bounded synthetic 60s stereo performance at both sample rates",()=>{
+  for(const sr of [44100,48000]){
+    const n=sr*60,l=new Float32Array(n),r=new Float32Array(n);
+    for(let i=0;i<n;i++){
+      l[i]=.09*Math.sin(2*Math.PI*73*i/sr);
+      r[i]=.07*Math.sin(2*Math.PI*137*i/sr);
+    }
+    const start=performance.now();
+    const result=analyzeStage2b1LowFrequency([l,r],sr);
+    const elapsed=performance.now()-start;
+    const expected=1+Math.floor((n-4096)/2048);
+    assert.equal(result.frames.length,expected);
+    assert.equal(result.frames[0].channelBandPower.length,2);
+    assert.ok(elapsed<20000,"Stage 2B1 60s stereo "+sr+" exceeded 20s: "+elapsed.toFixed(1)+"ms");
+    console.log("Stage 2B1 60s stereo "+sr+": "+elapsed.toFixed(1)+"ms; frames="+expected+"; FFTs="+expected*2+"; PCM bytes="+(l.byteLength+r.byteLength));
   }
 });

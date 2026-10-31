@@ -2650,3 +2650,104 @@ export function analyzeStage2aSpectralPower(
     ],
   };
 }
+
+
+// Stage 2B1: exploratory low-frequency frame evidence, not instrument
+// identification, source separation, onset classification or a scoring signal.
+// Uses the Stage 2A frequency / window / Parseval convention independently.
+export interface Stage2b1LowFrequencyResult {
+  method: "stage2b1-low-frame-power-v1";
+  sampleRate: number;
+  fftSize: 4096;
+  hopSize: 2048;
+  bandsHz: [number, number, number];
+  units: "mean-square-full-scale-pcm";
+  // Numerical validity floor, not a psychoacoustic audibility threshold.
+  minimumValidBandPower: number;
+  inputSampleCount: number;
+  representedSampleCount: number;
+  omittedTrailingSampleCount: number;
+  zeroPaddedSampleCount: number;
+  channelCount: number;
+  frames: {
+    startSample: number;
+    startSeconds: number;
+    centerSeconds: number;
+    // The final field describes FFT-window weighting, not an instantaneous event.
+    channelBandPower: number[][];
+    // 10log10(current/previous), unavailable for initial, zero or silent frames.
+    channelBandPowerChangeDb: (number | null)[][];
+    transientLikeRise: (boolean | null)[][];
+  }[];
+  limitations: string[];
+}
+export function analyzeStage2b1LowFrequency(
+  channels: Float32Array[], sampleRate: number,
+): Stage2b1LowFrequencyResult {
+  if (channels.length < 1 || channels.length > 2 || !channels[0]?.length ||
+      !channels.every(ch => ch.length === channels[0].length) ||
+      !Number.isFinite(sampleRate) || sampleRate < 8000 || sampleRate > 192000)
+    throw new RangeError("Stage 2B1 requires equal-length mono/stereo nonempty PCM and valid rate");
+  const fftSize = 4096 as const, hopSize = 2048 as const;
+  const count = channels[0].length;
+  const frameCount = count < fftSize ? 1 : 1 + Math.floor((count - fftSize) / hopSize);
+  const representedSampleCount = Math.min(count, (frameCount - 1) * hopSize + fftSize);
+  const omittedTrailingSampleCount = count - representedSampleCount;
+  const zeroPaddedSampleCount = Math.max(0, fftSize - count);
+  // Validate the full buffer, including samples outside the selected frames.
+  for (const ch of channels)
+    for (let i = 0; i < ch.length; i++)
+      if (!Number.isFinite(ch[i])) throw new RangeError("Stage 2B1 requires finite PCM");
+  const fft = new FFT(fftSize);
+  const win = Float64Array.from({length:fftSize},(_,i)=>.5-.5*Math.cos(2*Math.PI*i/fftSize));
+  const w2 = win.reduce((s,v)=>s+v*v,0);
+  const inbuf = fft.createComplexArray(), outbuf = fft.createComplexArray();
+  // -120 dBFS equivalent mean-square: suppress unstable relative ratios
+  // where either frame falls at or below this explicit diagnostic floor.
+  const minimumValidBandPower = 1e-12;
+  const previous: (number[] | null)[] = channels.map(()=>null);
+  const frames: Stage2b1LowFrequencyResult["frames"] = [];
+  for (let f=0; f<frameCount; f++) {
+    const startSample=f*hopSize;
+    const channelBandPower:number[][]=[];
+    const channelBandPowerChangeDb:(number|null)[][]=[];
+    const transientLikeRise:(boolean|null)[][]=[];
+    for (let ch=0;ch<channels.length;ch++){
+      for(let i=0;i<fftSize;i++){
+        inbuf[2*i]=(channels[ch][startSample+i]??0)*win[i];
+        inbuf[2*i+1]=0;
+      }
+      fft.transform(outbuf,inbuf);
+      const powers=[0,0];
+      for(let k=0;k<=fftSize/2;k++){
+        const hz=k*sampleRate/fftSize;
+        const band=hz>=20&&hz<60?0:hz>=60&&hz<250?1:-1;
+        if(band<0)continue;
+        const re=outbuf[2*k],im=outbuf[2*k+1];
+        const sided=k===0||k===fftSize/2?1:2;
+        powers[band]+=sided*(re*re+im*im)/(fftSize*w2);
+      }
+      const prior=previous[ch];
+      const changes=powers.map((p,b)=>prior&&p>minimumValidBandPower&&prior[b]>minimumValidBandPower?10*Math.log10(p/prior[b]):null);
+      // 6 dB is an *illustrative* relative-rise marker; no onset-source claim.
+      channelBandPower.push(powers);
+      channelBandPowerChangeDb.push(changes);
+      transientLikeRise.push(changes.map(x=>x===null?null:x>=6));
+      previous[ch]=powers;
+    }
+    frames.push({startSample,startSeconds:startSample/sampleRate,
+      centerSeconds:(startSample+fftSize/2)/sampleRate,
+      channelBandPower,channelBandPowerChangeDb,transientLikeRise});
+  }
+  return {method:"stage2b1-low-frame-power-v1",sampleRate,fftSize,hopSize,
+    bandsHz:[20,60,250],units:"mean-square-full-scale-pcm",minimumValidBandPower,
+    inputSampleCount:count,representedSampleCount,omittedTrailingSampleCount,
+    zeroPaddedSampleCount,channelCount:channels.length,frames,
+    limitations:[
+      "Diagnostic only: cannot identify kick drums, bass instruments, masking or mix quality",
+      "FFT frame timing and Hann overlap blur short transients; 6 dB relative-rise flag is exploratory",
+      "Band power at or below 1e-12 mean-square PCM is numerically unavailable for relative changes; not an audibility threshold",
+      "Uses complete frames except one zero-padded short frame; omitted tail is reported",
+      "No stereo correlation or source separation; that work is reserved for Stage 2B2",
+    ]};
+}
