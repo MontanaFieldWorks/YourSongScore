@@ -2139,3 +2139,22 @@ test("Stage 2C2A browser hook defaults off and never feeds scoring or report",as
   assert.doesNotMatch(server,/runStage2c2aBrowserDiagnostics/);
   assert.doesNotMatch(app,/overriddenCritique\.engineeringEvidence|formData\.append\("engineeringEvidence"/);
 });
+
+
+test("Stage 2C2A 60s stereo bounded end-to-end diagnostic computation",()=>{
+  for(const sr of [44100,48000]){
+    const n=sr*60,left=new Float32Array(n),right=new Float32Array(n);
+    for(let i=0;i<n;i++){
+      left[i]=.06*Math.sin(2*Math.PI*85*i/sr);
+      right[i]=.04*Math.sin(2*Math.PI*85*i/sr);
+    }
+    const audio={sampleRate:sr,numberOfChannels:2,getChannelData:i=>i===0?left:right};
+    const start=performance.now(),out=runStage2c2aBrowserDiagnostics(audio,true);
+    const elapsed=performance.now()-start;
+    assert.equal(out.status,"AVAILABLE");
+    assert.equal(out.evidence.scoringImpact,"NONE");
+    assert.equal(out.evidence.bands[0].frameCount,1+Math.floor((n-4096)/2048));
+    assert.ok(elapsed<20000,"Stage 2C2A 60s exceeded 20s: "+elapsed.toFixed(1)+"ms");
+    console.log("Stage 2C2A 60s "+sr+": "+elapsed.toFixed(1)+"ms; input PCM bytes="+(left.byteLength+right.byteLength));
+  }
+});
