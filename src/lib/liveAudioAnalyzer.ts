@@ -2851,3 +2851,112 @@ export function analyzeStage2b2Stereo(channels:Float32Array[],sampleRate:number)
       "Low-energy and mono cases are unavailable for normalized stereo measures",
     ]};
 }
+
+
+// Stage 2C1 — pure, deterministic engineering-evidence assembly. NEVER scoring.
+export function assembleStage2c1EngineeringEvidence(
+  spectral: Stage2aSpectralPowerResult,
+  temporal: Stage2b1LowFrequencyResult,
+  stereo: Stage2b2StereoResult,
+) {
+  const same=(a:number,b:number)=>a===b;
+  const count=spectral.inputSampleCount;
+  if(spectral.method!=="stage2a-hann-fft-power-v1"||
+     temporal.method!=="stage2b1-low-frame-power-v1"||
+     stereo.method!=="stage2b2-band-stereo-v1"||
+     !same(spectral.sampleRate,temporal.sampleRate)||
+     !same(spectral.sampleRate,stereo.sampleRate)||
+     !same(count,temporal.inputSampleCount)||!same(count,stereo.inputSampleCount)||
+     spectral.channelCount!==temporal.channelCount||
+     spectral.channelCount!==(stereo.frames[0]?.bands[0]?.status==="MONO_NOT_APPLICABLE"?1:2)||
+     spectral.fftSize!==4096||temporal.fftSize!==4096||stereo.fftSize!==4096||
+     spectral.hopSize!==2048||temporal.hopSize!==2048||stereo.hopSize!==2048||
+     spectral.representedSampleCount!==temporal.representedSampleCount||
+     spectral.representedSampleCount!==stereo.representedSampleCount||
+     spectral.omittedTrailingSampleCount!==temporal.omittedTrailingSampleCount||
+     spectral.omittedTrailingSampleCount!==stereo.omittedTrailingSampleCount||
+     spectral.zeroPaddedSampleCount!==temporal.zeroPaddedSampleCount||
+     spectral.zeroPaddedSampleCount!==stereo.zeroPaddedSampleCount||
+     spectral.frames!==temporal.frames.length||
+     spectral.frames!==stereo.frames.length||
+     temporal.bandsHz.join(",")!=="20,60,250"||
+     stereo.bandsHz.join(",")!=="20,60,250"||
+     spectral.bandEdgesHz.slice(0,3).join(",")!=="20,60,250"||
+     temporal.minimumValidBandPower!==1e-12||
+     stereo.minimumValidBandPower!==1e-12||
+     stereo.completeCancellationRelativePowerTolerance!==1e-12||
+     spectral.units!=="mean-square-full-scale-pcm"||
+     temporal.units!=="mean-square-full-scale-pcm")
+    throw new RangeError("Stage 2C1 incompatible engineering evidence provenance or coverage");
+  const frameCount=temporal.frames.length;
+  for(let i=0;i<frameCount;i++){
+    if(temporal.frames[i].startSample!==i*2048||
+       stereo.frames[i].startSample!==i*2048||
+       temporal.frames[i].channelBandPower.length!==spectral.channelCount||
+       stereo.frames[i].bands.length!==2||
+       Math.abs(temporal.frames[i].centerSeconds-stereo.frames[i].centerSeconds)>1e-10)
+      throw new RangeError("Stage 2C1 inconsistent frame provenance");
+  }
+  const bands=([0,1] as const).map(bandIndex=>{
+    const evidence=temporal.frames.map((frame,i)=>({
+      frameIndex:i,
+      startSample:frame.startSample,
+      temporalPower:frame.channelBandPower.map(ch=>ch[bandIndex]),
+      powerChangesDb:frame.channelBandPowerChangeDb.map(ch=>ch[bandIndex]),
+      rises:frame.transientLikeRise.map(ch=>ch[bandIndex]),
+      stereoStatus:stereo.frames[i].bands[bandIndex].status,
+      correlation:stereo.frames[i].bands[bandIndex].correlation,
+      monoChangeDb:stereo.frames[i].bands[bandIndex].monoChangeDb,
+      asymmetryDb:stereo.frames[i].bands[bandIndex].asymmetryDb,
+    }));
+    const validStereo=evidence.filter(x=>x.stereoStatus==="VALID");
+    const cancellations=evidence.filter(x=>x.stereoStatus==="COMPLETE_CANCELLATION");
+    const riseDenominator=evidence.reduce((n,x)=>n+x.rises.filter(v=>v!==null).length,0);
+    const rises=evidence.reduce((n,x)=>n+x.rises.filter(v=>v===true).length,0);
+    const statusCounts:Record<string,number>={};
+    for(const e of evidence)statusCounts[e.stereoStatus]=(statusCounts[e.stereoStatus]??0)+1;
+    return {
+      bandHz:bandIndex===0?[20,60]:[60,250],
+      spectralChannelPower:spectral.channelBandPower.map(ch=>ch[bandIndex]),
+      frameCount,
+      stereoValidFrames:validStereo.length,
+      stereoValidDenominator:frameCount,
+      cancellationFrames:cancellations.length,
+      cancellationDenominator:frameCount,
+      cancellationFrameIndices:cancellations.map(x=>x.frameIndex),
+      riseCount:rises,
+      riseValidComparisons:riseDenominator,
+      stereoStatusCounts:statusCounts,
+      frameEvidence:evidence,
+      description:"Observed calibrated band-energy, relative power changes and stereo relationships; no quality judgment.",
+      applicability:"Measurements describe a completed mix; arrangement and instrument identity are unknown.",
+    };
+  });
+  return {
+    schemaVersion:"stage2c1-engineering-evidence-v1" as const,
+    scoringImpact:"NONE" as const,
+    sourceProvenance:{
+      methods:[spectral.method,temporal.method,stereo.method],
+      sampleRate:spectral.sampleRate,
+      channelCount:spectral.channelCount,
+      fftSize:4096,
+      hopSize:2048,
+      window:"periodic-hann" as const,
+      spectralNormalization:spectral.normalization,
+      numericBandPowerFloor:1e-12,
+      cancellationRelativePowerTolerance:1e-12,
+      inputSampleCount:count,
+      representedSampleCount:spectral.representedSampleCount,
+      omittedTrailingSampleCount:spectral.omittedTrailingSampleCount,
+      zeroPaddedSampleCount:spectral.zeroPaddedSampleCount,
+    },
+    bands,
+    limitations:[
+      "Not a score, mix-quality judgment, genre classification or instrument/source identification",
+      "Windowed overlapping frames are correlated; event counts are not independent observations",
+      "A cancellation proportion is a frame count over all measured frames, not a duration-weighted estimate",
+      "Thresholds are numerical/illustrative, not auditory or genre-specific quality standards",
+      "Stage 2A aggregate band power and Stage 2B1/B2 per-frame evidence use compatible windows but different aggregation semantics",
+    ],
+  };
+}
