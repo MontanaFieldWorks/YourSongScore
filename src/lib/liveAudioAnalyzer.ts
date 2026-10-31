@@ -2662,6 +2662,8 @@ export interface Stage2b1LowFrequencyResult {
   hopSize: 2048;
   bandsHz: [number, number, number];
   units: "mean-square-full-scale-pcm";
+  // Numerical validity floor, not a psychoacoustic audibility threshold.
+  minimumValidBandPower: number;
   inputSampleCount: number;
   representedSampleCount: number;
   omittedTrailingSampleCount: number;
@@ -2700,6 +2702,9 @@ export function analyzeStage2b1LowFrequency(
   const win = Float64Array.from({length:fftSize},(_,i)=>.5-.5*Math.cos(2*Math.PI*i/fftSize));
   const w2 = win.reduce((s,v)=>s+v*v,0);
   const inbuf = fft.createComplexArray(), outbuf = fft.createComplexArray();
+  // -120 dBFS equivalent mean-square: suppress unstable relative ratios
+  // where either frame falls at or below this explicit diagnostic floor.
+  const minimumValidBandPower = 1e-12;
   const previous: (number[] | null)[] = channels.map(()=>null);
   const frames: Stage2b1LowFrequencyResult["frames"] = [];
   for (let f=0; f<frameCount; f++) {
@@ -2723,7 +2728,7 @@ export function analyzeStage2b1LowFrequency(
         powers[band]+=sided*(re*re+im*im)/(fftSize*w2);
       }
       const prior=previous[ch];
-      const changes=powers.map((p,b)=>prior&&p>0&&prior[b]>0?10*Math.log10(p/prior[b]):null);
+      const changes=powers.map((p,b)=>prior&&p>minimumValidBandPower&&prior[b]>minimumValidBandPower?10*Math.log10(p/prior[b]):null);
       // 6 dB is an *illustrative* relative-rise marker; no onset-source claim.
       channelBandPower.push(powers);
       channelBandPowerChangeDb.push(changes);
@@ -2735,13 +2740,13 @@ export function analyzeStage2b1LowFrequency(
       channelBandPower,channelBandPowerChangeDb,transientLikeRise});
   }
   return {method:"stage2b1-low-frame-power-v1",sampleRate,fftSize,hopSize,
-    bandsHz:[20,60,250],units:"mean-square-full-scale-pcm",
+    bandsHz:[20,60,250],units:"mean-square-full-scale-pcm",minimumValidBandPower,
     inputSampleCount:count,representedSampleCount,omittedTrailingSampleCount,
     zeroPaddedSampleCount,channelCount:channels.length,frames,
     limitations:[
       "Diagnostic only: cannot identify kick drums, bass instruments, masking or mix quality",
       "FFT frame timing and Hann overlap blur short transients; 6 dB relative-rise flag is exploratory",
-      "Zero/insufficient previous power yields null change, not an invented dB value",
+      "Band power at or below 1e-12 mean-square PCM is numerically unavailable for relative changes; not an audibility threshold",
       "Uses complete frames except one zero-padded short frame; omitted tail is reported",
       "No stereo correlation or source separation; that work is reserved for Stage 2B2",
     ]};
