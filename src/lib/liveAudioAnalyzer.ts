@@ -2585,6 +2585,12 @@ export function analyzeStage2aSpectralPower(
   const channelTotalPower: number[] = [];
   const nyquist = sampleRate / 2;
   for (const ch of channels) {
+    // Full PCM validity includes the tail omitted by complete-frame analysis.
+    const coveredThrough = frames === 1 ? Math.min(count, fftSize)
+      : Math.min(count, (frames - 1) * hopSize + fftSize);
+    for (let i = coveredThrough; i < count; i++) {
+      if (!Number.isFinite(ch[i])) throw new RangeError("Stage 2A PCM must be finite");
+    }
     const bands = new Array(STAGE2A_BANDS_HZ.length - 1).fill(0);
     let unassigned = 0, total = 0;
     const input = fft.createComplexArray();
