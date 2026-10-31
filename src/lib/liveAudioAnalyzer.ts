@@ -208,8 +208,11 @@ export function analyzeStage1aMeterReference(
       !Number.isFinite(sampleRate) || sampleRate < 8000 || sampleRate > 192000) {
     throw new RangeError("Stage 1A requires mono/stereo PCM with a supported sample rate");
   }
-  const count = Math.min(...channels.map(channel => channel.length));
-  if (!Number.isFinite(count) || count < 1) throw new RangeError("No PCM samples");
+  const count = channels[0].length;
+  if (!count) throw new RangeError("No PCM samples");
+  if (channels.some(channel => !(channel instanceof Float32Array) || channel.length !== count)) {
+    throw new RangeError("Stage 1A channels must be equally sized Float32Arrays");
+  }
   const db = (amplitude: number): number | null => amplitude > 0 ? 20 * Math.log10(amplitude) : null;
   let sampleMax = 0;
   let sumSq = 0;
@@ -234,35 +237,42 @@ export function analyzeStage1aMeterReference(
   const midCrestFactorDb = samplePeakDbfs !== null && midRmsDbfs !== null
     ? samplePeakDbfs - midRmsDbfs : null;
 
-  // Four-times interpolation with 32-tap Blackman-windowed sinc kernels.
-  // This is a bounded, independent approximation of the intersample peak
-  // suitable for diagnostic comparison; it is not a certified BS.1770 meter.
-  const taps = 32;
-  const half = taps / 2;
-  const kernels: number[][] = [];
-  for (let phase = 1; phase < 4; phase++) {
-    const fraction = phase / 4;
-    const kernel: number[] = [];
-    let norm = 0;
-    for (let tap = 0; tap < taps; tap++) {
-      const distance = tap - (half - 1) - fraction;
-      const sinc = distance === 0 ? 1 : Math.sin(Math.PI * distance) / (Math.PI * distance);
-      const window = 0.42 - 0.5 * Math.cos(2 * Math.PI * tap / (taps - 1))
-        + 0.08 * Math.cos(4 * Math.PI * tap / (taps - 1));
-      const coefficient = sinc * window;
-      norm += coefficient;
-      kernel.push(coefficient);
-    }
-    kernels.push(kernel.map(value => value / norm));
-  }
+  // Four-phase 12-tap FIR from ITU-R BS.1770-5 Annex 2, in floating point.
+  // Avoids the old 96-tap operations per sample; coefficients are static.
+  const firRows = [
+    [0.001708984375, -0.0291748046875, -0.0189208984375, -0.00830078125],
+    [0.010986328125, 0.029296875, 0.0330810546875, 0.014892578125],
+    [-0.0196533203125, -0.0517578125, -0.0582275390625, -0.026611328125],
+    [0.033203125, 0.089111328125, 0.1015625, 0.047607421875],
+    [-0.0594482421875, -0.16650390625, -0.2003173828125, -0.102294921875],
+    [0.1373291015625, 0.465087890625, 0.77978515625, 0.97216796875],
+    [0.97216796875, 0.77978515625, 0.465087890625, 0.1373291015625],
+    [-0.102294921875, -0.2003173828125, -0.16650390625, -0.0594482421875],
+    [0.047607421875, 0.1015625, 0.089111328125, 0.033203125],
+    [-0.026611328125, -0.0582275390625, -0.0517578125, -0.0196533203125],
+    [0.014892578125, 0.0330810546875, 0.029296875, 0.010986328125],
+    [-0.00830078125, -0.0189208984375, -0.0291748046875, 0.001708984375],
+  ];
+  const polyphase = [1, 2, 3].map(phase => firRows.map(row => row[phase]));
+  const kernelAbsBound = Math.max(...polyphase.map(kernel =>
+    kernel.reduce((sum, value) => sum + Math.abs(value), 0)));
   let interpolatedPeak = sampleMax;
+  // Rigorous local envelope bound: a FIR phase cannot exceed the maximum
+  // absolute input in its 12-sample footprint times its kernel L1 norm.
+  // Evaluate negative/last sample indices with zero-padding for edge transients.
   for (const channel of channels) {
-    for (let index = 0; index < count - 1; index++) {
-      for (const kernel of kernels) {
+    for (let index = -6; index < count + 6; index++) {
+      let envelope = 0;
+      for (let tap = 0; tap < 12; tap++) {
+        const at = index + tap - 5;
+        if (at >= 0 && at < count) envelope = Math.max(envelope, Math.abs(channel[at]));
+      }
+      if (envelope * kernelAbsBound <= interpolatedPeak) continue;
+      for (const kernel of polyphase) {
         let estimate = 0;
-        for (let tap = 0; tap < taps; tap++) {
-          const position = index + tap - (half - 1);
-          if (position >= 0 && position < count) estimate += channel[position] * kernel[tap];
+        for (let tap = 0; tap < 12; tap++) {
+          const at = index + tap - 5;
+          if (at >= 0 && at < count) estimate += channel[at] * kernel[tap];
         }
         interpolatedPeak = Math.max(interpolatedPeak, Math.abs(estimate));
       }
@@ -290,33 +300,57 @@ export function analyzeStage1aMeterReference(
   const hpB = [1, -2, 1];
   const hpA = [1, 2 * (kHp * kHp - 1) / hpDen, (1 - kHp / qHp + kHp * kHp) / hpDen];
 
-  const filter = (input: ArrayLike<number>, b: number[], a: number[]): Float64Array => {
-    const output = new Float64Array(count);
+  // Bounded-memory sample-rate-correct K-weighted analysis. Reuse biquad
+  // state and only retain 100ms bucket energies (30-bucket rolling window)
+  // and 400ms/3s power observations, not full-track filtered PCM arrays.
+  const biquad = (b: number[], a: number[]) => {
     let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
-    for (let i = 0; i < count; i++) {
-      const x = input[i];
+    return (x: number) => {
       const y = b[0] * x + b[1] * x1 + b[2] * x2 - a[1] * y1 - a[2] * y2;
-      output[i] = y;
       x2 = x1; x1 = x; y2 = y1; y1 = y;
-    }
-    return output;
+      return y;
+    };
   };
-  const filtered = channels.map(channel => filter(filter(channel, preB, preA), hpB, hpA));
-  const powers = new Float64Array(count + 1);
+  const kFilters = channels.map(() => {
+    const pre = biquad(preB, preA), hp = biquad(hpB, hpA);
+    return (v: number) => hp(pre(v));
+  });
+  const energyRing = new Float64Array(30), countRing = new Uint32Array(30);
+  const momentaryPowers: number[] = [], shortTermPowers: number[] = [];
+  let bucket = 0, bucketEnd = Math.round(sampleRate / 10);
+  let bucketEnergy = 0, bucketSamples = 0;
   for (let i = 0; i < count; i++) {
-    let energy = 0;
-    for (const channel of filtered) energy += channel[i] * channel[i];
-    powers[i + 1] = powers[i] + energy;
-  }
-  const blockPowers = (seconds: number, stepSeconds: number): number[] => {
-    const length = Math.round(sampleRate * seconds);
-    const hop = Math.round(sampleRate * stepSeconds);
-    const result: number[] = [];
-    for (let start = 0; start + length <= count; start += hop) {
-      result.push((powers[start + length] - powers[start]) / length);
+    for (let ch = 0; ch < channels.length; ch++) {
+      const weighted = kFilters[ch](channels[ch][i]);
+      bucketEnergy += weighted * weighted;
     }
-    return result;
-  };
+    bucketSamples++;
+    if (i + 1 !== bucketEnd) continue;
+    const slot = bucket % 30;
+    energyRing[slot] = bucketEnergy;
+    countRing[slot] = bucketSamples;
+    bucket++;
+    if (bucket >= 4) {
+      let power = 0, samples = 0;
+      for (let j = 0; j < 4; j++) {
+        const at = (bucket - 1 - j) % 30;
+        power += energyRing[at]; samples += countRing[at];
+      }
+      momentaryPowers.push(power / samples);
+    }
+    if (bucket >= 30) {
+      let power = 0, samples = 0;
+      for (let j = 0; j < 30; j++) {
+        const at = (bucket - 1 - j) % 30;
+        power += energyRing[at]; samples += countRing[at];
+      }
+      shortTermPowers.push(power / samples);
+    }
+    bucketEnergy = 0; bucketSamples = 0;
+    // This boundary expression remains accurate for fractional 100ms
+    // sample counts, such as a 11025 Hz decoded recording.
+    bucketEnd = Math.round((bucket + 1) * sampleRate / 10);
+  }
   const loudness = (power: number): number =>
     power > 0 ? -0.691 + 10 * Math.log10(power) : -Infinity;
   const mean = (values: number[]): number =>
@@ -327,22 +361,21 @@ export function analyzeStage1aMeterReference(
     const threshold = loudness(mean(aboveAbsolute)) - relative;
     return aboveAbsolute.filter(power => loudness(power) > threshold);
   };
-  const integrated = gated(blockPowers(0.4, 0.1), -70, 10);
+  const integrated = gated(momentaryPowers, -70, 10);
   const integratedLufs = integrated.length ? loudness(mean(integrated)) : null;
 
-  // EBU Tech 3342: 3-second short-term windows (one-second hop);
-  // absolute -70 LUFS and relative -20 LU gating; 10th–95th percentile.
-  const lraPowers = gated(blockPowers(3, 1), -70, 20);
+  // EBU Tech 3342 v4: short-term 3-second measurements at >=10 Hz,
+  // with -70 LUFS absolute gating and -20 LU relative gating.
+  // FFmpeg/libebur128 rounded percentile ranks: round((N-1) * p).
+  // EBU specifies percentile ESTIMATES; this convention is documented rather
+  // than misrepresenting it as a uniquely mandated EBU estimator.
+  const lraPowers = gated(shortTermPowers, -70, 20);
   let loudnessRangeLu: number | null = null;
   if (lraPowers.length >= 2) {
     const sorted = lraPowers.map(loudness).sort((a, b) => a - b);
-    const percentile = (fraction: number): number => {
-      const index = (sorted.length - 1) * fraction;
-      const lo = Math.floor(index);
-      const hi = Math.ceil(index);
-      return sorted[lo] + (sorted[hi] - sorted[lo]) * (index - lo);
-    };
-    loudnessRangeLu = percentile(0.95) - percentile(0.1);
+    loudnessRangeLu =
+      sorted[Math.round((sorted.length - 1) * 0.95)] -
+      sorted[Math.round((sorted.length - 1) * 0.1)];
   }
   const measurements: Stage1aMeterReadings = {
     samplePeakDbfs, truePeakDbtp4x, rmsDbfs, midRmsDbfs,
@@ -362,8 +395,15 @@ export function analyzeStage1aMeterReference(
       const newValue = measurements[newName];
       if (typeof oldValue === "number" && Number.isFinite(oldValue) &&
           typeof newValue === "number" && Number.isFinite(newValue)) {
-        differences[oldName] = newValue - oldValue;
+        if (oldName !== "calculatedRmsDbfs" && oldName !== "calculatedCrestFactorDb") {
+          differences[oldName] = newValue - oldValue;
+        }
       }
+    }
+    // Compare the old mid-channel RMS against the reference mid-channel RMS,
+    // not against full-stereo RMS (a different definition).
+    if (typeof legacy.calculatedRmsDbfs === "number" && midRmsDbfs !== null) {
+      differences.legacyMidRmsVsReferenceMidRms = midRmsDbfs - legacy.calculatedRmsDbfs;
     }
     if (typeof legacy.calculatedTruePeak === "number" && samplePeakDbfs !== null) {
       differences.legacyPeakVsFullSamplePeak = samplePeakDbfs - legacy.calculatedTruePeak;
@@ -376,9 +416,9 @@ export function analyzeStage1aMeterReference(
     method: "stage1a-reference-v1", sampleRate, channelCount: channels.length,
     sampleCount: count, measurements, differences,
     limitations: [
-      "4x windowed-sinc true peak is an offline diagnostic approximation, not a certified meter",
-      "Full-channel RMS crest and stereo mid-signal RMS crest use different definitions",
-      "LRA below two eligible 3-second windows is unknown, not a nominal fallback",
+      "4x BS.1770 Annex 2 polyphase FIR diagnostic is not independently certified at all sample rates",
+      "Full-channel and stereo-mid RMS/crest have different conventions; only like-for-like error deltas are reported",
+      "LRA measured at 10 Hz using rounded percentile rank; less than two gated windows is unavailable",
       "No new score or applicability decision is made by this module",
     ],
   };
