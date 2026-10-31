@@ -1348,11 +1348,19 @@ test("Stage 1D isolated transients use gated-window LRA availability", () => {
     const n=5*sr, initial=new Float32Array(n), middle=new Float32Array(n);
     const impulse=[0,-0.6,0.6,0.6,-0.6,0];
     initial.set(impulse,0); middle.set(impulse,2*sr);
-    for(const samples of [initial,middle]) {
+    for(const [position,samples] of [["start",initial],["middle",middle]]) {
       const before=Float32Array.from(samples);
       const result=analyzeStage1aMeterReference([samples,samples],sr);
-      assert.equal(result.lraAvailability,
-        result.measurements.loudnessRangeLu === null ? "INSUFFICIENT_GATED_WINDOWS" : "AVAILABLE");
+      // The initial impulse supplies only the first complete 3 s
+      // short-term interval; it does not furnish two valid gated windows.
+      // A middle impulse persists through multiple overlapping 3 s windows.
+      if (position === "start") {
+        assert.equal(result.lraAvailability,"INSUFFICIENT_GATED_WINDOWS");
+        assert.equal(result.measurements.loudnessRangeLu,null);
+      } else {
+        assert.equal(result.lraAvailability,"AVAILABLE");
+        assert.ok(Number.isFinite(result.measurements.loudnessRangeLu));
+      }
       assert.ok(result.equivalentPeakPowerDurationSeconds>0 &&
                 result.equivalentPeakPowerDurationSeconds<0.001);
       assert.ok(Number.isFinite(result.measurements.integratedLufs));
@@ -1436,8 +1444,10 @@ test("Stage 1D quiet programme plus one peak does not force LRA suppression", ()
     assert.ok(result.equivalentPeakPowerDurationSeconds < 0.05);
     // An isolated peak may distort the exploratory ratio, but cannot
     // independently change LRA availability from the gated-window result.
-    assert.equal(result.lraAvailability,
-      result.measurements.loudnessRangeLu === null ? "INSUFFICIENT_GATED_WINDOWS" : "AVAILABLE");
+    // A ten-second continuous tone supplies many gated 3 s observations;
+    // a one-sample peak must not erase this window support.
+    assert.equal(result.lraAvailability, "AVAILABLE");
+    assert.ok(Number.isFinite(result.measurements.loudnessRangeLu));
     assert.ok(Number.isFinite(result.measurements.integratedLufs));
   }
 });
