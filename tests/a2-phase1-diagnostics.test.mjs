@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import ExcelJS from "exceljs";
-import { analyzeStage1aMeterReference } from "../src/lib/liveAudioAnalyzer.ts";
+import { analyzeStage1aMeterReference, analyzeStage2aSpectralPower } from "../src/lib/liveAudioAnalyzer.ts";
 import { appendA2ProvenanceToSourceDiagnostics } from "../src/lib/a2ScoringProvenance.ts";
 import {
   describeLowEndGateFactors,
@@ -1449,5 +1449,230 @@ test("Stage 1D quiet programme plus one peak does not force LRA suppression", ()
     assert.equal(result.lraAvailability, "AVAILABLE");
     assert.ok(Number.isFinite(result.measurements.loudnessRangeLu));
     assert.ok(Number.isFinite(result.measurements.integratedLufs));
+  }
+});
+
+
+test("Stage 2A synthetic FFT energy accounting, Parseval and sample-rate parity", () => {
+  for (const sr of [44100, 48000]) {
+    const N=4096, seconds=N/sr;
+    const zeros=new Float32Array(N);
+    const empty=analyzeStage2aSpectralPower([zeros],sr);
+    assert.equal(empty.channelTotalPower[0],0);
+    assert.equal(empty.channelBandPower[0].reduce((x,y)=>x+y,0),0);
+    for (const hz of [1000, 3000, 8000]) {
+      // Exact FFT-bin sine: a periodic Hann has spectral lines at k±1.
+      const k=Math.round(hz*N/sr), exactHz=k*sr/N;
+      const x=Float32Array.from({length:N},(_,i)=>0.4*Math.sin(2*Math.PI*k*i/N));
+      const r=analyzeStage2aSpectralPower([x],sr);
+      const expected=.4*.4/2;
+      assert.ok(Math.abs(r.channelTotalPower[0]-expected)<0.000002,
+        "Hann normalized Parseval "+sr+" "+hz);
+      const idx=r.bandEdgesHz.findIndex((lo,j)=>j<r.bandEdgesHz.length-1&&exactHz>=lo&&exactHz<r.bandEdgesHz[j+1]);
+      assert.ok(idx>=0);
+      assert.ok(r.channelBandPower[0][idx]/r.channelTotalPower[0]>.999,
+        "known sine energy should remain in target band "+sr+" "+hz);
+      const sum=r.channelBandPower[0].reduce((x,y)=>x+y,0)+r.channelUnassignedPower[0];
+      assert.ok(Math.abs(sum-r.channelTotalPower[0])<1e-12);
+    }
+    // Two non-overlapping sine-band components; squared amplitudes add.
+    const k1=Math.round(1000*N/sr),k2=Math.round(4000*N/sr);
+    const x=Float32Array.from({length:N},(_,i)=>
+      0.3*Math.sin(2*Math.PI*k1*i/N)+0.2*Math.sin(2*Math.PI*k2*i/N));
+    const multi=analyzeStage2aSpectralPower([x],sr);
+    assert.ok(Math.abs(multi.channelTotalPower[0]-(.3**2+.2**2)/2)<2e-6);
+    const low=multi.channelBandPower[0][3], high=multi.channelBandPower[0][4];
+    assert.ok(Math.abs(low-.3**2/2)<2e-6);
+    assert.ok(Math.abs(high-.2**2/2)<2e-6);
+    // Channel isolation, including the zero-power right channel.
+    const stereo=analyzeStage2aSpectralPower([x,zeros],sr);
+    assert.ok(Math.abs(stereo.channelTotalPower[0]-multi.channelTotalPower[0])<1e-12);
+    assert.equal(stereo.channelTotalPower[1],0);
+    assert.equal(stereo.channelBandPower[1].reduce((x,y)=>x+y,0),0);
+    assert.equal(stereo.units,"mean-square-full-scale-pcm");
+    assert.equal(stereo.window,"periodic-hann");
+    assert.equal(stereo.normalization,"one-sided-parseval-sum-window-squared");
+    assert.equal(stereo.fftSize,4096);
+    assert.equal(stereo.hopSize,2048);
+    assert.ok(seconds>0);
+  }
+});
+
+test("Stage 2A deterministic white/pink-like noise, boundary and Nyquist accounting", () => {
+  for(const sr of [44100,48000]){
+    const N=4096; let state=123456789;
+    const white=Float32Array.from({length:N},()=>{
+      state=(Math.imul(1664525,state)+1013904223)>>>0;
+      return (state/4294967296-.5)*.4;
+    });
+    const w=analyzeStage2aSpectralPower([white],sr);
+    const expected=.4**2/12;
+    assert.ok(Math.abs(w.channelTotalPower[0]-expected)<.003,
+      "white variance compared with analytically known uniform distribution");
+    // Coarse 500-2000 and 2000-6000 Hz energy scales with bandwidth.
+    const ratio=w.channelBandPower[0][4]/w.channelBandPower[0][3];
+    assert.ok(ratio>1.3&&ratio<4.5,"white noise bandwidth ratio "+ratio);
+    const pinkish=new Float32Array(N);
+    let prev=0;
+    for(let i=0;i<N;i++){prev=0.96*prev+white[i];pinkish[i]=prev;}
+    const p=analyzeStage2aSpectralPower([pinkish],sr);
+    assert.ok(p.channelBandPower[0][3] > p.channelBandPower[0][5],
+      "lowpass pink-like synthetic noise has greater mid energy than high treble");
+    // At the exact boundary, Hann leakage is expected across both neighbors;
+    // the allocation is center-based, conserving all measured FFT energy.
+    const k=Math.round(2000*N/sr);
+    const edge=Float32Array.from({length:N},(_,i)=>.2*Math.sin(2*Math.PI*k*i/N));
+    const b=analyzeStage2aSpectralPower([edge],sr);
+    assert.ok(b.channelBandPower[0][3]>0&&b.channelBandPower[0][4]>0);
+    assert.ok(Math.abs(b.channelBandPower[0].reduce((x,y)=>x+y,0)+b.channelUnassignedPower[0]-b.channelTotalPower[0])<1e-12);
+    // A near-Nyquist sinusoid at 44.1/48k is unassigned above 20 kHz.
+    const near=Float32Array.from({length:N},(_,i)=>.1*Math.cos(2*Math.PI*(N/2-2)*i/N));
+    const n=analyzeStage2aSpectralPower([near],sr);
+    assert.ok(n.channelUnassignedPower[0]>.004);
+  }
+});
+
+test("Stage 2A is diagnostic only, immutable PCM, has no scoring call sites", async () => {
+  const src=await readFile(new URL("../src/lib/liveAudioAnalyzer.ts",import.meta.url),"utf8");
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  assert.doesNotMatch(app,/analyzeStage2aSpectralPower|STAGE2A_BANDS_HZ/);
+  assert.doesNotMatch(server,/analyzeStage2aSpectralPower|STAGE2A_BANDS_HZ/);
+  assert.equal((src.match(/export function analyzeStage2aSpectralPower\(/g)||[]).length,1);
+  const pcm=Float32Array.from({length:2048},(_,i)=>Math.sin(i/17));
+  const previous=Float32Array.from(pcm);
+  const r=analyzeStage2aSpectralPower([pcm],44100);
+  assert.deepEqual(pcm,previous);
+  assert.equal(r.frames,1);
+  assert.throws(()=>analyzeStage2aSpectralPower([new Float32Array(0)],44100),RangeError);
+});
+
+
+test("Stage 2A independently matches time-domain windowed Parseval power", () => {
+  const N=4096, hop=2048;
+  const window=Float64Array.from({length:N},(_,i)=>0.5-0.5*Math.cos(2*Math.PI*i/N));
+  const wsum=window.reduce((a,v)=>a+v*v,0);
+  const expected=(pcm,frames)=> {
+    let power=0;
+    for(let frame=0;frame<frames;frame++)
+      for(let i=0;i<N;i++){
+        const v=pcm[frame*hop+i]??0;
+        power+=(v*window[i])**2/(wsum*frames);
+      }
+    return power;
+  };
+  for(const sr of [44100,48000]){
+    const n=N+2*hop;
+    const pcm=Float32Array.from({length:n},(_,i)=>
+      .21*Math.sin(2*Math.PI*941*i/sr)+.08*Math.cos(2*Math.PI*4271*i/sr));
+    const r=analyzeStage2aSpectralPower([pcm],sr);
+    assert.equal(r.frames,3);
+    assert.ok(Math.abs(r.channelTotalPower[0]-expected(pcm,3))<1e-11);
+    assert.ok(Math.abs(r.channelBandPower[0].reduce((a,b)=>a+b,0)+r.channelUnassignedPower[0]-expected(pcm,3))<1e-11);
+    const short=pcm.slice(0,777);
+    const s=analyzeStage2aSpectralPower([short],sr);
+    assert.equal(s.frames,1);
+    assert.ok(Math.abs(s.channelTotalPower[0]-expected(short,1))<1e-11,
+      "zero-padded short buffer must match independent Hann-weighted time energy");
+    // Last few samples fall outside the last complete frame.
+    const withTail=new Float32Array(N+hop+100);
+    withTail.fill(.1);
+    const tail=analyzeStage2aSpectralPower([withTail],sr);
+    assert.equal(tail.frames,2);
+    const changed=Float32Array.from(withTail);
+    changed.fill(.9,N+hop);
+    const changedResult=analyzeStage2aSpectralPower([changed],sr);
+    assert.ok(Math.abs(changedResult.channelTotalPower[0]-tail.channelTotalPower[0])<1e-12,
+      "document existing omitted-tail behavior without treating as full-programme RMS");
+  }
+});
+
+test("Stage 2A independent boundary-bin and leakage accounting", () => {
+  for(const sr of [44100,48000]){
+    const N=4096;
+    for(const edge of [60,250,500,2000,6000,11000,20000]){
+      const above=Math.ceil(edge*N/sr), below=above-1;
+      if(above>=N/2)continue;
+      for(const k of [below,above]){
+        const hz=k*sr/N;
+        const samples=Float32Array.from({length:N},(_,i)=>.25*Math.sin(2*Math.PI*k*i/N));
+        const r=analyzeStage2aSpectralPower([samples],sr);
+        const target=r.bandEdgesHz.findIndex((lo,j)=>j<7&&lo<=hz&&hz<r.bandEdgesHz[j+1]);
+        const assigned=target>=0?r.channelBandPower[0][target]:r.channelUnassignedPower[0];
+        // Periodic Hann spreads sine energy to k-1,k,k+1 (1/6,4/6,1/6).
+        assert.ok(assigned/r.channelTotalPower[0]>.65,
+          "center bin must dominate its declared half-open band "+sr+" "+edge+" "+k);
+        assert.ok(Math.abs(r.channelBandPower[0].reduce((a,b)=>a+b,0)+r.channelUnassignedPower[0]-r.channelTotalPower[0])<1e-11);
+      }
+    }
+  }
+});
+
+test("Stage 2A deterministic noise references and omitted-tail invalid PCM", () => {
+  const N=4096;
+  const win=Float64Array.from({length:N},(_,i)=>.5-.5*Math.cos(2*Math.PI*i/N));
+  const norm=win.reduce((a,x)=>a+x*x,0);
+  for(const sr of [44100,48000]){
+    let state=0x31415926;
+    const noise=Float32Array.from({length:N},()=>{
+      state=(Math.imul(state,1664525)+1013904223)>>>0;
+      return (state/4294967296-.5)*.4;
+    });
+    const direct=noise.reduce((s,v,i)=>s+(v*win[i])**2,0)/norm;
+    const r=analyzeStage2aSpectralPower([noise],sr);
+    assert.ok(Math.abs(r.channelTotalPower[0]-direct)<1e-11,
+      "deterministic noise must agree with independently computed weighted variance");
+    const bad=new Float32Array(N+200);
+    bad[bad.length-1]=Number.NaN;
+    assert.throws(()=>analyzeStage2aSpectralPower([bad],sr),RangeError,
+      "invalid trailing PCM must not pass validation just because final frame is omitted");
+  }
+});
+
+
+test("Stage 2A coverage reports sample union, omitted tail and zero padding", () => {
+  for(const sr of [44100,48000]){
+    for(const [length,frames,represented,omitted,padded] of [
+      [777,1,777,0,3319],[4096,1,4096,0,0],
+      [6144,2,6144,0,0],[6244,2,6144,100,0],
+      [8192,3,8192,0,0],[8292,3,8192,100,0],
+    ]){
+      const r=analyzeStage2aSpectralPower([new Float32Array(length)],sr);
+      assert.equal(r.inputSampleCount,length);
+      assert.equal(r.frames,frames);
+      assert.equal(r.representedSampleCount,represented);
+      assert.equal(r.omittedTrailingSampleCount,omitted);
+      assert.equal(r.zeroPaddedSampleCount,padded);
+      assert.equal(r.representedSampleCount+r.omittedTrailingSampleCount,length);
+    }
+  }
+});
+
+test("Stage 2A independent analytic per-band spectral power reference", () => {
+  const N=4096,edges=[20,60,250,500,2000,6000,11000,20000],amp=.3;
+  for(const sr of [44100,48000]){
+    const hzPerBin=sr/N;
+    // Exact-bin tone has periodic-Hann bin weights 1/6, 4/6, 1/6
+    // of A²/2. This expected result does not use the implementation FFT.
+    for(let b=0;b<7;b++){
+      const center=(edges[b]+edges[b+1])/2;
+      const k=Math.round(center/hzPerBin);
+      if(k<3||k>N/2-3)continue;
+      const samples=Float32Array.from({length:N},(_,i)=>amp*Math.sin(2*Math.PI*k*i/N));
+      const measured=analyzeStage2aSpectralPower([samples],sr);
+      const expectedBands=new Array(7).fill(0);
+      let expectedUnassigned=0;
+      for(const [bin,weight] of [[k-1,1/6],[k,4/6],[k+1,1/6]]){
+        const freq=bin*hzPerBin, power=(amp*amp/2)*weight;
+        const band=edges.findIndex((lo,j)=>j<7&&freq>=lo&&freq<edges[j+1]);
+        if(band<0)expectedUnassigned+=power;
+        else expectedBands[band]+=power;
+      }
+      for(let j=0;j<7;j++)
+        assert.ok(Math.abs(measured.channelBandPower[0][j]-expectedBands[j])<2e-8,
+          "analytic Hann band "+sr+" target "+b+" measured "+j);
+      assert.ok(Math.abs(measured.channelUnassignedPower[0]-expectedUnassigned)<2e-8);
+      assert.ok(Math.abs(measured.channelTotalPower[0]-amp*amp/2)<2e-8);
+    }
   }
 });
