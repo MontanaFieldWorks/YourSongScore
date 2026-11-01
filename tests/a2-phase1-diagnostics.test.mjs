@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { analyzeEngineeringDiagnosticsInWorker } from "../src/lib/batchAudioWorker.ts";
 import ExcelJS from "exceljs";
-import { analyzeStage1aMeterReference, analyzeStage2aSpectralPower, analyzeStage2b1LowFrequency, analyzeStage2b2Stereo, assembleStage2c1EngineeringEvidence, runStage2c2aBrowserDiagnostics } from "../src/lib/liveAudioAnalyzer.ts";
+import { analyzeStage1aMeterReference, analyzeStage2aSpectralPower, analyzeStage2b1LowFrequency, analyzeStage2b2Stereo, assembleStage2c1EngineeringEvidence, interpretStage2d1EngineeringEvidence, runStage2c2aBrowserDiagnostics } from "../src/lib/liveAudioAnalyzer.ts";
 import { appendA2ProvenanceToSourceDiagnostics } from "../src/lib/a2ScoringProvenance.ts";
 import {
   describeLowEndGateFactors,
@@ -2300,4 +2300,34 @@ test("Auralis 2C2B-1D lifecycle guard is isolated from scoring and A2", async ()
   assert.match(app,/if \(diagnosticGeneration === auralisDiagnosticGenerationRef\.current\) cancelAuralisDiagnostic\(\)/);
   assert.doesNotMatch(app,/await analyzeEngineeringDiagnosticsInWorker/);
   assert.doesNotMatch(app,/formData\.append\("auralis|formData\.append\("engineeringEvidence/);
+});
+
+
+test("Auralis 2D1 synthetic stereo evidence stays descriptive, versioned, and unscored",()=>{
+  const sr=44100,n=8192,left=new Float32Array(n),right=new Float32Array(n);
+  for(let i=0;i<n;i++){left[i]=0.2*Math.sin(2*Math.PI*100*i/sr);right[i]=-left[i]}
+  const channels=[left,right];
+  const spectral=analyzeStage2aSpectralPower(channels,sr);
+  const temporal=analyzeStage2b1LowFrequency(channels,sr);
+  const stereo=analyzeStage2b2Stereo(channels,sr);
+  const evidence=assembleStage2c1EngineeringEvidence(spectral,temporal,stereo);
+  const original=structuredClone(evidence);
+  const result=interpretStage2d1EngineeringEvidence(evidence);
+  assert.equal(result.schemaVersion,"stage2d1-descriptive-observations-v1");
+  assert.equal(result.scoringImpact,"NONE");
+  assert.equal(result.uncertainty.confidence,"NOT_CALIBRATED");
+  assert.equal(result.conditions.length,2);
+  for(const band of result.conditions){
+    assert.equal(band.potentialProductionDefect,"NOT_DETERMINED");
+    assert.equal(band.frameCount,evidence.bands.find(b=>b.bandHz.join(",")===band.bandHz.join(",")).frameCount);
+    for(const key of ["riseEvents","negativeStereoCorrelation","monoAttenuation","completeCancellation"]){
+      const x=band[key];
+      assert.ok(x.numerator>=0&&x.numerator<=x.denominator);
+      assert.equal(x.fraction,x.denominator?x.numerator/x.denominator:null);
+      assert.ok(x.classification!=="QUALITY_DEFECT");
+    }
+  }
+  assert.deepEqual(evidence,original);
+  assert.throws(()=>interpretStage2d1EngineeringEvidence({...evidence,scoringImpact:"ENABLED"}),RangeError);
+  assert.throws(()=>interpretStage2d1EngineeringEvidence({...evidence,bands:[{...evidence.bands[0],cancellationDenominator:999},evidence.bands[1]]}),RangeError);
 });
