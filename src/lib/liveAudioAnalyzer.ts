@@ -3047,3 +3047,87 @@ export function runStage2c2aBrowserDiagnostics(
     return {status:"UNAVAILABLE",reason:"DIAGNOSTIC_COMPUTATION_FAILED"};
   }
 }
+
+
+// Auralis SonicLens Stage 2D-1: descriptive, diagnostic-only interpretation.
+// The thresholds below define observation categories, NOT audibility or mix defects.
+export function interpretStage2d1EngineeringEvidence(
+  evidence: ReturnType<typeof assembleStage2c1EngineeringEvidence>,
+) {
+  if(evidence?.schemaVersion!=="stage2c1-engineering-evidence-v1"||
+     evidence.scoringImpact!=="NONE"||!Array.isArray(evidence.bands)||
+     evidence.bands.length!==2||
+     evidence.bands[0].bandHz.join(",")!=="20,60"||
+     evidence.bands[1].bandHz.join(",")!=="60,250"||
+     !Number.isSafeInteger(evidence.sourceProvenance.inputSampleCount)||
+     evidence.sourceProvenance.inputSampleCount<1)
+    throw new RangeError("Stage 2D1 incompatible engineering evidence");
+  const conditions=evidence.bands.map(band=>{
+    const count=band.frameCount;
+    const frames=band.frameEvidence;
+    if(!Number.isSafeInteger(count)||count<1||frames.length!==count||
+       band.cancellationDenominator!==count||
+       band.stereoValidDenominator!==count||
+       band.stereoValidFrames<0||band.stereoValidFrames>count||
+       band.cancellationFrames<0||band.cancellationFrames>count||
+       band.riseValidComparisons<0||band.riseCount<0||
+       band.riseCount>band.riseValidComparisons)
+      throw new RangeError("Stage 2D1 inconsistent denominators");
+    const validStereo=frames.filter(frame=>frame.stereoStatus==="VALID");
+    const cancellation=frames.filter(frame=>frame.stereoStatus==="COMPLETE_CANCELLATION");
+    const measurableRise=frames.reduce((n,frame)=>n+frame.rises.filter(x=>x!==null).length,0);
+    const actualRise=frames.reduce((n,frame)=>n+frame.rises.filter(x=>x===true).length,0);
+    if(validStereo.length!==band.stereoValidFrames||
+       cancellation.length!==band.cancellationFrames||
+       measurableRise!==band.riseValidComparisons||actualRise!==band.riseCount)
+      throw new RangeError("Stage 2D1 inconsistent source counts");
+    const negative=validStereo.filter(frame=>frame.correlation!==null&&frame.correlation<0);
+    const lowMono=validStereo.filter(frame=>frame.monoChangeDb!==null&&frame.monoChangeDb<=-3);
+    const values=frames.flatMap(frame=>frame.temporalPower).filter(x=>Number.isFinite(x)&&x>1e-12);
+    const maxPower=values.length?Math.max(...values):null;
+    const minPower=values.length?Math.min(...values):null;
+    const powerRangeDb=maxPower!==null&&minPower!==null?
+      10*Math.log10(maxPower/minPower):null;
+    const observation=(name:string,numerator:number,denominator:number)=>({
+      name,
+      status:denominator===0?"UNAVAILABLE" as const:"OBSERVED" as const,
+      numerator,denominator,
+      fraction:denominator?numerator/denominator:null,
+      uncertainty:denominator===0?"NO_VALID_COMPARISONS" as const:
+        "OVERLAPPING_FRAMES_NOT_INDEPENDENT" as const,
+      classification:denominator===0?"INSUFFICIENT_EVIDENCE" as const:
+        numerator===0?"NOT_OBSERVED" as const:
+        numerator/denominator>=0.5?"FREQUENT_IN_MEASURED_FRAMES" as const:
+        "OCCASIONAL_IN_MEASURED_FRAMES" as const,
+    });
+    return {
+      bandHz:[...band.bandHz] as number[],
+      frameCount:count,
+      sourcePower:band.spectralChannelPower,
+      powerRangeDb,
+      riseEvents:observation("LOW_FREQUENCY_POWER_RISE",actualRise,measurableRise),
+      negativeStereoCorrelation:observation("NEGATIVE_STEREO_CORRELATION",negative.length,validStereo.length),
+      monoAttenuation:observation("MONO_FOLDDOWN_AT_LEAST_3_DB",lowMono.length,validStereo.length),
+      completeCancellation:observation("NUMERIC_COMPLETE_CANCELLATION",cancellation.length,count),
+      statusCounts:{...band.stereoStatusCounts},
+      interpretation:"Descriptive measurement pattern only. Instrument identity, arrangement, audibility and artistic intent unknown.",
+      potentialProductionDefect:"NOT_DETERMINED" as const,
+    };
+  });
+  return {
+    schemaVersion:"stage2d1-descriptive-observations-v1" as const,
+    scoringImpact:"NONE" as const,
+    sourceEvidenceSchema:evidence.schemaVersion,
+    sourceProvenance:{...evidence.sourceProvenance},
+    conditions,
+    uncertainty:{
+      confidence:"NOT_CALIBRATED" as const,
+      limitations:[
+        "Overlapping frames are dependent; fractions are descriptive, not statistical probabilities.",
+        "No reference tracks, genre standards, source separation or audibility assessment.",
+        "Numerical thresholds are observation labels, not evidence of mixing errors.",
+        "Unavailable and inapplicable observations are never converted into positive or negative quality scores.",
+      ],
+    },
+  };
+}
