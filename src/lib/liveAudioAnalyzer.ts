@@ -3054,14 +3054,35 @@ export function runStage2c2aBrowserDiagnostics(
 export function interpretStage2d1EngineeringEvidence(
   evidence: ReturnType<typeof assembleStage2c1EngineeringEvidence>,
 ) {
+  const provenance=evidence?.sourceProvenance;
+  // The Stage 2D v2 duration contract must not accept corrupt or inconsistent
+  // provenance, even when interpretation is called outside the 2C1 assembler.
+  // Validate before computing any sample-bounded FFT observation intervals.
   if(evidence?.schemaVersion!=="stage2c1-engineering-evidence-v1"||
      evidence.scoringImpact!=="NONE"||!Array.isArray(evidence.bands)||
      evidence.bands.length!==2||
-     evidence.bands[0].bandHz.join(",")!=="20,60"||
-     evidence.bands[1].bandHz.join(",")!=="60,250"||
-     !Number.isSafeInteger(evidence.sourceProvenance.inputSampleCount)||
-     evidence.sourceProvenance.inputSampleCount<1)
+     evidence.bands[0]?.bandHz?.join(",")!=="20,60"||
+     evidence.bands[1]?.bandHz?.join(",")!=="60,250"||
+     !provenance||
+     !Number.isSafeInteger(provenance.inputSampleCount)||
+     provenance.inputSampleCount<1||
+     !Number.isFinite(provenance.sampleRate)||
+     provenance.sampleRate<8000||provenance.sampleRate>192000||
+     (provenance.channelCount!==1&&provenance.channelCount!==2)||
+     provenance.fftSize!==4096||provenance.hopSize!==2048||
+     !Number.isSafeInteger(provenance.representedSampleCount)||
+     !Number.isSafeInteger(provenance.omittedTrailingSampleCount)||
+     !Number.isSafeInteger(provenance.zeroPaddedSampleCount))
     throw new RangeError("Stage 2D1 incompatible engineering evidence");
+  const frameCount=provenance.inputSampleCount<provenance.fftSize?1:
+    1+Math.floor((provenance.inputSampleCount-provenance.fftSize)/provenance.hopSize);
+  const represented=Math.min(provenance.inputSampleCount,
+    (frameCount-1)*provenance.hopSize+provenance.fftSize);
+  if(provenance.representedSampleCount!==represented||
+     provenance.omittedTrailingSampleCount!==provenance.inputSampleCount-represented||
+     provenance.zeroPaddedSampleCount!==Math.max(0,provenance.fftSize-provenance.inputSampleCount)||
+     evidence.bands.some(band=>band.frameCount!==frameCount))
+    throw new RangeError("Stage 2D1 inconsistent FFT/sample-coverage provenance");
   const conditions=evidence.bands.map(band=>{
     const count=band.frameCount;
     const frames=band.frameEvidence;
