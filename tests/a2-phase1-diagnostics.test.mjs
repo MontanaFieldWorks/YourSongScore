@@ -2507,12 +2507,10 @@ test("Auralis 2D3 temporally separated phase and power conditions are not called
 });
 
 
-// Stage 2D-4A: synthetic boundary/interpretation characterization only.
-// REGRESSION CONTRACT: numerical invariants and Stage 2D3 unavailable/applicability
-// states are normative; Stage 2D2 legacy mislabels and window-duration inflation
-// are provisional known defects, NOT expected future behavior. Explicit TODOs
-// below document the desired later correction without making current CI fail.
-// These regression cases document existing behavior and known limitations.
+// Stage 2D-4A boundary scenarios retained, alongside Stage 2D-4C v2 normative
+// cancellation applicability and sample-bounded FFT-window support tests.
+// Previous TODOs are executable; raw Stage 2C1 measurements remain unchanged.
+// These regression cases characterize numerical measurements and limitations.
 // They do NOT certify acoustic quality, audibility, source identity or defects.
 // No user recordings, model calls, new dependencies or production code changes.
 const auralis2d4aTone=(length,sampleRate,hz,phase=0,amplitude=0.25)=>{
@@ -2713,7 +2711,7 @@ test("Auralis 2D4C normative: cancellation applicability, numerator and denomina
   }
 });
 
-test("Auralis 2D4A short zero-padded anti-phase frame exposes window-duration overstatement",()=>{
+test("Auralis 2D4A short zero-padded anti-phase frame respects sample-bounded FFT window support",()=>{
   const sr=48000,n=1024;
   const left=auralis2d4aTone(n,sr,125);
   const right=Float32Array.from(left,x=>-x);
@@ -2729,9 +2727,8 @@ test("Auralis 2D4A short zero-padded anti-phase frame exposes window-duration ov
   assert.equal(cancellation.matchingFrames,1);
   assert.equal(cancellation.longestRunFrames,1);
   assert.equal(cancellation.evidenceStrength,"INSUFFICIENT");
-  // This field currently describes a full FFT-window span, which can
-  // exceed available recording time. Check finite, bounded output only:
-  // future correction that caps at actual input duration must also pass.
+  // FFT-window support is clipped to the represented audio samples; it does
+  // not include zero padding or claim a measured audible-event duration.
   const recordedSeconds=cancellation.longestRunWindowSupportSeconds;
   const actualAudioSeconds=provenance.inputSampleCount/sr;
   const fftWindowSeconds=provenance.fftSize/sr;
@@ -2767,8 +2764,8 @@ test("Auralis 2D4A one short pulse yields overlapping-window coincidence, not in
   assert.equal(co.contiguousEvents,1);
   assert.ok(co.longestRunFrames>=2);
   assert.equal(co.coincidenceFraction,co.coincidentFrames/co.eligibleFrames);
-  // Current duration is an overlapping-FFT observation span, not the true
-  // 350-sample pulse length; future corrected/capped values must still pass.
+  // The corrected field is sample-bounded FFT window support, not the
+  // 350-sample pulse's audible duration. Overlapping frames stay dependent.
   const windowSpanSeconds=((co.longestRunFrames-1)*evidence.sourceProvenance.hopSize+
     evidence.sourceProvenance.fftSize)/sr;
   assert.ok(Number.isFinite(co.longestRunWindowSupportSeconds));
@@ -2820,10 +2817,27 @@ test("Auralis 2D4C normative: sample-bounded support and unknown audible-event d
           }
         }
         const cancellation=condition.evidenceStrength.completeCancellation;
-        assert.equal(cancellation.longestRunFrames,expectedFrames);
-        assert.equal(cancellation.longestRunWindowSupportStartSample,0);
-        assert.equal(cancellation.longestRunWindowSupportEndSample,represented);
-        assert.ok(Math.abs(cancellation.longestRunWindowSupportSeconds-represented/sr)<1e-10);
+        // The 125 Hz anti-phase tone targets 60–250 Hz. In the unrelated
+        // 20–60 Hz band, Hann leakage may or may not cross the energy floor.
+        if(condition.bandHz.join(",")==="60,250"){
+          assert.equal(cancellation.longestRunFrames,expectedFrames);
+          assert.equal(cancellation.longestRunWindowSupportStartSample,0);
+          assert.equal(cancellation.longestRunWindowSupportEndSample,represented);
+          assert.ok(Math.abs(cancellation.longestRunWindowSupportSeconds-represented/sr)<1e-10);
+        }else{
+          assert.ok(cancellation.longestRunFrames>=0&&cancellation.longestRunFrames<=expectedFrames);
+          if(cancellation.longestRunFrames===0){
+            assert.equal(cancellation.longestRunWindowSupportStartSample,null);
+            assert.equal(cancellation.longestRunWindowSupportEndSample,null);
+            assert.equal(cancellation.longestRunWindowSupportSeconds,0);
+          }else{
+            const start=cancellation.longestRunWindowSupportStartSample;
+            const end=cancellation.longestRunWindowSupportEndSample;
+            assert.ok(Number.isSafeInteger(start)&&start>=0);
+            assert.ok(Number.isSafeInteger(end)&&end<=represented&&end>start);
+            assert.ok(Math.abs(cancellation.longestRunWindowSupportSeconds-(end-start)/sr)<1e-10);
+          }
+        }
       }
       for(const band of d3.bands){
         const co=band.temporalCoincidence;
@@ -2855,5 +2869,51 @@ test("Auralis 2D4C normative: sample-bounded support and unknown audible-event d
     assert.ok(Math.abs(co.longestRunWindowSupportSeconds-(end-start)/sr)<1e-10);
     assert.ok(co.longestRunWindowSupportSeconds>pulseSamples/sr,
       "FFT support may exceed pulse time but must never be labeled audible-event duration");
+  }
+});
+
+
+// Stage 2D v2 must reject malformed provenance before dividing samples by
+// sample rate or constructing FFT support intervals. Use independent copies of
+// fully valid Stage 2C1 output; never mutate that canonical evidence.
+test("Auralis 2D4C rejects malformed sample-rate, FFT and sample-coverage provenance",()=>{
+  for(const sr of [44100,48000]){
+    const n=8192,tone=auralis2d4aTone(n,sr,125);
+    const valid=auralis2d3Synthetic([tone,Float32Array.from(tone,x=>-x)],sr);
+    assert.equal(valid.sourceProvenance.inputSampleCount,n);
+    assert.doesNotThrow(()=>interpretStage2d1EngineeringEvidence(valid));
+    assert.doesNotThrow(()=>interpretStage2d3CrossMeasurementEvidence(valid));
+    const cases=[
+      ["missing provenance",e=>{e.sourceProvenance=null;}],
+      ["sampleRate zero",e=>{e.sourceProvenance.sampleRate=0;}],
+      ["sampleRate NaN",e=>{e.sourceProvenance.sampleRate=NaN;}],
+      ["sampleRate infinity",e=>{e.sourceProvenance.sampleRate=Infinity;}],
+      ["sampleRate below range",e=>{e.sourceProvenance.sampleRate=7999;}],
+      ["sampleRate above range",e=>{e.sourceProvenance.sampleRate=192001;}],
+      ["channelCount invalid",e=>{e.sourceProvenance.channelCount=3;}],
+      ["fftSize zero",e=>{e.sourceProvenance.fftSize=0;}],
+      ["fftSize wrong",e=>{e.sourceProvenance.fftSize=2048;}],
+      ["hopSize zero",e=>{e.sourceProvenance.hopSize=0;}],
+      ["hopSize wrong",e=>{e.sourceProvenance.hopSize=1024;}],
+      ["input sample count zero",e=>{e.sourceProvenance.inputSampleCount=0;}],
+      ["input sample count incompatible",e=>{e.sourceProvenance.inputSampleCount=n+1;}],
+      ["represented samples zero",e=>{e.sourceProvenance.representedSampleCount=0;}],
+      ["represented samples NaN",e=>{e.sourceProvenance.representedSampleCount=NaN;}],
+      ["represented samples exceeds input",e=>{e.sourceProvenance.representedSampleCount=n+1;}],
+      ["represented samples less than source windows",e=>{e.sourceProvenance.representedSampleCount=n-1;}],
+      ["omitted sample count mismatch",e=>{e.sourceProvenance.omittedTrailingSampleCount=1;}],
+      ["zero padded sample count mismatch",e=>{e.sourceProvenance.zeroPaddedSampleCount=1;}],
+      ["frameCount inconsistent with provenance",e=>{
+        const band=e.bands[1];band.frameCount=band.frameCount-1;
+      }],
+    ];
+    for(const [label,mutate] of cases){
+      const bad=structuredClone(valid);
+      mutate(bad);
+      assert.throws(()=>interpretStage2d1EngineeringEvidence(bad),RangeError,label+" Stage 2D2");
+      assert.throws(()=>interpretStage2d3CrossMeasurementEvidence(bad),RangeError,label+" Stage 2D3");
+    }
+    assert.doesNotThrow(()=>interpretStage2d1EngineeringEvidence(valid));
+    assert.doesNotThrow(()=>interpretStage2d3CrossMeasurementEvidence(valid));
   }
 });
