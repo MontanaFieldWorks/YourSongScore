@@ -3183,3 +3183,122 @@ export function interpretStage2d1EngineeringEvidence(
     },
   };
 }
+
+
+// Auralis SonicLens Stage 2D-3 — diagnostic-only cross-measurement context.
+// Correlation, fold-down power and cancellation all derive from the SAME band
+// cross-spectrum, so their coincidence is NOT independent corroboration.
+export function interpretStage2d3CrossMeasurementEvidence(
+  evidence: ReturnType<typeof assembleStage2c1EngineeringEvidence>,
+) {
+  // Reuse the preceding version's provenance, count and availability checks.
+  const prior=interpretStage2d1EngineeringEvidence(evidence);
+  const bands=evidence.bands.map((band,index)=>{
+    const frames=band.frameEvidence;
+    const frameCount=band.frameCount;
+    if(frames.length!==frameCount)throw new RangeError("Stage 2D3 frame count mismatch");
+    let validStereo=0,measurableStereo=0,cancellations=0;
+    let negative=0,attenuated=0,negativeAndAttenuated=0;
+    let powerRiseEligible=0,powerRises=0,jointEligible=0,coincident=0;
+    let contiguous=0,longest=0,events=0;
+    for(let i=0;i<frameCount;i++){
+      const frame=frames[i];
+      if(frame.frameIndex!==i||frame.startSample!==i*evidence.sourceProvenance.hopSize)
+        throw new RangeError("Stage 2D3 frame alignment mismatch");
+      const isValid=frame.stereoStatus==="VALID";
+      const isCancellation=frame.stereoStatus==="COMPLETE_CANCELLATION";
+      const isStereoMeasurable=isValid||isCancellation;
+      // A fully cancelled frame has null monoChangeDb by contract: preserve it
+      // as a separate measured status, not missing or zero attenuation.
+      if(isValid&&(!Number.isFinite(frame.correlation)||
+        !Number.isFinite(frame.monoChangeDb)))
+        throw new RangeError("Stage 2D3 invalid available stereo measurement");
+      const isNegative=isValid&&frame.correlation!==null&&frame.correlation<0;
+      const isAttenuated=isValid&&frame.monoChangeDb!==null&&frame.monoChangeDb<=-3;
+      const hasRiseComparison=frame.rises.some(x=>x!==null);
+      const hasRise=frame.rises.some(x=>x===true);
+      if(isValid)validStereo++;
+      if(isStereoMeasurable)measurableStereo++;
+      if(isCancellation)cancellations++;
+      if(isNegative)negative++;
+      if(isAttenuated)attenuated++;
+      if(isNegative&&isAttenuated)negativeAndAttenuated++;
+      if(hasRiseComparison)powerRiseEligible++;
+      if(hasRise)powerRises++;
+      if(isStereoMeasurable&&hasRiseComparison)jointEligible++;
+      const sameFrame=isStereoMeasurable&&hasRiseComparison&&hasRise&&
+        (isNegative||isAttenuated||isCancellation);
+      if(sameFrame){
+        coincident++;contiguous++;
+        if(contiguous===1)events++;
+        longest=Math.max(longest,contiguous);
+      }else contiguous=0;
+    }
+    if(validStereo!==band.stereoValidFrames||
+       cancellations!==band.cancellationFrames)
+      throw new RangeError("Stage 2D3 inconsistent validated stereo counts");
+    const ratio=(n:number,d:number)=>d===0?null:n/d;
+    const mono=evidence.sourceProvenance.channelCount===1;
+    return {
+      bandHz:[...band.bandHz],
+      frameCount,
+      measurementFamilies:{
+        stereo:{
+          family:"ONE_DEPENDENT_STEREO_MEASUREMENT_FAMILY" as const,
+          dependency:"Mono fold-down, correlation and complete cancellation derive from the same L/R band powers and cross-spectrum.",
+          eligibleFrames:measurableStereo,
+          validNormalizedFrames:validStereo,
+          excludedFrames:frameCount-measurableStereo,
+          negativeCorrelationFrames:negative,
+          atLeast3DbMonoAttenuationFrames:attenuated,
+          negativeAndAttenuatedFrames:negativeAndAttenuated,
+          completeCancellationFrames:cancellations,
+          completeCancellationFraction:ratio(cancellations,measurableStereo),
+          correlatedAndAttenuatedFraction:ratio(negativeAndAttenuated,validStereo),
+          status:mono?"NOT_APPLICABLE_MONO" as const:
+            measurableStereo===0?"UNAVAILABLE_NO_MEASURABLE_STEREO" as const:
+            "AVAILABLE" as const,
+          independentCorroborations:0 as const,
+        },
+        lowFrequencyPower:{
+          family:"TEMPORAL_BAND_POWER_CHANGE" as const,
+          eligibleFrames:powerRiseEligible,
+          riseFrames:powerRises,
+          riseFraction:ratio(powerRises,powerRiseEligible),
+          status:powerRiseEligible===0?"UNAVAILABLE_NO_VALID_COMPARISONS" as const:"AVAILABLE" as const,
+        },
+      },
+      temporalCoincidence:{
+        status:mono?"NOT_APPLICABLE_MONO" as const:
+          measurableStereo===0?"UNAVAILABLE_NO_MEASURABLE_STEREO" as const:
+          jointEligible===0?"UNAVAILABLE_NO_VALID_JOINT_FRAMES" as const:
+          "AVAILABLE" as const,
+        eligibleFrames:jointEligible,
+        coincidentFrames:coincident,
+        coincidenceFraction:ratio(coincident,jointEligible),
+        contiguousEvents:events,
+        longestRunFrames:longest,
+        approximateLongestRunSeconds:longest?
+          ((longest-1)*evidence.sourceProvenance.hopSize+evidence.sourceProvenance.fftSize)/
+          evidence.sourceProvenance.sampleRate:0,
+        interpretation:"Same-frame coincidence between a measurable power rise and a stereo-family condition; not proof of causation, independent corroboration or a mixing defect.",
+      },
+      evidenceStrengthFromStage2d2:prior.conditions[index].evidenceStrength,
+      potentialProductionDefect:"NOT_DETERMINED" as const,
+    };
+  });
+  return {
+    schemaVersion:"stage2d3-dependent-corroboration-v1" as const,
+    scoringImpact:"NONE" as const,
+    sourceEvidenceSchema:evidence.schemaVersion,
+    sourceProvenance:{...evidence.sourceProvenance},
+    bands,
+    limitations:[
+      "Stereo correlation, mono attenuation and cancellation are mathematically coupled, not independent confirmations.",
+      "Uncorrelated equal-power channels produce roughly -3.01 dB mono attenuation without negative correlation.",
+      "Complete cancellation has a separate valid numeric status and null fold-down dB; silence and mono are not evidence of absence.",
+      "Power rise and stereo coincidence uses the same overlapping frames; it does not establish causality, perceptual importance or a production defect.",
+      "No quality score, instrument identification, genre expectation, confidence probability or effect on production reports.",
+    ],
+  };
+}
