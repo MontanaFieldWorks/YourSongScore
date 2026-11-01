@@ -2502,6 +2502,10 @@ test("Auralis 2D3 temporally separated phase and power conditions are not called
 
 
 // Stage 2D-4A: synthetic boundary/interpretation characterization only.
+// REGRESSION CONTRACT: numerical invariants and Stage 2D3 unavailable/applicability
+// states are normative; Stage 2D2 legacy mislabels and window-duration inflation
+// are provisional known defects, NOT expected future behavior. Explicit TODOs
+// below document the desired later correction without making current CI fail.
 // These regression cases document existing behavior and known limitations.
 // They do NOT certify acoustic quality, audibility, source identity or defects.
 // No user recordings, model calls, new dependencies or production code changes.
@@ -2519,6 +2523,9 @@ const auralis2d4aBandShare=(sampleRate,hz,phase,lowBandIndex)=>{
   assert.equal(spectral.hopSize,2048);
   assert.equal(spectral.window,"periodic-hann");
   const p=spectral.channelBandPower[0];
+  // Adjacent-band share only: numerator is the selected lower band's power;
+// denominator is that band PLUS its immediate upper neighbor (not total PCM
+// power, not the sum of all spectral bands, and not the whole-song spectrum).
   const pair=p[lowBandIndex]+p[lowBandIndex+1];
   assert.ok(pair>0);
   assert.ok(Math.abs(spectral.channelTotalPower[0]-
@@ -2526,7 +2533,7 @@ const auralis2d4aBandShare=(sampleRate,hz,phase,lowBandIndex)=>{
   return p[lowBandIndex]/pair;
 };
 
-test("Auralis 2D4A exact 60 Hz Hann-bin boundary is sample-rate sensitive, not a mix defect",()=>{
+test("Auralis 2D4A exact 60 Hz Hann-window band boundary is sample-rate sensitive, not a mix defect",()=>{
   const shares={};
   for(const sr of [44100,48000]){
     shares[sr]=[0,Math.PI/4,Math.PI/2].map(phase=>
@@ -2599,11 +2606,15 @@ test("Auralis 2D4A silence, mono and true cancellation retain distinct numerator
     const stage2d3=interpretStage2d3CrossMeasurementEvidence(evidence).bands[1];
     const stereo=stage2d3.measurementFamilies.stereo;
     assert.equal(stereo.status,scenario.status,scenario.name);
-    assert.equal(stage2d2.completeCancellation.denominator,evidence.bands[1].frameCount);
+    // Stage 2D3's explicit availability and null-denominator semantics below
+    // are normative. Stage 2D2 currently counts EVERY frame (even silence or
+    // mono) as eligible for the separate cancellation observation; this is
+    // provisional behavior and must not become a permanent expectation.
     assert.equal(stereo.independentCorroborations,0);
     assert.equal(stage2d3.potentialProductionDefect,"NOT_DETERMINED");
     assert.equal(stage2d3.temporalCoincidence.coincidentFrames,0);
     if(scenario.name==="anti-phase"){
+      assert.equal(stage2d2.completeCancellation.denominator,evidence.bands[1].frameCount);
       assert.equal(stereo.eligibleFrames,stereo.completeCancellationFrames);
       assert.equal(stereo.eligibleFrames,evidence.bands[1].frameCount);
       assert.equal(stereo.validNormalizedFrames,0);
@@ -2615,13 +2626,25 @@ test("Auralis 2D4A silence, mono and true cancellation retain distinct numerator
       assert.equal(stereo.completeCancellationFraction,null);
       assert.equal(stereo.correlatedAndAttenuatedFraction,null);
       assert.equal(stage2d2.completeCancellation.numerator,0);
-      // Known cross-version mismatch: Stage 2D2 labels zero cancellations
-      // NOT_OBSERVED even when Stage 2D3 correctly says unavailable/mono.
-      assert.equal(stage2d2.evidenceStrength.completeCancellation.evidenceStrength,"NOT_OBSERVED");
-      assert.equal(stage2d2.evidenceStrength.completeCancellation.validFrames,evidence.bands[1].frameCount);
+      // PROVISIONAL legacy characterization, not a normative regression.
+      // Today Stage 2D2 returns NOT_OBSERVED and treats all frames as valid
+      // for silence/mono; future INSUFFICIENT or NOT_APPLICABLE must pass.
+      const legacy=stage2d2.evidenceStrength.completeCancellation;
+      assert.equal(legacy.matchingFrames,0);
+      assert.ok(["NOT_OBSERVED","INSUFFICIENT","UNAVAILABLE","NOT_APPLICABLE"]
+        .includes(legacy.evidenceStrength));
+      assert.ok(Number.isSafeInteger(legacy.validFrames)&&
+        legacy.validFrames>=0&&legacy.validFrames<=evidence.bands[1].frameCount);
+      assert.ok(stage2d2.completeCancellation.denominator===0||
+        stage2d2.completeCancellation.denominator===evidence.bands[1].frameCount);
     }
   }
 });
+
+// PENDING NORMATIVE CONTRACT (not executed until Stage 2D2 is corrected):
+// silence -> cancellation evidence UNAVAILABLE; mono -> NOT_APPLICABLE;
+// neither case may be presented as an observed negative finding.
+test.todo("Auralis 2D4A normative: Stage 2D2 silent/mono cancellation availability is correctly classified");
 
 test("Auralis 2D4A short zero-padded anti-phase frame exposes window-duration overstatement",()=>{
   const sr=48000,n=1024;
@@ -2639,9 +2662,17 @@ test("Auralis 2D4A short zero-padded anti-phase frame exposes window-duration ov
   assert.equal(cancellation.matchingFrames,1);
   assert.equal(cancellation.longestRunFrames,1);
   assert.equal(cancellation.evidenceStrength,"INSUFFICIENT");
-  assert.ok(Math.abs(cancellation.longestRunApproxSeconds-4096/sr)<1e-9);
-  // Characterization, NOT acceptance: frame-window time exceeds real audio.
-  assert.ok(cancellation.longestRunApproxSeconds>n/sr*3);
+  // This field currently describes a full FFT-window span, which can
+  // exceed available recording time. Check finite, bounded output only:
+  // future correction that caps at actual input duration must also pass.
+  const recordedSeconds=cancellation.longestRunApproxSeconds;
+  const actualAudioSeconds=provenance.inputSampleCount/sr;
+  const fftWindowSeconds=provenance.fftSize/sr;
+  assert.ok(actualAudioSeconds<fftWindowSeconds);
+  assert.ok(Number.isFinite(recordedSeconds)&&recordedSeconds>=0);
+  assert.ok(recordedSeconds<=fftWindowSeconds+1e-9);
+  // KNOWN DEFECT: current recordedSeconds may exceed actualAudioSeconds.
+  // Do not assert that erroneous excess as a contract.
   const stage2d3=interpretStage2d3CrossMeasurementEvidence(evidence).bands[1];
   assert.equal(stage2d3.measurementFamilies.stereo.completeCancellationFraction,1);
   assert.equal(stage2d3.temporalCoincidence.eligibleFrames,0);
@@ -2668,9 +2699,21 @@ test("Auralis 2D4A one short pulse yields overlapping-window coincidence, not in
   assert.equal(co.contiguousEvents,1);
   assert.ok(co.longestRunFrames>=2);
   assert.equal(co.coincidenceFraction,co.coincidentFrames/co.eligibleFrames);
-  assert.ok(co.approximateLongestRunSeconds>pulseSamples/sr*10);
+  // Current duration is an overlapping-FFT observation span, not the true
+  // 350-sample pulse length; future corrected/capped values must still pass.
+  const windowSpanSeconds=((co.longestRunFrames-1)*evidence.sourceProvenance.hopSize+
+    evidence.sourceProvenance.fftSize)/sr;
+  assert.ok(Number.isFinite(co.approximateLongestRunSeconds));
+  assert.ok(co.approximateLongestRunSeconds>=0);
+  assert.ok(co.approximateLongestRunSeconds<=windowSpanSeconds+1e-9);
   assert.equal(band.measurementFamilies.stereo.independentCorroborations,0);
   assert.equal(band.potentialProductionDefect,"NOT_DETERMINED");
   assert.equal(result.scoringImpact,"NONE");
   assert.deepEqual(evidence,before);
 });
+
+// PENDING NORMATIVE CONTRACT (not executed until interpretation is corrected):
+// distinguish FFT observation-window span from real content duration, clamp
+// any claimed measured audio-duration to represented samples, and do not
+// misrepresent correlated overlap frames as the duration of an audible event.
+test.todo("Auralis 2D4A normative: zero-padded and overlapping-window duration fields honor real audio coverage");
