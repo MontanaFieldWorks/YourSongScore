@@ -2,11 +2,11 @@ import React, { useState, useEffect } from "react";
 import jsmediatags from "jsmediatags";
 import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile, InternalBatchResult } from "./types";
-import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey, runStage2c2aBrowserDiagnostics } from "./lib/liveAudioAnalyzer";
+import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
 
 // Disabled by default: internal opt-in diagnostic computation only, no report/scoring data.
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
-import { analyzeAudioBufferInWorker } from "./lib/batchAudioWorker";
+import { analyzeAudioBufferInWorker, analyzeEngineeringDiagnosticsInWorker } from "./lib/batchAudioWorker";
 import { computeMixBalanceScore, isMudDiagnosticCritique, markMudPreventionDiagnosticOnly } from "./lib/mudPreventionDiagnostic";
 import { captureA2BeforeClient, captureA2AfterClient, captureA2BrowserUnavailable } from "./lib/a2ScoringProvenance";
 
@@ -1335,9 +1335,11 @@ export default function App() {
       const audioBuffer = await decodeAudioFile(selectedFile);
       preAnalysisLiveMetrics = analyzeAudioBuffer(audioBuffer);
       if (STAGE2C2A_DIAGNOSTICS_ENABLED) {
-        // Deliberately discard evidence; this must not modify scoring inputs or requests.
-        const diagnostic = runStage2c2aBrowserDiagnostics(audioBuffer, true);
-        console.info("[Stage2C2A] Optional engineering diagnostics:", diagnostic.status);
+        // Internal-only and disabled by default. Do not delay key detection, scoring or Gemini.
+        // The worker owns transferred copies; discard the result and never persist evidence.
+        void analyzeEngineeringDiagnosticsInWorker(audioBuffer)
+          .then(diagnostic => console.info("[Stage2C2B] Optional engineering diagnostic status:", diagnostic.status))
+          .catch(() => console.warn("[Stage2C2B] Diagnostic worker unavailable"));
       }
       await applyRealKeyDetection(audioBuffer, preAnalysisLiveMetrics, a2PilotEnabled);
       if (preAnalysisLiveMetrics?.calculatedKey) {
