@@ -2480,3 +2480,22 @@ test("Auralis 2D3 coincident power rise is descriptive and validates frame align
     interpretStage2d3CrossMeasurementEvidence(malformed);
   },RangeError);
 });
+
+
+test("Auralis 2D3 temporally separated phase and power conditions are not called coincident",()=>{
+  const sr=48000,n=65536,left=new Float32Array(n),right=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    const amp=i<3*n/4?0.05:0.3;
+    left[i]=amp*Math.sin(2*Math.PI*100*i/sr);
+    right[i]=i<n/4?-left[i]:left[i];
+  }
+  const obs=interpretStage2d3CrossMeasurementEvidence(auralis2d3Synthetic([left,right],sr));
+  const band=obs.bands[1];
+  assert.ok(band.measurementFamilies.stereo.completeCancellationFrames>0);
+  assert.ok(band.measurementFamilies.lowFrequencyPower.riseFrames>0);
+  assert.ok(band.temporalCoincidence.eligibleFrames>0);
+  assert.equal(band.temporalCoincidence.coincidentFrames,0);
+  assert.equal(band.temporalCoincidence.coincidenceFraction,0);
+  assert.equal(band.measurementFamilies.stereo.independentCorroborations,0);
+  assert.equal(band.potentialProductionDefect,"NOT_DETERMINED");
+});
