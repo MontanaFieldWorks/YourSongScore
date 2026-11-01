@@ -2158,3 +2158,42 @@ test("Stage 2C2A 60s stereo bounded end-to-end diagnostic computation",()=>{
     console.log("Stage 2C2A 60s "+sr+": "+elapsed.toFixed(1)+"ms; input PCM bytes="+(left.byteLength+right.byteLength));
   }
 });
+
+
+test("Stage 2C2B worker protocol retains legacy batch analysis and transfers copied PCM",async()=>{
+  const worker=await readFile(new URL("../src/workers/audioAnalysisWorker.ts",import.meta.url),"utf8");
+  const bridge=await readFile(new URL("../src/lib/batchAudioWorker.ts",import.meta.url),"utf8");
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  assert.match(worker,/kind === "ENGINEERING_DIAGNOSTICS"/);
+  assert.match(worker,/runStage2c2aBrowserDiagnostics/);
+  assert.match(worker,/const metrics = analyzePcmData\(/);
+  assert.match(worker,/postMessage\(\{ ok: true, metrics \}\)/);
+  assert.match(bridge,/new Float32Array\(audioBuffer.getChannelData\(0\)\)/);
+  assert.match(bridge,/kind:"ENGINEERING_DIAGNOSTICS"/);
+  assert.match(bridge,/worker\?\.terminate\(\)/);
+  assert.match(bridge,/WORKER_MESSAGE_ERROR/);
+  assert.match(bridge,/INPUT_BUDGET_EXCEEDED/);
+  assert.match(bridge,/reason:"TIMEOUT"/);
+  assert.match(app,/const STAGE2C2A_DIAGNOSTICS_ENABLED = false;/);
+  assert.doesNotMatch(app,/analyzeEngineeringDiagnosticsInWorker/);
+});
+
+test("Stage 2C2B direct worker-compatible engineering DSP 60s and 5min bounded synthetic inputs",()=>{
+  for(const sr of [44100,48000]){
+    for(const duration of [60,300]){
+      const n=sr*duration;
+      const ch0=new Float32Array(n),ch1=new Float32Array(n);
+      for(let i=0;i<n;i++){ch0[i]=.05*Math.sin(2*Math.PI*92*i/sr);ch1[i]=.04*Math.sin(2*Math.PI*92*i/sr)}
+      const before=performance.now();
+      const out=runStage2c2aBrowserDiagnostics({sampleRate:sr,numberOfChannels:2,getChannelData:i=>i===0?ch0:ch1},true);
+      const elapsed=performance.now()-before;
+      assert.equal(out.status,"AVAILABLE");
+      assert.equal(out.evidence.scoringImpact,"NONE");
+      assert.equal(out.evidence.sourceProvenance.channelCount,2);
+      assert.ok(elapsed<20000,"Exceeded 20sec bounded synthetic limit: "+elapsed);
+      const bytes=ch0.byteLength+ch1.byteLength;
+      assert.ok(bytes<=128*1024*1024);
+      console.log("Stage 2C2B "+duration+"s "+sr+": "+elapsed.toFixed(1)+"ms; PCM transfer budget="+bytes);
+    }
+  }
+});
