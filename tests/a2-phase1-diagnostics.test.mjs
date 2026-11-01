@@ -2237,3 +2237,47 @@ test("Stage 2C2B worker bridge cancellation, failure and transfer-copy ownership
     assert.deepEqual(await analyzeEngineeringDiagnosticsInWorker(audio,already.signal),{status:"CANCELLED",reason:"ABORTED"});
   } finally {globalThis.Worker=original}
 });
+
+
+test("Stage 2C2B-1B browser hook remains disabled and nonblocking",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  assert.match(app,/const STAGE2C2A_DIAGNOSTICS_ENABLED = false;/);
+  assert.match(app,/if \(STAGE2C2A_DIAGNOSTICS_ENABLED\)/);
+  assert.match(app,/void analyzeEngineeringDiagnosticsInWorker\(audioBuffer\)/);
+  assert.match(app,/\.catch\(\(\) => console\.warn\("\[Stage2C2B\] Diagnostic worker unavailable"\)\)/);
+  assert.doesNotMatch(app,/runStage2c2aBrowserDiagnostics\(audioBuffer/);
+  assert.doesNotMatch(app,/await analyzeEngineeringDiagnosticsInWorker/);
+  assert.doesNotMatch(app,/overriddenCritique\.engineeringEvidence|formData\.append\("engineeringEvidence"/);
+});
+
+test("Stage 2C2B-1B over-budget fallback does not instantiate worker or read PCM",async()=>{
+  let reads=0;
+  const tooLarge={numberOfChannels:2,length:48000*600,sampleRate:48000,
+    getChannelData:()=>{reads++;throw Error("PCM should never be read")}};
+  const result=await analyzeEngineeringDiagnosticsInWorker(tooLarge);
+  assert.deepEqual(result,{status:"UNAVAILABLE",reason:"INPUT_BUDGET_EXCEEDED"});
+  assert.equal(reads,0);
+});
+
+test("Stage 2C2B-1B worker diagnostic timeout and message errors terminate worker",async()=>{
+  const OriginalWorker=globalThis.Worker;
+  let last;
+  class FakeWorker {
+    terminated=false;
+    constructor(){last=this}
+    postMessage(){}
+    terminate(){this.terminated=true}
+  }
+  globalThis.Worker=FakeWorker;
+  const audio={numberOfChannels:1,length:4096,sampleRate:44100,
+    getChannelData:()=>new Float32Array(4096)};
+  try{
+    const messageError=analyzeEngineeringDiagnosticsInWorker(audio);
+    last.onmessageerror({});
+    assert.deepEqual(await messageError,{status:"UNAVAILABLE",reason:"WORKER_MESSAGE_ERROR"});
+    assert.equal(last.terminated,true);
+    const timeout=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,128*1024*1024,5);
+    assert.deepEqual(timeout,{status:"UNAVAILABLE",reason:"TIMEOUT"});
+    assert.equal(last.terminated,true);
+  }finally{globalThis.Worker=OriginalWorker}
+});
