@@ -13,7 +13,7 @@ async function waitJson(url){
 }
 async function browserTest(){
   const NativeWorker=Worker;
-  globalThis.Worker=class extends NativeWorker { constructor(...args){globalThis.__auralisWorkerURL=String(args[0]);super(...args);this.addEventListener("error",e=>{globalThis.__auralisWorkerError={message:e.message,filename:e.filename,lineno:e.lineno}})}};
+  globalThis.Worker=class extends NativeWorker { constructor(...args){globalThis.__auralisWorkerURL=String(args[0]);super(...args);this.addEventListener("error",e=>{globalThis.__auralisWorkerError={message:e.message,filename:e.filename,lineno:e.lineno}})}postMessage(...args){globalThis.__auralisHandoffAt=performance.now();return super.postMessage(...args)}};
   const {analyzeEngineeringDiagnosticsInWorker:analyze}=await import("/src/lib/batchAudioWorker.ts");
   const records=[];
   for(const sr of [44100,48000])for(const seconds of [60,300]){
@@ -22,10 +22,11 @@ async function browserTest(){
     const a=pcm.getChannelData(0),b=pcm.getChannelData(1);
     for(let i=0;i<n;i++){a[i]=0.03*Math.sin(2*Math.PI*93*i/sr);b[i]=-a[i]*0.8}
     const bytes=a.byteLength,original=a[17];
-    const before=performance.now(),out=await analyze(pcm),elapsedMs=performance.now()-before;
+    const before=performance.now(),promise=analyze(pcm),handoffMs=globalThis.__auralisHandoffAt-before;
+    const out=await promise,elapsedMs=performance.now()-before;
     if(out.status!=="AVAILABLE"||out.evidence?.scoringImpact!=="NONE")throw Error("worker failed "+sr+" "+seconds+" "+out.reason+" "+JSON.stringify(globalThis.__auralisWorkerError)+" URL="+globalThis.__auralisWorkerURL+" RESPONSE="+await fetch(globalThis.__auralisWorkerURL).then(async r=>r.status+":"+(await r.text()).slice(0,250)).catch(e=>e.message));
     if(a.byteLength!==bytes||a[17]!==original)throw Error("original audio buffer detached or modified");
-    records.push({sr,seconds,elapsedMs:Math.round(elapsedMs),pcmBytes:bytes*2});
+    records.push({sr,seconds,elapsedMs:Math.round(elapsedMs),mainThreadSetupToPostMessageMs:Math.round(handoffMs),pcmBytes:bytes*2});
   }
   let reads=0;
   const oversize=await analyze({numberOfChannels:2,sampleRate:48000,length:48000*600,getChannelData(){reads++;throw Error("must not read")}});
@@ -33,9 +34,11 @@ async function browserTest(){
   const c=new AbortController();c.abort();
   const abort=await analyze({numberOfChannels:1,sampleRate:44100,length:4096,getChannelData(){throw Error("aborted")} },c.signal);
   if(abort.status!=="CANCELLED")throw Error("abort failed");
+  const invalidRate=await analyze({numberOfChannels:1,length:4096,sampleRate:7000,getChannelData:()=>new Float32Array(4096)});
+  if(invalidRate.status!=="UNAVAILABLE")throw Error("worker diagnostic failure isolation failed");
   const timeout=await analyze(new AudioBuffer({numberOfChannels:1,length:4096,sampleRate:44100}),undefined,128*1024*1024,1);
   if(!["AVAILABLE","UNAVAILABLE"].includes(timeout.status))throw Error("invalid timeout result");
-  return {userAgent:navigator.userAgent,records,oversize:oversize.reason,abort:abort.status,timeout:timeout.status,
+  return {userAgent:navigator.userAgent,records,oversize:oversize.reason,abort:abort.status,invalidRate:invalidRate.status,timeout:timeout.status,
     heapBytes:performance.memory?.usedJSHeapSize??null,memoryNote:"snapshot, not peak"};
 }
 test("Auralis real Chromium worker: synthetic 60/300 sec, PCM ownership, budget and abort",{
