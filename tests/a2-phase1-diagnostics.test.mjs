@@ -2499,3 +2499,221 @@ test("Auralis 2D3 temporally separated phase and power conditions are not called
   assert.equal(band.measurementFamilies.stereo.independentCorroborations,0);
   assert.equal(band.potentialProductionDefect,"NOT_DETERMINED");
 });
+
+
+// Stage 2D-4A: synthetic boundary/interpretation characterization only.
+// REGRESSION CONTRACT: numerical invariants and Stage 2D3 unavailable/applicability
+// states are normative; Stage 2D2 legacy mislabels and window-duration inflation
+// are provisional known defects, NOT expected future behavior. Explicit TODOs
+// below document the desired later correction without making current CI fail.
+// These regression cases document existing behavior and known limitations.
+// They do NOT certify acoustic quality, audibility, source identity or defects.
+// No user recordings, model calls, new dependencies or production code changes.
+const auralis2d4aTone=(length,sampleRate,hz,phase=0,amplitude=0.25)=>{
+  const pcm=new Float32Array(length);
+  for(let i=0;i<length;i++)
+    pcm[i]=amplitude*Math.sin(2*Math.PI*hz*i/sampleRate+phase);
+  return pcm;
+};
+const auralis2d4aBandShare=(sampleRate,hz,phase,lowBandIndex)=>{
+  const pcm=auralis2d4aTone(4096,sampleRate,hz,phase);
+  const spectral=analyzeStage2aSpectralPower([pcm],sampleRate);
+  assert.equal(spectral.frames,1);
+  assert.equal(spectral.fftSize,4096);
+  assert.equal(spectral.hopSize,2048);
+  assert.equal(spectral.window,"periodic-hann");
+  const p=spectral.channelBandPower[0];
+  // Adjacent-band share only: numerator is the selected lower band's power;
+// denominator is that band PLUS its immediate upper neighbor (not total PCM
+// power, not the sum of all spectral bands, and not the whole-song spectrum).
+  const pair=p[lowBandIndex]+p[lowBandIndex+1];
+  assert.ok(pair>0);
+  assert.ok(Math.abs(spectral.channelTotalPower[0]-
+    (p.reduce((a,b)=>a+b,0)+spectral.channelUnassignedPower[0]))<1e-9);
+  return p[lowBandIndex]/pair;
+};
+
+test("Auralis 2D4A exact 60 Hz Hann-window band boundary is sample-rate sensitive, not a mix defect",()=>{
+  const shares={};
+  for(const sr of [44100,48000]){
+    shares[sr]=[0,Math.PI/4,Math.PI/2].map(phase=>
+      auralis2d4aBandShare(sr,60,phase,0));
+    const expected=sr===44100?0.4447:0.7673;
+    for(const share of shares[sr])
+      assert.ok(Math.abs(share-expected)<0.025,
+        "60 Hz lower-band share "+share+" at "+sr+" differs from frozen synthetic reference");
+    assert.ok(Math.max(...shares[sr])-Math.min(...shares[sr])<0.02);
+    const below=auralis2d4aBandShare(sr,59,0,0);
+    const above=auralis2d4aBandShare(sr,61,0,0);
+    assert.ok(below>shares[sr][0]&&shares[sr][0]>above);
+  }
+  assert.ok(shares[48000][0]-shares[44100][0]>0.25);
+});
+
+test("Auralis 2D4A exact 250 Hz band boundary retains leakage and sample-rate effects",()=>{
+  const shares={};
+  for(const sr of [44100,48000]){
+    shares[sr]=[0,Math.PI/3].map(phase=>
+      auralis2d4aBandShare(sr,250,phase,1));
+    const expected=sr===44100?0.7039:0.6247;
+    for(const share of shares[sr])
+      assert.ok(Math.abs(share-expected)<0.03,
+        "250 Hz 60–250 band share "+share+" at "+sr+" differs from synthetic reference");
+    assert.ok(Math.abs(shares[sr][0]-shares[sr][1])<0.02);
+    const below=auralis2d4aBandShare(sr,249,0,1);
+    const above=auralis2d4aBandShare(sr,251,0,1);
+    assert.ok(below>shares[sr][0]&&shares[sr][0]>above);
+  }
+  assert.ok(shares[44100][0]-shares[48000][0]>0.05);
+});
+
+test("Auralis 2D4A equal-power orthogonal stereo tones produce ordinary minus 3.01 dB fold-down",()=>{
+  const sr=48000,n=32768;
+  // Exact nonoverlapping Hann FFT-bin tones within the same 60–250 Hz band.
+  const left=auralis2d4aTone(n,sr,10*sr/4096);
+  const right=auralis2d4aTone(n,sr,16*sr/4096);
+  const evidence=auralis2d3Synthetic([left,right],sr);
+  const frames=evidence.bands[1].frameEvidence;
+  const valid=frames.filter(x=>x.stereoStatus==="VALID");
+  assert.ok(valid.length>4);
+  const expected=10*Math.log10(0.5);
+  for(const frame of valid){
+    assert.ok(Math.abs(frame.correlation)<1e-6,
+      "Independent FFT-bin tones must have near-zero correlation");
+    assert.ok(Math.abs(frame.monoChangeDb-expected)<0.025,
+      "Uncorrelated equal-power channels have normal -3.0103 dB mono change");
+  }
+  const interpreted=interpretStage2d3CrossMeasurementEvidence(evidence);
+  const band=interpreted.bands[1];
+  assert.equal(band.measurementFamilies.stereo.atLeast3DbMonoAttenuationFrames,valid.length);
+  assert.equal(band.measurementFamilies.stereo.independentCorroborations,0);
+  assert.equal(band.potentialProductionDefect,"NOT_DETERMINED");
+  assert.equal(interpreted.scoringImpact,"NONE");
+});
+
+test("Auralis 2D4A silence, mono and true cancellation retain distinct numerator and denominator meaning",()=>{
+  const sr=48000,n=16384,silence=new Float32Array(n);
+  const signal=auralis2d4aTone(n,sr,125);
+  const inverse=Float32Array.from(signal,x=>-x);
+  const scenarios=[
+    {name:"silence",channels:[silence,silence],status:"UNAVAILABLE_NO_MEASURABLE_STEREO"},
+    {name:"mono",channels:[signal],status:"NOT_APPLICABLE_MONO"},
+    {name:"anti-phase",channels:[signal,inverse],status:"AVAILABLE"},
+  ];
+  for(const scenario of scenarios){
+    const evidence=auralis2d3Synthetic(scenario.channels,sr);
+    const stage2d2=interpretStage2d1EngineeringEvidence(evidence).conditions[1];
+    const stage2d3=interpretStage2d3CrossMeasurementEvidence(evidence).bands[1];
+    const stereo=stage2d3.measurementFamilies.stereo;
+    assert.equal(stereo.status,scenario.status,scenario.name);
+    // Stage 2D3's explicit availability and null-denominator semantics below
+    // are normative. Stage 2D2 currently counts EVERY frame (even silence or
+    // mono) as eligible for the separate cancellation observation; this is
+    // provisional behavior and must not become a permanent expectation.
+    assert.equal(stereo.independentCorroborations,0);
+    assert.equal(stage2d3.potentialProductionDefect,"NOT_DETERMINED");
+    assert.equal(stage2d3.temporalCoincidence.coincidentFrames,0);
+    if(scenario.name==="anti-phase"){
+      assert.equal(stage2d2.completeCancellation.denominator,evidence.bands[1].frameCount);
+      assert.equal(stereo.eligibleFrames,stereo.completeCancellationFrames);
+      assert.equal(stereo.eligibleFrames,evidence.bands[1].frameCount);
+      assert.equal(stereo.validNormalizedFrames,0);
+      assert.equal(stereo.completeCancellationFraction,1);
+      assert.equal(stereo.correlatedAndAttenuatedFraction,null);
+      assert.equal(stage2d2.completeCancellation.numerator,stereo.completeCancellationFrames);
+    }else{
+      assert.equal(stereo.eligibleFrames,0);
+      assert.equal(stereo.completeCancellationFraction,null);
+      assert.equal(stereo.correlatedAndAttenuatedFraction,null);
+      assert.equal(stage2d2.completeCancellation.numerator,0);
+      // PROVISIONAL legacy characterization, not a normative regression.
+      // Today Stage 2D2 returns NOT_OBSERVED and treats all frames as valid
+      // for silence/mono; future INSUFFICIENT or NOT_APPLICABLE must pass.
+      const legacy=stage2d2.evidenceStrength.completeCancellation;
+      assert.equal(legacy.matchingFrames,0);
+      assert.ok(["NOT_OBSERVED","INSUFFICIENT","UNAVAILABLE","NOT_APPLICABLE"]
+        .includes(legacy.evidenceStrength));
+      assert.ok(Number.isSafeInteger(legacy.validFrames)&&
+        legacy.validFrames>=0&&legacy.validFrames<=evidence.bands[1].frameCount);
+      assert.ok(stage2d2.completeCancellation.denominator===0||
+        stage2d2.completeCancellation.denominator===evidence.bands[1].frameCount);
+    }
+  }
+});
+
+// PENDING NORMATIVE CONTRACT (not executed until Stage 2D2 is corrected):
+// silence -> cancellation evidence UNAVAILABLE; mono -> NOT_APPLICABLE;
+// neither case may be presented as an observed negative finding.
+test.todo("Auralis 2D4A normative: Stage 2D2 silent/mono cancellation availability is correctly classified");
+
+test("Auralis 2D4A short zero-padded anti-phase frame exposes window-duration overstatement",()=>{
+  const sr=48000,n=1024;
+  const left=auralis2d4aTone(n,sr,125);
+  const right=Float32Array.from(left,x=>-x);
+  const evidence=auralis2d3Synthetic([left,right],sr);
+  const provenance=evidence.sourceProvenance;
+  assert.equal(provenance.inputSampleCount,n);
+  assert.equal(provenance.representedSampleCount,n);
+  assert.equal(provenance.omittedTrailingSampleCount,0);
+  assert.equal(provenance.zeroPaddedSampleCount,4096-n);
+  assert.equal(evidence.bands[1].frameCount,1);
+  const stage2d2=interpretStage2d1EngineeringEvidence(evidence).conditions[1];
+  const cancellation=stage2d2.evidenceStrength.completeCancellation;
+  assert.equal(cancellation.matchingFrames,1);
+  assert.equal(cancellation.longestRunFrames,1);
+  assert.equal(cancellation.evidenceStrength,"INSUFFICIENT");
+  // This field currently describes a full FFT-window span, which can
+  // exceed available recording time. Check finite, bounded output only:
+  // future correction that caps at actual input duration must also pass.
+  const recordedSeconds=cancellation.longestRunApproxSeconds;
+  const actualAudioSeconds=provenance.inputSampleCount/sr;
+  const fftWindowSeconds=provenance.fftSize/sr;
+  assert.ok(actualAudioSeconds<fftWindowSeconds);
+  assert.ok(Number.isFinite(recordedSeconds)&&recordedSeconds>=0);
+  assert.ok(recordedSeconds<=fftWindowSeconds+1e-9);
+  // KNOWN DEFECT: current recordedSeconds may exceed actualAudioSeconds.
+  // Do not assert that erroneous excess as a contract.
+  const stage2d3=interpretStage2d3CrossMeasurementEvidence(evidence).bands[1];
+  assert.equal(stage2d3.measurementFamilies.stereo.completeCancellationFraction,1);
+  assert.equal(stage2d3.temporalCoincidence.eligibleFrames,0);
+  assert.equal(stage2d3.temporalCoincidence.coincidenceFraction,null);
+  assert.equal(stage2d3.potentialProductionDefect,"NOT_DETERMINED");
+});
+
+test("Auralis 2D4A one short pulse yields overlapping-window coincidence, not independent events",()=>{
+  const sr=48000,n=16384,start=5500,pulseSamples=350;
+  const left=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    const amplitude=i>=start&&i<start+pulseSamples?0.6:0.0002;
+    left[i]=amplitude*Math.sin(2*Math.PI*125*i/sr);
+  }
+  const right=Float32Array.from(left,x=>-x);
+  const evidence=auralis2d3Synthetic([left,right],sr);
+  const before=structuredClone(evidence);
+  const result=interpretStage2d3CrossMeasurementEvidence(evidence);
+  const band=result.bands[1],co=band.temporalCoincidence;
+  assert.equal(co.status,"AVAILABLE");
+  assert.ok(co.eligibleFrames>2);
+  assert.ok(co.coincidentFrames>=2,
+    "Single pulse should cause consecutive relative rises across overlapping FFT windows");
+  assert.equal(co.contiguousEvents,1);
+  assert.ok(co.longestRunFrames>=2);
+  assert.equal(co.coincidenceFraction,co.coincidentFrames/co.eligibleFrames);
+  // Current duration is an overlapping-FFT observation span, not the true
+  // 350-sample pulse length; future corrected/capped values must still pass.
+  const windowSpanSeconds=((co.longestRunFrames-1)*evidence.sourceProvenance.hopSize+
+    evidence.sourceProvenance.fftSize)/sr;
+  assert.ok(Number.isFinite(co.approximateLongestRunSeconds));
+  assert.ok(co.approximateLongestRunSeconds>=0);
+  assert.ok(co.approximateLongestRunSeconds<=windowSpanSeconds+1e-9);
+  assert.equal(band.measurementFamilies.stereo.independentCorroborations,0);
+  assert.equal(band.potentialProductionDefect,"NOT_DETERMINED");
+  assert.equal(result.scoringImpact,"NONE");
+  assert.deepEqual(evidence,before);
+});
+
+// PENDING NORMATIVE CONTRACT (not executed until interpretation is corrected):
+// distinguish FFT observation-window span from real content duration, clamp
+// any claimed measured audio-duration to represented samples, and do not
+// misrepresent correlated overlap frames as the duration of an audible event.
+test.todo("Auralis 2D4A normative: zero-padded and overlapping-window duration fields honor real audio coverage");
