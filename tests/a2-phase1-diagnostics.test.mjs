@@ -2359,3 +2359,22 @@ test("Auralis 2D2 synthetic silence preserves null coverage and uncertain eviden
     assert.equal(band.potentialProductionDefect,"NOT_DETERMINED");
   }
 });
+
+test("Auralis 2D2 sustained synthetic anti-phase evidence is repeated but never a defect diagnosis",()=>{
+  const sr=44100,n=32768,left=new Float32Array(n),right=new Float32Array(n);
+  for(let i=0;i<n;i++){left[i]=0.2*Math.sin(2*Math.PI*100*i/sr);right[i]=-left[i]}
+  const channels=[left,right];
+  const assembled=assembleStage2c1EngineeringEvidence(
+    analyzeStage2aSpectralPower(channels,sr),
+    analyzeStage2b1LowFrequency(channels,sr),
+    analyzeStage2b2Stereo(channels,sr));
+  const obs=interpretStage2d1EngineeringEvidence(assembled);
+  const bass=obs.conditions.find(x=>x.bandHz.join(",")==="60,250");
+  assert.ok(bass);
+  const x=bass.evidenceStrength.completeCancellation;
+  assert.equal(x.evidenceStrength,"REPEATED");
+  assert.ok(x.longestRunFrames>=3);
+  assert.ok(x.separatedPositiveWindows>=3);
+  assert.equal(x.defectConclusion,"NOT_DETERMINED");
+  assert.equal(obs.scoringImpact,"NONE");
+});
