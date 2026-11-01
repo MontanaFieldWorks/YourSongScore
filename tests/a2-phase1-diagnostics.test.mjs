@@ -2318,6 +2318,17 @@ test("Auralis 2D1 synthetic stereo evidence stays descriptive, versioned, and un
   assert.equal(result.uncertainty.confidence,"NOT_CALIBRATED");
   assert.equal(result.conditions.length,2);
   for(const band of result.conditions){
+    for(const obs of Object.values(band.evidenceStrength)){
+      assert.ok(["INSUFFICIENT","NOT_OBSERVED","LIMITED","REPEATED"].includes(obs.evidenceStrength));
+      assert.equal(obs.defectConclusion,"NOT_DETERMINED");
+      assert.ok(obs.validFrames<=obs.totalFrames);
+      assert.ok(obs.matchingFrames<=obs.validFrames);
+      assert.equal(obs.matchingFraction,obs.validFrames?obs.matchingFrames/obs.validFrames:null);
+      assert.ok(obs.separatedPositiveWindows<=obs.matchingFrames);
+      assert.equal(obs.minimumSeparationSamples,4096);
+    }
+  }
+  for(const band of result.conditions){
     assert.equal(band.potentialProductionDefect,"NOT_DETERMINED");
     assert.equal(band.frameCount,evidence.bands.find(b=>b.bandHz.join(",")===band.bandHz.join(",")).frameCount);
     for(const key of ["riseEvents","negativeStereoCorrelation","monoAttenuation","completeCancellation"]){
@@ -2330,4 +2341,40 @@ test("Auralis 2D1 synthetic stereo evidence stays descriptive, versioned, and un
   assert.deepEqual(evidence,original);
   assert.throws(()=>interpretStage2d1EngineeringEvidence({...evidence,scoringImpact:"ENABLED"}),RangeError);
   assert.throws(()=>interpretStage2d1EngineeringEvidence({...evidence,bands:[{...evidence.bands[0],cancellationDenominator:999},evidence.bands[1]]}),RangeError);
+});
+
+test("Auralis 2D2 synthetic silence preserves null coverage and uncertain evidence",()=>{
+  const sr=48000,n=16384,channels=[new Float32Array(n),new Float32Array(n)];
+  const assembled=assembleStage2c1EngineeringEvidence(
+    analyzeStage2aSpectralPower(channels,sr),
+    analyzeStage2b1LowFrequency(channels,sr),
+    analyzeStage2b2Stereo(channels,sr));
+  const obs=interpretStage2d1EngineeringEvidence(assembled);
+  for(const band of obs.conditions){
+    assert.equal(band.evidenceStrength.negativeCorrelation.evidenceStrength,"INSUFFICIENT");
+    assert.equal(band.evidenceStrength.negativeCorrelation.validFrames,0);
+    assert.equal(band.evidenceStrength.negativeCorrelation.matchingFraction,null);
+    assert.equal(band.evidenceStrength.powerRises.evidenceStrength,"INSUFFICIENT");
+    assert.equal(band.evidenceStrength.completeCancellation.evidenceStrength,"NOT_OBSERVED");
+    assert.equal(band.potentialProductionDefect,"NOT_DETERMINED");
+  }
+});
+
+test("Auralis 2D2 sustained synthetic anti-phase evidence is repeated but never a defect diagnosis",()=>{
+  const sr=44100,n=32768,left=new Float32Array(n),right=new Float32Array(n);
+  for(let i=0;i<n;i++){left[i]=0.2*Math.sin(2*Math.PI*100*i/sr);right[i]=-left[i]}
+  const channels=[left,right];
+  const assembled=assembleStage2c1EngineeringEvidence(
+    analyzeStage2aSpectralPower(channels,sr),
+    analyzeStage2b1LowFrequency(channels,sr),
+    analyzeStage2b2Stereo(channels,sr));
+  const obs=interpretStage2d1EngineeringEvidence(assembled);
+  const bass=obs.conditions.find(x=>x.bandHz.join(",")==="60,250");
+  assert.ok(bass);
+  const x=bass.evidenceStrength.completeCancellation;
+  assert.equal(x.evidenceStrength,"REPEATED");
+  assert.ok(x.longestRunFrames>=3);
+  assert.ok(x.separatedPositiveWindows>=3);
+  assert.equal(x.defectConclusion,"NOT_DETERMINED");
+  assert.equal(obs.scoringImpact,"NONE");
 });

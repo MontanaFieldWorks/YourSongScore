@@ -3100,11 +3100,63 @@ export function interpretStage2d1EngineeringEvidence(
         numerator/denominator>=0.5?"FREQUENT_IN_MEASURED_FRAMES" as const:
         "OCCASIONAL_IN_MEASURED_FRAMES" as const,
     });
+    // Stage 2D-2: contiguous runs are descriptive, not independent FFT confirmations.
+    // Require non-overlapping window spacing (two 2048-sample hops per 4096 window)
+    // for a conservative repeat count; do not mislabel it as statistical independence.
+    const strength=(name:string,eligible:(frame:typeof frames[number])=>boolean,
+      matches:(frame:typeof frames[number])=>boolean,
+      magnitude:(frame:typeof frames[number])=>number|null)=>{
+      let valid=0,positive=0,longest=0,current=0,events=0,peakMagnitude:number|null=null;
+      let lastSeparated=-2;
+      let separatedPositive=0;
+      for(let i=0;i<count;i++){
+        const frame=frames[i];
+        if(!eligible(frame)){current=0;continue;}
+        valid++;
+        if(matches(frame)){
+          positive++;current++;
+          if(current===1)events++;
+          longest=Math.max(longest,current);
+          if(i-lastSeparated>=2){separatedPositive++;lastSeparated=i;}
+          const v=magnitude(frame);
+          if(v!==null&&Number.isFinite(v))peakMagnitude=peakMagnitude===null?v:Math.max(peakMagnitude,v);
+        }else current=0;
+      }
+      const validCoverage=valid/count;
+      // Descriptive evidence strength only; no confidence probability or defect label.
+      const evidenceStrength=valid<4||validCoverage<0.25?"INSUFFICIENT":
+        positive===0?"NOT_OBSERVED":
+        separatedPositive>=3&&longest>=3?"REPEATED":"LIMITED";
+      return {name,validFrames:valid,totalFrames:count,validCoverage,
+        matchingFrames:positive,matchingFraction:valid?positive/valid:null,
+        contiguousEvents:events,longestRunFrames:longest,
+        longestRunApproxSeconds:longest?((longest-1)*2048+4096)/evidence.sourceProvenance.sampleRate:0,
+        separatedPositiveWindows:separatedPositive,minimumSeparationSamples:4096,
+        peakMagnitude, evidenceStrength,defectConclusion:"NOT_DETERMINED" as const,
+        uncertainty:"Overlapping FFT windows and adjacent observations remain dependent; magnitude is descriptive only."};
+    };
+    const evidenceStrength={
+      powerRises:strength("LOW_FREQUENCY_POWER_RISE",
+        frame=>frame.rises.some(x=>x!==null),frame=>frame.rises.some(x=>x===true),
+        frame=>frame.powerChangesDb.reduce<number|null>((v,x)=>x!==null&&x>=6?Math.max(v??x,x):v,null)),
+      negativeCorrelation:strength("NEGATIVE_STEREO_CORRELATION",
+        frame=>frame.stereoStatus==="VALID"&&frame.correlation!==null,
+        frame=>frame.correlation!==null&&frame.correlation<0,
+        frame=>frame.correlation!==null&&frame.correlation<0?-frame.correlation:null),
+      monoAttenuation:strength("MONO_FOLDDOWN_AT_LEAST_3_DB",
+        frame=>frame.stereoStatus==="VALID"&&frame.monoChangeDb!==null,
+        frame=>frame.monoChangeDb!==null&&frame.monoChangeDb<=-3,
+        frame=>frame.monoChangeDb!==null&&frame.monoChangeDb<=-3?-frame.monoChangeDb:null),
+      completeCancellation:strength("NUMERIC_COMPLETE_CANCELLATION",
+        _frame=>true,frame=>frame.stereoStatus==="COMPLETE_CANCELLATION",
+        _frame=>null),
+    };
     return {
       bandHz:[...band.bandHz] as number[],
       frameCount:count,
       sourcePower:band.spectralChannelPower,
       powerRangeDb,
+      evidenceStrength,
       riseEvents:observation("LOW_FREQUENCY_POWER_RISE",actualRise,measurableRise),
       negativeStereoCorrelation:observation("NEGATIVE_STEREO_CORRELATION",negative.length,validStereo.length),
       monoAttenuation:observation("MONO_FOLDDOWN_AT_LEAST_3_DB",lowMono.length,validStereo.length),
