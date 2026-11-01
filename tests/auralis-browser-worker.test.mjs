@@ -13,7 +13,7 @@ async function waitJson(url){
 }
 async function browserTest(){
   const NativeWorker=Worker;
-  globalThis.Worker=class extends NativeWorker { constructor(...args){super(...args);this.addEventListener("error",e=>{globalThis.__auralisWorkerError={message:e.message,filename:e.filename,lineno:e.lineno}})}};
+  globalThis.Worker=class extends NativeWorker { constructor(...args){globalThis.__auralisWorkerURL=String(args[0]);super(...args);this.addEventListener("error",e=>{globalThis.__auralisWorkerError={message:e.message,filename:e.filename,lineno:e.lineno}})}};
   const {analyzeEngineeringDiagnosticsInWorker:analyze}=await import("/src/lib/batchAudioWorker.ts");
   const records=[];
   for(const sr of [44100,48000])for(const seconds of [60,300]){
@@ -23,7 +23,7 @@ async function browserTest(){
     for(let i=0;i<n;i++){a[i]=0.03*Math.sin(2*Math.PI*93*i/sr);b[i]=-a[i]*0.8}
     const bytes=a.byteLength,original=a[17];
     const before=performance.now(),out=await analyze(pcm),elapsedMs=performance.now()-before;
-    if(out.status!=="AVAILABLE"||out.evidence?.scoringImpact!=="NONE")throw Error("worker failed "+sr+" "+seconds+" "+out.reason+" "+JSON.stringify(globalThis.__auralisWorkerError));
+    if(out.status!=="AVAILABLE"||out.evidence?.scoringImpact!=="NONE")throw Error("worker failed "+sr+" "+seconds+" "+out.reason+" "+JSON.stringify(globalThis.__auralisWorkerError)+" URL="+globalThis.__auralisWorkerURL+" RESPONSE="+await fetch(globalThis.__auralisWorkerURL).then(async r=>r.status+":"+(await r.text()).slice(0,250)).catch(e=>e.message));
     if(a.byteLength!==bytes||a[17]!==original)throw Error("original audio buffer detached or modified");
     records.push({sr,seconds,elapsedMs:Math.round(elapsedMs),pcmBytes:bytes*2});
   }
