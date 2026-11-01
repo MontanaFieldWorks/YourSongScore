@@ -2136,7 +2136,7 @@ test("Stage 2C2A browser hook defaults off and never feeds scoring or report",as
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
   assert.match(app,/const STAGE2C2A_DIAGNOSTICS_ENABLED = false/);
-  assert.match(app,/if \(STAGE2C2A_DIAGNOSTICS_ENABLED\)/);
+  assert.match(app,/if \(STAGE2C2A_DIAGNOSTICS_ENABLED &&\s*diagnosticGeneration === auralisDiagnosticGenerationRef\.current\)/);
   assert.doesNotMatch(server,/runStage2c2aBrowserDiagnostics/);
   assert.doesNotMatch(app,/overriddenCritique\.engineeringEvidence|formData\.append\("engineeringEvidence"/);
 });
@@ -2177,7 +2177,7 @@ test("Stage 2C2B worker protocol retains legacy batch analysis and transfers cop
   assert.match(bridge,/reason:"TIMEOUT"/);
   assert.match(app,/const STAGE2C2A_DIAGNOSTICS_ENABLED = false;/);
   assert.match(app,/const STAGE2C2A_DIAGNOSTICS_ENABLED = false;/);
-  assert.match(app,/if \(STAGE2C2A_DIAGNOSTICS_ENABLED\)/);
+  assert.match(app,/if \(STAGE2C2A_DIAGNOSTICS_ENABLED &&\s*diagnosticGeneration === auralisDiagnosticGenerationRef\.current\)/);
 });
 
 test("Stage 2C2B direct worker-compatible engineering DSP 60s and 5min bounded synthetic inputs",()=>{
@@ -2243,9 +2243,9 @@ test("Stage 2C2B worker bridge cancellation, failure and transfer-copy ownership
 test("Stage 2C2B-1B browser hook remains disabled and nonblocking",async()=>{
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   assert.match(app,/const STAGE2C2A_DIAGNOSTICS_ENABLED = false;/);
-  assert.match(app,/if \(STAGE2C2A_DIAGNOSTICS_ENABLED\)/);
-  assert.match(app,/void analyzeEngineeringDiagnosticsInWorker\(audioBuffer\)/);
-  assert.match(app,/\.catch\(\(\) => console\.warn\("\[Stage2C2B\] Diagnostic worker unavailable"\)\)/);
+  assert.match(app,/if \(STAGE2C2A_DIAGNOSTICS_ENABLED &&\s*diagnosticGeneration === auralisDiagnosticGenerationRef\.current\)/);
+  assert.match(app,/void analyzeEngineeringDiagnosticsInWorker\(audioBuffer, controller\.signal\)/);
+  assert.match(app,/\.catch\(\(\) => \{[\s\S]*?console\.warn\("\[Stage2C2B\] Diagnostic worker unavailable"\)/);
   assert.doesNotMatch(app,/runStage2c2aBrowserDiagnostics\(audioBuffer/);
   assert.doesNotMatch(app,/await analyzeEngineeringDiagnosticsInWorker/);
   assert.doesNotMatch(app,/overriddenCritique\.engineeringEvidence|formData\.append\("engineeringEvidence"/);
@@ -2281,4 +2281,23 @@ test("Stage 2C2B-1B worker diagnostic timeout and message errors terminate worke
     assert.deepEqual(timeout,{status:"UNAVAILABLE",reason:"TIMEOUT"});
     assert.equal(last.terminated,true);
   }finally{globalThis.Worker=OriginalWorker}
+});
+
+
+test("Auralis 2C2B-1D lifecycle guard is isolated from scoring and A2", async () => {
+  const app = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.match(app,/const STAGE2C2A_DIAGNOSTICS_ENABLED = false;/);
+  assert.match(app,/const auralisDiagnosticAbortRef = React\.useRef<AbortController \| null>\(null\)/);
+  assert.match(app,/const auralisDiagnosticGenerationRef = React\.useRef\(0\)/);
+  assert.match(app,/const cancelAuralisDiagnostic = \(\) => \{/);
+  assert.match(app,/auralisDiagnosticAbortRef\.current\?\.abort\(\)/);
+  assert.match(app,/React\.useEffect\(\(\) => \(\) => \{[\s\S]*?auralisDiagnosticAbortRef\.current\?\.abort\(\)/);
+  assert.match(app,/const clearInputStates = \(\) => \{\s*cancelAuralisDiagnostic\(\)/);
+  assert.match(app,/const diagnosticGeneration = auralisDiagnosticGenerationRef\.current/);
+  assert.match(app,/STAGE2C2A_DIAGNOSTICS_ENABLED &&\s*diagnosticGeneration === auralisDiagnosticGenerationRef\.current/);
+  assert.match(app,/analyzeEngineeringDiagnosticsInWorker\(audioBuffer, controller\.signal\)/);
+  assert.match(app,/if \(!controller\.signal\.aborted &&[\s\S]*?auralisDiagnosticAbortRef\.current === controller &&[\s\S]*?diagnosticGeneration === auralisDiagnosticGenerationRef\.current\)/);
+  assert.match(app,/if \(diagnosticGeneration === auralisDiagnosticGenerationRef\.current\) cancelAuralisDiagnostic\(\)/);
+  assert.doesNotMatch(app,/await analyzeEngineeringDiagnosticsInWorker/);
+  assert.doesNotMatch(app,/formData\.append\("auralis|formData\.append\("engineeringEvidence/);
 });
