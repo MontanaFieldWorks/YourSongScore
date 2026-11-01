@@ -2245,7 +2245,7 @@ test("Stage 2C2B-1B browser hook remains disabled and nonblocking",async()=>{
   assert.match(app,/const STAGE2C2A_DIAGNOSTICS_ENABLED = false;/);
   assert.match(app,/if \(STAGE2C2A_DIAGNOSTICS_ENABLED &&\s*diagnosticGeneration === auralisDiagnosticGenerationRef\.current\)/);
   assert.match(app,/void analyzeEngineeringDiagnosticsInWorker\(audioBuffer, controller\.signal\)/);
-  assert.match(app,/\.catch\(\(\) => console\.warn\("\[Stage2C2B\] Diagnostic worker unavailable"\)\)/);
+  assert.match(app,/\.catch\(\(\) => \{[\s\S]*?console\.warn\("\[Stage2C2B\] Diagnostic worker unavailable"\)/);
   assert.doesNotMatch(app,/runStage2c2aBrowserDiagnostics\(audioBuffer/);
   assert.doesNotMatch(app,/await analyzeEngineeringDiagnosticsInWorker/);
   assert.doesNotMatch(app,/overriddenCritique\.engineeringEvidence|formData\.append\("engineeringEvidence"/);
