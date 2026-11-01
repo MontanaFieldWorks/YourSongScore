@@ -2313,7 +2313,7 @@ test("Auralis 2D1 synthetic stereo evidence stays descriptive, versioned, and un
   const evidence=assembleStage2c1EngineeringEvidence(spectral,temporal,stereo);
   const original=structuredClone(evidence);
   const result=interpretStage2d1EngineeringEvidence(evidence);
-  assert.equal(result.schemaVersion,"stage2d1-descriptive-observations-v1");
+  assert.equal(result.schemaVersion,"stage2d1-descriptive-observations-v2");
   assert.equal(result.scoringImpact,"NONE");
   assert.equal(result.uncertainty.confidence,"NOT_CALIBRATED");
   assert.equal(result.conditions.length,2);
@@ -2355,7 +2355,13 @@ test("Auralis 2D2 synthetic silence preserves null coverage and uncertain eviden
     assert.equal(band.evidenceStrength.negativeCorrelation.validFrames,0);
     assert.equal(band.evidenceStrength.negativeCorrelation.matchingFraction,null);
     assert.equal(band.evidenceStrength.powerRises.evidenceStrength,"INSUFFICIENT");
-    assert.equal(band.evidenceStrength.completeCancellation.evidenceStrength,"NOT_OBSERVED");
+    assert.equal(band.evidenceStrength.completeCancellation.evidenceStrength,"INSUFFICIENT");
+    assert.equal(band.evidenceStrength.completeCancellation.availabilityStatus,"UNAVAILABLE_NO_MEASURABLE_STEREO");
+    assert.equal(band.evidenceStrength.completeCancellation.validFrames,0);
+    assert.equal(band.evidenceStrength.completeCancellation.matchingFraction,null);
+    assert.equal(band.completeCancellation.status,"UNAVAILABLE_NO_MEASURABLE_STEREO");
+    assert.equal(band.completeCancellation.denominator,0);
+    assert.equal(band.completeCancellation.fraction,null);
     assert.equal(band.potentialProductionDefect,"NOT_DETERMINED");
   }
 });
@@ -2394,7 +2400,7 @@ test("Auralis 2D3 silence, mono and single-channel stereo preserve inapplicable 
     const snapshot=structuredClone(original);
     const result=interpretStage2d3CrossMeasurementEvidence(original);
     assert.equal(result.scoringImpact,"NONE");
-    assert.equal(result.schemaVersion,"stage2d3-dependent-corroboration-v1");
+    assert.equal(result.schemaVersion,"stage2d3-dependent-corroboration-v2");
     for(const band of result.bands){
       const stereo=band.measurementFamilies.stereo;
       assert.equal(stereo.status,channels.length===1?"NOT_APPLICABLE_MONO":"UNAVAILABLE_NO_MEASURABLE_STEREO");
@@ -2613,6 +2619,9 @@ test("Auralis 2D4A silence, mono and true cancellation retain distinct numerator
     assert.equal(stereo.independentCorroborations,0);
     assert.equal(stage2d3.potentialProductionDefect,"NOT_DETERMINED");
     assert.equal(stage2d3.temporalCoincidence.coincidentFrames,0);
+    assert.equal(stage2d2.completeCancellation.rawFrameDenominator,evidence.bands[1].frameCount);
+    assert.equal(stage2d2.completeCancellation.status,scenario.status);
+    assert.equal(stage2d2.evidenceStrength.completeCancellation.availabilityStatus,scenario.status);
     if(scenario.name==="anti-phase"){
       assert.equal(stage2d2.completeCancellation.denominator,evidence.bands[1].frameCount);
       assert.equal(stereo.eligibleFrames,stereo.completeCancellationFrames);
@@ -2626,25 +2635,83 @@ test("Auralis 2D4A silence, mono and true cancellation retain distinct numerator
       assert.equal(stereo.completeCancellationFraction,null);
       assert.equal(stereo.correlatedAndAttenuatedFraction,null);
       assert.equal(stage2d2.completeCancellation.numerator,0);
-      // PROVISIONAL legacy characterization, not a normative regression.
-      // Today Stage 2D2 returns NOT_OBSERVED and treats all frames as valid
-      // for silence/mono; future INSUFFICIENT or NOT_APPLICABLE must pass.
-      const legacy=stage2d2.evidenceStrength.completeCancellation;
-      assert.equal(legacy.matchingFrames,0);
-      assert.ok(["NOT_OBSERVED","INSUFFICIENT","UNAVAILABLE","NOT_APPLICABLE"]
-        .includes(legacy.evidenceStrength));
-      assert.ok(Number.isSafeInteger(legacy.validFrames)&&
-        legacy.validFrames>=0&&legacy.validFrames<=evidence.bands[1].frameCount);
-      assert.ok(stage2d2.completeCancellation.denominator===0||
-        stage2d2.completeCancellation.denominator===evidence.bands[1].frameCount);
+      const corrected=stage2d2.evidenceStrength.completeCancellation;
+      assert.equal(corrected.evidenceStrength,"INSUFFICIENT");
+      assert.equal(corrected.validFrames,0);
+      assert.equal(corrected.matchingFrames,0);
+      assert.equal(corrected.matchingFraction,null);
+      assert.equal(stage2d2.completeCancellation.denominator,0);
+      assert.equal(stage2d2.completeCancellation.fraction,null);
+      assert.equal(stage2d2.completeCancellation.classification,"INSUFFICIENT_EVIDENCE");
     }
   }
 });
 
-// PENDING NORMATIVE CONTRACT (not executed until Stage 2D2 is corrected):
-// silence -> cancellation evidence UNAVAILABLE; mono -> NOT_APPLICABLE;
-// neither case may be presented as an observed negative finding.
-test.todo("Auralis 2D4A normative: Stage 2D2 silent/mono cancellation availability is correctly classified");
+// Normative acceptance: 2D2 and 2D3 agree on sample-level availability,
+// including silence, mono, one-sided stereo and mixed eligible/unavailable frames.
+test("Auralis 2D4C normative: cancellation applicability, numerator and denominator at both rates",()=>{
+  for(const sr of [44100,48000]){
+    const n=8192,signal=auralis2d4aTone(n,sr,125);
+    const silence=new Float32Array(n);
+    const opposite=Float32Array.from(signal,x=>-x);
+    const scenarios=[
+      {name:"mono silence",channels:[silence],status:"NOT_APPLICABLE_MONO"},
+      {name:"mono tone",channels:[signal],status:"NOT_APPLICABLE_MONO"},
+      {name:"stereo silence",channels:[silence,silence],status:"UNAVAILABLE_NO_MEASURABLE_STEREO"},
+      {name:"one-sided",channels:[signal,silence],status:"UNAVAILABLE_NO_MEASURABLE_STEREO"},
+      {name:"in-phase stereo",channels:[signal,signal],status:"AVAILABLE"},
+      {name:"anti-phase stereo",channels:[signal,opposite],status:"AVAILABLE"},
+    ];
+    for(const scenario of scenarios){
+      const evidence=auralis2d3Synthetic(scenario.channels,sr);
+      const source=evidence.bands[1];
+      const measurable=source.frameEvidence.filter(f=>
+        f.stereoStatus==="VALID"||f.stereoStatus==="COMPLETE_CANCELLATION").length;
+      const cancelled=source.frameEvidence.filter(f=>
+        f.stereoStatus==="COMPLETE_CANCELLATION").length;
+      const d2=interpretStage2d1EngineeringEvidence(evidence).conditions[1];
+      const d3=interpretStage2d3CrossMeasurementEvidence(evidence).bands[1];
+      const obs=d2.completeCancellation, strength=d2.evidenceStrength.completeCancellation;
+      assert.equal(source.cancellationDenominator,source.frameCount,scenario.name);
+      assert.equal(source.cancellationFrames,cancelled);
+      assert.equal(obs.rawFrameDenominator,source.frameCount);
+      assert.equal(obs.denominator,measurable,scenario.name);
+      assert.equal(obs.numerator,cancelled,scenario.name);
+      assert.equal(obs.fraction,measurable?cancelled/measurable:null);
+      assert.equal(obs.status,scenario.status,scenario.name);
+      assert.equal(strength.availabilityStatus,scenario.status);
+      assert.equal(strength.validFrames,measurable);
+      assert.equal(strength.matchingFrames,cancelled);
+      assert.equal(strength.matchingFraction,measurable?cancelled/measurable:null);
+      assert.equal(d3.measurementFamilies.stereo.eligibleFrames,measurable);
+      assert.equal(d3.measurementFamilies.stereo.status,scenario.status);
+      assert.equal(d2.potentialProductionDefect,"NOT_DETERMINED");
+      assert.equal(strength.defectConclusion,"NOT_DETERMINED");
+      if(measurable===0){
+        assert.equal(strength.evidenceStrength,"INSUFFICIENT");
+        assert.equal(obs.classification,"INSUFFICIENT_EVIDENCE");
+        assert.equal(obs.fraction,null);
+      }else if(scenario.name==="in-phase stereo"){
+        assert.equal(obs.fraction,0);
+        assert.equal(obs.classification,"NOT_OBSERVED");
+      }else if(scenario.name==="anti-phase stereo"){
+        assert.equal(obs.fraction,1);
+      }
+    }
+    const mixedL=auralis2d4aTone(n,sr,125);
+    const mixedR=Float32Array.from(mixedL);
+    // Ensure a fully zero-energy last frame with a measurable first frame.
+    mixedL.fill(0,4096); mixedR.fill(0,4096);
+    const mixed=auralis2d3Synthetic([mixedL,mixedR],sr);
+    const eligible=mixed.bands[1].frameEvidence.filter(f=>f.stereoStatus==="VALID"||
+      f.stereoStatus==="COMPLETE_CANCELLATION").length;
+    assert.ok(eligible>0&&eligible<mixed.bands[1].frameCount);
+    const strength=interpretStage2d1EngineeringEvidence(mixed).conditions[1].evidenceStrength.completeCancellation;
+    assert.equal(strength.validFrames,eligible);
+    assert.equal(strength.matchingFraction,0);
+    assert.equal(strength.availabilityStatus,"AVAILABLE");
+  }
+});
 
 test("Auralis 2D4A short zero-padded anti-phase frame exposes window-duration overstatement",()=>{
   const sr=48000,n=1024;
@@ -2665,14 +2732,15 @@ test("Auralis 2D4A short zero-padded anti-phase frame exposes window-duration ov
   // This field currently describes a full FFT-window span, which can
   // exceed available recording time. Check finite, bounded output only:
   // future correction that caps at actual input duration must also pass.
-  const recordedSeconds=cancellation.longestRunApproxSeconds;
+  const recordedSeconds=cancellation.longestRunWindowSupportSeconds;
   const actualAudioSeconds=provenance.inputSampleCount/sr;
   const fftWindowSeconds=provenance.fftSize/sr;
   assert.ok(actualAudioSeconds<fftWindowSeconds);
-  assert.ok(Number.isFinite(recordedSeconds)&&recordedSeconds>=0);
-  assert.ok(recordedSeconds<=fftWindowSeconds+1e-9);
-  // KNOWN DEFECT: current recordedSeconds may exceed actualAudioSeconds.
-  // Do not assert that erroneous excess as a contract.
+  assert.equal(cancellation.longestRunWindowSupportStartSample,0);
+  assert.equal(cancellation.longestRunWindowSupportEndSample,n);
+  assert.ok(Math.abs(recordedSeconds-actualAudioSeconds)<1e-9);
+  assert.equal(cancellation.longestRunAudibleEventDurationSeconds,null);
+  assert.equal(cancellation.durationSemantics,"SAMPLE_BOUNDED_FFT_WINDOW_SUPPORT_NOT_EVENT_DURATION");
   const stage2d3=interpretStage2d3CrossMeasurementEvidence(evidence).bands[1];
   assert.equal(stage2d3.measurementFamilies.stereo.completeCancellationFraction,1);
   assert.equal(stage2d3.temporalCoincidence.eligibleFrames,0);
@@ -2703,17 +2771,89 @@ test("Auralis 2D4A one short pulse yields overlapping-window coincidence, not in
   // 350-sample pulse length; future corrected/capped values must still pass.
   const windowSpanSeconds=((co.longestRunFrames-1)*evidence.sourceProvenance.hopSize+
     evidence.sourceProvenance.fftSize)/sr;
-  assert.ok(Number.isFinite(co.approximateLongestRunSeconds));
-  assert.ok(co.approximateLongestRunSeconds>=0);
-  assert.ok(co.approximateLongestRunSeconds<=windowSpanSeconds+1e-9);
+  assert.ok(Number.isFinite(co.longestRunWindowSupportSeconds));
+  assert.ok(co.longestRunWindowSupportSeconds>=0);
+  assert.ok(co.longestRunWindowSupportSeconds<=windowSpanSeconds+1e-9);
+  assert.ok(co.longestRunWindowSupportEndSample<=evidence.sourceProvenance.representedSampleCount);
+  assert.equal(co.longestRunAudibleEventDurationSeconds,null);
+  assert.equal(co.durationSemantics,"SAMPLE_BOUNDED_FFT_WINDOW_SUPPORT_NOT_EVENT_DURATION");
   assert.equal(band.measurementFamilies.stereo.independentCorroborations,0);
   assert.equal(band.potentialProductionDefect,"NOT_DETERMINED");
   assert.equal(result.scoringImpact,"NONE");
   assert.deepEqual(evidence,before);
 });
 
-// PENDING NORMATIVE CONTRACT (not executed until interpretation is corrected):
-// distinguish FFT observation-window span from real content duration, clamp
-// any claimed measured audio-duration to represented samples, and do not
-// misrepresent correlated overlap frames as the duration of an audible event.
-test.todo("Auralis 2D4A normative: zero-padded and overlapping-window duration fields honor real audio coverage");
+// Normative duration acceptance: report FFT-window support bounded by actual
+// analyzed samples, never audible-event duration or omitted trailing samples.
+test("Auralis 2D4C normative: sample-bounded support and unknown audible-event duration",()=>{
+  for(const sr of [44100,48000]){
+    for(const n of [1024,2048,4095,4096,4097,6145,6244,8192]){
+      const signal=auralis2d4aTone(n,sr,125);
+      const inverted=Float32Array.from(signal,x=>-x);
+      const evidence=auralis2d3Synthetic([signal,inverted],sr);
+      const provenance=evidence.sourceProvenance;
+      const expectedFrames=n<4096?1:1+Math.floor((n-4096)/2048);
+      const represented=Math.min(n,(expectedFrames-1)*2048+4096);
+      assert.equal(provenance.representedSampleCount,represented);
+      assert.equal(provenance.omittedTrailingSampleCount,n-represented);
+      assert.equal(provenance.zeroPaddedSampleCount,Math.max(0,4096-n));
+      const d2=interpretStage2d1EngineeringEvidence(evidence);
+      const d3=interpretStage2d3CrossMeasurementEvidence(evidence);
+      assert.equal(d2.schemaVersion,"stage2d1-descriptive-observations-v2");
+      assert.equal(d3.schemaVersion,"stage2d3-dependent-corroboration-v2");
+      assert.equal(d2.scoringImpact,"NONE");assert.equal(d3.scoringImpact,"NONE");
+      for(const condition of d2.conditions){
+        for(const strength of Object.values(condition.evidenceStrength)){
+          assert.equal(strength.durationSemantics,"SAMPLE_BOUNDED_FFT_WINDOW_SUPPORT_NOT_EVENT_DURATION");
+          assert.equal(strength.longestRunAudibleEventDurationSeconds,null);
+          assert.ok(strength.longestRunWindowSupportSeconds>=0);
+          assert.ok(strength.longestRunWindowSupportSeconds<=represented/sr+1e-9);
+          const start=strength.longestRunWindowSupportStartSample;
+          const end=strength.longestRunWindowSupportEndSample;
+          if(strength.longestRunFrames===0){
+            assert.equal(start,null);assert.equal(end,null);
+            assert.equal(strength.longestRunWindowSupportSeconds,0);
+          }else{
+            assert.ok(Number.isSafeInteger(start)&&start>=0);
+            assert.ok(Number.isSafeInteger(end)&&end<=represented&&end>start);
+            assert.ok(Math.abs(strength.longestRunWindowSupportSeconds-(end-start)/sr)<1e-10);
+          }
+        }
+        const cancellation=condition.evidenceStrength.completeCancellation;
+        assert.equal(cancellation.longestRunFrames,expectedFrames);
+        assert.equal(cancellation.longestRunWindowSupportStartSample,0);
+        assert.equal(cancellation.longestRunWindowSupportEndSample,represented);
+        assert.ok(Math.abs(cancellation.longestRunWindowSupportSeconds-represented/sr)<1e-10);
+      }
+      for(const band of d3.bands){
+        const co=band.temporalCoincidence;
+        assert.equal(co.longestRunAudibleEventDurationSeconds,null);
+        assert.equal(co.durationSemantics,"SAMPLE_BOUNDED_FFT_WINDOW_SUPPORT_NOT_EVENT_DURATION");
+        assert.ok(co.longestRunWindowSupportSeconds>=0&&co.longestRunWindowSupportSeconds<=represented/sr+1e-9);
+        assert.equal(co.longestRunWindowSupportStartSample,null);
+        assert.equal(co.longestRunWindowSupportEndSample,null);
+        assert.equal(co.longestRunWindowSupportSeconds,0);
+      }
+    }
+    const n=16384,begin=5500,pulseSamples=350;
+    const left=new Float32Array(n);
+    for(let i=0;i<n;i++){
+      const amplitude=i>=begin&&i<begin+pulseSamples?0.6:0.0002;
+      left[i]=amplitude*Math.sin(2*Math.PI*125*i/sr);
+    }
+    const right=Float32Array.from(left,x=>-x);
+    const evidence=auralis2d3Synthetic([left,right],sr);
+    const co=interpretStage2d3CrossMeasurementEvidence(evidence).bands[1].temporalCoincidence;
+    assert.ok(co.coincidentFrames>=2);
+    assert.equal(co.contiguousEvents,1);
+    assert.equal(co.longestRunAudibleEventDurationSeconds,null);
+    assert.equal(co.durationSemantics,"SAMPLE_BOUNDED_FFT_WINDOW_SUPPORT_NOT_EVENT_DURATION");
+    const start=co.longestRunWindowSupportStartSample,end=co.longestRunWindowSupportEndSample;
+    assert.ok(Number.isSafeInteger(start)&&start>=0);
+    assert.ok(Number.isSafeInteger(end)&&end<=evidence.sourceProvenance.representedSampleCount);
+    assert.ok(end>start);
+    assert.ok(Math.abs(co.longestRunWindowSupportSeconds-(end-start)/sr)<1e-10);
+    assert.ok(co.longestRunWindowSupportSeconds>pulseSamples/sr,
+      "FFT support may exceed pulse time but must never be labeled audible-event duration");
+  }
+});
