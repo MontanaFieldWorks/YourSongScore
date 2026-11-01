@@ -3084,8 +3084,8 @@ export function interpretStage2d1EngineeringEvidence(
     const negative=validStereo.filter(frame=>frame.correlation!==null&&frame.correlation<0);
     const lowMono=validStereo.filter(frame=>frame.monoChangeDb!==null&&frame.monoChangeDb<=-3);
     const values=frames.flatMap(frame=>frame.temporalPower).filter(x=>Number.isFinite(x)&&x>1e-12);
-    const maxPower=values.length?Math.max(...values):null;
-    const minPower=values.length?Math.min(...values):null;
+    const maxPower=values.length?values.reduce((max,x)=>Math.max(max,x),0):null;
+    const minPower=values.length?values.reduce((min,x)=>Math.min(min,x),Infinity):null;
     const powerRangeDb=maxPower!==null&&minPower!==null?
       10*Math.log10(maxPower/minPower):null;
     const observation=(name:string,numerator:number,denominator:number)=>({
