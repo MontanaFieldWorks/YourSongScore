@@ -116,6 +116,19 @@ export default function App() {
   const internalBatchInputRef = React.useRef<HTMLInputElement>(null);
   const internalBatchStopRef = React.useRef(false);
   const internalBatchAbortRef = React.useRef<AbortController | null>(null);
+  // Auralis SonicLens diagnostics only: separate from user analysis and A2 controllers.
+  const auralisDiagnosticAbortRef = React.useRef<AbortController | null>(null);
+  const auralisDiagnosticGenerationRef = React.useRef(0);
+  const cancelAuralisDiagnostic = () => {
+    auralisDiagnosticGenerationRef.current++;
+    auralisDiagnosticAbortRef.current?.abort();
+    auralisDiagnosticAbortRef.current = null;
+  };
+  React.useEffect(() => () => {
+    auralisDiagnosticGenerationRef.current++;
+    auralisDiagnosticAbortRef.current?.abort();
+    auralisDiagnosticAbortRef.current = null;
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState("");
@@ -1163,6 +1176,7 @@ export default function App() {
   }, [currentUser, critiqueResult]);
 
   const clearInputStates = () => {
+    cancelAuralisDiagnostic();
     setSelectedFile(null);
     if (localFileBlobUrl && localFileBlobUrl.startsWith("blob:")) {
       URL.revokeObjectURL(localFileBlobUrl);
@@ -1313,6 +1327,9 @@ export default function App() {
       return;
     }
 
+    // A newer analysis invalidates any previous optional diagnostic worker.
+    cancelAuralisDiagnostic();
+    const diagnosticGeneration = auralisDiagnosticGenerationRef.current;
     setLoading(true);
     setLoadingStatus("Summoning studio-grade mixing engineer...");
     setErrorHeader(null);
@@ -1334,12 +1351,27 @@ export default function App() {
     try {
       const audioBuffer = await decodeAudioFile(selectedFile);
       preAnalysisLiveMetrics = analyzeAudioBuffer(audioBuffer);
-      if (STAGE2C2A_DIAGNOSTICS_ENABLED) {
-        // Internal-only and disabled by default. Do not delay key detection, scoring or Gemini.
-        // The worker owns transferred copies; discard the result and never persist evidence.
-        void analyzeEngineeringDiagnosticsInWorker(audioBuffer)
-          .then(diagnostic => console.info("[Stage2C2B] Optional engineering diagnostic status:", diagnostic.status))
-          .catch(() => console.warn("[Stage2C2B] Diagnostic worker unavailable"));
+      if (STAGE2C2A_DIAGNOSTICS_ENABLED &&
+          diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
+        // Internal-only: never block key detection, modify scoring, or retain evidence.
+        const controller = new AbortController();
+        auralisDiagnosticAbortRef.current = controller;
+        void analyzeEngineeringDiagnosticsInWorker(audioBuffer, controller.signal)
+          .then(diagnostic => {
+            if (!controller.signal.aborted &&
+                auralisDiagnosticAbortRef.current === controller &&
+                diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
+              console.info("[Stage2C2B] Optional engineering diagnostic status:", diagnostic.status);
+            }
+          })
+          .catch(() => {
+            if (!controller.signal.aborted && auralisDiagnosticAbortRef.current === controller) {
+              console.warn("[Stage2C2B] Diagnostic worker unavailable");
+            }
+          })
+          .finally(() => {
+            if (auralisDiagnosticAbortRef.current === controller) auralisDiagnosticAbortRef.current = null;
+          });
       }
       await applyRealKeyDetection(audioBuffer, preAnalysisLiveMetrics, a2PilotEnabled);
       if (preAnalysisLiveMetrics?.calculatedKey) {
@@ -1468,6 +1500,7 @@ export default function App() {
       setErrorHeader("File Analysis Blocked");
       setErrorDetails(err.message || "Ensure your file weight is small and your GEMINI_API_KEY is configured in Settings.");
     } finally {
+      if (diagnosticGeneration === auralisDiagnosticGenerationRef.current) cancelAuralisDiagnostic();
       setLoading(false);
     }
   };
