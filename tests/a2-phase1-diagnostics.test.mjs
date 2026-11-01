@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { analyzeEngineeringDiagnosticsInWorker } from "../src/lib/batchAudioWorker.ts";
 import ExcelJS from "exceljs";
-import { analyzeStage1aMeterReference, analyzeStage2aSpectralPower, analyzeStage2b1LowFrequency, analyzeStage2b2Stereo, assembleStage2c1EngineeringEvidence, interpretStage2d1EngineeringEvidence, runStage2c2aBrowserDiagnostics } from "../src/lib/liveAudioAnalyzer.ts";
+import { analyzeStage1aMeterReference, analyzeStage2aSpectralPower, analyzeStage2b1LowFrequency, analyzeStage2b2Stereo, assembleStage2c1EngineeringEvidence, interpretStage2d1EngineeringEvidence, interpretStage2d3CrossMeasurementEvidence, runStage2c2aBrowserDiagnostics } from "../src/lib/liveAudioAnalyzer.ts";
 import { appendA2ProvenanceToSourceDiagnostics } from "../src/lib/a2ScoringProvenance.ts";
 import {
   describeLowEndGateFactors,
@@ -2377,4 +2377,106 @@ test("Auralis 2D2 sustained synthetic anti-phase evidence is repeated but never 
   assert.ok(x.separatedPositiveWindows>=3);
   assert.equal(x.defectConclusion,"NOT_DETERMINED");
   assert.equal(obs.scoringImpact,"NONE");
+});
+
+
+// Stage 2D-3: all inputs synthetic PCM; no uploaded files, paid calls or scores.
+const auralis2d3Synthetic=(channels,sr=44100)=>
+  assembleStage2c1EngineeringEvidence(
+    analyzeStage2aSpectralPower(channels,sr),
+    analyzeStage2b1LowFrequency(channels,sr),
+    analyzeStage2b2Stereo(channels,sr));
+
+test("Auralis 2D3 silence, mono and single-channel stereo preserve inapplicable and unavailable states",()=>{
+  const sr=48000,n=16384,silence=new Float32Array(n);
+  for(const channels of [[silence,silence],[silence]]){
+    const original=auralis2d3Synthetic(channels,sr);
+    const snapshot=structuredClone(original);
+    const result=interpretStage2d3CrossMeasurementEvidence(original);
+    assert.equal(result.scoringImpact,"NONE");
+    assert.equal(result.schemaVersion,"stage2d3-dependent-corroboration-v1");
+    for(const band of result.bands){
+      const stereo=band.measurementFamilies.stereo;
+      assert.equal(stereo.status,channels.length===1?"NOT_APPLICABLE_MONO":"UNAVAILABLE_NO_MEASURABLE_STEREO");
+      assert.equal(stereo.validNormalizedFrames,0);
+      assert.equal(stereo.eligibleFrames,0);
+      assert.equal(stereo.completeCancellationFrames,0);
+      assert.equal(stereo.completeCancellationFraction,null);
+      assert.equal(stereo.correlatedAndAttenuatedFraction,null);
+      assert.equal(stereo.independentCorroborations,0);
+      assert.equal(band.temporalCoincidence.coincidenceFraction,null);
+      assert.equal(band.potentialProductionDefect,"NOT_DETERMINED");
+    }
+    assert.deepEqual(original,snapshot);
+  }
+  const left=new Float32Array(n);
+  for(let i=0;i<n;i++)left[i]=0.2*Math.sin(2*Math.PI*100*i/sr);
+  const oneSided=interpretStage2d3CrossMeasurementEvidence(auralis2d3Synthetic([left,silence],sr));
+  assert.equal(oneSided.bands[1].measurementFamilies.stereo.status,"UNAVAILABLE_NO_MEASURABLE_STEREO");
+});
+
+test("Auralis 2D3 preserves exact cancellation separately from normalized stereo evidence",()=>{
+  const sr=44100,n=32768,left=new Float32Array(n),right=new Float32Array(n);
+  for(let i=0;i<n;i++){left[i]=0.2*Math.sin(2*Math.PI*100*i/sr);right[i]=-left[i]}
+  const result=interpretStage2d3CrossMeasurementEvidence(auralis2d3Synthetic([left,right],sr));
+  const stereo=result.bands[1].measurementFamilies.stereo;
+  assert.equal(stereo.status,"AVAILABLE");
+  assert.ok(stereo.completeCancellationFrames>0);
+  assert.equal(stereo.validNormalizedFrames,0);
+  assert.equal(stereo.negativeAndAttenuatedFrames,0);
+  assert.equal(stereo.correlatedAndAttenuatedFraction,null);
+  assert.equal(stereo.completeCancellationFraction,1);
+  assert.equal(stereo.independentCorroborations,0);
+  assert.equal(result.bands[1].potentialProductionDefect,"NOT_DETERMINED");
+});
+
+test("Auralis 2D3 dependent negative correlation and mono attenuation count as one measurement family",()=>{
+  const sr=44100,n=32768,left=new Float32Array(n),right=new Float32Array(n);
+  for(let i=0;i<n;i++){left[i]=0.2*Math.sin(2*Math.PI*100*i/sr);right[i]=-0.5*left[i]}
+  const stereo=interpretStage2d3CrossMeasurementEvidence(auralis2d3Synthetic([left,right],sr))
+    .bands[1].measurementFamilies.stereo;
+  assert.equal(stereo.status,"AVAILABLE");
+  assert.ok(stereo.validNormalizedFrames>0);
+  assert.equal(stereo.negativeAndAttenuatedFrames,stereo.validNormalizedFrames);
+  assert.equal(stereo.atLeast3DbMonoAttenuationFrames,stereo.validNormalizedFrames);
+  assert.equal(stereo.independentCorroborations,0);
+});
+
+test("Auralis 2D3 ordinary stereo is not classified as a mixing defect",()=>{
+  const sr=48000,n=16384,left=new Float32Array(n),right=new Float32Array(n);
+  for(let i=0;i<n;i++){left[i]=0.2*Math.sin(2*Math.PI*100*i/sr);right[i]=left[i]}
+  const band=interpretStage2d3CrossMeasurementEvidence(auralis2d3Synthetic([left,right],sr)).bands[1];
+  assert.equal(band.measurementFamilies.stereo.status,"AVAILABLE");
+  assert.equal(band.measurementFamilies.stereo.atLeast3DbMonoAttenuationFrames,0);
+  assert.equal(band.measurementFamilies.stereo.negativeCorrelationFrames,0);
+  assert.equal(band.measurementFamilies.stereo.completeCancellationFrames,0);
+  assert.equal(band.potentialProductionDefect,"NOT_DETERMINED");
+  // Distinct tones in the same frequency band approximate uncorrelated left/right channels.
+  for(let i=0;i<n;i++)right[i]=0.2*Math.sin(2*Math.PI*147*i/sr);
+  const uncorrelated=interpretStage2d3CrossMeasurementEvidence(auralis2d3Synthetic([left,right],sr)).bands[1];
+  assert.ok(uncorrelated.measurementFamilies.stereo.atLeast3DbMonoAttenuationFrames>0);
+  assert.equal(uncorrelated.measurementFamilies.stereo.independentCorroborations,0);
+  assert.equal(uncorrelated.potentialProductionDefect,"NOT_DETERMINED");
+});
+
+test("Auralis 2D3 coincident power rise is descriptive and validates frame alignment",()=>{
+  const sr=48000,n=32768,left=new Float32Array(n),right=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    left[i]=(i<n/2?0.001:0.3)*Math.sin(2*Math.PI*100*i/sr);
+    right[i]=-0.5*left[i];
+  }
+  const evidence=auralis2d3Synthetic([left,right],sr);
+  const result=interpretStage2d3CrossMeasurementEvidence(evidence);
+  const coincident=result.bands[1].temporalCoincidence;
+  assert.equal(coincident.status,"AVAILABLE");
+  assert.ok(coincident.eligibleFrames>0);
+  assert.ok(coincident.coincidentFrames>0);
+  assert.ok(coincident.coincidentFrames<=coincident.eligibleFrames);
+  assert.equal(coincident.coincidenceFraction,coincident.coincidentFrames/coincident.eligibleFrames);
+  assert.equal(result.scoringImpact,"NONE");
+  assert.throws(()=>{
+    const malformed=structuredClone(evidence);
+    malformed.bands[1].frameEvidence[0].frameIndex=100;
+    interpretStage2d3CrossMeasurementEvidence(malformed);
+  },RangeError);
 });
