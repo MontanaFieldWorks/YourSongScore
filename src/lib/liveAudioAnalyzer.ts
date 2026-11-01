@@ -3100,6 +3100,27 @@ export function interpretStage2d1EngineeringEvidence(
         numerator/denominator>=0.5?"FREQUENT_IN_MEASURED_FRAMES" as const:
         "OCCASIONAL_IN_MEASURED_FRAMES" as const,
     });
+    // Stage 2D-4C: FFT support spans are sample-bounded observations, NEVER
+    // estimates of audible-event duration. Preserve source frame counts.
+    const sampleRate=evidence.sourceProvenance.sampleRate;
+    const hopSize=evidence.sourceProvenance.hopSize;
+    const fftSize=evidence.sourceProvenance.fftSize;
+    const representedSamples=evidence.sourceProvenance.representedSampleCount;
+    const durationOfWindowRun=(first:number,last:number)=>{
+      if(first<0||last<first)return {
+        startSample:null as number|null,endSample:null as number|null,seconds:0,
+      };
+      const startSample=first*hopSize;
+      const endSample=Math.min(representedSamples,last*hopSize+fftSize);
+      return {startSample,endSample,seconds:Math.max(0,endSample-startSample)/sampleRate};
+    };
+    const cancellationEligible=(frame:typeof frames[number])=>
+      frame.stereoStatus==="VALID"||frame.stereoStatus==="COMPLETE_CANCELLATION";
+    const cancellationEligibleFrames=frames.filter(cancellationEligible).length;
+    const cancellationAvailability=evidence.sourceProvenance.channelCount===1?
+      "NOT_APPLICABLE_MONO" as const:
+      cancellationEligibleFrames===0?"UNAVAILABLE_NO_MEASURABLE_STEREO" as const:
+      "AVAILABLE" as const;
     // Stage 2D-2: contiguous runs are descriptive, not independent FFT confirmations.
     // Require non-overlapping window spacing (two 2048-sample hops per 4096 window)
     // for a conservative repeat count; do not mislabel it as statistical independence.
@@ -3107,33 +3128,40 @@ export function interpretStage2d1EngineeringEvidence(
       matches:(frame:typeof frames[number])=>boolean,
       magnitude:(frame:typeof frames[number])=>number|null)=>{
       let valid=0,positive=0,longest=0,current=0,events=0,peakMagnitude:number|null=null;
+      let currentStart=-1,longestStart=-1,longestEnd=-1;
       let lastSeparated=-2;
       let separatedPositive=0;
       for(let i=0;i<count;i++){
         const frame=frames[i];
-        if(!eligible(frame)){current=0;continue;}
+        if(!eligible(frame)){current=0;currentStart=-1;continue;}
         valid++;
         if(matches(frame)){
-          positive++;current++;
-          if(current===1)events++;
-          longest=Math.max(longest,current);
+          positive++;
+          if(current===0){currentStart=i;events++;}
+          current++;
+          if(current>longest){longest=current;longestStart=currentStart;longestEnd=i;}
           if(i-lastSeparated>=2){separatedPositive++;lastSeparated=i;}
           const v=magnitude(frame);
           if(v!==null&&Number.isFinite(v))peakMagnitude=peakMagnitude===null?v:Math.max(peakMagnitude,v);
-        }else current=0;
+        }else{current=0;currentStart=-1;}
       }
       const validCoverage=valid/count;
       // Descriptive evidence strength only; no confidence probability or defect label.
       const evidenceStrength=valid<4||validCoverage<0.25?"INSUFFICIENT":
         positive===0?"NOT_OBSERVED":
         separatedPositive>=3&&longest>=3?"REPEATED":"LIMITED";
+      const windowSupport=durationOfWindowRun(longestStart,longestEnd);
       return {name,validFrames:valid,totalFrames:count,validCoverage,
         matchingFrames:positive,matchingFraction:valid?positive/valid:null,
         contiguousEvents:events,longestRunFrames:longest,
-        longestRunApproxSeconds:longest?((longest-1)*2048+4096)/evidence.sourceProvenance.sampleRate:0,
+        longestRunWindowSupportStartSample:windowSupport.startSample,
+        longestRunWindowSupportEndSample:windowSupport.endSample,
+        longestRunWindowSupportSeconds:windowSupport.seconds,
+        longestRunAudibleEventDurationSeconds:null as number|null,
+        durationSemantics:"SAMPLE_BOUNDED_FFT_WINDOW_SUPPORT_NOT_EVENT_DURATION" as const,
         separatedPositiveWindows:separatedPositive,minimumSeparationSamples:4096,
         peakMagnitude, evidenceStrength,defectConclusion:"NOT_DETERMINED" as const,
-        uncertainty:"Overlapping FFT windows and adjacent observations remain dependent; magnitude is descriptive only."};
+        uncertainty:"Overlapping FFT windows are dependent. Window-support span is not audible-event duration, which is unknown."};
     };
     const evidenceStrength={
       powerRises:strength("LOW_FREQUENCY_POWER_RISE",
@@ -3147,9 +3175,12 @@ export function interpretStage2d1EngineeringEvidence(
         frame=>frame.stereoStatus==="VALID"&&frame.monoChangeDb!==null,
         frame=>frame.monoChangeDb!==null&&frame.monoChangeDb<=-3,
         frame=>frame.monoChangeDb!==null&&frame.monoChangeDb<=-3?-frame.monoChangeDb:null),
-      completeCancellation:strength("NUMERIC_COMPLETE_CANCELLATION",
-        _frame=>true,frame=>frame.stereoStatus==="COMPLETE_CANCELLATION",
-        _frame=>null),
+      completeCancellation:{
+        ...strength("NUMERIC_COMPLETE_CANCELLATION",
+          cancellationEligible,frame=>frame.stereoStatus==="COMPLETE_CANCELLATION",
+          _frame=>null),
+        availabilityStatus:cancellationAvailability,
+      },
     };
     return {
       bandHz:[...band.bandHz] as number[],
@@ -3160,14 +3191,18 @@ export function interpretStage2d1EngineeringEvidence(
       riseEvents:observation("LOW_FREQUENCY_POWER_RISE",actualRise,measurableRise),
       negativeStereoCorrelation:observation("NEGATIVE_STEREO_CORRELATION",negative.length,validStereo.length),
       monoAttenuation:observation("MONO_FOLDDOWN_AT_LEAST_3_DB",lowMono.length,validStereo.length),
-      completeCancellation:observation("NUMERIC_COMPLETE_CANCELLATION",cancellation.length,count),
+      completeCancellation:{
+        ...observation("NUMERIC_COMPLETE_CANCELLATION",cancellation.length,cancellationEligibleFrames),
+        status:cancellationAvailability,
+        rawFrameDenominator:count, // Stage 2C1 raw coverage is preserved unchanged.
+      },
       statusCounts:{...band.stereoStatusCounts},
       interpretation:"Descriptive measurement pattern only. Instrument identity, arrangement, audibility and artistic intent unknown.",
       potentialProductionDefect:"NOT_DETERMINED" as const,
     };
   });
   return {
-    schemaVersion:"stage2d1-descriptive-observations-v1" as const,
+    schemaVersion:"stage2d1-descriptive-observations-v2" as const,
     scoringImpact:"NONE" as const,
     sourceEvidenceSchema:evidence.schemaVersion,
     sourceProvenance:{...evidence.sourceProvenance},
@@ -3200,7 +3235,7 @@ export function interpretStage2d3CrossMeasurementEvidence(
     let validStereo=0,measurableStereo=0,cancellations=0;
     let negative=0,attenuated=0,negativeAndAttenuated=0;
     let powerRiseEligible=0,powerRises=0,jointEligible=0,coincident=0;
-    let contiguous=0,longest=0,events=0;
+    let contiguous=0,longest=0,events=0,longestStart=-1,longestEnd=-1,currentStart=-1;
     for(let i=0;i<frameCount;i++){
       const frame=frames[i];
       if(frame.frameIndex!==i||frame.startSample!==i*evidence.sourceProvenance.hopSize)
@@ -3229,15 +3264,22 @@ export function interpretStage2d3CrossMeasurementEvidence(
       const sameFrame=isStereoMeasurable&&hasRiseComparison&&hasRise&&
         (isNegative||isAttenuated||isCancellation);
       if(sameFrame){
-        coincident++;contiguous++;
-        if(contiguous===1)events++;
-        longest=Math.max(longest,contiguous);
-      }else contiguous=0;
+        coincident++;
+        if(contiguous===0){currentStart=i;events++;}
+        contiguous++;
+        if(contiguous>longest){longest=contiguous;longestStart=currentStart;longestEnd=i;}
+      }else{contiguous=0;currentStart=-1;}
     }
     if(validStereo!==band.stereoValidFrames||
        cancellations!==band.cancellationFrames)
       throw new RangeError("Stage 2D3 inconsistent validated stereo counts");
     const ratio=(n:number,d:number)=>d===0?null:n/d;
+    const provenance=evidence.sourceProvenance;
+    const windowSupportStartSample=longest?longestStart*provenance.hopSize:null;
+    const windowSupportEndSample=longest?
+      Math.min(provenance.representedSampleCount,longestEnd*provenance.hopSize+provenance.fftSize):null;
+    const windowSupportSeconds=windowSupportStartSample===null||windowSupportEndSample===null?
+      0:Math.max(0,windowSupportEndSample-windowSupportStartSample)/provenance.sampleRate;
     const mono=evidence.sourceProvenance.channelCount===1;
     return {
       bandHz:[...band.bandHz],
@@ -3278,17 +3320,19 @@ export function interpretStage2d3CrossMeasurementEvidence(
         coincidenceFraction:ratio(coincident,jointEligible),
         contiguousEvents:events,
         longestRunFrames:longest,
-        approximateLongestRunSeconds:longest?
-          ((longest-1)*evidence.sourceProvenance.hopSize+evidence.sourceProvenance.fftSize)/
-          evidence.sourceProvenance.sampleRate:0,
-        interpretation:"Same-frame coincidence between a measurable power rise and a stereo-family condition; not proof of causation, independent corroboration or a mixing defect.",
+        longestRunWindowSupportStartSample:windowSupportStartSample,
+        longestRunWindowSupportEndSample:windowSupportEndSample,
+        longestRunWindowSupportSeconds:windowSupportSeconds,
+        longestRunAudibleEventDurationSeconds:null as number|null,
+        durationSemantics:"SAMPLE_BOUNDED_FFT_WINDOW_SUPPORT_NOT_EVENT_DURATION" as const,
+        interpretation:"Same-frame coincidence within sample-bounded FFT observation windows, not an audible-event duration or evidence of causation, independent corroboration or a mixing defect.",
       },
       evidenceStrengthFromStage2d2:prior.conditions[index].evidenceStrength,
       potentialProductionDefect:"NOT_DETERMINED" as const,
     };
   });
   return {
-    schemaVersion:"stage2d3-dependent-corroboration-v1" as const,
+    schemaVersion:"stage2d3-dependent-corroboration-v2" as const,
     scoringImpact:"NONE" as const,
     sourceEvidenceSchema:evidence.schemaVersion,
     sourceProvenance:{...evidence.sourceProvenance},
