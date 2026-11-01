@@ -28,6 +28,43 @@ async function browserTest(){
     if(a.byteLength!==bytes||a[17]!==original)throw Error("original audio buffer detached or modified");
     records.push({sr,seconds,elapsedMs:Math.round(elapsedMs),mainThreadSetupToPostMessageMs:Math.round(handoffMs),pcmBytes:bytes*2});
   }
+  // Stage 2C2B-1C: active cancellation after transfer, repeated-run heap snapshots
+  // and event-loop responsiveness. All inputs are synthetic, never uploaded.
+  const lifecycle=[];
+  for(const sr of [44100,48000]){
+    const seconds=300,n=sr*seconds;
+    const pcm=new AudioBuffer({sampleRate:sr,numberOfChannels:2,length:n});
+    const a=pcm.getChannelData(0),b=pcm.getChannelData(1);
+    for(let i=0;i<n;i++){a[i]=0.025*Math.sin(2*Math.PI*85*i/sr);b[i]=a[i]*0.9}
+    const ctl=new AbortController();
+    let ticks=0,maxDrift=0,previous=performance.now();
+    const heartbeat=setInterval(()=>{const now=performance.now();maxDrift=Math.max(maxDrift,now-previous-20);previous=now;ticks++},20);
+    const before=performance.now(),promise=analyze(pcm,ctl.signal);
+    const setupMs=performance.now()-before;
+    // Aborting after a posted message tests the active-worker termination path.
+    await new Promise(resolve=>setTimeout(resolve,60));
+    ctl.abort();
+    const result=await promise;
+    clearInterval(heartbeat);
+    if(result.status!=="CANCELLED")throw Error("active cancellation failed: "+result.status);
+    if(a.byteLength!==n*4)throw Error("active abort detached original PCM");
+    lifecycle.push({sr,activeAbort:result.status,setupMs:Math.round(setupMs),heartbeatTicks:ticks,maxHeartbeatDriftMs:Math.round(maxDrift)});
+  }
+  const samples=[];
+  for(let repeat=0;repeat<3;repeat++){
+    const sr=44100,seconds=60,n=sr*seconds;
+    const pcm=new AudioBuffer({sampleRate:sr,numberOfChannels:2,length:n});
+    const a=pcm.getChannelData(0),b=pcm.getChannelData(1);
+    for(let i=0;i<n;i++){a[i]=0.02*Math.sin(2*Math.PI*97*i/sr);b[i]=a[i]*0.75}
+    const heapBefore=performance.memory?.usedJSHeapSize??null;
+    let ticks=0,maxDrift=0,previous=performance.now();
+    const hb=setInterval(()=>{const now=performance.now();maxDrift=Math.max(maxDrift,now-previous-20);previous=now;ticks++},20);
+    const start=performance.now(),result=await analyze(pcm);
+    clearInterval(hb);
+    if(result.status!=="AVAILABLE")throw Error("repeat diagnostic unavailable "+result.reason);
+    samples.push({repeat,elapsedMs:Math.round(performance.now()-start),heapBefore,heapAfter:performance.memory?.usedJSHeapSize??null,ticks,maxHeartbeatDriftMs:Math.round(maxDrift)});
+  }
+  await new Promise(resolve=>setTimeout(resolve,200));
   let reads=0;
   const oversize=await analyze({numberOfChannels:2,sampleRate:48000,length:48000*600,getChannelData(){reads++;throw Error("must not read")}});
   if(oversize.reason!=="INPUT_BUDGET_EXCEEDED"||reads!==0)throw Error("oversize budget failed");
@@ -39,7 +76,7 @@ async function browserTest(){
   const timeout=await analyze(new AudioBuffer({numberOfChannels:1,length:4096,sampleRate:44100}),undefined,128*1024*1024,1);
   if(!["AVAILABLE","UNAVAILABLE"].includes(timeout.status))throw Error("invalid timeout result");
   return {userAgent:navigator.userAgent,records,oversize:oversize.reason,abort:abort.status,invalidRate:invalidRate.status,timeout:timeout.status,
-    heapBytes:performance.memory?.usedJSHeapSize??null,memoryNote:"snapshot, not peak"};
+    heapBytes:performance.memory?.usedJSHeapSize??null,lifecycle,repeatedSamples:samples,memoryNote:"renderer JS heap snapshots only; not browser/worker process peak RSS"};
 }
 test("Auralis real Chromium worker: synthetic 60/300 sec, PCM ownership, budget and abort",{
   timeout:180000,skip:!chromeBin?"No installed Chrome/Chromium":false},async()=>{
@@ -71,6 +108,9 @@ test("Auralis real Chromium worker: synthetic 60/300 sec, PCM ownership, budget 
     const result=data.result.value;
     assert.equal(result.records.length,4);
     for(const r of result.records){assert.ok(r.elapsedMs<30000);assert.ok(r.pcmBytes<128*1024*1024)}
+    assert.equal(result.lifecycle.length,2);
+    assert.equal(result.repeatedSamples.length,3);
+    for(const item of result.lifecycle)assert.equal(item.activeAbort,"CANCELLED");
     console.log("AURALIS_REAL_BROWSER "+JSON.stringify(result));
   }finally{ws?.close();chrome?.kill("SIGKILL");await vite.close()}
 });
