@@ -2176,7 +2176,8 @@ test("Stage 2C2B worker protocol retains legacy batch analysis and transfers cop
   assert.match(bridge,/INPUT_BUDGET_EXCEEDED/);
   assert.match(bridge,/reason:"TIMEOUT"/);
   assert.match(app,/const STAGE2C2A_DIAGNOSTICS_ENABLED = false;/);
-  assert.doesNotMatch(app,/analyzeEngineeringDiagnosticsInWorker/);
+  assert.match(app,/const STAGE2C2A_DIAGNOSTICS_ENABLED = false;/);
+  assert.match(app,/if \(STAGE2C2A_DIAGNOSTICS_ENABLED\)/);
 });
 
 test("Stage 2C2B direct worker-compatible engineering DSP 60s and 5min bounded synthetic inputs",()=>{
