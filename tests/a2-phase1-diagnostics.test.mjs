@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { analyzeEngineeringDiagnosticsInWorker } from "../src/lib/batchAudioWorker.ts";
 import ExcelJS from "exceljs";
 import { analyzeStage1aMeterReference, analyzeStage2aSpectralPower, analyzeStage2b1LowFrequency, analyzeStage2b2Stereo, assembleStage2c1EngineeringEvidence, runStage2c2aBrowserDiagnostics } from "../src/lib/liveAudioAnalyzer.ts";
 import { appendA2ProvenanceToSourceDiagnostics } from "../src/lib/a2ScoringProvenance.ts";
@@ -2157,4 +2158,82 @@ test("Stage 2C2A 60s stereo bounded end-to-end diagnostic computation",()=>{
     assert.ok(elapsed<20000,"Stage 2C2A 60s exceeded 20s: "+elapsed.toFixed(1)+"ms");
     console.log("Stage 2C2A 60s "+sr+": "+elapsed.toFixed(1)+"ms; input PCM bytes="+(left.byteLength+right.byteLength));
   }
+});
+
+
+test("Stage 2C2B worker protocol retains legacy batch analysis and transfers copied PCM",async()=>{
+  const worker=await readFile(new URL("../src/workers/audioAnalysisWorker.ts",import.meta.url),"utf8");
+  const bridge=await readFile(new URL("../src/lib/batchAudioWorker.ts",import.meta.url),"utf8");
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  assert.match(worker,/kind === "ENGINEERING_DIAGNOSTICS"/);
+  assert.match(worker,/runStage2c2aBrowserDiagnostics/);
+  assert.match(worker,/const metrics = analyzePcmData\(/);
+  assert.match(worker,/postMessage\(\{ ok: true, metrics \}\)/);
+  assert.match(bridge,/new Float32Array\(audioBuffer.getChannelData\(0\)\)/);
+  assert.match(bridge,/kind:"ENGINEERING_DIAGNOSTICS"/);
+  assert.match(bridge,/worker\?\.terminate\(\)/);
+  assert.match(bridge,/WORKER_MESSAGE_ERROR/);
+  assert.match(bridge,/INPUT_BUDGET_EXCEEDED/);
+  assert.match(bridge,/reason:"TIMEOUT"/);
+  assert.match(app,/const STAGE2C2A_DIAGNOSTICS_ENABLED = false;/);
+  assert.doesNotMatch(app,/analyzeEngineeringDiagnosticsInWorker/);
+});
+
+test("Stage 2C2B direct worker-compatible engineering DSP 60s and 5min bounded synthetic inputs",()=>{
+  for(const sr of [44100,48000]){
+    for(const duration of [60,300]){
+      const n=sr*duration;
+      const ch0=new Float32Array(n),ch1=new Float32Array(n);
+      for(let i=0;i<n;i++){ch0[i]=.05*Math.sin(2*Math.PI*92*i/sr);ch1[i]=.04*Math.sin(2*Math.PI*92*i/sr)}
+      const before=performance.now();
+      const out=runStage2c2aBrowserDiagnostics({sampleRate:sr,numberOfChannels:2,getChannelData:i=>i===0?ch0:ch1},true);
+      const elapsed=performance.now()-before;
+      assert.equal(out.status,"AVAILABLE");
+      assert.equal(out.evidence.scoringImpact,"NONE");
+      assert.equal(out.evidence.sourceProvenance.channelCount,2);
+      assert.ok(elapsed<20000,"Exceeded 20sec bounded synthetic limit: "+elapsed);
+      const bytes=ch0.byteLength+ch1.byteLength;
+      assert.ok(bytes<=128*1024*1024);
+      console.log("Stage 2C2B "+duration+"s "+sr+": "+elapsed.toFixed(1)+"ms; PCM transfer budget="+bytes);
+    }
+  }
+});
+
+
+test("Stage 2C2B worker bridge cancellation, failure and transfer-copy ownership",async()=>{
+  const original=globalThis.Worker;
+  const originalPcm=Float32Array.from({length:4096},(_,i)=>.02*Math.sin(2*Math.PI*90*i/44100));
+  const audio={numberOfChannels:1,length:originalPcm.length,sampleRate:44100,getChannelData:()=>originalPcm};
+  let latest;
+  class FakeWorker {
+    terminated=false;
+    constructor(){latest=this}
+    postMessage(payload,transfer){
+      assert.equal(payload.kind,"ENGINEERING_DIAGNOSTICS");
+      assert.notEqual(payload.ch0,originalPcm.buffer);
+      assert.equal(transfer.length,1);
+      assert.deepEqual(Array.from(new Float32Array(payload.ch0)),Array.from(originalPcm));
+      this.payload=payload;
+    }
+    terminate(){this.terminated=true}
+  }
+  globalThis.Worker=FakeWorker;
+  try {
+    assert.deepEqual(await analyzeEngineeringDiagnosticsInWorker(audio,undefined,1),{status:"UNAVAILABLE",reason:"INPUT_BUDGET_EXCEEDED"});
+    const ac=new AbortController();
+    const pending=analyzeEngineeringDiagnosticsInWorker(audio,ac.signal);
+    ac.abort();
+    assert.deepEqual(await pending,{status:"CANCELLED",reason:"ABORTED"});
+    assert.equal(latest.terminated,true);
+    assert.equal(originalPcm.byteLength,4096*4);
+    const error=analyzeEngineeringDiagnosticsInWorker(audio);
+    latest.onerror({message:"crash"});
+    assert.deepEqual(await error,{status:"UNAVAILABLE",reason:"WORKER_ERROR"});
+    assert.equal(latest.terminated,true);
+    const invalid=analyzeEngineeringDiagnosticsInWorker(audio);
+    latest.onmessage({data:{kind:"ENGINEERING_DIAGNOSTICS",status:"AVAILABLE",evidence:{scoringImpact:"SCORE"}}});
+    assert.deepEqual(await invalid,{status:"UNAVAILABLE",reason:"DIAGNOSTIC_COMPUTATION_FAILED"});
+    const already=new AbortController();already.abort();
+    assert.deepEqual(await analyzeEngineeringDiagnosticsInWorker(audio,already.signal),{status:"CANCELLED",reason:"ABORTED"});
+  } finally {globalThis.Worker=original}
 });
