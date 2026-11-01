@@ -39,6 +39,8 @@ async function browserTest(){
 test("Auralis real Chromium worker: synthetic 60/300 sec, PCM ownership, budget and abort",{
   timeout:180000,skip:!chromeBin?"No installed Chrome/Chromium":false},async()=>{
   const vite=await createServer({configFile:false,root:process.cwd(),logLevel:"error",
+    optimizeDeps:{noDiscovery:true,include:[]},
+    plugins:[{name:"auralis-synthetic-page",configureServer(server){server.middlewares.use("/__auralis_test__",(_req,res)=>{res.setHeader("Content-Type","text/html");res.end("<!doctype html><title>Auralis synthetic worker test</title>")})}}],
     server:{host:"127.0.0.1",port:0}});
   let chrome,ws;
   try{
@@ -49,7 +51,7 @@ test("Auralis real Chromium worker: synthetic 60/300 sec, PCM ownership, budget 
       "--user-data-dir=/tmp/auralis-chrome-"+process.pid,"about:blank"],{stdio:"ignore"});
     const version=await waitJson("http://127.0.0.1:"+debugPort+"/json/version");
     assert.match(version.Browser,/Chrome|Chromium/);
-    const page=await(await fetch("http://127.0.0.1:"+debugPort+"/json/new?http%3A%2F%2F127.0.0.1%3A"+appPort,{method:"PUT"})).json();
+    const page=await(await fetch("http://127.0.0.1:"+debugPort+"/json/new?http%3A%2F%2F127.0.0.1%3A"+appPort+"%2F__auralis_test__",{method:"PUT"})).json();
     ws=new WebSocket(page.webSocketDebuggerUrl);
     await new Promise((resolve,reject)=>{ws.addEventListener("open",resolve,{once:true});ws.addEventListener("error",reject,{once:true})});
     let seq=0;const pending=new Map();
@@ -58,9 +60,7 @@ test("Auralis real Chromium worker: synthetic 60/300 sec, PCM ownership, budget 
       const id=++seq;pending.set(id,v=>v.error?reject(Error(JSON.stringify(v.error))):resolve(v.result));
       ws.send(JSON.stringify({id,method,params}));
     });
-    await cdp("Runtime.enable");await cdp("Page.enable");
-    await cdp("Page.navigate",{url:"http://127.0.0.1:"+appPort+"/"});
-    await sleep(800);
+    await cdp("Runtime.enable");await sleep(500);
     const data=await cdp("Runtime.evaluate",{expression:"("+browserTest.toString()+")()",awaitPromise:true,returnByValue:true});
     if(data.exceptionDetails)throw Error("Browser test threw: "+JSON.stringify(data.exceptionDetails).slice(0,1000));
     const result=data.result.value;
