@@ -41,7 +41,7 @@ async function browserTest(){
 test("Auralis real Chromium worker: synthetic 60/300 sec, PCM ownership, budget and abort",{
   timeout:180000,skip:!chromeBin?"No installed Chrome/Chromium":false},async()=>{
   const vite=await createServer({configFile:false,root:process.cwd(),logLevel:"error",
-    optimizeDeps:{noDiscovery:true,include:[]},
+    optimizeDeps:{noDiscovery:true,include:["fft.js"]},
     plugins:[{name:"auralis-synthetic-page",configureServer(server){server.middlewares.use("/__auralis_test__",(_req,res)=>{res.setHeader("Content-Type","text/html");res.end("<!doctype html><title>Auralis synthetic worker test</title>")})}}],
     server:{host:"127.0.0.1",port:0}});
   let chrome,ws;
