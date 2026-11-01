@@ -1,4 +1,4 @@
-import { LiveAudioMetrics } from "../types";
+import type { LiveAudioMetrics } from "../types";
 
 /**
  * Runs the existing synchronous PCM analyzer inside a dedicated worker for the temporary
