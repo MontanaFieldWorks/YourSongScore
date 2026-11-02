@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Auralis SonicLens — Stage 2G-1 isolated browser-worker validation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font: 14px/1.5 system-ui, sans-serif; max-width: 980px; margin: 2rem auto; padding: 0 1rem; }
+    button { padding: .6rem 1rem; cursor: pointer; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f3f4f6; padding: 1rem; }
+    small { color: #52525b; }
+  </style>
+</head>
+<body>
+  <h1>Auralis Stage 2G-1: synthetic browser-worker check</h1>
+  <p>Nonproduction, browser-only diagnostic harness. Uses the <strong>actual</strong>
+  <code>analyzeEngineeringDiagnosticsInWorker</code> and its module Worker. No song
+  inputs, network API calls, scoring, report changes, or production feature flag activation.</p>
+  <p><small>From a local YourSongScore checkout, run <code>npm run dev</code> and visit
+  <code>http://localhost:3000/tests/auralis-stage2g1-browser-harness.html</code>.
+  Do not serve this page from production. All memory values are optional
+  browser-reported approximations, never total process/worker peak-memory
+  guarantees. This harness does not profile worker CPU time.</small></p>
+  <button id="run" type="button">Run bounded synthetic browser cases</button>
+  <pre id="result" aria-live="polite">Not run.</pre>
+  <script type="module">
+    import { analyzeEngineeringDiagnosticsInWorker } from "/src/lib/batchAudioWorker.ts";
+
+    const out = document.querySelector("#result");
+    const runButton = document.querySelector("#run");
+    const capBytes = 128 * 1024 * 1024;
+    const rates = [44100, 48000, 96000, 192000];
+    const allowedHost = location.hostname === "localhost" ||
+      location.hostname === "127.0.0.1" || location.hostname === "[::1]";
+    const fail = message => { throw new Error(message); };
+    const assert = (condition, message) => { if (!condition) fail(message); };
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+    const brief = value => Math.round(value * 100) / 100;
+
+    async function memorySnapshot() {
+      const result = {
+        available: false,
+        userAgentSpecificBytes: null,
+        chromiumJSHeapUsedBytes: null,
+        limitations: [
+          "Memory readings are optional, browser-specific and not per-worker peak measurements",
+          "Garbage collection is nondeterministic; before/after readings are not allocation peaks",
+          "A 128 MiB decoded PCM cap is not a browser process memory cap",
+        ],
+      };
+      if (performance.memory &&
+          Number.isFinite(performance.memory.usedJSHeapSize))
+        result.chromiumJSHeapUsedBytes = performance.memory.usedJSHeapSize;
+      if (typeof performance.measureUserAgentSpecificMemory === "function") {
+        try {
+          const data = await performance.measureUserAgentSpecificMemory();
+          if (Number.isFinite(data.bytes)) {
+            result.userAgentSpecificBytes = data.bytes;
+            result.available = true;
+          }
+        } catch (error) {
+          result.measureError = String(error?.name || error);
+        }
+      }
+      return result;
+    }
+
+    function syntheticAudio(sr, channelCount, n) {
+      const channels = Array.from({ length: channelCount }, (_, ch) => {
+        const output = new Float32Array(n);
+        const frequency = ch ? 105 : 85;
+        for (let i = 0; i < n; i++)
+          output[i] = 0.055 * Math.sin(2 * Math.PI * frequency * i / sr);
+        return output;
+      });
+      return {
+        sampleRate: sr,
+        numberOfChannels: channelCount,
+        length: n,
+        getChannelData: i => channels[i],
+        original: channels,
+      };
+    }
+
+    const NativeWorker = globalThis.Worker;
+    let currentPolicy = "NORMAL";
+    const createdWorkers = [];
+    class InstrumentedWorker extends NativeWorker {
+      constructor(url, options) {
+        super(url, options);
+        this.probe = {
+          moduleWorker: options?.type === "module",
+          transfers: [],
+          terminateCount: 0,
+          errors: [],
+        };
+        createdWorkers.push(this);
+      }
+      postMessage(message, transfer) {
+        const originals = [message.ch0, ...(message.ch1 ? [message.ch1] : [])];
+        assert(message.kind === "ENGINEERING_DIAGNOSTICS",
+          "Unexpected legacy or non-diagnostic worker request");
+        assert(transfer.length === message.numChannels,
+          "Transferred channel count differs from request");
+        for (let i = 0; i < transfer.length; i++)
+          assert(originals[i] === transfer[i], "Transfer list is not the copied PCM");
+        this.probe.transfers.push({
+          byteLengthsBefore: transfer.map(x => x.byteLength),
+          originalBuffers: originals,
+        });
+        super.postMessage(message, transfer);
+        this.probe.transfers.at(-1).byteLengthsAfter = transfer.map(x => x.byteLength);
+      }
+      set onmessage(callback) {
+        this._onDiagnosticMessage = callback;
+        super.onmessage = event => {
+          if (currentPolicy === "CORRUPT_VERSION" &&
+              event.data?.status === "AVAILABLE") {
+            const mutated = structuredClone(event.data);
+            mutated.evidence.schemaVersion = "stage2c1-fabricated-v0";
+            callback({ data: mutated });
+          } else callback(event);
+        };
+      }
+      get onmessage() { return this._onDiagnosticMessage; }
+      terminate() {
+        this.probe.terminateCount++;
+        return super.terminate();
+      }
+    }
+
+    function sourcePreserved(audio, originals) {
+      for (let ch = 0; ch < audio.numberOfChannels; ch++) {
+        assert(audio.original[ch].byteLength === audio.length * 4,
+          "Original channel buffer became detached");
+        assert(audio.original[ch][0] === originals[ch][0] &&
+               audio.original[ch][audio.length - 1] === originals[ch][audio.length - 1],
+          "Original synthetic audio changed");
+      }
+    }
+
+    async function runCase(sr, channelCount, seconds, timeoutMs = 30000, policy = "NORMAL") {
+      const samples = Math.max(4096, Math.ceil(sr * seconds));
+      const pcmBytes = samples * channelCount * 4;
+      assert(pcmBytes < capBytes / 8, "Harness must not approach the large input cap");
+      const audio = syntheticAudio(sr, channelCount, samples);
+      const expected = audio.original.map(channel => new Float32Array(channel));
+      const priorWorkers = createdWorkers.length;
+      currentPolicy = policy;
+      const started = performance.now();
+      const result = await analyzeEngineeringDiagnosticsInWorker(audio, undefined, capBytes, timeoutMs);
+      const elapsedMs = performance.now() - started;
+      assert(createdWorkers.length === priorWorkers + 1, "Expected an actual module Worker");
+      const worker = createdWorkers.at(-1);
+      assert(worker.probe.moduleWorker, "A module worker was not created");
+      assert(worker.probe.transfers.length === 1, "Expected one PCM transfer");
+      assert(worker.probe.transfers[0].byteLengthsBefore.reduce((a,b)=>a+b,0) === pcmBytes,
+        "Transferred PCM byte count differs from input");
+      assert(worker.probe.transfers[0].byteLengthsAfter.every(n => n === 0),
+        "Actual transferable buffers were not detached after postMessage");
+      assert(worker.probe.terminateCount === 1, "Worker was not terminated exactly once");
+      sourcePreserved(audio, expected);
+      if (policy === "CORRUPT_VERSION") {
+        assert(result.status === "UNAVAILABLE" &&
+               result.reason === "INVALID_WORKER_EVIDENCE",
+          "Bridge did not reject an injected wrong-version response");
+      } else if (timeoutMs === 1) {
+        assert(result.status === "UNAVAILABLE" && result.reason === "TIMEOUT",
+          "1ms synthetic timeout did not settle as TIMEOUT");
+      } else {
+        assert(result.status === "AVAILABLE", "Diagnostic worker failed: " + result.reason);
+        assert(result.evidence.scoringImpact === "NONE", "Scoring isolation contract changed");
+        assert(result.evidence.schemaVersion === "stage2c1-engineering-evidence-v1",
+          "Unexpected evidence schema");
+        assert(result.evidence.sourceProvenance.sampleRate === sr &&
+               result.evidence.sourceProvenance.channelCount === channelCount &&
+               result.evidence.sourceProvenance.inputSampleCount === samples,
+          "Evidence provenance mismatched input");
+      }
+      return {
+        sampleRate: sr, channels: channelCount, seconds, inputPcmBytes: pcmBytes,
+        status: result.status, reason: result.reason || null,
+        wallElapsedMs: brief(elapsedMs), workerTerminations: worker.probe.terminateCount,
+        copyTransferOwnershipVerified: true, originalAudioPreserved: true,
+        injectedVersionCorruption: policy === "CORRUPT_VERSION",
+      };
+    }
+
+    async function runAbortCase() {
+      currentPolicy = "NORMAL";
+      const audio = syntheticAudio(48000, 2, 48000 * 3);
+      const prior = createdWorkers.length;
+      const controller = new AbortController();
+      const started = performance.now();
+      const request = analyzeEngineeringDiagnosticsInWorker(audio, controller.signal);
+      controller.abort();
+      const result = await request;
+      assert(result.status === "CANCELLED" && result.reason === "ABORTED",
+        "Abort did not cancel diagnostic request");
+      assert(createdWorkers.length === prior + 1, "Abort did not exercise a native Worker");
+      const worker = createdWorkers.at(-1);
+      assert(worker.probe.terminateCount === 1, "Abort did not terminate worker");
+      assert(audio.original.every(x => x.byteLength === audio.length * 4),
+        "Abort detached source PCM");
+      await delay(20);
+      assert(worker.probe.terminateCount === 1, "Abort cleanup not idempotent");
+      return { status: result.status, reason: result.reason,
+        wallElapsedMs: brief(performance.now() - started),
+        workerTerminations: worker.probe.terminateCount };
+    }
+
+    async function run() {
+      if (!allowedHost) fail("Refusing nonlocal host: do not run against deployed YSS.");
+      assert(typeof NativeWorker === "function", "Real browser Worker API not present");
+      const results = {
+        stage: "2G-1", mode: "actual module Worker; not a worker mock",
+        ua: navigator.userAgent, host: location.host,
+        featureFlagChanged: false, songInputs: false, paidCalls: false,
+        measurement: "Main-thread worker round-trip wall time; NOT worker CPU time",
+        status: "RUNNING", cases: [], memory: {},
+        limitations: [
+          "Only bounded synthetic inputs: no near-128-MiB worker/peak-memory trial",
+          "Injected malformed response simulates a boundary attack after real-worker computation",
+          "User-agent memory may be unavailable and is not a per-worker peak",
+        ],
+      };
+      window.__auralis2g1 = results;
+      runButton.disabled = true;
+      globalThis.Worker = InstrumentedWorker;
+      let maxMainEventLoopDelayMs = 0;
+      let lastTick = performance.now();
+      const beat = setInterval(() => {
+        const now = performance.now();
+        maxMainEventLoopDelayMs = Math.max(maxMainEventLoopDelayMs, now - lastTick - 25);
+        lastTick = now;
+      }, 25);
+      try {
+        results.memory.before = await memorySnapshot();
+        for (const sr of rates) {
+          for (const channels of [1,2]) {
+            results.cases.push(await runCase(sr, channels, .20));
+            out.textContent = JSON.stringify(results, null, 2);
+          }
+        }
+        results.responseValidation = await runCase(48000,2,.2,30000,"CORRUPT_VERSION");
+        results.cancellation = await runAbortCase();
+        results.timeout = await runCase(48000,2,3,1);
+        results.memory.after = await memorySnapshot();
+        results.mainEventLoopMaxDelayMs = brief(Math.max(0,maxMainEventLoopDelayMs));
+        results.status = "PASS";
+      } catch (error) {
+        results.status = "FAIL";
+        results.error = String(error?.stack || error);
+      } finally {
+        clearInterval(beat);
+        globalThis.Worker = NativeWorker;
+        runButton.disabled = false;
+        out.textContent = JSON.stringify(results, null, 2);
+      }
+    }
+
+    runButton.addEventListener("click", run);
+    if (new URLSearchParams(location.search).get("autorun") === "1")run();
+  </script>
+</body>
+</html>
