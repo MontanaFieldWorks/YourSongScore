@@ -2989,6 +2989,32 @@ test("Auralis 2E2: 44.1/48/96/192 kHz frequency-bin resolution and numerical val
       .filter(i=>i*binHz>=20&&i*binHz<60);
     assert.equal(lowBins.length,expectedLowBins.get(sr),
       "known bin-center occupancy, not a calibrated acoustic resolution grade");
+
+    // Independent periodic-Hann exact-bin reference: a positive-frequency sine
+    // contributes A²/2 total windowed power across k-1,k,k+1 in the fractions
+    // 1/6, 4/6, 1/6. All three centers must land in 60–250 Hz at EACH rate.
+    // This independently tests BAND ALLOCATION, not merely total conservation.
+    const k=Math.round(125/binHz),amplitude=.3,referencePower=amplitude**2/2;
+    const reference=auralis2d4aTone(4096,sr,k*binHz,0,amplitude);
+    const measured=analyzeStage2aSpectralPower([reference],sr);
+    const expectedBands=new Array(7).fill(0);
+    let expectedUnassigned=0;
+    for(const [bin,share] of [[k-1,1/6],[k,4/6],[k+1,1/6]]){
+      const frequency=bin*binHz,contribution=referencePower*share;
+      assert.ok(frequency>=60&&frequency<250,
+        "this reference must avoid band boundaries at every supported rate");
+      const band=measured.bandEdgesHz.findIndex((lo,i)=>
+        i<7&&frequency>=lo&&frequency<measured.bandEdgesHz[i+1]);
+      if(band<0)expectedUnassigned+=contribution;
+      else expectedBands[band]+=contribution;
+    }
+    assert.ok(Math.abs(expectedBands[1]-referencePower)<1e-12);
+    for(let i=0;i<expectedBands.length;i++)
+      assert.ok(Math.abs(measured.channelBandPower[0][i]-expectedBands[i])<2e-8,
+        "independent Hann band attribution at "+sr+" Hz, band "+i);
+    assert.ok(Math.abs(measured.channelUnassignedPower[0]-expectedUnassigned)<2e-8);
+    assert.ok(Math.abs(measured.channelTotalPower[0]-referencePower)<2e-8);
+
     for(const hz of [20,40,60,125,250]){
       const signal=auralis2d4aTone(n,sr,hz);
       const spectral=analyzeStage2aSpectralPower([signal],sr);
@@ -3112,7 +3138,7 @@ test("Auralis 2E2: Hann boundary impulse weighting and unobserved tail are not e
   }
 });
 
-test("Auralis 2E2: pulse timing changes dependent overlapping observations, not audible-event duration",()=>{
+test("Auralis 2E2: pulse offsets preserve dependent FFT-window support, not audible-event duration",()=>{
   for(const sr of [44100,48000]){
     const n=16384,pulseLength=350;
     for(const offset of [3800,5500,7000]){
@@ -3129,6 +3155,34 @@ test("Auralis 2E2: pulse timing changes dependent overlapping observations, not 
         "SAMPLE_BOUNDED_FFT_WINDOW_SUPPORT_NOT_EVENT_DURATION");
       assert.equal(co.longestRunAudibleEventDurationSeconds,null);
       assert.ok(co.coincidentFrames<=co.eligibleFrames);
+      const raw=evidence.bands[1].frameEvidence;
+      const rawCoincidences=raw.filter(frame=>
+        frame.stereoStatus==="COMPLETE_CANCELLATION"&&
+        frame.rises.some(rise=>rise!==null)&&
+        frame.rises.some(rise=>rise===true)).length;
+      assert.equal(co.coincidentFrames,rawCoincidences,
+        "one band-level stereo family and one valid band-power rise constitute a descriptive coincidence");
+
+      // Grounded POSITIVE reference: at offset 7000, the 350-sample 125 Hz
+      // pulse is inside frame [4096,8192) but outside [2048,6144).
+      // Independently show increased Hann-windowed PCM energy, then require
+      // at least one actual measured low-band rise + anti-phase coincidence.
+      // Do not assume all offsets behave alike or freeze FFT magnitudes.
+      if(offset===7000){
+        const windowPowerAt=start=>{
+          let power=0;
+          for(let i=0;i<4096;i++){
+            const w=.5-.5*Math.cos(2*Math.PI*i/4096);
+            power+=(left[start+i]*w)**2;
+          }
+          return power;
+        };
+        assert.ok(windowPowerAt(4096)>4*windowPowerAt(2048),
+          "independent time-domain energy reference exceeds a 6 dB rise");
+        assert.ok(co.eligibleFrames>0);
+        assert.ok(co.coincidentFrames>0,
+          "known pulse and negative-polarity stereo must produce measured coincidence");
+      }
       if(co.longestRunFrames===0){
         assert.equal(co.longestRunWindowSupportStartSample,null);
         assert.equal(co.longestRunWindowSupportEndSample,null);
