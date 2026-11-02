@@ -23,6 +23,17 @@ self.onmessage = (event: MessageEvent<{
     );
     (self as any).postMessage({ ok: true, metrics });
   } catch (error: any) {
+    if (event.data?.kind === "ENGINEERING_DIAGNOSTICS") {
+      // Diagnostic protocol failures must remain diagnostic: do not return
+      // the legacy {ok:false,error} envelope or expose exception text.
+      (self as any).postMessage({
+        kind: "ENGINEERING_DIAGNOSTICS",
+        status: "UNAVAILABLE",
+        reason: "DIAGNOSTIC_COMPUTATION_FAILED",
+      });
+      return;
+    }
+    // The legacy batch worker protocol is intentionally unchanged.
     (self as any).postMessage({
       ok: false,
       error: error?.message || "Batch DSP worker failed.",

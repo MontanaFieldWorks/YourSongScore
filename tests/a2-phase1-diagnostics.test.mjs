@@ -3445,3 +3445,175 @@ test("Auralis 2F1: diagnostic hook and worker remain separate from scoring and r
   assert.match(bridge,/INPUT_BUDGET_EXCEEDED/);
   assert.match(bridge,/reason:"TIMEOUT"/);
 });
+
+
+// Stage 2F-2: untrusted diagnostic response contract. Real browser memory and
+// scheduling are NOT established by these small-buffer in-process worker mocks.
+test("Auralis 2F2: valid diagnostic worker evidence remains accepted for mono/stereo at four rates",async()=>{
+  const OriginalWorker=globalThis.Worker,workers=[];
+  class SyntheticWorker {
+    terminationCount=0;
+    constructor(){workers.push(this);}
+    terminate(){this.terminationCount++;}
+    postMessage(request,transfer){
+      assert.equal(request.kind,"ENGINEERING_DIAGNOSTICS");
+      assert.equal(transfer.length,request.numChannels);
+      const channels=[new Float32Array(request.ch0),
+        ...(request.ch1?[new Float32Array(request.ch1)]:[])];
+      const response=runStage2c2aBrowserDiagnostics({
+        sampleRate:request.sampleRate,numberOfChannels:request.numChannels,
+        getChannelData:i=>channels[i],
+      },true);
+      assert.equal(response.status,"AVAILABLE");
+      this.onmessage({data:{kind:"ENGINEERING_DIAGNOSTICS",...response}});
+    }
+  }
+  globalThis.Worker=SyntheticWorker;
+  try{
+    for(const sr of [44100,48000,96000,192000]){
+      for(const n of [1024,4096,8192]){
+        for(const channelCount of [1,2]){
+          const ch0=Float32Array.from({length:n},(_,i)=>.06*Math.sin(2*Math.PI*125*i/sr));
+          const ch1=Float32Array.from({length:n},(_,i)=>.05*Math.cos(2*Math.PI*95*i/sr));
+          const original=[ch0,ch1];
+          const audio={sampleRate:sr,numberOfChannels:channelCount,length:n,
+            getChannelData:i=>original[i]};
+          const res=await analyzeEngineeringDiagnosticsInWorker(audio);
+          assert.equal(res.status,"AVAILABLE",sr+" Hz / "+n+" samples / "+channelCount+" ch");
+          assert.equal(res.evidence.schemaVersion,"stage2c1-engineering-evidence-v1");
+          assert.equal(res.evidence.scoringImpact,"NONE");
+          assert.equal(res.evidence.sourceProvenance.inputSampleCount,n);
+          assert.equal(res.evidence.sourceProvenance.channelCount,channelCount);
+          assert.equal(res.evidence.sourceProvenance.sampleRate,sr);
+          assert.equal(workers.at(-1).terminationCount,1);
+          assert.equal(ch0.byteLength,n*4,"the original buffer was not transferred");
+        }
+      }
+    }
+  }finally{globalThis.Worker=OriginalWorker;}
+});
+
+test("Auralis 2F2: invalid, truncated and wrong-version evidence never returns AVAILABLE",async()=>{
+  const OriginalWorker=globalThis.Worker;
+  const sr=48000,n=8192,pcm=Float32Array.from({length:n},(_,i)=>
+    .08*Math.sin(2*Math.PI*125*i/sr));
+  const audio={sampleRate:sr,numberOfChannels:2,length:n,
+    getChannelData:()=>pcm};
+  const valid=runStage2c2aBrowserDiagnostics(audio,true);
+  assert.equal(valid.status,"AVAILABLE");
+  assert.equal(valid.evidence.bands.length,2);
+  let active;
+  class FakeWorker{
+    terminationCount=0;
+    constructor(){active=this;}
+    terminate(){this.terminationCount++;}
+    postMessage(){
+      const current=activeCase;
+      const evidence=structuredClone(valid.evidence);
+      const data={kind:"ENGINEERING_DIAGNOSTICS",status:"AVAILABLE",evidence};
+      current.mutate(data);
+      this.onmessage({data});
+    }
+  }
+  const cases=[
+    ["wrong schema version",x=>{x.evidence.schemaVersion="stage2c1-engineering-evidence-v999";},"INVALID_WORKER_EVIDENCE"],
+    ["missing evidence",x=>{delete x.evidence;},"DIAGNOSTIC_COMPUTATION_FAILED"],
+    ["missing provenance",x=>{delete x.evidence.sourceProvenance;},"INVALID_WORKER_EVIDENCE"],
+    ["missing method",x=>{x.evidence.sourceProvenance.methods.pop();},"INVALID_WORKER_EVIDENCE"],
+    ["wrong method",x=>{x.evidence.sourceProvenance.methods[0]="UNKNOWN";},"INVALID_WORKER_EVIDENCE"],
+    ["source rate mismatch",x=>{x.evidence.sourceProvenance.sampleRate=44100;},"INVALID_WORKER_EVIDENCE"],
+    ["source channel mismatch",x=>{x.evidence.sourceProvenance.channelCount=1;},"INVALID_WORKER_EVIDENCE"],
+    ["source count mismatch",x=>{x.evidence.sourceProvenance.inputSampleCount=n+1;},"INVALID_WORKER_EVIDENCE"],
+    ["FFT provenance mismatch",x=>{x.evidence.sourceProvenance.fftSize=1024;},"INVALID_WORKER_EVIDENCE"],
+    ["hop provenance mismatch",x=>{x.evidence.sourceProvenance.hopSize=1024;},"INVALID_WORKER_EVIDENCE"],
+    ["sample coverage mismatch",x=>{x.evidence.sourceProvenance.representedSampleCount--;},"INVALID_WORKER_EVIDENCE"],
+    ["missing bands",x=>{x.evidence.bands=[];},"INVALID_WORKER_EVIDENCE"],
+    ["wrong frequency band",x=>{x.evidence.bands[1].bandHz=[40,250];},"INVALID_WORKER_EVIDENCE"],
+    ["wrong spectral channels",x=>{x.evidence.bands[1].spectralChannelPower.pop();},"INVALID_WORKER_EVIDENCE"],
+    ["truncated frames",x=>{x.evidence.bands[1].frameEvidence.pop();},"INVALID_WORKER_EVIDENCE"],
+    ["frame index mismatch",x=>{x.evidence.bands[1].frameEvidence[0].frameIndex=8;},"INVALID_WORKER_EVIDENCE"],
+    ["frame start mismatch",x=>{x.evidence.bands[1].frameEvidence[1].startSample=999;},"INVALID_WORKER_EVIDENCE"],
+    ["negative energy",x=>{x.evidence.bands[1].frameEvidence[0].temporalPower[0]=-1;},"INVALID_WORKER_EVIDENCE"],
+    ["invalid stereo state",x=>{x.evidence.bands[1].frameEvidence[0].stereoStatus="PERFECT_MIX";},"INVALID_WORKER_EVIDENCE"],
+    ["invalid rising state",x=>{x.evidence.bands[1].frameEvidence[1].rises[0]="YES";},"INVALID_WORKER_EVIDENCE"],
+    ["wrong stereo count",x=>{x.evidence.bands[1].stereoValidFrames++;},"INVALID_WORKER_EVIDENCE"],
+    ["wrong rise denominator",x=>{x.evidence.bands[1].riseValidComparisons++;},"INVALID_WORKER_EVIDENCE"],
+    ["wrong cancellation indices",x=>{x.evidence.bands[1].cancellationFrameIndices=[9];},"INVALID_WORKER_EVIDENCE"],
+    ["wrong status count",x=>{x.evidence.bands[1].stereoStatusCounts.INVALID=1;},"INVALID_WORKER_EVIDENCE"],
+    ["scoring impact not NONE",x=>{x.evidence.scoringImpact="SCORE";},"DIAGNOSTIC_COMPUTATION_FAILED"],
+    ["no response kind",x=>{delete x.kind;},"INVALID_WORKER_RESPONSE"],
+    ["wrong response status",x=>{x.status="DONE";},"INVALID_WORKER_RESPONSE"],
+  ];
+  let activeCase;
+  globalThis.Worker=FakeWorker;
+  try{
+    for(const [label,mutate,reason] of cases){
+      activeCase={mutate};
+      const result=await analyzeEngineeringDiagnosticsInWorker(audio);
+      assert.deepEqual(result,{status:"UNAVAILABLE",reason},label);
+      assert.equal(active.terminationCount,1,label+" terminates worker");
+      assert.equal(pcm.byteLength,n*4,label+" keeps decoded PCM intact");
+    }
+  }finally{globalThis.Worker=OriginalWorker;}
+});
+
+test("Auralis 2F2: worker diagnostic exception envelope and legacy error branch remain separate",async()=>{
+  const workerSource=await readFile(new URL("../src/workers/audioAnalysisWorker.ts",import.meta.url),"utf8");
+  // Transpile the existing TypeScript file in-memory with its already-installed
+  // TypeScript compiler; replace ONLY the import line with injected test stubs.
+  // No filesystem changes, new dependencies or real browser workers.
+  const ts=(await import("typescript")).default;
+  const vm=await import("node:vm");
+  const withoutImport=workerSource.replace(/^import \{ analyzePcmData, runStage2c2aBrowserDiagnostics \} from "\.\.\/lib\/liveAudioAnalyzer";\n/,"");
+  assert.notEqual(withoutImport,workerSource,"expected exact preexisting worker import");
+  const compiled=ts.transpileModule(withoutImport,{compilerOptions:{
+    target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None,
+  }}).outputText;
+  const messages=[];
+  const self={onmessage:null,postMessage:message=>messages.push(message)};
+  vm.runInNewContext(compiled,{
+    self,Float32Array,
+    runStage2c2aBrowserDiagnostics:()=>{throw Error("synthetic diagnostic exception");},
+    analyzePcmData:()=>{throw Error("synthetic legacy error");},
+  });
+  assert.equal(typeof self.onmessage,"function");
+  const buf=new Float32Array(4096).buffer;
+  self.onmessage({data:{kind:"ENGINEERING_DIAGNOSTICS",sampleRate:48000,
+    numChannels:1,ch0:buf}});
+  assert.deepEqual(structuredClone(messages.pop()),{
+    kind:"ENGINEERING_DIAGNOSTICS",
+    status:"UNAVAILABLE",
+    reason:"DIAGNOSTIC_COMPUTATION_FAILED",
+  },"diagnostic exception cannot leak legacy response or raw exception");
+  self.onmessage({data:{sampleRate:48000,numChannels:1,ch0:buf}});
+  assert.deepEqual(structuredClone(messages.pop()),{
+    ok:false,error:"synthetic legacy error",
+  },"legacy worker failure protocol remains unchanged");
+});
+
+test("Auralis 2F2: an unavailable worker response stays unavailable without impact on cancellation",async()=>{
+  const OriginalWorker=globalThis.Worker;
+  let worker;
+  class FakeWorker{
+    terminated=0;
+    constructor(){worker=this;}
+    terminate(){this.terminated++;}
+    postMessage(){
+      this.onmessage({data:{kind:"ENGINEERING_DIAGNOSTICS",status:"UNAVAILABLE",
+        reason:"DIAGNOSTIC_COMPUTATION_FAILED"}});
+    }
+  }
+  globalThis.Worker=FakeWorker;
+  try{
+    const pcm=new Float32Array(4096);
+    const audio={sampleRate:44100,length:4096,numberOfChannels:1,getChannelData:()=>pcm};
+    const got=await analyzeEngineeringDiagnosticsInWorker(audio);
+    assert.deepEqual(got,{status:"UNAVAILABLE",reason:"DIAGNOSTIC_COMPUTATION_FAILED"});
+    assert.equal(worker.terminated,1);
+    const controller=new AbortController();controller.abort();
+    assert.deepEqual(await analyzeEngineeringDiagnosticsInWorker(audio,controller.signal),
+      {status:"CANCELLED",reason:"ABORTED"});
+    assert.equal(worker.terminated,1,"pre-aborted run did not create another worker");
+    assert.equal(pcm.byteLength,4096*4);
+  }finally{globalThis.Worker=OriginalWorker;}
+});
