@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Auralis SonicLens — Stage 2G-2 extended browser-worker validation</title>
+  <title>Auralis SonicLens — Stage 2G-2 + 2G-3 isolated browser validation</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font: 14px/1.5 system-ui, sans-serif; max-width: 980px; margin: 2rem auto; padding: 0 1rem; }
@@ -25,13 +25,23 @@
   are optional browser-reported approximations, never process/worker peak
   guarantees. Wall-clock round trips are not worker CPU time. Keep this tab
   in the foreground during the run and avoid running multiple tests at once.</small></p>
-  <button id="run" type="button">Run progressive synthetic browser cases (up to 24 MiB per case)</button>
+  <button id="run" type="button">Run Stage 2G-2 progressive synthetic cases (32 cases)</button>
+  <button id="profile" type="button">Run Stage 2G-3 bounded responsiveness profile (9 measured cases)</button>
+  <p><small>Stage 2G-3 is optional and must be selected explicitly. It runs one
+  0.2s/48k stereo warm-up followed by three repeats each of 0.2s/48k stereo,
+  15s/48k stereo, and 15s/192k stereo. One case at a time, no retries,
+  ≤24 MiB decoded PCM per case and 30s timeout per worker. Long-task/animation
+  observers and heap snapshots are optional, not process or worker peak-memory
+  measurements. Run in the foreground on localhost only. In-flight worker time
+  is not worker CPU time; results can be inconclusive about a timer delay.</small></p>
   <pre id="result" aria-live="polite">Not run.</pre>
   <script type="module">
     import { analyzeEngineeringDiagnosticsInWorker } from "/src/lib/batchAudioWorker.ts";
 
     const out = document.querySelector("#result");
     const runButton = document.querySelector("#run");
+    const profileButton = document.querySelector("#profile");
+    let profilingMode = false;
     const capBytes = 128 * 1024 * 1024; // actual bridge preflight
     const maxCasePcmBytes = 24 * 1024 * 1024; // smaller harness safety budget
     const rates = [44100, 48000, 96000, 192000];
@@ -94,9 +104,12 @@
     const createdWorkers = [];
     class InstrumentedWorker extends NativeWorker {
       constructor(url, options) {
+        const constructStartedAt = performance.now();
         super(url, options);
+        const constructEndedAt = performance.now();
         this.probe = {
           moduleWorker: options?.type === "module",
+          constructStartedAt, constructEndedAt,
           transfers: [],
           terminateCount: 0,
           errors: [],
@@ -115,26 +128,39 @@
           assert(originals[i] === transfer[i], "Transfer list is not the copied PCM");
         this.probe.transfers.push({
           byteLengthsBefore: transfer.map(x => x.byteLength),
-          originalBuffers: originals,
         });
-        super.postMessage(message, transfer);
-        this.probe.transfers.at(-1).byteLengthsAfter = transfer.map(x => x.byteLength);
+        this.probe.postStartedAt = performance.now();
+        try {
+          super.postMessage(message, transfer);
+        } finally {
+          this.probe.postEndedAt = performance.now();
+          this.probe.transfers.at(-1).byteLengthsAfter = transfer.map(x => x.byteLength);
+        }
       }
       set onmessage(callback) {
         this._onDiagnosticMessage = callback;
         super.onmessage = event => {
-          if (currentPolicy === "CORRUPT_VERSION" &&
-              event.data?.status === "AVAILABLE") {
-            const mutated = structuredClone(event.data);
-            mutated.evidence.schemaVersion = "stage2c1-fabricated-v0";
-            callback({ data: mutated });
-          } else callback(event);
+          this.probe.messageReceivedAt = performance.now();
+          try {
+            if (currentPolicy === "CORRUPT_VERSION" &&
+                event.data?.status === "AVAILABLE") {
+              const mutated = structuredClone(event.data);
+              mutated.evidence.schemaVersion = "stage2c1-fabricated-v0";
+              callback({ data: mutated });
+            } else callback(event);
+          } finally {
+            this.probe.messageHandlerEndedAt = performance.now();
+          }
         };
       }
       get onmessage() { return this._onDiagnosticMessage; }
       terminate() {
         this.probe.terminateCount++;
-        return super.terminate();
+        const startedAt = performance.now();
+        try { return super.terminate(); }
+        finally {
+          this.probe.terminationMs = brief(performance.now() - startedAt);
+        }
       }
     }
 
@@ -162,12 +188,15 @@
       const audio = syntheticAudio(sr, channelCount, samples);
       const generationMs = brief(performance.now() - beforeGeneration);
       // Small fingerprints avoid a duplicate whole-recording comparison buffer.
+      const beforeFingerprint = performance.now();
       const expected = sourceFingerprint(audio);
+      const fingerprintMs = brief(performance.now() - beforeFingerprint);
       const priorWorkers = createdWorkers.length;
       currentPolicy = policy;
       const started = performance.now();
       const result = await analyzeEngineeringDiagnosticsInWorker(audio, undefined, capBytes, timeoutMs);
       const elapsedMs = performance.now() - started;
+      const validationStartedAt = performance.now();
       assert(createdWorkers.length === priorWorkers + 1, "Expected an actual module Worker");
       const probe = createdWorkers.at(-1);
       assert(probe.moduleWorker, "A module worker was not created");
@@ -195,7 +224,8 @@
                result.evidence.sourceProvenance.inputSampleCount === samples,
           "Evidence provenance mismatched input");
       }
-      return {
+      const validationMs = brief(performance.now() - validationStartedAt);
+      const entry = {
         sampleRate: sr, channels: channelCount, seconds, inputPcmBytes: pcmBytes,
         status: result.status, reason: result.reason || null,
         pcmMiB: brief(pcmBytes / (1024*1024)),
@@ -204,6 +234,28 @@
         copyTransferOwnershipVerified: true, originalAudioPreserved: true,
         injectedVersionCorruption: policy === "CORRUPT_VERSION",
       };
+      if (profilingMode) {
+        const msBetween = (start, end) =>
+          Number.isFinite(start) && Number.isFinite(end) ? brief(Math.max(0, end - start)) : null;
+        entry.profile = {
+          sourceFingerprintMs: fingerprintMs,
+          bridgeWorkerCreationMs: msBetween(probe.constructStartedAt,probe.constructEndedAt),
+          // The bridge copies PCM and installs handlers here; exclusive
+          // byte-copy time cannot be isolated without editing bridge source.
+          mainThreadPreTransferEnvelopeMs: msBetween(probe.constructEndedAt,probe.postStartedAt),
+          synchronousPostMessageMs: msBetween(probe.postStartedAt,probe.postEndedAt),
+          // Includes Worker scheduling, DSP, message transport and main-thread
+          // delivery. Not exclusive Worker CPU time.
+          workerInFlightEnvelopeMs: msBetween(probe.postEndedAt,probe.messageReceivedAt),
+          bridgeMessageHandlerIncludingValidationAndCleanupMs:
+            msBetween(probe.messageReceivedAt,probe.messageHandlerEndedAt),
+          workerTerminationCallMs: probe.terminationMs ?? null,
+          afterAwaitSourceAndEvidenceValidationMs: validationMs,
+          workerReplyTimestampAvailable: Number.isFinite(probe.messageReceivedAt),
+          timingInterpretation: "Main-thread envelopes; in-flight includes scheduling, NOT worker CPU",
+        };
+      }
+      return entry;
     }
 
     async function runAbortCase() {
@@ -254,6 +306,7 @@
       };
       window.__auralis2g2 = results;
       runButton.disabled = true;
+      profileButton.disabled = true;
       globalThis.Worker = InstrumentedWorker;
       let maxMainEventLoopDelayMs = 0;
       let lastTick = performance.now();
@@ -312,12 +365,183 @@
         globalThis.Worker = NativeWorker;
         currentPolicy = "NORMAL";
         runButton.disabled = false;
+        profileButton.disabled = false;
         out.textContent = JSON.stringify(results, null, 2);
       }
     }
 
+
+    // Stage 2G-3: opt-in, independent of the unchanged Stage 2G-2 default.
+    async function runProfile() {
+      if (!allowedHost) fail("Refusing nonlocal host: do not run against deployed YSS.");
+      assert(typeof NativeWorker === "function", "Native browser Worker is required");
+      assert(document.visibilityState === "visible", "Profile requires a foreground tab");
+      assert(!runButton.disabled && !profileButton.disabled, "Another harness run is active");
+      const scenarios = [
+        { sampleRate: 48000, channels: 2, seconds: 0.2 },
+        { sampleRate: 48000, channels: 2, seconds: 15 },
+        { sampleRate: 192000, channels: 2, seconds: 15 },
+      ];
+      const maxObserverEntries = 24;
+      const results = {
+        stage:"2G-3", mode:"OPT_IN_BROWSER_PROFILE", status:"RUNNING",
+        ua:navigator.userAgent,host:location.host,startedAt:new Date().toISOString(),
+        policy:{warmup:1,scenarios,repeatsPerScenario:3,plannedMeasuredRuns:9,
+          maxDecodedPcmMiBPerCase:24,workerTimeoutMs:30000,
+          stopOnFirstFailure:true,noRetries:true},
+        completedMeasuredRuns:0, warmup:null, cases:[], reporting:{
+          updateCount:0, totalSynchronousMs:0, maxSynchronousMs:0,
+          reportingExcludesDeferredPaint:true
+        },
+        memory:{}, observers:{}, responsiveness:{
+          timerPeriodMs:25, maxTimerDriftMs:0, timerDrifts:[],
+          tabInitiallyVisible:document.visibilityState==="visible",
+          visibilityChanges:[], classification:"INCONCLUSIVE"
+        },
+        limitations:[
+          "Worker in-flight time includes scheduling and message delivery: not Worker CPU",
+          "Main-thread pre-transfer interval includes copied PCM and bridge setup: not copy-only CPU",
+          "Browser JS heap and UA memory are optional snapshots, never per-worker/process peaks",
+          "Long Tasks and Long Animation Frames are optional and do not prove complete attribution",
+          "Timer drift cannot establish one uninterrupted main-thread task",
+          "Observer callback, output serialization, GC and tab scheduling may affect measurements"
+        ]
+      };
+      window.__auralis2g3 = results;
+      let currentContext = "setup";
+      const syncReport = () => {
+        const t0 = performance.now();
+        out.textContent = JSON.stringify(results,null,2);
+        const elapsed = brief(performance.now()-t0);
+        results.reporting.updateCount++;
+        results.reporting.totalSynchronousMs=brief(results.reporting.totalSynchronousMs+elapsed);
+        results.reporting.maxSynchronousMs=Math.max(results.reporting.maxSynchronousMs,elapsed);
+      };
+      const supported = typeof PerformanceObserver === "function"
+        ? (PerformanceObserver.supportedEntryTypes || []) : [];
+      const observers = [];
+      const addObserver = (entryType,label) => {
+        const record = {available:false,count:0,dropped:0,entries:[]};
+        results.observers[label]=record;
+        if (!supported.includes(entryType))return;
+        try {
+          const observer=new PerformanceObserver(list=>{
+            for (const e of list.getEntries()) {
+              record.count++;
+              if (record.entries.length < maxObserverEntries) {
+                const snapshot={startMs:brief(e.startTime),durationMs:brief(e.duration)};
+                if (Number.isFinite(e.blockingDuration))
+                  snapshot.blockingDurationMs=brief(e.blockingDuration);
+                // Context is observed when the callback runs, not certain
+                // attribution to the named case.
+                snapshot.contextAtCallback=currentContext;
+                record.entries.push(snapshot);
+              } else record.dropped++;
+            }
+          });
+          observer.observe({type:entryType,buffered:false});
+          observers.push(observer);
+          record.available=true;
+        } catch (error) {record.error=String(error?.name||error);}
+      };
+      let beat=null;
+      let visibilityChanged=false;
+      const onVisibility=()=>{
+        visibilityChanged=true;
+        if(results.responsiveness.visibilityChanges.length<8)
+          results.responsiveness.visibilityChanges.push({
+            atMs:brief(performance.now()),state:document.visibilityState});
+      };
+      runButton.disabled=true;
+      profileButton.disabled=true;
+      globalThis.Worker=InstrumentedWorker;
+      profilingMode=true;
+      document.addEventListener("visibilitychange",onVisibility);
+      try {
+        addObserver("longtask","longTasks");
+        addObserver("long-animation-frame","longAnimationFrames");
+        let lastTick=performance.now();
+        beat=setInterval(()=>{
+          const now=performance.now();
+          const drift=brief(Math.max(0,now-lastTick-25));
+          lastTick=now;
+          results.responsiveness.maxTimerDriftMs=
+            Math.max(results.responsiveness.maxTimerDriftMs,drift);
+          if (drift>=50 && results.responsiveness.timerDrifts.length<maxObserverEntries)
+            results.responsiveness.timerDrifts.push({
+              atMs:brief(now),driftMs:drift,contextAtCallback:currentContext,
+              contextIsNotCausalAttribution:true
+            });
+        },25);
+        results.memory.before=await memorySnapshot();
+        currentContext="warmup";
+        const warmup=await runCase(48000,2,0.2);
+        results.warmup={status:warmup.status,wallElapsedMs:warmup.wallElapsedMs,
+          note:"Warm-up is not included in nine measured cases"};
+        assert(!visibilityChanged && document.visibilityState==="visible",
+          "Tab visibility changed during profiling warm-up");
+        await delay(25);
+        for (const scenario of scenarios) {
+          for(let repetition=1;repetition<=3;repetition++){
+            assert(!visibilityChanged && document.visibilityState==="visible",
+              "Tab was not continuously foregrounded");
+            currentContext="case: "+scenario.seconds+"s/"+scenario.sampleRate+
+              "Hz/"+scenario.channels+"ch, repetition "+repetition;
+            results.currentCase={...scenario,repetition};
+            const entry=await runCase(scenario.sampleRate,scenario.channels,
+              scenario.seconds);
+            assert(!visibilityChanged && document.visibilityState==="visible",
+              "Tab changed visibility during measured case");
+            results.cases.push({...entry,repetition});
+            results.completedMeasuredRuns++;
+            currentContext="report";
+            syncReport();
+            currentContext="interCaseIdle";
+            await delay(25);
+          }
+        }
+        // Allow buffered PerformanceObserver callbacks to run before snapshot.
+        currentContext="observerFlush";
+        await delay(50);
+        const delayMs=results.responsiveness.maxTimerDriftMs;
+        const longTasks=results.observers.longTasks.entries;
+        const highEvent=[...longTasks,...results.observers.longAnimationFrames.entries]
+          .some(e=>e.durationMs>=200);
+        results.responsiveness.classification=delayMs>=200||highEvent
+          ?"REVIEW_REQUIRED":delayMs>=50?"MONITOR":"NO_LARGE_OBSERVED_DELAY";
+        if(!results.observers.longTasks.available &&
+           !results.observers.longAnimationFrames.available)
+          results.responsiveness.attribution="INCONCLUSIVE_NO_LONG_TASK_OBSERVERS";
+        else results.responsiveness.attribution="OBSERVATIONAL_NOT_CAUSAL";
+        results.status="PASS";
+      } catch(error) {
+        results.status="FAIL";
+        results.error=String(error?.stack||error);
+        results.stoppedAt=results.currentCase||currentContext;
+        results.responsiveness.classification="INCONCLUSIVE";
+      } finally {
+        currentContext="cleanup";
+        if(beat!==null)clearInterval(beat);
+        for(const observer of observers)observer.disconnect();
+        try{results.memory.after=await memorySnapshot();}
+        catch(error){results.memory.afterError=String(error?.name||error);}
+        results.finishedAt=new Date().toISOString();
+        document.removeEventListener("visibilitychange",onVisibility);
+        globalThis.Worker=NativeWorker;
+        profilingMode=false;
+        currentPolicy="NORMAL";
+        runButton.disabled=false;
+        profileButton.disabled=false;
+        syncReport();
+      }
+    }
+
     runButton.addEventListener("click", run);
-    if (new URLSearchParams(location.search).get("autorun") === "1")run();
+    profileButton.addEventListener("click", runProfile);
+    const query = new URLSearchParams(location.search);
+    // Explicit opt-in by UI click or profile=1; autorun alone remains Stage 2G-2.
+    if (query.get("profile") === "1")runProfile();
+    else if (query.get("autorun") === "1")run();
   </script>
 </body>
 </html>
