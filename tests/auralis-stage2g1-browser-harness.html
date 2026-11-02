@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Auralis SonicLens — Stage 2G-1 isolated browser-worker validation</title>
+  <title>Auralis SonicLens — Stage 2G-2 extended browser-worker validation</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font: 14px/1.5 system-ui, sans-serif; max-width: 980px; margin: 2rem auto; padding: 0 1rem; }
@@ -12,24 +12,31 @@
   </style>
 </head>
 <body>
-  <h1>Auralis Stage 2G-1: synthetic browser-worker check</h1>
-  <p>Nonproduction, browser-only diagnostic harness. Uses the <strong>actual</strong>
+  <h1>Auralis Stage 2G-2: progressive synthetic browser-worker check</h1>
+  <p>Nonproduction, browser-only diagnostic harness, extended from Stage 2G-1. Uses the <strong>actual</strong>
   <code>analyzeEngineeringDiagnosticsInWorker</code> and its module Worker. No song
   inputs, network API calls, scoring, report changes, or production feature flag activation.</p>
   <p><small>From a local YourSongScore checkout, run <code>npm run dev</code> and visit
   <code>http://localhost:3000/tests/auralis-stage2g1-browser-harness.html</code>.
-  Do not serve this page from production. All memory values are optional
-  browser-reported approximations, never total process/worker peak-memory
-  guarantees. This harness does not profile worker CPU time.</small></p>
-  <button id="run" type="button">Run bounded synthetic browser cases</button>
+  Do not serve this page from production. Progresses through 0.2, 2, 8 and 15
+  seconds at four sample rates for mono and stereo, stopping immediately on
+  any failure. Each decoded PCM input is capped at 24 MiB (not a total memory
+  limit); individual cases have a 30-second worker timeout. All memory values
+  are optional browser-reported approximations, never process/worker peak
+  guarantees. Wall-clock round trips are not worker CPU time. Keep this tab
+  in the foreground during the run and avoid running multiple tests at once.</small></p>
+  <button id="run" type="button">Run progressive synthetic browser cases (up to 24 MiB per case)</button>
   <pre id="result" aria-live="polite">Not run.</pre>
   <script type="module">
     import { analyzeEngineeringDiagnosticsInWorker } from "/src/lib/batchAudioWorker.ts";
 
     const out = document.querySelector("#result");
     const runButton = document.querySelector("#run");
-    const capBytes = 128 * 1024 * 1024;
+    const capBytes = 128 * 1024 * 1024; // actual bridge preflight
+    const maxCasePcmBytes = 24 * 1024 * 1024; // smaller harness safety budget
     const rates = [44100, 48000, 96000, 192000];
+    const durationsSeconds = [0.2, 2, 8, 15];
+    const normalCaseTimeoutMs = 30000;
     const allowedHost = location.hostname === "localhost" ||
       location.hostname === "127.0.0.1" || location.hostname === "[::1]";
     const fail = message => { throw new Error(message); };
@@ -94,7 +101,9 @@
           terminateCount: 0,
           errors: [],
         };
-        createdWorkers.push(this);
+        // Retain only small audit records; never retain terminated Worker
+        // objects and their audio/response closures across long-duration cases.
+        createdWorkers.push(this.probe);
       }
       postMessage(message, transfer) {
         const originals = [message.ch0, ...(message.ch1 ? [message.ch1] : [])];
@@ -129,36 +138,45 @@
       }
     }
 
-    function sourcePreserved(audio, originals) {
+    function sourceFingerprint(audio) {
+      const indices = [...new Set([0,1,2,Math.floor(audio.length/3),
+        Math.floor(audio.length/2),audio.length-2,audio.length-1])];
+      return audio.original.map(channel => indices.map(i => [i,channel[i]]));
+    }
+    function sourcePreserved(audio, fingerprint) {
       for (let ch = 0; ch < audio.numberOfChannels; ch++) {
         assert(audio.original[ch].byteLength === audio.length * 4,
           "Original channel buffer became detached");
-        assert(audio.original[ch][0] === originals[ch][0] &&
-               audio.original[ch][audio.length - 1] === originals[ch][audio.length - 1],
-          "Original synthetic audio changed");
+        for (const [index, value] of fingerprint[ch])
+          assert(Object.is(audio.original[ch][index],value),
+            "Original synthetic PCM sample changed at index " + index);
       }
     }
 
-    async function runCase(sr, channelCount, seconds, timeoutMs = 30000, policy = "NORMAL") {
+    async function runCase(sr, channelCount, seconds, timeoutMs = normalCaseTimeoutMs, policy = "NORMAL") {
       const samples = Math.max(4096, Math.ceil(sr * seconds));
       const pcmBytes = samples * channelCount * 4;
-      assert(pcmBytes < capBytes / 8, "Harness must not approach the large input cap");
+      assert(pcmBytes <= maxCasePcmBytes && pcmBytes <= capBytes,
+        "Harness case exceeds its strict 24 MiB decoded PCM cap");
+      const beforeGeneration = performance.now();
       const audio = syntheticAudio(sr, channelCount, samples);
-      const expected = audio.original.map(channel => new Float32Array(channel));
+      const generationMs = brief(performance.now() - beforeGeneration);
+      // Small fingerprints avoid a duplicate whole-recording comparison buffer.
+      const expected = sourceFingerprint(audio);
       const priorWorkers = createdWorkers.length;
       currentPolicy = policy;
       const started = performance.now();
       const result = await analyzeEngineeringDiagnosticsInWorker(audio, undefined, capBytes, timeoutMs);
       const elapsedMs = performance.now() - started;
       assert(createdWorkers.length === priorWorkers + 1, "Expected an actual module Worker");
-      const worker = createdWorkers.at(-1);
-      assert(worker.probe.moduleWorker, "A module worker was not created");
-      assert(worker.probe.transfers.length === 1, "Expected one PCM transfer");
-      assert(worker.probe.transfers[0].byteLengthsBefore.reduce((a,b)=>a+b,0) === pcmBytes,
+      const probe = createdWorkers.at(-1);
+      assert(probe.moduleWorker, "A module worker was not created");
+      assert(probe.transfers.length === 1, "Expected one PCM transfer");
+      assert(probe.transfers[0].byteLengthsBefore.reduce((a,b)=>a+b,0) === pcmBytes,
         "Transferred PCM byte count differs from input");
-      assert(worker.probe.transfers[0].byteLengthsAfter.every(n => n === 0),
+      assert(probe.transfers[0].byteLengthsAfter.every(n => n === 0),
         "Actual transferable buffers were not detached after postMessage");
-      assert(worker.probe.terminateCount === 1, "Worker was not terminated exactly once");
+      assert(probe.terminateCount === 1, "Worker was not terminated exactly once");
       sourcePreserved(audio, expected);
       if (policy === "CORRUPT_VERSION") {
         assert(result.status === "UNAVAILABLE" &&
@@ -180,7 +198,9 @@
       return {
         sampleRate: sr, channels: channelCount, seconds, inputPcmBytes: pcmBytes,
         status: result.status, reason: result.reason || null,
-        wallElapsedMs: brief(elapsedMs), workerTerminations: worker.probe.terminateCount,
+        pcmMiB: brief(pcmBytes / (1024*1024)),
+        generationMs, wallElapsedMs: brief(elapsedMs),
+        timeoutMs, workerTerminations: probe.terminateCount,
         copyTransferOwnershipVerified: true, originalAudioPreserved: true,
         injectedVersionCorruption: policy === "CORRUPT_VERSION",
       };
@@ -198,33 +218,41 @@
       assert(result.status === "CANCELLED" && result.reason === "ABORTED",
         "Abort did not cancel diagnostic request");
       assert(createdWorkers.length === prior + 1, "Abort did not exercise a native Worker");
-      const worker = createdWorkers.at(-1);
-      assert(worker.probe.terminateCount === 1, "Abort did not terminate worker");
+      const probe = createdWorkers.at(-1);
+      assert(probe.moduleWorker, "Abort did not instantiate a native module Worker");
+      assert(probe.terminateCount === 1, "Abort did not terminate worker");
       assert(audio.original.every(x => x.byteLength === audio.length * 4),
         "Abort detached source PCM");
       await delay(20);
-      assert(worker.probe.terminateCount === 1, "Abort cleanup not idempotent");
+      assert(probe.terminateCount === 1, "Abort cleanup not idempotent");
       return { status: result.status, reason: result.reason,
         wallElapsedMs: brief(performance.now() - started),
-        workerTerminations: worker.probe.terminateCount };
+        workerTerminations: probe.terminateCount };
     }
 
     async function run() {
       if (!allowedHost) fail("Refusing nonlocal host: do not run against deployed YSS.");
       assert(typeof NativeWorker === "function", "Real browser Worker API not present");
       const results = {
-        stage: "2G-1", mode: "actual module Worker; not a worker mock",
-        ua: navigator.userAgent, host: location.host,
+        stage: "2G-2", mode: "actual module Worker; not a worker mock",
+        ua: navigator.userAgent, host: location.host, runStartedAt: new Date().toISOString(),
         featureFlagChanged: false, songInputs: false, paidCalls: false,
+        policy: { maxDecodedPcmMiBPerCase: 24, maxWorkerInputMiB:128,
+          durationsSeconds, sampleRates: rates, channels: [1,2],
+          workerTimeoutMs:normalCaseTimeoutMs, stopOnFirstFailure:true,
+          allCasesSequential:true },
         measurement: "Main-thread worker round-trip wall time; NOT worker CPU time",
-        status: "RUNNING", cases: [], memory: {},
+        status: "RUNNING", completedCases: 0, plannedCases: durationsSeconds.length*rates.length*2,
+        cases: [], memory: {}, repeatedLatency: null,
         limitations: [
           "Only bounded synthetic inputs: no near-128-MiB worker/peak-memory trial",
           "Injected malformed response simulates a boundary attack after real-worker computation",
-          "User-agent memory may be unavailable and is not a per-worker peak",
+          "Browser memory snapshots are not peak process/worker memory or leak measurements",
+          "Synthetic generation and worker wall-clock times are distinct; neither measures worker CPU",
+          "Main event-loop sampling cannot guarantee absence of UI jank or browser OOM",
         ],
       };
-      window.__auralis2g1 = results;
+      window.__auralis2g2 = results;
       runButton.disabled = true;
       globalThis.Worker = InstrumentedWorker;
       let maxMainEventLoopDelayMs = 0;
@@ -236,24 +264,53 @@
       }, 25);
       try {
         results.memory.before = await memorySnapshot();
-        for (const sr of rates) {
-          for (const channels of [1,2]) {
-            results.cases.push(await runCase(sr, channels, .20));
-            out.textContent = JSON.stringify(results, null, 2);
+        // Each duration tier must pass in full before starting the next tier.
+        // Any failure/timeout aborts immediately; no retries or allocations
+        // at a larger size. 15s/192k/stereo is 21.97 MiB < the 24 MiB cap.
+        for (const seconds of durationsSeconds) {
+          for (const sr of rates) {
+            for (const channels of [1,2]) {
+              results.currentCase = { seconds, sampleRate:sr, channels };
+              out.textContent = JSON.stringify(results, null, 2);
+              const entry = await runCase(sr, channels, seconds);
+              results.cases.push(entry);
+              results.completedCases++;
+              out.textContent = JSON.stringify(results, null, 2);
+              // Yield to the browser between separate case allocations.
+              await delay(25);
+            }
           }
         }
-        results.responseValidation = await runCase(48000,2,.2,30000,"CORRUPT_VERSION");
+        // Repeat one fixed synthetic reference to expose normal round-trip
+        // variability, not to estimate deterministic CPU throughput.
+        results.repeatedLatency = [];
+        for (let i=0;i<3;i++){
+          const reference=await runCase(48000,2,.2);
+          results.repeatedLatency.push(reference.wallElapsedMs);
+          await delay(25);
+        }
+        const sorted=[...results.repeatedLatency].sort((a,b)=>a-b);
+        results.repeatedLatencyMedianMs=sorted[1];
+        results.repeatedLatencyMinMaxMs=[sorted[0],sorted[2]];
+        results.responseValidation = await runCase(48000,2,.2,normalCaseTimeoutMs,"CORRUPT_VERSION");
         results.cancellation = await runAbortCase();
         results.timeout = await runCase(48000,2,3,1);
-        results.memory.after = await memorySnapshot();
-        results.mainEventLoopMaxDelayMs = brief(Math.max(0,maxMainEventLoopDelayMs));
         results.status = "PASS";
       } catch (error) {
         results.status = "FAIL";
+        results.stoppedAt = results.currentCase || "lifecycle/reference";
         results.error = String(error?.stack || error);
+        // No further case is attempted after any failure.
       } finally {
+        // Memory API may be unavailable or subject to GC; never call it a peak.
+        // An error here must not erase the original worker test result.
+        try { results.memory.after = await memorySnapshot(); }
+        catch (error) { results.memory.afterError = String(error); }
+        results.mainEventLoopMaxDelayMs = brief(Math.max(0,maxMainEventLoopDelayMs));
+        results.runFinishedAt = new Date().toISOString();
         clearInterval(beat);
         globalThis.Worker = NativeWorker;
+        currentPolicy = "NORMAL";
         runButton.disabled = false;
         out.textContent = JSON.stringify(results, null, 2);
       }
