@@ -3202,3 +3202,246 @@ test("Auralis 2E2: pulse offsets preserve dependent FFT-window support, not audi
     }
   }
 });
+
+
+// Stage 2F-1: isolated diagnostic worker resource/lifecycle characterization.
+// All cap-boundary inputs below are *metadata-only*: no multi-megabyte
+// ArrayBuffers are created. Fake workers are not browser memory measurements.
+test("Auralis 2F1: exact 128 MiB decoded-PCM cap for mono/stereo across four rates, without large allocations",async()=>{
+  const originalWorker=globalThis.Worker;
+  const cap=128*1024*1024;
+  let workers=0,terminations=0,reads=0;
+  class FakeWorker {
+    constructor(){workers++;}
+    terminate(){terminations++;}
+    postMessage(){throw Error("metadata-only cases must never post PCM");}
+  }
+  globalThis.Worker=FakeWorker;
+  try{
+    for(const sr of [44100,48000,96000,192000]){
+      for(const channels of [1,2]){
+        const maxSamples=cap/(channels*Float32Array.BYTES_PER_ELEMENT);
+        assert.equal(Number.isSafeInteger(maxSamples),true);
+        for(const [name,length,accepted] of [
+          ["one sample below",maxSamples-1,true],
+          ["exactly at cap",maxSamples,true],
+          ["one sample above",maxSamples+1,false],
+        ]){
+          const before={workers,terminations,reads};
+          const audio={sampleRate:sr,numberOfChannels:channels,length,
+            getChannelData:()=>{reads++;throw Error("synthetic PCM read prevented");}};
+          const result=await analyzeEngineeringDiagnosticsInWorker(audio);
+          assert.deepEqual(result,accepted?
+            {status:"UNAVAILABLE",reason:"WORKER_SETUP_FAILED"}:
+            {status:"UNAVAILABLE",reason:"INPUT_BUDGET_EXCEEDED"},
+            sr+" Hz "+channels+" channels "+name);
+          assert.equal(workers-before.workers,accepted?1:0,
+            "at/below-cap metadata passes preflight; above-cap never constructs worker");
+          assert.equal(reads-before.reads,accepted?1:0,
+            "at/below-cap enters guarded PCM read; above-cap never reads PCM");
+          assert.equal(terminations-before.terminations,accepted?1:0,
+            "worker is terminated after intentional synthetic read failure");
+          assert.equal((length*channels*4<=cap),accepted);
+        }
+        for(const seconds of [60,300]){
+          const length=sr*seconds,accepted=length*channels*4<=cap;
+          const before={workers,terminations,reads};
+          const audio={sampleRate:sr,numberOfChannels:channels,length,
+            getChannelData:()=>{reads++;throw Error("bounded metadata-only scenario");}};
+          const result=await analyzeEngineeringDiagnosticsInWorker(audio);
+          assert.equal(result.reason,accepted?"WORKER_SETUP_FAILED":"INPUT_BUDGET_EXCEEDED",
+            sr+" Hz "+channels+" channels "+seconds+"s preflight");
+          assert.equal(workers-before.workers,accepted?1:0);
+          assert.equal(reads-before.reads,accepted?1:0);
+          assert.equal(terminations-before.terminations,accepted?1:0);
+        }
+      }
+    }
+  }finally{globalThis.Worker=originalWorker;}
+});
+
+test("Auralis 2F1: invalid PCM lengths and channels reject before worker or channel reads",async()=>{
+  const OriginalWorker=globalThis.Worker;
+  let constructors=0,reads=0;
+  class NeverWorker{constructor(){constructors++;throw Error("worker must not start");}}
+  globalThis.Worker=NeverWorker;
+  try{
+    for(const [channels,length,reason] of [
+      [0,4096,"UNSUPPORTED_CHANNEL_COUNT"],
+      [3,4096,"UNSUPPORTED_CHANNEL_COUNT"],
+      [1,0,"INPUT_BUDGET_EXCEEDED"],
+      [1,-1,"INPUT_BUDGET_EXCEEDED"],
+      [2,Number.NaN,"INPUT_BUDGET_EXCEEDED"],
+      [1,Number.POSITIVE_INFINITY,"INPUT_BUDGET_EXCEEDED"],
+      [1,Number.MAX_SAFE_INTEGER+1,"INPUT_BUDGET_EXCEEDED"],
+    ]){
+      const audio={numberOfChannels:channels,length,sampleRate:48000,
+        getChannelData:()=>{reads++;throw Error("should not read PCM");}};
+      assert.deepEqual(await analyzeEngineeringDiagnosticsInWorker(audio),
+        {status:"UNAVAILABLE",reason});
+    }
+    assert.equal(constructors,0);
+    assert.equal(reads,0);
+    const aborted=new AbortController();aborted.abort();
+    const fake={numberOfChannels:2,length:4096,sampleRate:48000,
+      getChannelData:()=>{reads++;throw Error("should not read aborted PCM");}};
+    assert.deepEqual(await analyzeEngineeringDiagnosticsInWorker(fake,aborted.signal),
+      {status:"CANCELLED",reason:"ABORTED"});
+    assert.equal(constructors,0);
+    assert.equal(reads,0);
+  }finally{globalThis.Worker=OriginalWorker;}
+});
+
+test("Auralis 2F1: bounded mono/stereo transfer-copy ownership and synthetic success at four sample rates",async()=>{
+  const OriginalWorker=globalThis.Worker;
+  const workers=[];
+  class FakeWorker {
+    terminateCount=0;
+    constructor(){workers.push(this);}
+    terminate(){this.terminateCount++;}
+    postMessage(message,transfer){
+      assert.equal(message.kind,"ENGINEERING_DIAGNOSTICS");
+      assert.equal(message.numChannels,transfer.length);
+      assert.equal(message.ch1===undefined,message.numChannels===1);
+      assert.equal(transfer[0],message.ch0);
+      if(message.numChannels===2)assert.equal(transfer[1],message.ch1);
+      this.message=message;
+      this.transfer=transfer;
+      const channels=[new Float32Array(message.ch0),
+        ...(message.ch1?[new Float32Array(message.ch1)]:[])];
+      const diagnostic=runStage2c2aBrowserDiagnostics({
+        sampleRate:message.sampleRate,numberOfChannels:message.numChannels,
+        getChannelData:i=>channels[i],
+      },true);
+      assert.equal(diagnostic.status,"AVAILABLE");
+      this.onmessage({data:{kind:"ENGINEERING_DIAGNOSTICS",...diagnostic}});
+    }
+  }
+  globalThis.Worker=FakeWorker;
+  try{
+    for(const sr of [44100,48000,96000,192000]){
+      for(const channelCount of [1,2]){
+        const n=4096;
+        const left=Float32Array.from({length:n},(_,i)=>.12*Math.sin(2*Math.PI*125*i/sr));
+        const right=Float32Array.from({length:n},(_,i)=>.07*Math.cos(2*Math.PI*97*i/sr));
+        const originalChannels=channelCount===1?[left]:[left,right];
+        const originals=originalChannels.map(ch=>Float32Array.from(ch));
+        const audio={sampleRate:sr,numberOfChannels:channelCount,length:n,
+          getChannelData:i=>originalChannels[i]};
+        const before=workers.length;
+        const result=await analyzeEngineeringDiagnosticsInWorker(audio);
+        assert.equal(workers.length,before+1);
+        const worker=workers.at(-1);
+        assert.equal(result.status,"AVAILABLE");
+        assert.equal(result.evidence.scoringImpact,"NONE");
+        assert.equal(result.evidence.schemaVersion,"stage2c1-engineering-evidence-v1");
+        assert.equal(result.evidence.sourceProvenance.sampleRate,sr);
+        assert.equal(result.evidence.sourceProvenance.channelCount,channelCount);
+        assert.equal(result.evidence.sourceProvenance.inputSampleCount,n);
+        assert.equal(worker.terminateCount,1);
+        for(let i=0;i<channelCount;i++){
+          assert.notEqual(worker.transfer[i],originalChannels[i].buffer,
+            "worker owns copied PCM instead of detaching decoded AudioBuffer PCM");
+          assert.deepEqual(new Float32Array(worker.transfer[i]),originals[i],
+            "copied worker payload retains exact PCM values");
+          assert.deepEqual(originalChannels[i],originals[i],
+            "original source PCM remains unchanged");
+          assert.equal(originalChannels[i].byteLength,n*4);
+        }
+      }
+    }
+  }finally{globalThis.Worker=OriginalWorker;}
+});
+
+test("Auralis 2F1: abort and late worker callbacks settle once and terminate once",async()=>{
+  const OriginalWorker=globalThis.Worker;
+  const workers=[];
+  class PendingWorker {
+    terminateCount=0;
+    constructor(){workers.push(this);}
+    terminate(){this.terminateCount++;}
+    postMessage(message,transfer){this.message=message;this.transfer=transfer;}
+  }
+  globalThis.Worker=PendingWorker;
+  try{
+    const pcm=new Float32Array(512),audio={sampleRate:44100,
+      numberOfChannels:1,length:pcm.length,getChannelData:()=>pcm};
+    const controller=new AbortController();
+    const pending=analyzeEngineeringDiagnosticsInWorker(audio,controller.signal);
+    const worker=workers.at(-1);
+    assert.equal(worker.transfer.length,1);
+    controller.abort();
+    const first=await pending;
+    assert.deepEqual(first,{status:"CANCELLED",reason:"ABORTED"});
+    assert.equal(worker.terminateCount,1);
+    worker.onerror?.({message:"late synthetic error"});
+    worker.onmessage?.({data:{kind:"ENGINEERING_DIAGNOSTICS",status:"AVAILABLE",
+      evidence:{scoringImpact:"NONE"}}});
+    worker.onmessageerror?.({});
+    controller.abort();
+    assert.deepEqual(await pending,first);
+    assert.equal(worker.terminateCount,1,
+      "late callbacks never repeat cleanup or replace settled result");
+  }finally{globalThis.Worker=OriginalWorker;}
+});
+
+test("Auralis 2F1: worker failures, malformed replies and timeout retain reason and cleanup",async()=>{
+  const OriginalWorker=globalThis.Worker;
+  const workers=[];
+  class PendingWorker {
+    terminateCount=0;
+    constructor(){workers.push(this);}
+    terminate(){this.terminateCount++;}
+    postMessage(message,transfer){this.message=message;this.transfer=transfer;}
+  }
+  globalThis.Worker=PendingWorker;
+  try{
+    const pcm=new Float32Array(512),audio={sampleRate:48000,
+      numberOfChannels:1,length:pcm.length,getChannelData:()=>pcm};
+    const cases=[
+      ["wrong kind",worker=>worker.onmessage({data:{kind:"OTHER",status:"AVAILABLE"}}),
+        "INVALID_WORKER_RESPONSE"],
+      ["missing status",worker=>worker.onmessage({data:{kind:"ENGINEERING_DIAGNOSTICS"}}),
+        "INVALID_WORKER_RESPONSE"],
+      ["bad scoring impact",worker=>worker.onmessage({data:{kind:"ENGINEERING_DIAGNOSTICS",
+        status:"AVAILABLE",evidence:{scoringImpact:"SCORE"}}}),
+        "DIAGNOSTIC_COMPUTATION_FAILED"],
+      ["diagnostic unavailable",worker=>worker.onmessage({data:{kind:"ENGINEERING_DIAGNOSTICS",
+        status:"UNAVAILABLE",reason:"SYNTHETIC_DIAGNOSTIC_FAILURE"}}),
+        "SYNTHETIC_DIAGNOSTIC_FAILURE"],
+      ["error event",worker=>worker.onerror({message:"synthetic worker error"}),"WORKER_ERROR"],
+      ["message error",worker=>worker.onmessageerror({}),"WORKER_MESSAGE_ERROR"],
+    ];
+    for(const [label,settle,reason] of cases){
+      const result=analyzeEngineeringDiagnosticsInWorker(audio);
+      const worker=workers.at(-1);
+      settle(worker);
+      assert.deepEqual(await result,{status:"UNAVAILABLE",reason},label);
+      assert.equal(worker.terminateCount,1,label+" terminates worker exactly once");
+    }
+    const timeout=analyzeEngineeringDiagnosticsInWorker(audio,undefined,128*1024*1024,5);
+    const worker=workers.at(-1);
+    assert.deepEqual(await timeout,{status:"UNAVAILABLE",reason:"TIMEOUT"});
+    assert.equal(worker.terminateCount,1);
+    worker.onmessage?.({data:{kind:"ENGINEERING_DIAGNOSTICS",status:"UNAVAILABLE",
+      reason:"LATE_REPLY"}});
+    assert.equal(worker.terminateCount,1,"timeout cleanup remains idempotent");
+  }finally{globalThis.Worker=OriginalWorker;}
+});
+
+test("Auralis 2F1: diagnostic hook and worker remain separate from scoring and reports",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  const worker=await readFile(new URL("../src/workers/audioAnalysisWorker.ts",import.meta.url),"utf8");
+  const bridge=await readFile(new URL("../src/lib/batchAudioWorker.ts",import.meta.url),"utf8");
+  assert.match(app,/const STAGE2C2A_DIAGNOSTICS_ENABLED = false;/);
+  assert.match(app,/void analyzeEngineeringDiagnosticsInWorker\(audioBuffer, controller\.signal\)/);
+  assert.doesNotMatch(app,/await analyzeEngineeringDiagnosticsInWorker/);
+  assert.doesNotMatch(app,/formData\.append\(["']engineeringEvidence["']/);
+  assert.doesNotMatch(server,/analyzeEngineeringDiagnosticsInWorker|runStage2c2aBrowserDiagnostics/);
+  assert.match(worker,/if \(event\.data\.kind === "ENGINEERING_DIAGNOSTICS"\)/);
+  assert.match(worker,/const metrics = analyzePcmData\(/);
+  assert.match(bridge,/worker\?\.terminate\(\)/);
+  assert.match(bridge,/INPUT_BUDGET_EXCEEDED/);
+  assert.match(bridge,/reason:"TIMEOUT"/);
+});
