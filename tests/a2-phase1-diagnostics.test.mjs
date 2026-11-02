@@ -2917,3 +2917,234 @@ test("Auralis 2D4C rejects malformed sample-rate, FFT and sample-coverage proven
     assert.doesNotThrow(()=>interpretStage2d3CrossMeasurementEvidence(valid));
   }
 });
+
+
+// Stage 2E-2: synthetic reliability characterization, never diagnostic grading.
+// Independent PCM identities establish what band-power and stereo measurements
+// can (and cannot) prove. These are not perceptual or mixing-quality verdicts.
+test("Auralis 2E2: within-band component cancellation can hide behind ordinary stereo aggregate",()=>{
+  for(const sr of [44100,48000]){
+    const n=16384;
+    const a=auralis2d4aTone(n,sr,10*sr/4096,0,.18);
+    const b=auralis2d4aTone(n,sr,16*sr/4096,0,.18);
+    const left=Float32Array.from(a,(x,i)=>x+b[i]);
+    const right=Float32Array.from(a,(x,i)=>x-b[i]);
+    const ordinary=analyzeStage2b2Stereo([a,b],sr);
+    const hidden=analyzeStage2b2Stereo([left,right],sr);
+    const expected=10*Math.log10(.5);
+    assert.ok(a.some(x=>x!==0)&&b.some(x=>x!==0));
+    for(let i=0;i<n;i++)
+      assert.ok(Math.abs((left[i]+right[i])/2-a[i])<3e-8,
+        "independent PCM identity: B disappears from mono");
+    for(let i=0;i<hidden.frames.length;i++){
+      const x=hidden.frames[i].bands[1],y=ordinary.frames[i].bands[1];
+      assert.equal(x.status,"VALID");
+      assert.equal(y.status,"VALID");
+      assert.ok(Math.abs(x.correlation)<1e-5);
+      assert.ok(Math.abs(y.correlation)<1e-5);
+      assert.ok(Math.abs(x.monoChangeDb-expected)<.03);
+      assert.ok(Math.abs(y.monoChangeDb-expected)<.03);
+    }
+    const interpreted=interpretStage2d3CrossMeasurementEvidence(
+      auralis2d3Synthetic([left,right],sr));
+    const band=interpreted.bands[1];
+    assert.equal(band.potentialProductionDefect,"NOT_DETERMINED");
+    assert.equal(band.measurementFamilies.stereo.independentCorroborations,0);
+    assert.equal(interpreted.scoringImpact,"NONE");
+  }
+});
+
+test("Auralis 2E2: steady channel imbalance and temporal envelope share an ambiguous combined power range",()=>{
+  for(const sr of [44100,48000]){
+    const n=32768,hz=12*sr/4096;
+    const fundamental=auralis2d4aTone(n,sr,hz,0,1);
+    const steadyL=Float32Array.from(fundamental,x=>.20*x);
+    const steadyR=Float32Array.from(fundamental,x=>.02*x);
+    const alternating=Float32Array.from(fundamental,(x,i)=>(i<n/2?.02:.20)*x);
+    const steadyEvidence=auralis2d3Synthetic([steadyL,steadyR],sr);
+    const variableEvidence=auralis2d3Synthetic([alternating,alternating],sr);
+    const steady=interpretStage2d1EngineeringEvidence(steadyEvidence).conditions[1];
+    const variable=interpretStage2d1EngineeringEvidence(variableEvidence).conditions[1];
+    // 10log10((.20/.02)^2) is 20 dB, without any time variation.
+    assert.ok(Math.abs(steady.powerRangeDb-20)<.15);
+    assert.ok(Math.abs(variable.powerRangeDb-20)<.15);
+    for(const channel of [0,1]){
+      const powers=steadyEvidence.bands[1].frameEvidence.map(f=>f.temporalPower[channel]);
+      assert.ok(Math.max(...powers)/Math.min(...powers)<1.001,
+        "steady channels have no meaningful temporal power variation");
+    }
+    for(const frame of variableEvidence.bands[1].frameEvidence)
+      assert.ok(Math.abs(frame.temporalPower[0]-frame.temporalPower[1])<1e-12,
+        "time-varying example has no channel imbalance");
+    assert.equal(steady.potentialProductionDefect,"NOT_DETERMINED");
+    assert.equal(variable.potentialProductionDefect,"NOT_DETERMINED");
+  }
+});
+
+test("Auralis 2E2: 44.1/48/96/192 kHz frequency-bin resolution and numerical validity are distinguished",()=>{
+  const n=8192,expectedLowBins=new Map([[44100,4],[48000,4],[96000,2],[192000,1]]);
+  for(const sr of [44100,48000,96000,192000]){
+    const binHz=sr/4096;
+    const lowBins=Array.from({length:2049},(_,i)=>i)
+      .filter(i=>i*binHz>=20&&i*binHz<60);
+    assert.equal(lowBins.length,expectedLowBins.get(sr),
+      "known bin-center occupancy, not a calibrated acoustic resolution grade");
+    for(const hz of [20,40,60,125,250]){
+      const signal=auralis2d4aTone(n,sr,hz);
+      const spectral=analyzeStage2aSpectralPower([signal],sr);
+      const total=spectral.channelTotalPower[0];
+      const accounted=spectral.channelBandPower[0].reduce((x,y)=>x+y,0)+
+        spectral.channelUnassignedPower[0];
+      assert.ok(Number.isFinite(total)&&total>0);
+      assert.ok(Math.abs(accounted-total)<1e-10);
+      assert.ok(spectral.channelBandPower[0].every(x=>Number.isFinite(x)&&x>=0));
+      const evidence=auralis2d3Synthetic([signal,signal],sr);
+      const d2=interpretStage2d1EngineeringEvidence(evidence);
+      const d3=interpretStage2d3CrossMeasurementEvidence(evidence);
+      assert.equal(evidence.sourceProvenance.sampleRate,sr);
+      assert.equal(d2.schemaVersion,"stage2d1-descriptive-observations-v2");
+      assert.equal(d3.schemaVersion,"stage2d3-dependent-corroboration-v2");
+      assert.equal(d2.scoringImpact,"NONE");
+      assert.equal(d3.scoringImpact,"NONE");
+      for(const band of d3.bands){
+        const eligible=evidence.bands.find(x=>x.bandHz.join(",")===band.bandHz.join(","))
+          .frameEvidence.filter(x=>x.stereoStatus==="VALID"||
+            x.stereoStatus==="COMPLETE_CANCELLATION").length;
+        assert.equal(band.measurementFamilies.stereo.eligibleFrames,eligible);
+        assert.equal(band.potentialProductionDefect,"NOT_DETERMINED");
+      }
+    }
+  }
+});
+
+test("Auralis 2E2: intermittent stereo silence, one-sided signal and resumed phase states preserve applicability",()=>{
+  for(const sr of [44100,48000]){
+    const n=32768,source=auralis2d4aTone(n,sr,12*sr/4096);
+    const left=new Float32Array(n),right=new Float32Array(n);
+    for(let i=8192;i<n;i++){
+      left[i]=source[i];
+      if(i>=16384)right[i]=i<24576?source[i]:-source[i];
+    }
+    const evidence=auralis2d3Synthetic([left,right],sr);
+    const target=evidence.bands[1];
+    const at=start=>target.frameEvidence.find(x=>x.startSample===start);
+    assert.equal(at(0).stereoStatus,"INSUFFICIENT_ENERGY");
+    assert.equal(at(8192).stereoStatus,"SINGLE_CHANNEL");
+    assert.equal(at(16384).stereoStatus,"VALID");
+    assert.equal(at(24576).stereoStatus,"COMPLETE_CANCELLATION");
+    const d2=interpretStage2d1EngineeringEvidence(evidence);
+    const d3=interpretStage2d3CrossMeasurementEvidence(evidence);
+    for(let i=0;i<2;i++){
+      const sourceBand=evidence.bands[i],condition=d2.conditions[i],band=d3.bands[i];
+      const measurable=sourceBand.frameEvidence.filter(x=>
+        x.stereoStatus==="VALID"||x.stereoStatus==="COMPLETE_CANCELLATION").length;
+      const cancelled=sourceBand.frameEvidence.filter(x=>
+        x.stereoStatus==="COMPLETE_CANCELLATION").length;
+      assert.equal(condition.completeCancellation.rawFrameDenominator,sourceBand.frameCount);
+      assert.equal(condition.completeCancellation.denominator,measurable);
+      assert.equal(condition.completeCancellation.numerator,cancelled);
+      assert.equal(condition.completeCancellation.fraction,measurable?cancelled/measurable:null);
+      assert.equal(band.measurementFamilies.stereo.eligibleFrames,measurable);
+      assert.equal(band.measurementFamilies.stereo.completeCancellationFraction,
+        measurable?cancelled/measurable:null);
+      assert.equal(condition.evidenceStrength.completeCancellation.validFrames,measurable);
+      assert.equal(band.potentialProductionDefect,"NOT_DETERMINED");
+    }
+    // Silence -> signal is NOT a calibrated finite relative rise.
+    const entering=new Float32Array(8192);
+    for(let i=4096;i<entering.length;i++)entering[i]=source[i];
+    const onset=analyzeStage2b1LowFrequency([entering],sr);
+    assert.equal(onset.frames[0].channelBandPower[0][1],0);
+    assert.ok(onset.frames[1].channelBandPower[0][1]>0);
+    assert.equal(onset.frames[1].channelBandPowerChangeDb[0][1],null);
+    assert.equal(onset.frames[1].transientLikeRise[0][1],null);
+  }
+});
+
+test("Auralis 2E2: in-phase to anti-phase to in-phase transitions remain window observations",()=>{
+  for(const sr of [44100,48000]){
+    const n=49152,left=auralis2d4aTone(n,sr,12*sr/4096);
+    const right=Float32Array.from(left,(x,i)=>i>=16384&&i<32768?-x:x);
+    const evidence=auralis2d3Synthetic([left,right],sr);
+    const raw=evidence.bands[1].frameEvidence;
+    const at=start=>raw.find(x=>x.startSample===start);
+    assert.equal(at(0).stereoStatus,"VALID");
+    assert.equal(at(16384).stereoStatus,"COMPLETE_CANCELLATION");
+    assert.equal(at(32768).stereoStatus,"VALID");
+    const d2=interpretStage2d1EngineeringEvidence(evidence).conditions[1];
+    const d3=interpretStage2d3CrossMeasurementEvidence(evidence).bands[1];
+    const positive=d2.evidenceStrength.completeCancellation;
+    assert.equal(positive.availabilityStatus,"AVAILABLE");
+    assert.ok(positive.matchingFrames>=1&&positive.matchingFrames<=raw.length);
+    assert.ok(positive.longestRunWindowSupportStartSample>=0);
+    assert.ok(positive.longestRunWindowSupportEndSample<=evidence.sourceProvenance.representedSampleCount);
+    assert.ok(positive.longestRunWindowSupportEndSample>positive.longestRunWindowSupportStartSample);
+    assert.equal(positive.longestRunAudibleEventDurationSeconds,null);
+    assert.equal(d3.measurementFamilies.stereo.independentCorroborations,0);
+    assert.equal(d3.potentialProductionDefect,"NOT_DETERMINED");
+  }
+});
+
+test("Auralis 2E2: Hann boundary impulse weighting and unobserved tail are not evidence of silence",()=>{
+  for(const sr of [44100,48000]){
+    const n=4096,make=index=>{
+      const x=new Float32Array(n);x[index]=1;return x;
+    };
+    const zeroEdge=analyzeStage2aSpectralPower([make(0)],sr);
+    const next=analyzeStage2aSpectralPower([make(1)],sr);
+    const center=analyzeStage2aSpectralPower([make(2048)],sr);
+    const hann1=.5-.5*Math.cos(2*Math.PI/n);
+    const sumHannSquared=n*3/8;
+    assert.equal(zeroEdge.channelTotalPower[0],0,
+      "window-weighted evidence misses an impulse at the first sample");
+    assert.ok(Math.abs(center.channelTotalPower[0]-1/sumHannSquared)<1e-12);
+    assert.ok(next.channelTotalPower[0]>0);
+    assert.ok(Math.abs(next.channelTotalPower[0]/center.channelTotalPower[0]-
+      hann1*hann1)<1e-14);
+    const tail=new Float32Array(6244);
+    tail[6243]=1;
+    const observed=analyzeStage2aSpectralPower([tail],sr);
+    assert.equal(observed.representedSampleCount,6144);
+    assert.equal(observed.omittedTrailingSampleCount,100);
+    assert.equal(observed.channelTotalPower[0],0,
+      "no energy in selected frames does not describe the omitted tail");
+    assert.equal(analyzeStage2b1LowFrequency([tail],sr).omittedTrailingSampleCount,100);
+  }
+});
+
+test("Auralis 2E2: pulse timing changes dependent overlapping observations, not audible-event duration",()=>{
+  for(const sr of [44100,48000]){
+    const n=16384,pulseLength=350;
+    for(const offset of [3800,5500,7000]){
+      const left=new Float32Array(n);
+      for(let i=0;i<n;i++){
+        const amp=i>=offset&&i<offset+pulseLength?.6:.0002;
+        left[i]=amp*Math.sin(2*Math.PI*125*i/sr);
+      }
+      const right=Float32Array.from(left,x=>-x);
+      const evidence=auralis2d3Synthetic([left,right],sr);
+      const band=interpretStage2d3CrossMeasurementEvidence(evidence).bands[1];
+      const co=band.temporalCoincidence;
+      assert.equal(co.durationSemantics,
+        "SAMPLE_BOUNDED_FFT_WINDOW_SUPPORT_NOT_EVENT_DURATION");
+      assert.equal(co.longestRunAudibleEventDurationSeconds,null);
+      assert.ok(co.coincidentFrames<=co.eligibleFrames);
+      if(co.longestRunFrames===0){
+        assert.equal(co.longestRunWindowSupportStartSample,null);
+        assert.equal(co.longestRunWindowSupportEndSample,null);
+        assert.equal(co.longestRunWindowSupportSeconds,0);
+      }else{
+        const start=co.longestRunWindowSupportStartSample;
+        const end=co.longestRunWindowSupportEndSample;
+        assert.ok(Number.isSafeInteger(start)&&start>=0);
+        assert.ok(Number.isSafeInteger(end)&&end<=evidence.sourceProvenance.representedSampleCount);
+        assert.ok(end>start);
+        assert.ok(Math.abs(co.longestRunWindowSupportSeconds-(end-start)/sr)<1e-10);
+        assert.ok(end-start>pulseLength,
+          "FFT support is wider than the brief pulse and must not be event duration");
+      }
+      assert.equal(band.measurementFamilies.stereo.independentCorroborations,0);
+      assert.equal(band.potentialProductionDefect,"NOT_DETERMINED");
+    }
+  }
+});
