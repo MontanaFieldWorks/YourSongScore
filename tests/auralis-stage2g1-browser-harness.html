@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Auralis SonicLens — Stages 2G-2 through 2G-5 isolated browser validation</title>
+  <title>Auralis SonicLens — Stages 2G-2 through 2G-6 isolated browser validation</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font: 14px/1.5 system-ui, sans-serif; max-width: 980px; margin: 2rem auto; padding: 0 1rem; }
@@ -12,7 +12,7 @@
   </style>
 </head>
 <body>
-  <h1>Auralis SonicLens: isolated browser-worker checks (Stages 2G-2–2G-5)</h1>
+  <h1>Auralis SonicLens: isolated browser-worker checks (Stages 2G-2–2G-6)</h1>
   <p>Nonproduction, browser-only diagnostic harness, extended from Stage 2G-1. Uses the <strong>actual</strong>
   <code>analyzeEngineeringDiagnosticsInWorker</code> and its module Worker. No song
   inputs, network API calls, scoring, report changes, or production feature flag activation.</p>
@@ -29,6 +29,7 @@
   <button id="profile" type="button">Run Stage 2G-3 bounded responsiveness profile (9 measured cases)</button>
   <button id="matched" type="button">Run Stage 2G-4 matched samples (6 measured cases)</button>
   <button id="memory" type="button">Run Stage 2G-5 memory observability (6 measured cases)</button>
+  <button id="allocation" type="button">Run Stage 2G-6 FFT allocation accounting and clone proxy (6 measured cases)</button>
   <p><small>Stage 2G-3 is optional and must be selected explicitly. It runs one
   0.2s/48k stereo warm-up followed by three repeats each of 0.2s/48k stereo,
   15s/48k stereo, and 15s/192k stereo. One case at a time, no retries,
@@ -38,6 +39,7 @@
   is not worker CPU time; results can be inconclusive about a timer delay.</small></p>
   <p><small>Stage 2G-4 must be selected explicitly. One 0.2s/48k stereo warm-up then two runs each: 15s/192k stereo, 30s/96k stereo, 60s/48k stereo. All six have 2,880,000 samples per channel, 23,040,000 PCM bytes (21.97 MiB) and 1,405 FFT frames. Strict 24 MiB per-case limit, sequential first-failure stop, no retries, 30s worker timeout, foreground-only, and optional Long Task/Long Animation Frame and memory observations. Worker wall time is not Worker CPU; memory snapshots are not process/worker peaks.</small></p>
   <p><small>Stage 2G-5 is a separate opt-in memory-observability check: one 0.2s/48k stereo warm-up plus two runs each of 0.2s/48k stereo, 15s/48k stereo and 15s/192k stereo. Each case is capped at 24 MiB decoded PCM, 30s worker timeout, one at a time, no retries or songs. Phase snapshots of Chromium JS heap are optional, approximate and neither worker/process peaks nor proof of a leak. The main-thread copy/setup envelope and response-handler interval are not copy-only or worker CPU time. Worker FFT allocations and worker memory peaks cannot be directly measured from this test HTML; they are reported UNAVAILABLE. Evidence JSON character count is not structured-clone byte size. Keep Chrome foreground on localhost only.</small></p>
+  <p><small>Stage 2G-6 is independently opt-in via the new button or <code>?allocation=1</code>. The same bounded warm-up and six synthetic stereo cases as Stage 2G-5 are used. The report combines source-derived FFT copy-operation counts and an additional main-thread <code>structuredClone</code> timing proxy. These do <strong>not</strong> measure Worker allocations, the actual Worker-to-main message-clone time or bytes, peak RAM or CPU. Unsupported cloning is reported UNAVAILABLE. No DSP changes, no user songs and no increased resource limits.</small></p>
   <pre id="result" aria-live="polite">Not run.</pre>
   <script type="module">
     import { analyzeEngineeringDiagnosticsInWorker } from "/src/lib/batchAudioWorker.ts";
@@ -47,9 +49,11 @@
     const profileButton = document.querySelector("#profile");
     const matchedButton = document.querySelector("#matched");
     const memoryButton = document.querySelector("#memory");
+    const allocationButton = document.querySelector("#allocation");
     let profilingMode = false;
     let matchedSampleMode = false;
     let memoryProfilingMode = false;
+    let allocationProfilingMode = false;
     const capBytes = 128 * 1024 * 1024; // actual bridge preflight
     const maxCasePcmBytes = 24 * 1024 * 1024; // smaller harness safety budget
     const rates = [44100, 48000, 96000, 192000];
@@ -332,6 +336,58 @@
           workerCpuMs: null,
           unavailableReason: "Worker source was not modified or instrumented; browser main heap samples cannot observe its allocations",
         };
+        if (allocationProfilingMode) {
+          const prov=evidence.sourceProvenance;
+          const fftSize=prov.fftSize,hopSize=prov.hopSize;
+          assert(fftSize===4096 && hopSize===2048 && channelCount===2,
+            "Stage 2G-6 FFT provenance mismatch");
+          const expectedFrames=samples<fftSize?1:1+Math.floor((samples-fftSize)/hopSize);
+          assert(evidence.bands.every(b=>b.frameCount===expectedFrames &&
+            b.frameEvidence.length===expectedFrames),
+            "Stage 2G-6 frame-evidence mismatch");
+          // Source-grounded accounting of Stage 2B2's spectra.push(Array.from(out)):
+          // 2*fftSize numerical elements per complex output, one copy per channel/frame.
+          // 8 bytes/number below is a conceptual equivalent, NOT allocated
+          // JS Array memory, a lower bound, a peak, or measured Worker memory.
+          const copiedElements=expectedFrames*channelCount*(2*fftSize);
+          const proxy={
+            sourceOperation:"Stage 2B2 spectra.push(Array.from(out)) per channel per frame",
+            fftSize,hopSize,frameCount:expectedFrames,channels:channelCount,
+            calculatedCopyOperations:expectedFrames*channelCount,
+            calculatedNumericElements:copiedElements,
+            conceptualEightByteEquivalent:copiedElements*8,
+            accountingType:"SOURCE_DERIVED_CUMULATIVE_EQUIVALENT_NOT_MEMORY_MEASUREMENT",
+            measuredWorkerFftAllocationBytes:null,
+            measuredWorkerPeakMemoryBytes:null,
+            actualWorkerToMainCloneMs:null,
+            actualWorkerToMainCloneBytes:null,
+            exclusiveWorkerCpuMs:null,
+            mainThreadCloneProxy:{
+              status:"UNAVAILABLE",elapsedMs:null,heapBeforeBytes:null,
+              heapAfterBytes:null,reason:"STRUCTURED_CLONE_NOT_SUPPORTED",
+              scope:"SEPARATE_MAIN_THREAD_CLONE_NOT_WORKER_TRANSFER"
+            }
+          };
+          if(typeof structuredClone==="function"){
+            const heapBefore=jsHeapNow(),t=performance.now();
+            // One extra main-thread clone of already received real Worker
+            // evidence, kept wholly outside the actual response/bridge path.
+            const clone=structuredClone(evidence);
+            const elapsed=brief(performance.now()-t),heapAfter=jsHeapNow();
+            assert(clone && clone!==evidence && clone.bands!==evidence.bands &&
+              clone.sourceProvenance.sampleRate===sr &&
+              clone.bands.length===2 &&
+              clone.bands.every(b=>b.frameCount===expectedFrames &&
+                b.frameEvidence.length===expectedFrames),
+              "Stage 2G-6 cloned evidence integrity mismatch");
+            proxy.mainThreadCloneProxy={
+              status:"AVAILABLE",elapsedMs:elapsed,
+              heapBeforeBytes:heapBefore,heapAfterBytes:heapAfter,reason:null,
+              scope:"SEPARATE_MAIN_THREAD_CLONE_NOT_WORKER_TRANSFER"
+            };
+          }
+          entry.allocationProxy=proxy;
+        }
       }
       return entry;
     }
@@ -387,6 +443,7 @@
       profileButton.disabled = true;
       matchedButton.disabled = true;
       memoryButton.disabled = true;
+      allocationButton.disabled = true;
       globalThis.Worker = InstrumentedWorker;
       let maxMainEventLoopDelayMs = 0;
       let lastTick = performance.now();
@@ -448,6 +505,7 @@
         profileButton.disabled = false;
         matchedButton.disabled = false;
         memoryButton.disabled = false;
+        allocationButton.disabled = false;
         out.textContent = JSON.stringify(results, null, 2);
       }
     }
@@ -459,7 +517,7 @@
       assert(typeof NativeWorker === "function", "Native browser Worker is required");
       assert(document.visibilityState === "visible", "Profile requires a foreground tab");
       assert(!runButton.disabled && !profileButton.disabled && !matchedButton.disabled &&
-        !memoryButton.disabled, "Another harness run is active");
+        !memoryButton.disabled && !allocationButton.disabled, "Another harness run is active");
       const scenarios = matched ? [
         { sampleRate: 192000, channels: 2, seconds: 15 },
         { sampleRate: 96000, channels: 2, seconds: 30 },
@@ -560,6 +618,7 @@
       profileButton.disabled=true;
       matchedButton.disabled=true;
       memoryButton.disabled=true;
+      allocationButton.disabled=true;
       globalThis.Worker=InstrumentedWorker;
       profilingMode=true;
       // The short control/warm-up must not satisfy the matched-sample guard.
@@ -669,6 +728,7 @@
         profileButton.disabled=false;
         matchedButton.disabled=false;
         memoryButton.disabled=false;
+        allocationButton.disabled=false;
         syncReport();
       }
     }
@@ -677,12 +737,12 @@
     // Stage 2G-5: independent, opt-in main-thread memory observability.
     // It never hooks the Worker DSP implementation; unobservable Worker
     // allocations and process peaks remain explicitly unavailable.
-    async function runMemoryProfile() {
+    async function runMemoryProfile(allocation = false) {
       if (!allowedHost) fail("Refusing nonlocal host: do not run against deployed YSS.");
       assert(typeof NativeWorker === "function", "Native browser Worker is required");
       assert(document.visibilityState === "visible", "Memory profile requires foreground tab");
       assert(!runButton.disabled && !profileButton.disabled &&
-        !matchedButton.disabled && !memoryButton.disabled, "Another harness run is active");
+        !matchedButton.disabled && !memoryButton.disabled && !allocationButton.disabled, "Another harness run is active");
 
       const scenarios = [
         { sampleRate:48000,channels:2,seconds:0.2 },
@@ -696,12 +756,16 @@
         return bytes<=maxCasePcmBytes && bytes<=capBytes;
       }),"Memory scenarios exceed PCM budget before allocation");
       const results={
-        stage:"2G-5",mode:"OPT_IN_BROWSER_MEMORY_OBSERVABILITY",status:"RUNNING",
+        stage:allocation?"2G-6":"2G-5",
+        mode:allocation?"OPT_IN_ALLOCATION_ACCOUNTING_CLONE_PROXY":"OPT_IN_BROWSER_MEMORY_OBSERVABILITY",
+        status:"RUNNING",
         ua:navigator.userAgent,host:location.host,startedAt:new Date().toISOString(),
         policy:{warmup:1,scenarios,repeatsPerScenario:repeats,plannedMeasuredRuns:6,
           maxDecodedPcmMiBPerCase:24,workerTimeoutMs:30000,
           stopOnFirstFailure:true,noRetries:true,allCasesSequential:true,
-          memoryObservations:"Chromium main-context heap and temporary JSON representation only"},
+          memoryObservations:allocation?
+            "Source-grounded FFT copy accounting and separate main-thread clone proxy":
+            "Chromium main-context heap and temporary JSON representation only"},
         completedMeasuredRuns:0,warmup:null,cases:[],memory:{
           workerFftAllocationBytes:null,workerPeakHeapBytes:null,
           processPeakBytes:null,workerCpuMs:null,
@@ -723,9 +787,15 @@
           "Main-thread pre-transfer interval includes bridge copy and setup, not copy-only CPU",
           "Long Tasks and Long Animation Frames are optional and cannot prove task attribution",
           "Per-case 24 MiB decoded PCM limit is not a browser memory limit",
+          ...(allocation?[
+            "FFT copy equivalents are source-derived counts, NOT measured Worker allocations",
+            "Additional main-thread structuredClone is a proxy, NOT the actual Worker-to-main transfer",
+            "Proxy cloning itself adds an intrusive allocation after the real Worker response"
+          ]:[]),
         ],
       };
-      window.__auralis2g5=results;
+      if(allocation)window.__auralis2g6=results;
+      else window.__auralis2g5=results;
       const report=()=>{
         const t=performance.now();
         out.textContent=JSON.stringify(results,null,2);
@@ -770,10 +840,12 @@
       profileButton.disabled=true;
       matchedButton.disabled=true;
       memoryButton.disabled=true;
+      allocationButton.disabled=true;
       globalThis.Worker=InstrumentedWorker;
       profilingMode=true;
       matchedSampleMode=false;
       memoryProfilingMode=true;
+      allocationProfilingMode=false; // Exclude short warm-up from 2G-6 clone measurements.
       document.addEventListener("visibilitychange",visibilityListener);
       try{
         observe("longtask","longTasks");
@@ -797,6 +869,7 @@
         assert(!visibilityChanged && document.visibilityState==="visible",
           "Tab visibility changed during warm-up");
         await delay(25);
+        allocationProfilingMode=allocation;
         for(const scenario of scenarios){
           for(let repetition=1;repetition<=repeats;repetition++){
             assert(!visibilityChanged && document.visibilityState==="visible",
@@ -807,6 +880,10 @@
             assert(entry.memoryProfile && entry.status==="AVAILABLE" &&
               entry.copyTransferOwnershipVerified && entry.originalAudioPreserved &&
               entry.workerTerminations===1,"Memory case lacked validated Worker evidence");
+            if(allocation)assert(entry.allocationProxy &&
+              entry.allocationProxy.accountingType===
+                "SOURCE_DERIVED_CUMULATIVE_EQUIVALENT_NOT_MEMORY_MEASUREMENT",
+              "Stage 2G-6 allocation accounting not captured");
             assert(!visibilityChanged && document.visibilityState==="visible",
               "Tab visibility changed during measured case");
             results.cases.push({...entry,repetition});
@@ -846,11 +923,13 @@
         profilingMode=false;
         matchedSampleMode=false;
         memoryProfilingMode=false;
+        allocationProfilingMode=false;
         currentPolicy="NORMAL";
         runButton.disabled=false;
         profileButton.disabled=false;
         matchedButton.disabled=false;
         memoryButton.disabled=false;
+        allocationButton.disabled=false;
         report();
       }
     }
@@ -858,11 +937,13 @@
     runButton.addEventListener("click", run);
     profileButton.addEventListener("click", () => runProfile(false));
     matchedButton.addEventListener("click", () => runProfile(true));
-    memoryButton.addEventListener("click", runMemoryProfile);
+    memoryButton.addEventListener("click", () => runMemoryProfile(false));
+    allocationButton.addEventListener("click", () => runMemoryProfile(true));
     const query = new URLSearchParams(location.search);
-    // memory=1 opts into 2G-5, matched=1 into 2G-4,
-    // profile=1 into 2G-3 and autorun alone remains the 32-case 2G-2.
-    if (query.get("memory") === "1")runMemoryProfile();
+    // allocation=1 opts into 2G-6, memory=1 into 2G-5;
+    // all 2G-2 through 2G-4 URL modes are preserved.
+    if (query.get("allocation") === "1")runMemoryProfile(true);
+    else if (query.get("memory") === "1")runMemoryProfile(false);
     else if (query.get("matched") === "1")runProfile(true);
     else if (query.get("profile") === "1")runProfile(false);
     else if (query.get("autorun") === "1")run();
