@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { analyzeEngineeringDiagnosticsInWorker } from "../src/lib/batchAudioWorker.ts";
 import ExcelJS from "exceljs";
+import { PerformanceObserver } from "node:perf_hooks";
 import FFT from "fft.js";
 import { analyzeStage1aMeterReference, analyzeStage2aSpectralPower, analyzeStage2b1LowFrequency, analyzeStage2b2Stereo, assembleStage2c1EngineeringEvidence, interpretStage2d1EngineeringEvidence, interpretStage2d3CrossMeasurementEvidence, runStage2c2aBrowserDiagnostics } from "../src/lib/liveAudioAnalyzer.ts";
 import { appendA2ProvenanceToSourceDiagnostics } from "../src/lib/a2ScoringProvenance.ts";
@@ -1928,53 +1929,84 @@ test("Stage 2H-1 exact legacy-vs-reused FFT equivalence across rates, channels, 
     "cases; sample rates=44.1/48/96/192 kHz; total frames=",totalFrames);
 });
 
-test("Stage 2H-1 nonpaid same-run 60s/15s baseline and scratch comparisons",()=>{
-  // Execution-order alternation and two runs are illustrative, not statistically
-  // controlled memory or reliable speedup proof. No user audio or paid calls.
+
+test("Stage 2H-1B ABBA paired performance and exact frozen-reference parity",async()=>{
+  // Observational Node benchmark, never an acceptance threshold or CPU/RSS metric.
   const scenarios=[[44100,60],[48000,60],[96000,15],[192000,15]];
-  for(const [sr,seconds] of scenarios){
-    const n=sr*seconds,left=new Float32Array(n),right=new Float32Array(n);
-    for(let i=0;i<n;i++){
-      left[i]=.09*Math.sin(2*Math.PI*85*i/sr);
-      right[i]=.075*Math.sin(2*Math.PI*125*i/sr+.15);
-    }
-    // Warm each path before reporting wall times.
-    const warm=[left.subarray(0,4096),right.subarray(0,4096)];
-    stage2h1FrozenLegacyFrames(warm,sr);
-    analyzeStage2b2Stereo(warm,sr);
-    const baselineMs=[],reuseMs=[];
-    const timed=(fn,destination)=>{
-      const start=performance.now(),result=fn();
-      destination.push(performance.now()-start);
-      return result;
-    };
-    for(let rep=0;rep<2;rep++){
-      let baseline,optimized;
-      if(rep%2===0){
-        baseline=timed(()=>stage2h1FrozenLegacyFrames([left,right],sr),baselineMs);
-        optimized=timed(()=>analyzeStage2b2Stereo([left,right],sr),reuseMs);
-      }else{
-        optimized=timed(()=>analyzeStage2b2Stereo([left,right],sr),reuseMs);
-        baseline=timed(()=>stage2h1FrozenLegacyFrames([left,right],sr),baselineMs);
-      }
-      assert.deepStrictEqual(optimized.frames,baseline,
-        "long synthetic baseline-vs-scratch exact frame equality "+sr+"Hz "+seconds+"s");
-    }
-    const fftFrames=1+Math.floor((n-4096)/2048);
-    const oldArrayCopies=2*fftFrames,newPerFrameSpectrumCopies=0;
-    // Counts are source-derived operation inventory, not measured memory.
-    // The optimized implementation writes into two FFT output arrays
-    // allocated once per invocation; it creates no per-frame spectrum copy.
-    assert.equal(oldArrayCopies-newPerFrameSpectrumCopies,2*fftFrames);
-    assert.ok([...baselineMs,...reuseMs].every(ms=>ms<20000),
-      "unexpected 20-second synthetic per-run slowdown at "+sr+"Hz");
-    console.log("Stage 2H-1 same-run PERF "+sr+"Hz "+seconds+"s: legacy="+
-      baselineMs.map(ms=>ms.toFixed(1)).join("/")+"ms; reused="+
-      reuseMs.map(ms=>ms.toFixed(1)).join("/")+"ms; frames="+fftFrames+
-      "; legacy spectrum-array copies="+oldArrayCopies+
-      "; new per-frame full-spectrum copies="+newPerFrameSpectrumCopies+
-      "; reused FFT output arrays=2; peak RAM/GC/throughput guarantees=UNMEASURED");
+  const orders=["LO","OL","OL","LO","LO","OL","OL","LO"];
+  const median=a=>{
+    const v=[...a].sort((x,y)=>x-y),n=v.length;
+    return n%2?v[(n-1)/2]:(v[n/2-1]+v[n/2])/2;
+  };
+  const gcEvents=[];
+  let observer=null;
+  if(typeof PerformanceObserver==="function" &&
+      PerformanceObserver.supportedEntryTypes?.includes("gc")){
+    try{
+      observer=new PerformanceObserver(list=>{
+        for(const e of list.getEntries())gcEvents.push({
+          at:e.startTime,duration:e.duration,kind:e.detail?.kind??null
+        });
+      });
+      observer.observe({entryTypes:["gc"]});
+    }catch{observer=null;}
   }
+  try{
+    for(const [sr,seconds] of scenarios){
+      const n=sr*seconds,left=new Float32Array(n),right=new Float32Array(n);
+      for(let i=0;i<n;i++){
+        left[i]=.09*Math.sin(2*Math.PI*85*i/sr);
+        right[i]=.075*Math.sin(2*Math.PI*125*i/sr+.15);
+      }
+      const channels=[left,right];
+      // Full-size warm-up: absent from recorded timings.
+      stage2h1FrozenLegacyFrames(channels,sr);
+      analyzeStage2b2Stereo(channels,sr);
+      const runStart=performance.now(),heapBefore=process.memoryUsage().heapUsed;
+      const pairs=[];
+      const timed=fn=>{
+        const t=performance.now(),value=fn();
+        return {ms:performance.now()-t,value};
+      };
+      for(const [rep,order] of orders.entries()){
+        let legacy,optimized;
+        if(order==="LO"){
+          legacy=timed(()=>stage2h1FrozenLegacyFrames(channels,sr));
+          optimized=timed(()=>analyzeStage2b2Stereo(channels,sr));
+        }else{
+          optimized=timed(()=>analyzeStage2b2Stereo(channels,sr));
+          legacy=timed(()=>stage2h1FrozenLegacyFrames(channels,sr));
+        }
+        assert.deepStrictEqual(optimized.value.frames,legacy.value,
+          "Stage 2H-1B exact parity at "+sr+"Hz pair "+rep);
+        assert.ok(legacy.ms<20000&&optimized.ms<20000,"20-second per-call guard");
+        pairs.push({order,legacyMs:+legacy.ms.toFixed(1),
+          reusedMs:+optimized.ms.toFixed(1),
+          ratio:+(optimized.ms/legacy.ms).toFixed(4)});
+      }
+      const runEnd=performance.now(),heapAfter=process.memoryUsage().heapUsed;
+      await new Promise(resolve=>setImmediate(resolve));
+      const observedGc=gcEvents.filter(e=>e.at>=runStart&&e.at<=runEnd);
+      const frameCount=1+Math.floor((n-4096)/2048);
+      assert.equal(pairs.length,8);
+      console.log("Stage 2H-1B PAIRED "+sr+"Hz "+seconds+"s "+
+        JSON.stringify({pairs,
+          legacyMedianMs:+median(pairs.map(p=>p.legacyMs)).toFixed(1),
+          optimizedMedianMs:+median(pairs.map(p=>p.reusedMs)).toFixed(1),
+          medianPairRatio:+median(pairs.map(p=>p.ratio)).toFixed(4),
+          medianRatioLegacyFirst:+median(pairs.filter(p=>p.order==="LO").map(p=>p.ratio)).toFixed(4),
+          medianRatioOptimizedFirst:+median(pairs.filter(p=>p.order==="OL").map(p=>p.ratio)).toFixed(4),
+          frames:frameCount,
+          removedSpectrumArrayCopies:2*frameCount,
+          newPerFrameSpectrumCopies:0,
+          heapBeforeBytes:heapBefore,heapAfterBytes:heapAfter,
+          gcObserverAvailable:!!observer,
+          gcEventsObserved:observedGc.length,
+          gcObservedDurationMs:+observedGc.reduce((a,e)=>a+e.duration,0).toFixed(1),
+          interpretation:"Wall time; GC and JS heap are observational only; not exclusive Worker CPU, RSS, peak memory, or causal attribution"
+        }));
+    }
+  }finally{observer?.disconnect();}
 });
 
 test("Stage 2B2 analytical stereo polarity, gain, quadrature and mono sum",()=>{
