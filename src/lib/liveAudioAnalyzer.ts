@@ -2790,24 +2790,31 @@ export function analyzeStage2b2Stereo(channels:Float32Array[],sampleRate:number)
   const window=Float64Array.from({length:fftSize},(_,i)=>.5-.5*Math.cos(2*Math.PI*i/fftSize));
   const w2=window.reduce((s,x)=>s+x*x,0);
   const input=fft.createComplexArray(),out=fft.createComplexArray();
+  // Stage 2H-1: reuse one left-channel spectrum rather than allocating
+  // Array.from(out) for each channel of every frame. The right-channel
+  // spectrum remains in 'out' until this frame's band arithmetic completes.
+  // Mono uses 'out' directly. FFT input/window/math and all evidence are unchanged.
+  const leftSpectrum=channels.length===2?fft.createComplexArray():null;
   const frames:Stage2b2StereoResult["frames"]=[];
   for(let frame=0;frame<frameCount;frame++){
     const startSample=frame*hopSize;
-    const spectra:number[][]=[];
-    for(const ch of channels){
+    for(let chIndex=0;chIndex<channels.length;chIndex++){
+      const ch=channels[chIndex];
       for(let i=0;i<fftSize;i++){
         input[2*i]=(ch[startSample+i]??0)*window[i];
         input[2*i+1]=0;
       }
       fft.transform(out,input);
-      spectra.push(Array.from(out));
+      if(chIndex===0&&leftSpectrum){
+        for(let i=0;i<out.length;i++)leftSpectrum[i]=out[i];
+      }
     }
     const accum=Array.from({length:2},()=>({leftPower:0,rightPower:0,crossPower:0}));
     for(let k=0;k<=fftSize/2;k++){
       const hz=k*sampleRate/fftSize;
       const band=hz>=20&&hz<60?0:hz>=60&&hz<250?1:-1;
       if(band<0)continue;
-      const a=spectra[0],b=spectra[1]??spectra[0];
+      const a=leftSpectrum??out,b=out;
       const ar=a[2*k],ai=a[2*k+1],br=b[2*k],bi=b[2*k+1];
       const factor=(k===0||k===fftSize/2?1:2)/(fftSize*w2);
       const target=accum[band];
