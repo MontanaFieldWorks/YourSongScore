@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Auralis SonicLens — Stage 2G-2, 2G-3 and 2G-4 browser validation</title>
+  <title>Auralis SonicLens — Stages 2G-2 through 2G-5 isolated browser validation</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font: 14px/1.5 system-ui, sans-serif; max-width: 980px; margin: 2rem auto; padding: 0 1rem; }
@@ -12,7 +12,7 @@
   </style>
 </head>
 <body>
-  <h1>Auralis Stage 2G-2: progressive synthetic browser-worker check</h1>
+  <h1>Auralis SonicLens: isolated browser-worker checks (Stages 2G-2–2G-5)</h1>
   <p>Nonproduction, browser-only diagnostic harness, extended from Stage 2G-1. Uses the <strong>actual</strong>
   <code>analyzeEngineeringDiagnosticsInWorker</code> and its module Worker. No song
   inputs, network API calls, scoring, report changes, or production feature flag activation.</p>
@@ -28,6 +28,7 @@
   <button id="run" type="button">Run Stage 2G-2 progressive synthetic cases (32 cases)</button>
   <button id="profile" type="button">Run Stage 2G-3 bounded responsiveness profile (9 measured cases)</button>
   <button id="matched" type="button">Run Stage 2G-4 matched samples (6 measured cases)</button>
+  <button id="memory" type="button">Run Stage 2G-5 memory observability (6 measured cases)</button>
   <p><small>Stage 2G-3 is optional and must be selected explicitly. It runs one
   0.2s/48k stereo warm-up followed by three repeats each of 0.2s/48k stereo,
   15s/48k stereo, and 15s/192k stereo. One case at a time, no retries,
@@ -36,6 +37,7 @@
   measurements. Run in the foreground on localhost only. In-flight worker time
   is not worker CPU time; results can be inconclusive about a timer delay.</small></p>
   <p><small>Stage 2G-4 must be selected explicitly. One 0.2s/48k stereo warm-up then two runs each: 15s/192k stereo, 30s/96k stereo, 60s/48k stereo. All six have 2,880,000 samples per channel, 23,040,000 PCM bytes (21.97 MiB) and 1,405 FFT frames. Strict 24 MiB per-case limit, sequential first-failure stop, no retries, 30s worker timeout, foreground-only, and optional Long Task/Long Animation Frame and memory observations. Worker wall time is not Worker CPU; memory snapshots are not process/worker peaks.</small></p>
+  <p><small>Stage 2G-5 is a separate opt-in memory-observability check: one 0.2s/48k stereo warm-up plus two runs each of 0.2s/48k stereo, 15s/48k stereo and 15s/192k stereo. Each case is capped at 24 MiB decoded PCM, 30s worker timeout, one at a time, no retries or songs. Phase snapshots of Chromium JS heap are optional, approximate and neither worker/process peaks nor proof of a leak. The main-thread copy/setup envelope and response-handler interval are not copy-only or worker CPU time. Worker FFT allocations and worker memory peaks cannot be directly measured from this test HTML; they are reported UNAVAILABLE. Evidence JSON character count is not structured-clone byte size. Keep Chrome foreground on localhost only.</small></p>
   <pre id="result" aria-live="polite">Not run.</pre>
   <script type="module">
     import { analyzeEngineeringDiagnosticsInWorker } from "/src/lib/batchAudioWorker.ts";
@@ -44,8 +46,10 @@
     const runButton = document.querySelector("#run");
     const profileButton = document.querySelector("#profile");
     const matchedButton = document.querySelector("#matched");
+    const memoryButton = document.querySelector("#memory");
     let profilingMode = false;
     let matchedSampleMode = false;
+    let memoryProfilingMode = false;
     const capBytes = 128 * 1024 * 1024; // actual bridge preflight
     const maxCasePcmBytes = 24 * 1024 * 1024; // smaller harness safety budget
     const rates = [44100, 48000, 96000, 192000];
@@ -57,6 +61,12 @@
     const assert = (condition, message) => { if (!condition) fail(message); };
     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     const brief = value => Math.round(value * 100) / 100;
+    // Chromium-specific, approximate snapshot of the reporting context JS heap.
+    // Does NOT include reliable worker/process peaks or typed-array backing stores.
+    const jsHeapNow = () => {
+      const bytes = performance.memory?.usedJSHeapSize;
+      return Number.isFinite(bytes) && bytes >= 0 ? bytes : null;
+    };
 
     async function memorySnapshot() {
       const result = {
@@ -120,6 +130,8 @@
         };
         // Retain only small audit records; never retain terminated Worker
         // objects and their audio/response closures across long-duration cases.
+        if (memoryProfilingMode)
+          this.probe.mainHeapAfterWorkerConstructionBytes = jsHeapNow();
         createdWorkers.push(this.probe);
       }
       postMessage(message, transfer) {
@@ -133,18 +145,24 @@
         this.probe.transfers.push({
           byteLengthsBefore: transfer.map(x => x.byteLength),
         });
+        if (memoryProfilingMode)
+          this.probe.mainHeapBeforePostMessageBytes = jsHeapNow();
         this.probe.postStartedAt = performance.now();
         try {
           super.postMessage(message, transfer);
         } finally {
           this.probe.postEndedAt = performance.now();
           this.probe.transfers.at(-1).byteLengthsAfter = transfer.map(x => x.byteLength);
+          if (memoryProfilingMode)
+            this.probe.mainHeapAfterTransferBytes = jsHeapNow();
         }
       }
       set onmessage(callback) {
         this._onDiagnosticMessage = callback;
         super.onmessage = event => {
           this.probe.messageReceivedAt = performance.now();
+          if (memoryProfilingMode)
+            this.probe.mainHeapOnReplyBeforeValidationBytes = jsHeapNow();
           try {
             if (currentPolicy === "CORRUPT_VERSION" &&
                 event.data?.status === "AVAILABLE") {
@@ -154,6 +172,8 @@
             } else callback(event);
           } finally {
             this.probe.messageHandlerEndedAt = performance.now();
+            if (memoryProfilingMode)
+              this.probe.mainHeapAfterBridgeHandlerBytes = jsHeapNow();
           }
         };
       }
@@ -188,9 +208,11 @@
       const pcmBytes = samples * channelCount * 4;
       assert(pcmBytes <= maxCasePcmBytes && pcmBytes <= capBytes,
         "Harness case exceeds its strict 24 MiB decoded PCM cap");
+      const mainHeapBeforeGenerationBytes = memoryProfilingMode ? jsHeapNow() : null;
       const beforeGeneration = performance.now();
       const audio = syntheticAudio(sr, channelCount, samples);
       const generationMs = brief(performance.now() - beforeGeneration);
+      const mainHeapAfterGenerationBytes = memoryProfilingMode ? jsHeapNow() : null;
       // Small fingerprints avoid a duplicate whole-recording comparison buffer.
       const beforeFingerprint = performance.now();
       const expected = sourceFingerprint(audio);
@@ -200,6 +222,7 @@
       const started = performance.now();
       const result = await analyzeEngineeringDiagnosticsInWorker(audio, undefined, capBytes, timeoutMs);
       const elapsedMs = performance.now() - started;
+      const mainHeapAfterWorkerRoundTripBytes = memoryProfilingMode ? jsHeapNow() : null;
       const validationStartedAt = performance.now();
       assert(createdWorkers.length === priorWorkers + 1, "Expected an actual module Worker");
       const probe = createdWorkers.at(-1);
@@ -229,6 +252,7 @@
           "Evidence provenance mismatched input");
       }
       const validationMs = brief(performance.now() - validationStartedAt);
+      const mainHeapAfterEvidenceValidationBytes = memoryProfilingMode ? jsHeapNow() : null;
       const entry = {
         sampleRate: sr, channels: channelCount, seconds, inputPcmBytes: pcmBytes,
         status: result.status, reason: result.reason || null,
@@ -266,6 +290,47 @@
           afterAwaitSourceAndEvidenceValidationMs: validationMs,
           workerReplyTimestampAvailable: Number.isFinite(probe.messageReceivedAt),
           timingInterpretation: "Main-thread envelopes; in-flight includes scheduling, NOT worker CPU",
+        };
+      }
+      if (memoryProfilingMode) {
+        assert(result.status === "AVAILABLE", "Memory case requires AVAILABLE evidence");
+        const evidence = result.evidence;
+        assert(evidence && evidence.bands?.length === 2 &&
+          evidence.bands.every(b => Array.isArray(b.frameEvidence)),
+          "Memory profile requires complete, validated frame evidence");
+        const serializationStartedAt = performance.now();
+        // A single temporary JSON string measures representation size in
+        // UTF-16 code units, NOT structured-clone byte size or live memory.
+        const serializedEvidence = JSON.stringify(evidence);
+        const evidenceJsonCharacterCount = serializedEvidence.length;
+        const serializationMs = brief(performance.now() - serializationStartedAt);
+        const mainHeapWhileEvidenceJsonExistsBytes = jsHeapNow();
+        const frameEvidenceCounts = evidence.bands.map(b => b.frameEvidence.length);
+        entry.memoryProfile = {
+          mainHeapSamplesBytes: {
+            beforeSyntheticGeneration: mainHeapBeforeGenerationBytes,
+            afterSyntheticGeneration: mainHeapAfterGenerationBytes,
+            afterWorkerConstruction: probe.mainHeapAfterWorkerConstructionBytes ?? null,
+            beforePostMessageAfterBridgePreparation: probe.mainHeapBeforePostMessageBytes ?? null,
+            afterTransferBuffersDetached: probe.mainHeapAfterTransferBytes ?? null,
+            onReplyBeforeBridgeValidation: probe.mainHeapOnReplyBeforeValidationBytes ?? null,
+            afterBridgeValidationAndCleanup: probe.mainHeapAfterBridgeHandlerBytes ?? null,
+            afterWorkerRoundTrip: mainHeapAfterWorkerRoundTripBytes,
+            afterSourceAndEvidenceValidation: mainHeapAfterEvidenceValidationBytes,
+            whileTemporaryEvidenceJsonExists: mainHeapWhileEvidenceJsonExistsBytes,
+          },
+          evidenceFrameCountByBand: frameEvidenceCounts,
+          evidenceTotalFrameEntries: frameEvidenceCounts.reduce((n,v)=>n+v,0),
+          evidenceJsonCharacterCount,
+          evidenceJsonSerializationMs: serializationMs,
+          serializationRepresentation: "Temporary UTF-16 JSON characters; NOT worker transfer bytes",
+          copiedInputBytes: pcmBytes,
+          mainThreadCopyOnlyCpuMs: null,
+          workerFftAllocationBytes: null,
+          workerPeakHeapBytes: null,
+          totalBrowserProcessPeakBytes: null,
+          workerCpuMs: null,
+          unavailableReason: "Worker source was not modified or instrumented; browser main heap samples cannot observe its allocations",
         };
       }
       return entry;
@@ -321,6 +386,7 @@
       runButton.disabled = true;
       profileButton.disabled = true;
       matchedButton.disabled = true;
+      memoryButton.disabled = true;
       globalThis.Worker = InstrumentedWorker;
       let maxMainEventLoopDelayMs = 0;
       let lastTick = performance.now();
@@ -381,6 +447,7 @@
         runButton.disabled = false;
         profileButton.disabled = false;
         matchedButton.disabled = false;
+        memoryButton.disabled = false;
         out.textContent = JSON.stringify(results, null, 2);
       }
     }
@@ -391,8 +458,8 @@
       if (!allowedHost) fail("Refusing nonlocal host: do not run against deployed YSS.");
       assert(typeof NativeWorker === "function", "Native browser Worker is required");
       assert(document.visibilityState === "visible", "Profile requires a foreground tab");
-      assert(!runButton.disabled && !profileButton.disabled && !matchedButton.disabled,
-        "Another harness run is active");
+      assert(!runButton.disabled && !profileButton.disabled && !matchedButton.disabled &&
+        !memoryButton.disabled, "Another harness run is active");
       const scenarios = matched ? [
         { sampleRate: 192000, channels: 2, seconds: 15 },
         { sampleRate: 96000, channels: 2, seconds: 30 },
@@ -492,6 +559,7 @@
       runButton.disabled=true;
       profileButton.disabled=true;
       matchedButton.disabled=true;
+      memoryButton.disabled=true;
       globalThis.Worker=InstrumentedWorker;
       profilingMode=true;
       // The short control/warm-up must not satisfy the matched-sample guard.
@@ -600,17 +668,202 @@
         runButton.disabled=false;
         profileButton.disabled=false;
         matchedButton.disabled=false;
+        memoryButton.disabled=false;
         syncReport();
+      }
+    }
+
+
+    // Stage 2G-5: independent, opt-in main-thread memory observability.
+    // It never hooks the Worker DSP implementation; unobservable Worker
+    // allocations and process peaks remain explicitly unavailable.
+    async function runMemoryProfile() {
+      if (!allowedHost) fail("Refusing nonlocal host: do not run against deployed YSS.");
+      assert(typeof NativeWorker === "function", "Native browser Worker is required");
+      assert(document.visibilityState === "visible", "Memory profile requires foreground tab");
+      assert(!runButton.disabled && !profileButton.disabled &&
+        !matchedButton.disabled && !memoryButton.disabled, "Another harness run is active");
+
+      const scenarios = [
+        { sampleRate:48000,channels:2,seconds:0.2 },
+        { sampleRate:48000,channels:2,seconds:15 },
+        { sampleRate:192000,channels:2,seconds:15 },
+      ];
+      const repeats=2, maxObserverEntries=16;
+      assert(scenarios.every(x=>{
+        const samples=Math.max(4096,Math.ceil(x.sampleRate*x.seconds));
+        const bytes=samples*x.channels*Float32Array.BYTES_PER_ELEMENT;
+        return bytes<=maxCasePcmBytes && bytes<=capBytes;
+      }),"Memory scenarios exceed PCM budget before allocation");
+      const results={
+        stage:"2G-5",mode:"OPT_IN_BROWSER_MEMORY_OBSERVABILITY",status:"RUNNING",
+        ua:navigator.userAgent,host:location.host,startedAt:new Date().toISOString(),
+        policy:{warmup:1,scenarios,repeatsPerScenario:repeats,plannedMeasuredRuns:6,
+          maxDecodedPcmMiBPerCase:24,workerTimeoutMs:30000,
+          stopOnFirstFailure:true,noRetries:true,allCasesSequential:true,
+          memoryObservations:"Chromium main-context heap and temporary JSON representation only"},
+        completedMeasuredRuns:0,warmup:null,cases:[],memory:{
+          workerFftAllocationBytes:null,workerPeakHeapBytes:null,
+          processPeakBytes:null,workerCpuMs:null,
+          sourceCopyOnlyCpuMs:null,structuredCloneBytes:null,
+          missingMeasurementsReason:"Requires Worker instrumentation or independent browser profiler; neither is present in this single HTML test"
+        },
+        observers:{},
+        responsiveness:{timerPeriodMs:25,maxTimerDriftMs:0,
+          longDriftEntries:[],tabInitiallyVisible:true,visibilityChanges:[],
+          classification:"INCONCLUSIVE",attribution:"OBSERVATIONAL_NOT_CAUSAL"},
+        reporting:{updates:0,totalSynchronousMs:0,maxSynchronousMs:0,
+          excludesRenderingAndPaint:true},
+        limitations:[
+          "JS heap samples are browser-specific approximations; not process or worker peak memory",
+          "Typed-array backing stores and GC may not be reflected consistently in JS heap readings",
+          "Temporary evidence JSON string is an intrusive measurement, not clone size or retained heap",
+          "Worker FFT allocations and worker CPU cannot be measured from this unmodified Worker",
+          "Worker in-flight time is a wall-clock envelope, not exclusive Worker CPU",
+          "Main-thread pre-transfer interval includes bridge copy and setup, not copy-only CPU",
+          "Long Tasks and Long Animation Frames are optional and cannot prove task attribution",
+          "Per-case 24 MiB decoded PCM limit is not a browser memory limit",
+        ],
+      };
+      window.__auralis2g5=results;
+      const report=()=>{
+        const t=performance.now();
+        out.textContent=JSON.stringify(results,null,2);
+        const elapsed=brief(performance.now()-t);
+        results.reporting.updates++;
+        results.reporting.totalSynchronousMs=brief(results.reporting.totalSynchronousMs+elapsed);
+        results.reporting.maxSynchronousMs=Math.max(results.reporting.maxSynchronousMs,elapsed);
+      };
+      let currentContext="setup",beat=null,visibilityChanged=false;
+      const visibilityListener=()=>{
+        visibilityChanged=true;
+        if(results.responsiveness.visibilityChanges.length<8)
+          results.responsiveness.visibilityChanges.push({
+            atMs:brief(performance.now()),state:document.visibilityState});
+      };
+      const supported=typeof PerformanceObserver==="function"
+        ?(PerformanceObserver.supportedEntryTypes||[]):[];
+      const observers=[];
+      const observe=(type,label)=>{
+        const record={available:false,count:0,dropped:0,entries:[]};
+        results.observers[label]=record;
+        if(!supported.includes(type))return;
+        try{
+          const observer=new PerformanceObserver(list=>{
+            for(const e of list.getEntries()){
+              record.count++;
+              if(record.entries.length<maxObserverEntries)
+                record.entries.push({
+                  startMs:brief(e.startTime),durationMs:brief(e.duration),
+                  blockingDurationMs:Number.isFinite(e.blockingDuration)?brief(e.blockingDuration):null,
+                  contextAtCallback:currentContext,contextIsNotCausalAttribution:true,
+                });
+              else record.dropped++;
+            }
+          });
+          observer.observe({type,buffered:false});
+          observers.push(observer);
+          record.available=true;
+        }catch(error){record.error=String(error?.name||error);}
+      };
+      runButton.disabled=true;
+      profileButton.disabled=true;
+      matchedButton.disabled=true;
+      memoryButton.disabled=true;
+      globalThis.Worker=InstrumentedWorker;
+      profilingMode=true;
+      matchedSampleMode=false;
+      memoryProfilingMode=true;
+      document.addEventListener("visibilitychange",visibilityListener);
+      try{
+        observe("longtask","longTasks");
+        observe("long-animation-frame","longAnimationFrames");
+        let lastTick=performance.now();
+        beat=setInterval(()=>{
+          const now=performance.now(),drift=brief(Math.max(0,now-lastTick-25));
+          lastTick=now;
+          results.responsiveness.maxTimerDriftMs=Math.max(
+            results.responsiveness.maxTimerDriftMs,drift);
+          if(drift>=50 && results.responsiveness.longDriftEntries.length<maxObserverEntries)
+            results.responsiveness.longDriftEntries.push({
+              atMs:brief(now),driftMs:drift,contextAtCallback:currentContext,
+              contextIsNotCausalAttribution:true});
+        },25);
+        results.memory.before=await memorySnapshot();
+        currentContext="warmup";
+        const warmup=await runCase(48000,2,0.2);
+        results.warmup={status:warmup.status,wallElapsedMs:warmup.wallElapsedMs,
+          note:"Warm-up excluded from six measured cases"};
+        assert(!visibilityChanged && document.visibilityState==="visible",
+          "Tab visibility changed during warm-up");
+        await delay(25);
+        for(const scenario of scenarios){
+          for(let repetition=1;repetition<=repeats;repetition++){
+            assert(!visibilityChanged && document.visibilityState==="visible",
+              "Tab did not remain foregrounded");
+            currentContext="case:"+scenario.seconds+"s/"+scenario.sampleRate+"Hz/r"+repetition;
+            results.currentCase={...scenario,repetition};
+            const entry=await runCase(scenario.sampleRate,scenario.channels,scenario.seconds);
+            assert(entry.memoryProfile && entry.status==="AVAILABLE" &&
+              entry.copyTransferOwnershipVerified && entry.originalAudioPreserved &&
+              entry.workerTerminations===1,"Memory case lacked validated Worker evidence");
+            assert(!visibilityChanged && document.visibilityState==="visible",
+              "Tab visibility changed during measured case");
+            results.cases.push({...entry,repetition});
+            results.completedMeasuredRuns++;
+            currentContext="report";
+            report();
+            currentContext="interCaseIdle";
+            await delay(25);
+          }
+        }
+        assert(results.completedMeasuredRuns===6,"Exactly six measured cases required");
+        currentContext="observerFlush";
+        await delay(50);
+        const drift=results.responsiveness.maxTimerDriftMs;
+        const observedHigh=[...results.observers.longTasks.entries,
+          ...results.observers.longAnimationFrames.entries].some(x=>x.durationMs>=200);
+        results.responsiveness.classification=drift>=200||observedHigh?
+          "REVIEW_REQUIRED":drift>=50?"MONITOR":"NO_LARGE_OBSERVED_DELAY";
+        if(!results.observers.longTasks.available &&
+          !results.observers.longAnimationFrames.available)
+          results.responsiveness.attribution="INCONCLUSIVE_NO_OBSERVERS";
+        results.status="PASS";
+      }catch(error){
+        results.status="FAIL";
+        results.error=String(error?.stack||error);
+        results.stoppedAt=results.currentCase||currentContext;
+        results.responsiveness.classification="INCONCLUSIVE";
+      }finally{
+        currentContext="cleanup";
+        if(beat!==null)clearInterval(beat);
+        observers.forEach(observer=>observer.disconnect());
+        try{results.memory.after=await memorySnapshot();}
+        catch(error){results.memory.afterError=String(error?.name||error);}
+        results.finishedAt=new Date().toISOString();
+        document.removeEventListener("visibilitychange",visibilityListener);
+        globalThis.Worker=NativeWorker;
+        profilingMode=false;
+        matchedSampleMode=false;
+        memoryProfilingMode=false;
+        currentPolicy="NORMAL";
+        runButton.disabled=false;
+        profileButton.disabled=false;
+        matchedButton.disabled=false;
+        memoryButton.disabled=false;
+        report();
       }
     }
 
     runButton.addEventListener("click", run);
     profileButton.addEventListener("click", () => runProfile(false));
     matchedButton.addEventListener("click", () => runProfile(true));
+    memoryButton.addEventListener("click", runMemoryProfile);
     const query = new URLSearchParams(location.search);
-    // matched=1 opts into 2G-4, profile=1 opts into 2G-3;
-    // autorun by itself retains the 32-case Stage 2G-2.
-    if (query.get("matched") === "1")runProfile(true);
+    // memory=1 opts into 2G-5, matched=1 into 2G-4,
+    // profile=1 into 2G-3 and autorun alone remains the 32-case 2G-2.
+    if (query.get("memory") === "1")runMemoryProfile();
+    else if (query.get("matched") === "1")runProfile(true);
     else if (query.get("profile") === "1")runProfile(false);
     else if (query.get("autorun") === "1")run();
   </script>
