@@ -1961,17 +1961,19 @@ test("Stage 2H-1 nonpaid same-run 60s/15s baseline and scratch comparisons",()=>
         "long synthetic baseline-vs-scratch exact frame equality "+sr+"Hz "+seconds+"s");
     }
     const fftFrames=1+Math.floor((n-4096)/2048);
-    const oldArrayCopies=2*fftFrames,newPerFrameSpectrumCopies=fftFrames;
-    // Counts are a source-derived operation inventory, not observed memory.
-    assert.equal(oldArrayCopies-newPerFrameSpectrumCopies,fftFrames);
+    const oldArrayCopies=2*fftFrames,newPerFrameSpectrumCopies=0;
+    // Counts are source-derived operation inventory, not measured memory.
+    // The optimized implementation writes into two FFT output arrays
+    // allocated once per invocation; it creates no per-frame spectrum copy.
+    assert.equal(oldArrayCopies-newPerFrameSpectrumCopies,2*fftFrames);
     assert.ok([...baselineMs,...reuseMs].every(ms=>ms<20000),
       "unexpected 20-second synthetic per-run slowdown at "+sr+"Hz");
     console.log("Stage 2H-1 same-run PERF "+sr+"Hz "+seconds+"s: legacy="+
       baselineMs.map(ms=>ms.toFixed(1)).join("/")+"ms; reused="+
       reuseMs.map(ms=>ms.toFixed(1)).join("/")+"ms; frames="+fftFrames+
       "; legacy spectrum-array copies="+oldArrayCopies+
-      "; new reusable-spectrum writes="+newPerFrameSpectrumCopies+
-      "; peak worker RAM/GC/throughput guarantees=UNMEASURED");
+      "; new per-frame full-spectrum copies="+newPerFrameSpectrumCopies+
+      "; reused FFT output arrays=2; peak RAM/GC/throughput guarantees=UNMEASURED");
   }
 });
 
