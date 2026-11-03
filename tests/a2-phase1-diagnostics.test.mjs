@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { analyzeEngineeringDiagnosticsInWorker } from "../src/lib/batchAudioWorker.ts";
 import ExcelJS from "exceljs";
+import FFT from "fft.js";
 import { analyzeStage1aMeterReference, analyzeStage2aSpectralPower, analyzeStage2b1LowFrequency, analyzeStage2b2Stereo, assembleStage2c1EngineeringEvidence, interpretStage2d1EngineeringEvidence, interpretStage2d3CrossMeasurementEvidence, runStage2c2aBrowserDiagnostics } from "../src/lib/liveAudioAnalyzer.ts";
 import { appendA2ProvenanceToSourceDiagnostics } from "../src/lib/a2ScoringProvenance.ts";
 import {
@@ -1805,6 +1806,174 @@ test("Stage 2B1 bounded synthetic 60s stereo performance at both sample rates",(
   }
 });
 
+
+// Stage 2H-1 frozen pre-optimization Stage 2B2 frame calculation.
+// Deliberately preserves main@8e37af4d's Array.from(out) per-channel,
+// per-frame behavior as an independent operation-level comparison oracle.
+// This TEST-only legacy reference is not wired to any application path.
+function stage2h1FrozenLegacyFrames(channels,sampleRate) {
+  const fftSize=4096,hopSize=2048,count=channels[0].length;
+  const frameCount=count<fftSize?1:1+Math.floor((count-fftSize)/hopSize);
+  const minimumValidBandPower=1e-12;
+  const completeCancellationRelativePowerTolerance=1e-12;
+  const fft=new FFT(fftSize);
+  const window=Float64Array.from({length:fftSize},(_,i)=>.5-.5*Math.cos(2*Math.PI*i/fftSize));
+  const w2=window.reduce((sum,x)=>sum+x*x,0);
+  const input=fft.createComplexArray(),out=fft.createComplexArray();
+  const frames=[];
+  for(let frame=0;frame<frameCount;frame++){
+    const startSample=frame*hopSize;
+    const spectra=[];
+    for(const ch of channels){
+      for(let i=0;i<fftSize;i++){
+        input[2*i]=(ch[startSample+i]??0)*window[i];
+        input[2*i+1]=0;
+      }
+      fft.transform(out,input);
+      spectra.push(Array.from(out));
+    }
+    const accum=Array.from({length:2},()=>({leftPower:0,rightPower:0,crossPower:0}));
+    for(let k=0;k<=fftSize/2;k++){
+      const hz=k*sampleRate/fftSize;
+      const band=hz>=20&&hz<60?0:hz>=60&&hz<250?1:-1;
+      if(band<0)continue;
+      const a=spectra[0],b=spectra[1]??spectra[0];
+      const ar=a[2*k],ai=a[2*k+1],br=b[2*k],bi=b[2*k+1];
+      const factor=(k===0||k===fftSize/2?1:2)/(fftSize*w2);
+      const target=accum[band];
+      target.leftPower+=(ar*ar+ai*ai)*factor;
+      if(channels.length===2){
+        target.rightPower+=(br*br+bi*bi)*factor;
+        target.crossPower+=(ar*br+ai*bi)*factor;
+      }
+    }
+    const bands=accum.map(({leftPower,rightPower,crossPower})=>{
+      if(channels.length===1)return {leftPower,rightPower,crossPower,monoPower:0,
+        asymmetryDb:null,correlation:null,monoChangeDb:null,status:"MONO_NOT_APPLICABLE"};
+      const average=(leftPower+rightPower)/2;
+      const monoPower=Math.max(0,(leftPower+rightPower+2*crossPower)/4);
+      let asymmetryDb=null,correlation=null,monoChangeDb=null;
+      let status="VALID";
+      if(average<=minimumValidBandPower)status="INSUFFICIENT_ENERGY";
+      else if(leftPower<=minimumValidBandPower||rightPower<=minimumValidBandPower){
+        status="SINGLE_CHANNEL";
+        if(monoPower>0)monoChangeDb=10*Math.log10(monoPower/average);
+      }else{
+        asymmetryDb=10*Math.log10(leftPower/rightPower);
+        correlation=crossPower/Math.sqrt(leftPower*rightPower);
+        const ratio=monoPower/average;
+        if(ratio<=completeCancellationRelativePowerTolerance)status="COMPLETE_CANCELLATION";
+        else monoChangeDb=10*Math.log10(ratio);
+      }
+      return {leftPower,rightPower,crossPower,monoPower,asymmetryDb,correlation,monoChangeDb,status};
+    });
+    frames.push({startSample,centerSeconds:(startSample+fftSize/2)/sampleRate,bands});
+  }
+  return frames;
+}
+
+test("Stage 2H-1 exact legacy-vs-reused FFT equivalence across rates, channels, band edges and tails",()=>{
+  let cases=0,totalFrames=0;
+  for(const sr of [44100,48000,96000,192000]){
+    const tone=(length,hz,amplitude=.2,phase=0)=>Float32Array.from(
+      {length},(_,i)=>amplitude*Math.sin(2*Math.PI*hz*i/sr+phase));
+    const invert=(a,scale=-1)=>Float32Array.from(a,v=>v*scale);
+    const sample=tone(4096,120);
+    const long=Math.floor(sr*.2);
+    const casesForRate=[
+      ["mono-short-padded", [tone(777,59.9)]],
+      ["mono-multi-frame", [tone(8192,125)]],
+      ["stereo-silence", [new Float32Array(4096),new Float32Array(4096)]],
+      ["single-channel-energy", [sample,new Float32Array(4096)]],
+      ["exact-opposite-phase", [sample,invert(sample)]],
+      ["near-cancellation", [sample,invert(sample,-(1-4e-7))]],
+      ["unequal-gain", [sample,invert(sample,.27)]],
+      ["quadrature", [sample,tone(4096,120,.2,Math.PI/2)]],
+      ["60Hz-boundary-leakage", [tone(8192,59.9),tone(8192,60.1)]],
+      ["250Hz-boundary-leakage", [tone(8192,249.9),tone(8192,250.1)]],
+      ["short-4095", [tone(4095,35),tone(4095,120)]],
+      ["boundary-4096", [tone(4096,75),tone(4096,155)]],
+      ["just-over-window-4097", [tone(4097,75),tone(4097,155)]],
+      ["omitted-100-samples-6244", [tone(6244,95),tone(6244,115)]],
+      ["multi-frame-different-stereo", [tone(long,85,.12),tone(long,145,.09,.07)]],
+    ];
+    for(const [label,channels] of casesForRate){
+      const originals=channels.map(x=>x.slice());
+      const legacy=stage2h1FrozenLegacyFrames(channels,sr);
+      const optimized=analyzeStage2b2Stereo(channels,sr);
+      assert.deepStrictEqual(optimized.frames,legacy,
+        "Stage 2H-1 must preserve every exact floating-point result/status, "+sr+"Hz "+label);
+      const count=channels[0].length;
+      const frames=count<4096?1:1+Math.floor((count-4096)/2048);
+      const represented=Math.min(count,(frames-1)*2048+4096);
+      assert.equal(optimized.method,"stage2b2-band-stereo-v1");
+      assert.equal(optimized.fftSize,4096);
+      assert.equal(optimized.hopSize,2048);
+      assert.equal(optimized.sampleRate,sr);
+      assert.equal(optimized.frames.length,frames);
+      assert.equal(optimized.inputSampleCount,count);
+      assert.equal(optimized.representedSampleCount,represented);
+      assert.equal(optimized.omittedTrailingSampleCount,count-represented);
+      assert.equal(optimized.zeroPaddedSampleCount,Math.max(0,4096-count));
+      assert.deepStrictEqual(optimized.bandsHz,[20,60,250]);
+      assert.equal(optimized.minimumValidBandPower,1e-12);
+      assert.equal(optimized.completeCancellationRelativePowerTolerance,1e-12);
+      for(let ch=0;ch<channels.length;ch++)assert.deepStrictEqual(channels[ch],originals[ch],
+        "Stage 2H-1 must not mutate the PCM "+sr+"Hz "+label);
+      cases++;totalFrames+=frames;
+    }
+  }
+  assert.equal(cases,60);
+  console.log("Stage 2H-1 EXACT legacy-vs-reused FFT:",cases,
+    "cases; sample rates=44.1/48/96/192 kHz; total frames=",totalFrames);
+});
+
+test("Stage 2H-1 nonpaid same-run 60s/15s baseline and scratch comparisons",()=>{
+  // Execution-order alternation and two runs are illustrative, not statistically
+  // controlled memory or reliable speedup proof. No user audio or paid calls.
+  const scenarios=[[44100,60],[48000,60],[96000,15],[192000,15]];
+  for(const [sr,seconds] of scenarios){
+    const n=sr*seconds,left=new Float32Array(n),right=new Float32Array(n);
+    for(let i=0;i<n;i++){
+      left[i]=.09*Math.sin(2*Math.PI*85*i/sr);
+      right[i]=.075*Math.sin(2*Math.PI*125*i/sr+.15);
+    }
+    // Warm each path before reporting wall times.
+    const warm=[left.subarray(0,4096),right.subarray(0,4096)];
+    stage2h1FrozenLegacyFrames(warm,sr);
+    analyzeStage2b2Stereo(warm,sr);
+    const baselineMs=[],reuseMs=[];
+    const timed=(fn,destination)=>{
+      const start=performance.now(),result=fn();
+      destination.push(performance.now()-start);
+      return result;
+    };
+    for(let rep=0;rep<2;rep++){
+      let baseline,optimized;
+      if(rep%2===0){
+        baseline=timed(()=>stage2h1FrozenLegacyFrames([left,right],sr),baselineMs);
+        optimized=timed(()=>analyzeStage2b2Stereo([left,right],sr),reuseMs);
+      }else{
+        optimized=timed(()=>analyzeStage2b2Stereo([left,right],sr),reuseMs);
+        baseline=timed(()=>stage2h1FrozenLegacyFrames([left,right],sr),baselineMs);
+      }
+      assert.deepStrictEqual(optimized.frames,baseline,
+        "long synthetic baseline-vs-scratch exact frame equality "+sr+"Hz "+seconds+"s");
+    }
+    const fftFrames=1+Math.floor((n-4096)/2048);
+    const oldArrayCopies=2*fftFrames,newPerFrameSpectrumCopies=fftFrames;
+    // Counts are a source-derived operation inventory, not observed memory.
+    assert.equal(oldArrayCopies-newPerFrameSpectrumCopies,fftFrames);
+    assert.ok([...baselineMs,...reuseMs].every(ms=>ms<20000),
+      "unexpected 20-second synthetic per-run slowdown at "+sr+"Hz");
+    console.log("Stage 2H-1 same-run PERF "+sr+"Hz "+seconds+"s: legacy="+
+      baselineMs.map(ms=>ms.toFixed(1)).join("/")+"ms; reused="+
+      reuseMs.map(ms=>ms.toFixed(1)).join("/")+"ms; frames="+fftFrames+
+      "; legacy spectrum-array copies="+oldArrayCopies+
+      "; new reusable-spectrum writes="+newPerFrameSpectrumCopies+
+      "; peak worker RAM/GC/throughput guarantees=UNMEASURED");
+  }
+});
 
 test("Stage 2B2 analytical stereo polarity, gain, quadrature and mono sum",()=>{
   for(const sr of [44100,48000]){
