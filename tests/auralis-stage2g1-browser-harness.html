@@ -494,7 +494,8 @@
       matchedButton.disabled=true;
       globalThis.Worker=InstrumentedWorker;
       profilingMode=true;
-      matchedSampleMode=matched;
+      // The short control/warm-up must not satisfy the matched-sample guard.
+      matchedSampleMode=false;
       document.addEventListener("visibilitychange",onVisibility);
       try {
         addObserver("longtask","longTasks");
@@ -521,6 +522,8 @@
         assert(!visibilityChanged && document.visibilityState==="visible",
           "Tab visibility changed during profiling warm-up");
         await delay(25);
+        // Enforce equal PCM size and FFT frames only on measured 2G-4 cases.
+        matchedSampleMode=matched;
         for (const scenario of scenarios) {
           for(let repetition=1;repetition<=repeats;repetition++){
             assert(!visibilityChanged && document.visibilityState==="visible",
