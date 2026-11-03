@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Auralis SonicLens — Stage 2G-2 + 2G-3 isolated browser validation</title>
+  <title>Auralis SonicLens — Stage 2G-2, 2G-3 and 2G-4 browser validation</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font: 14px/1.5 system-ui, sans-serif; max-width: 980px; margin: 2rem auto; padding: 0 1rem; }
@@ -27,6 +27,7 @@
   in the foreground during the run and avoid running multiple tests at once.</small></p>
   <button id="run" type="button">Run Stage 2G-2 progressive synthetic cases (32 cases)</button>
   <button id="profile" type="button">Run Stage 2G-3 bounded responsiveness profile (9 measured cases)</button>
+  <button id="matched" type="button">Run Stage 2G-4 matched samples (6 measured cases)</button>
   <p><small>Stage 2G-3 is optional and must be selected explicitly. It runs one
   0.2s/48k stereo warm-up followed by three repeats each of 0.2s/48k stereo,
   15s/48k stereo, and 15s/192k stereo. One case at a time, no retries,
@@ -34,6 +35,7 @@
   observers and heap snapshots are optional, not process or worker peak-memory
   measurements. Run in the foreground on localhost only. In-flight worker time
   is not worker CPU time; results can be inconclusive about a timer delay.</small></p>
+  <p><small>Stage 2G-4 must be selected explicitly. One 0.2s/48k stereo warm-up then two runs each: 15s/192k stereo, 30s/96k stereo, 60s/48k stereo. All six have 2,880,000 samples per channel, 23,040,000 PCM bytes (21.97 MiB) and 1,405 FFT frames. Strict 24 MiB per-case limit, sequential first-failure stop, no retries, 30s worker timeout, foreground-only, and optional Long Task/Long Animation Frame and memory observations. Worker wall time is not Worker CPU; memory snapshots are not process/worker peaks.</small></p>
   <pre id="result" aria-live="polite">Not run.</pre>
   <script type="module">
     import { analyzeEngineeringDiagnosticsInWorker } from "/src/lib/batchAudioWorker.ts";
@@ -41,7 +43,9 @@
     const out = document.querySelector("#result");
     const runButton = document.querySelector("#run");
     const profileButton = document.querySelector("#profile");
+    const matchedButton = document.querySelector("#matched");
     let profilingMode = false;
+    let matchedSampleMode = false;
     const capBytes = 128 * 1024 * 1024; // actual bridge preflight
     const maxCasePcmBytes = 24 * 1024 * 1024; // smaller harness safety budget
     const rates = [44100, 48000, 96000, 192000];
@@ -234,6 +238,15 @@
         copyTransferOwnershipVerified: true, originalAudioPreserved: true,
         injectedVersionCorruption: policy === "CORRUPT_VERSION",
       };
+      if (matchedSampleMode) {
+        assert(samples === 2880000 && pcmBytes === 23040000,
+          "Stage 2G-4 PCM sample/byte mismatch");
+        assert(result.status === "AVAILABLE" && result.evidence.bands.length === 2 &&
+          result.evidence.bands.every(b => b.frameCount === 1405),
+          "Stage 2G-4 actual Worker evidence frame count mismatch");
+        entry.inputSamplesPerChannel = samples;
+        entry.workerEvidenceFftFrames = result.evidence.bands[0].frameCount;
+      }
       if (profilingMode) {
         const msBetween = (start, end) =>
           Number.isFinite(start) && Number.isFinite(end) ? brief(Math.max(0, end - start)) : null;
@@ -307,6 +320,7 @@
       window.__auralis2g2 = results;
       runButton.disabled = true;
       profileButton.disabled = true;
+      matchedButton.disabled = true;
       globalThis.Worker = InstrumentedWorker;
       let maxMainEventLoopDelayMs = 0;
       let lastTick = performance.now();
@@ -366,27 +380,44 @@
         currentPolicy = "NORMAL";
         runButton.disabled = false;
         profileButton.disabled = false;
+        matchedButton.disabled = false;
         out.textContent = JSON.stringify(results, null, 2);
       }
     }
 
 
     // Stage 2G-3: opt-in, independent of the unchanged Stage 2G-2 default.
-    async function runProfile() {
+    async function runProfile(matched = false) {
       if (!allowedHost) fail("Refusing nonlocal host: do not run against deployed YSS.");
       assert(typeof NativeWorker === "function", "Native browser Worker is required");
       assert(document.visibilityState === "visible", "Profile requires a foreground tab");
-      assert(!runButton.disabled && !profileButton.disabled, "Another harness run is active");
-      const scenarios = [
+      assert(!runButton.disabled && !profileButton.disabled && !matchedButton.disabled,
+        "Another harness run is active");
+      const scenarios = matched ? [
+        { sampleRate: 192000, channels: 2, seconds: 15 },
+        { sampleRate: 96000, channels: 2, seconds: 30 },
+        { sampleRate: 48000, channels: 2, seconds: 60 },
+      ] : [
         { sampleRate: 48000, channels: 2, seconds: 0.2 },
         { sampleRate: 48000, channels: 2, seconds: 15 },
         { sampleRate: 192000, channels: 2, seconds: 15 },
       ];
+      const repeats = matched ? 2 : 3;
+      if (matched) assert(scenarios.every(x => {
+        const samples = Math.ceil(x.sampleRate*x.seconds);
+        const bytes = samples*x.channels*4;
+        const frames = 1+Math.floor((samples-4096)/2048);
+        return samples===2880000 && bytes===23040000 && frames===1405 &&
+          bytes <= maxCasePcmBytes && bytes <= capBytes;
+      }), "Matched sample-count guard failed before allocation");
       const maxObserverEntries = 24;
       const results = {
-        stage:"2G-3", mode:"OPT_IN_BROWSER_PROFILE", status:"RUNNING",
+        stage:matched?"2G-4":"2G-3",
+        mode:matched?"OPT_IN_MATCHED_SAMPLE_COUNT":"OPT_IN_BROWSER_PROFILE",
+        status:"RUNNING",
         ua:navigator.userAgent,host:location.host,startedAt:new Date().toISOString(),
-        policy:{warmup:1,scenarios,repeatsPerScenario:3,plannedMeasuredRuns:9,
+        policy:{warmup:1,scenarios,repeatsPerScenario:repeats,
+          plannedMeasuredRuns:scenarios.length*repeats,
           maxDecodedPcmMiBPerCase:24,workerTimeoutMs:30000,
           stopOnFirstFailure:true,noRetries:true},
         completedMeasuredRuns:0, warmup:null, cases:[], reporting:{
@@ -407,7 +438,13 @@
           "Observer callback, output serialization, GC and tab scheduling may affect measurements"
         ]
       };
-      window.__auralis2g3 = results;
+      if (matched) {
+        results.policy.expectedSamplesPerChannel = 2880000;
+        results.policy.expectedPcmBytes = 23040000;
+        results.policy.expectedFftFrames = 1405;
+        results.limitations.push("Matched PCM samples/FFT counts do not imply equal cost across sample rates");
+        window.__auralis2g4 = results;
+      } else window.__auralis2g3 = results;
       let currentContext = "setup";
       const syncReport = () => {
         const t0 = performance.now();
@@ -454,8 +491,10 @@
       };
       runButton.disabled=true;
       profileButton.disabled=true;
+      matchedButton.disabled=true;
       globalThis.Worker=InstrumentedWorker;
       profilingMode=true;
+      matchedSampleMode=matched;
       document.addEventListener("visibilitychange",onVisibility);
       try {
         addObserver("longtask","longTasks");
@@ -477,12 +516,13 @@
         currentContext="warmup";
         const warmup=await runCase(48000,2,0.2);
         results.warmup={status:warmup.status,wallElapsedMs:warmup.wallElapsedMs,
-          note:"Warm-up is not included in nine measured cases"};
+          note:matched?"Warm-up is not included in six measured cases":
+            "Warm-up is not included in nine measured cases"};
         assert(!visibilityChanged && document.visibilityState==="visible",
           "Tab visibility changed during profiling warm-up");
         await delay(25);
         for (const scenario of scenarios) {
-          for(let repetition=1;repetition<=3;repetition++){
+          for(let repetition=1;repetition<=repeats;repetition++){
             assert(!visibilityChanged && document.visibilityState==="visible",
               "Tab was not continuously foregrounded");
             currentContext="case: "+scenario.seconds+"s/"+scenario.sampleRate+
@@ -492,6 +532,10 @@
               scenario.seconds);
             assert(!visibilityChanged && document.visibilityState==="visible",
               "Tab changed visibility during measured case");
+            if (matched) assert(entry.inputPcmBytes===23040000 &&
+              entry.inputSamplesPerChannel===2880000 &&
+              entry.workerEvidenceFftFrames===1405,
+              "Matched-sample evidence verification failed");
             results.cases.push({...entry,repetition});
             results.completedMeasuredRuns++;
             currentContext="report";
@@ -499,6 +543,25 @@
             currentContext="interCaseIdle";
             await delay(25);
           }
+        }
+        if (matched) {
+          assert(results.completedMeasuredRuns===6,
+            "Matched profile must complete exactly six measured cases");
+          results.matchedSampleVerification={
+            inputSamplesPerChannel:2880000,decodedPcmBytes:23040000,
+            decodedPcmMiB:brief(23040000/(1024*1024)),fftFrameCount:1405,
+            allSixWorkerEvidenceCasesVerified:true,
+            perScenario:scenarios.map(scenario=>{
+              const cases=results.cases.filter(c=>c.sampleRate===scenario.sampleRate &&
+                c.seconds===scenario.seconds && c.channels===scenario.channels);
+              assert(cases.length===2,"Matched profile missing a repetition");
+              return {sampleRate:scenario.sampleRate,seconds:scenario.seconds,
+                repetitions:cases.length,
+                workerRoundTripMs:cases.map(c=>c.wallElapsedMs),
+                syntheticGenerationMs:cases.map(c=>c.generationMs),
+                workerInFlightEnvelopeMs:cases.map(c=>c.profile.workerInFlightEnvelopeMs)};
+            })
+          };
         }
         // Allow buffered PerformanceObserver callbacks to run before snapshot.
         currentContext="observerFlush";
@@ -529,18 +592,23 @@
         document.removeEventListener("visibilitychange",onVisibility);
         globalThis.Worker=NativeWorker;
         profilingMode=false;
+        matchedSampleMode=false;
         currentPolicy="NORMAL";
         runButton.disabled=false;
         profileButton.disabled=false;
+        matchedButton.disabled=false;
         syncReport();
       }
     }
 
     runButton.addEventListener("click", run);
-    profileButton.addEventListener("click", runProfile);
+    profileButton.addEventListener("click", () => runProfile(false));
+    matchedButton.addEventListener("click", () => runProfile(true));
     const query = new URLSearchParams(location.search);
-    // Explicit opt-in by UI click or profile=1; autorun alone remains Stage 2G-2.
-    if (query.get("profile") === "1")runProfile();
+    // matched=1 opts into 2G-4, profile=1 opts into 2G-3;
+    // autorun by itself retains the 32-case Stage 2G-2.
+    if (query.get("matched") === "1")runProfile(true);
+    else if (query.get("profile") === "1")runProfile(false);
     else if (query.get("autorun") === "1")run();
   </script>
 </body>
