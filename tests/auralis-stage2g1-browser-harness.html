@@ -147,10 +147,15 @@
     const NativeWorker = globalThis.Worker;
     let currentPolicy = "NORMAL";
     const createdWorkers = [];
+    let workerConstructionError = null;
     class InstrumentedWorker extends NativeWorker {
       constructor(url, options) {
         const constructStartedAt = performance.now();
-        super(url, options);
+        try { super(url, options); }
+        catch (error) {
+          workerConstructionError = {name: String(error?.name || "Error"), message: String(error?.message || error)};
+          throw error;
+        }
         const constructEndedAt = performance.now();
         this.probe = {
           moduleWorker: options?.type === "module",
@@ -258,12 +263,23 @@
       const expected = sourceFingerprint(audio);
       const fingerprintMs = brief(performance.now() - beforeFingerprint);
       const priorWorkers = createdWorkers.length;
+      workerConstructionError = null;
       currentPolicy = policy;
       const started = performance.now();
       const result = await analyzeEngineeringDiagnosticsInWorker(audio, undefined, capBytes, timeoutMs);
       const elapsedMs = performance.now() - started;
       const mainHeapAfterWorkerRoundTripBytes = memoryProfilingMode ? jsHeapNow() : null;
       const validationStartedAt = performance.now();
+      if (capacityMode && createdWorkers.length === priorWorkers) {
+        sourcePreserved(audio, expected);
+        return {
+          sampleRate: sr, channels: channelCount, seconds, inputPcmBytes: pcmBytes,
+          status: result.status, reason: result.reason || "WORKER_NOT_CREATED",
+          pcmMiB: brief(pcmBytes / (1024*1024)), generationMs,
+          wallElapsedMs: brief(elapsedMs), timeoutMs, workerCreated: false,
+          workerConstructionError, originalAudioPreserved: true,
+        };
+      }
       assert(createdWorkers.length === priorWorkers + 1, "Expected an actual module Worker");
       const probe = createdWorkers.at(-1);
       assert(probe.moduleWorker, "A module worker was not created");
@@ -1039,7 +1055,10 @@
           const seconds=samples/48000;
           result.currentCase={mib,sampleRate:48000,channels:2,seconds};
           const entry=await runCase(48000,2,seconds,normalCaseTimeoutMs,"NORMAL",capBytes);
-          assert(entry.status==="AVAILABLE","Stage 2I-1 worker case failed: "+entry.reason);
+          if(entry.status!=="AVAILABLE"){
+            result.failedCase={...entry,targetInputPcmMiB:mib};
+            fail("Stage 2I-1 worker case failed: "+entry.reason);
+          }
           assert(entry.workerTerminations===1&&entry.copyTransferOwnershipVerified&&
             entry.originalAudioPreserved,"Stage 2I-1 Worker lifecycle or PCM ownership check failed");
           assert(entry.inputPcmBytes<=bytes&&entry.inputPcmBytes>bytes-8,
