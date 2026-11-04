@@ -4010,7 +4010,7 @@ test("Stage 2I-1 capacity mode stays opt-in, sequential, bounded and stop-on-fir
     'peakBrowserMemory:"UNAVAILABLE"',
     'if(!allowedHost)fail("Stage 2I-1 is localhost-only")',
     'runCase(48000,2,seconds,normalCaseTimeoutMs,"NORMAL",capBytes)',
-    'entry.status==="AVAILABLE"',
+    'if(entry.status!=="AVAILABLE")',
     'result.status="FAIL"',
     'result.stopOnFirstFailure=true',
     'capacityButton.addEventListener("click", () => runCapacityProfile())',
@@ -4023,4 +4023,34 @@ test("Stage 2I-1 capacity mode stays opt-in, sequential, bounded and stop-on-fir
     assert.equal(samples*2*4,target);
     assert.ok(target<=128*1024*1024);
   }
+});
+
+test("Stage 2I-1 records bridge failure and no Worker without inventing Worker evidence",async()=>{
+  const harness=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
+  const source=harness.slice(harness.indexOf("async function runCase("),harness.indexOf("async function runAbortCase()"));
+  assert.ok(source.startsWith("async function runCase("));
+  // Exercise the real harness function at a tiny synthetic size; the bridge is
+  // replaced only to reproduce the observed no-Worker return deterministically.
+  const vm=await import("node:vm");
+  const context={performance,Float32Array,createdWorkers:[],capacityMode:true,
+    memoryProfilingMode:false,allocationProfilingMode:false,capBytes:128*1024*1024,
+    maxCasePcmBytes:24*1024*1024,normalCaseTimeoutMs:30000,
+    currentPolicy:"NORMAL",workerConstructionError:null,
+    syntheticAudio:(sr,channels,n)=>{const original=Array.from({length:channels},()=>new Float32Array(n));
+      return {sampleRate:sr,numberOfChannels:channels,length:n,original,getChannelData:i=>original[i]};},
+    sourceFingerprint:audio=>audio.original.map(ch=>ch.length),
+    sourcePreserved:(audio,expected)=>assert.deepEqual(audio.original.map(ch=>ch.length),expected),
+    brief:n=>Math.round(n*10)/10,
+    analyzeEngineeringDiagnosticsInWorker:async()=>({status:"UNAVAILABLE",reason:"WORKER_SETUP_FAILED"}),
+    assert:(condition,message)=>{if(!condition)throw Error(message);},
+  };
+  const runCase=vm.runInNewContext("("+source+")",context);
+  const failed=await runCase(48000,2,.2,30000,"NORMAL",128*1024*1024);
+  assert.equal(failed.status,"UNAVAILABLE");
+  assert.equal(failed.reason,"WORKER_SETUP_FAILED");
+  assert.equal(failed.workerCreated,false);
+  assert.equal(failed.originalAudioPreserved,true);
+  assert.equal(failed.workerTerminations,undefined);
+  assert.equal(context.createdWorkers.length,0);
+  assert.match(harness,/result\.failedCase=\{\.\.\.entry,targetInputPcmMiB:mib\}/);
 });
