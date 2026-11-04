@@ -4076,7 +4076,7 @@ test("Stage 2I-1 installs the Worker probe on a fresh page and retains any faile
     NativeWorker,InstrumentedWorker,out,Float32Array,Date,JSON,
     runButton:buttons[0],profileButton:buttons[1],matchedButton:buttons[2],
     memoryButton:buttons[3],allocationButton:buttons[4],capacityButton:buttons[5],
-    pilotButton:{disabled:false},pilotFile:{disabled:false},
+    pilotButton:{disabled:false},pilotFile:{disabled:false},pilotStopped:false,pilotReports:[],
     normalCaseTimeoutMs:30000,capBytes:128*1024*1024,
     runCase:async()=>{calls++;assert.equal(context.globalThis.Worker,InstrumentedWorker);
       return {status:"UNAVAILABLE",reason:"WORKER_SETUP_FAILED",workerCreated:false};},
