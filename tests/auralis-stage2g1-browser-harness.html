@@ -277,7 +277,8 @@
           status: "UNAVAILABLE", reason: result.status === "AVAILABLE" ? "WORKER_NOT_INSTRUMENTED" :
             (result.reason || "WORKER_NOT_CREATED"), bridgeStatus: result.status,
           pcmMiB: brief(pcmBytes / (1024*1024)), generationMs,
-          wallElapsedMs: brief(elapsedMs), timeoutMs, workerCreated: false,
+          wallElapsedMs: brief(elapsedMs), timeoutMs,
+          workerCreated: result.status === "AVAILABLE" ? true : null, workerProbeRecorded: false,
           workerConstructionError, originalAudioPreserved: true,
         };
       }
@@ -498,6 +499,7 @@
     }
 
     async function run() {
+      if (capacityMode) return;
       if (!allowedHost) fail("Refusing nonlocal host: do not run against deployed YSS.");
       assert(typeof NativeWorker === "function", "Real browser Worker API not present");
       const results = {
@@ -600,7 +602,8 @@
       assert(typeof NativeWorker === "function", "Native browser Worker is required");
       assert(document.visibilityState === "visible", "Profile requires a foreground tab");
       assert(!runButton.disabled && !profileButton.disabled && !matchedButton.disabled &&
-        !memoryButton.disabled && !allocationButton.disabled, "Another harness run is active");
+        !memoryButton.disabled && !allocationButton.disabled && !capacityButton.disabled,
+        "Another harness run is active");
       const scenarios = matched ? [
         { sampleRate: 192000, channels: 2, seconds: 15 },
         { sampleRate: 96000, channels: 2, seconds: 30 },
@@ -702,6 +705,7 @@
       matchedButton.disabled=true;
       memoryButton.disabled=true;
       allocationButton.disabled=true;
+      capacityButton.disabled=true;
       globalThis.Worker=InstrumentedWorker;
       profilingMode=true;
       // The short control/warm-up must not satisfy the matched-sample guard.
@@ -812,6 +816,7 @@
         matchedButton.disabled=false;
         memoryButton.disabled=false;
         allocationButton.disabled=false;
+        capacityButton.disabled=false;
         syncReport();
       }
     }
@@ -825,7 +830,8 @@
       assert(typeof NativeWorker === "function", "Native browser Worker is required");
       assert(document.visibilityState === "visible", "Memory profile requires foreground tab");
       assert(!runButton.disabled && !profileButton.disabled &&
-        !matchedButton.disabled && !memoryButton.disabled && !allocationButton.disabled, "Another harness run is active");
+        !matchedButton.disabled && !memoryButton.disabled && !allocationButton.disabled &&
+        !capacityButton.disabled, "Another harness run is active");
 
       const scenarios = [
         { sampleRate:48000,channels:2,seconds:0.2 },
@@ -925,6 +931,7 @@
       matchedButton.disabled=true;
       memoryButton.disabled=true;
       allocationButton.disabled=true;
+      capacityButton.disabled=true;
       globalThis.Worker=InstrumentedWorker;
       profilingMode=true;
       matchedSampleMode=false;
@@ -1024,6 +1031,7 @@
         matchedButton.disabled=false;
         memoryButton.disabled=false;
         allocationButton.disabled=false;
+        capacityButton.disabled=false;
         report();
       }
     }
@@ -1035,7 +1043,8 @@
     allocationButton.addEventListener("click", () => runMemoryProfile(true));
     capacityButton.addEventListener("click", () => runCapacityProfile());
     async function runCapacityProfile(){
-      if(capacityMode)return;
+      if(capacityMode||runButton.disabled||profileButton.disabled||matchedButton.disabled||
+         memoryButton.disabled||allocationButton.disabled||capacityButton.disabled)return;
       capacityMode=true;
       const result={stage:"2I-1",mode:"OPT_IN_WORKER_INPUT_CAPACITY",status:"RUNNING",
         startedAt:new Date().toISOString(),
@@ -1056,6 +1065,11 @@
           const samples=Math.floor(bytes/(2*Float32Array.BYTES_PER_ELEMENT));
           const seconds=samples/48000;
           result.currentCase={mib,sampleRate:48000,channels:2,seconds};
+          if(globalThis.Worker!==InstrumentedWorker){
+            result.failedCase={...result.currentCase,status:"UNAVAILABLE",
+              reason:"WORKER_PROBE_REPLACED_BEFORE_CASE",workerProbeRecorded:false};
+            fail("Stage 2I-1 Worker probe replaced before case");
+          }
           const entry=await runCase(48000,2,seconds,normalCaseTimeoutMs,"NORMAL",capBytes);
           if(entry.status!=="AVAILABLE"){
             result.failedCase={...entry,targetInputPcmMiB:mib};
