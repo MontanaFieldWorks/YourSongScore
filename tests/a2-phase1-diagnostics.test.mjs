@@ -3949,3 +3949,51 @@ test("Auralis 2F2: an unavailable worker response stays unavailable without impa
     assert.equal(pcm.byteLength,4096*4);
   }finally{globalThis.Worker=OriginalWorker;}
 });
+
+test("Stage 2H-2B phase timing rejects invalid clocks and preserves timer evidence",async()=>{
+  const harness=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
+  const start=harness.indexOf("function phaseInterval(");
+  const end=harness.indexOf("async function runCase(",start);
+  assert.ok(start>=0 && end>start);
+  const interval=new Function("assert",harness.slice(start,end)+";return phaseInterval;")(
+    (ok,message)=>assert.ok(ok,message));
+  assert.deepEqual(interval(0,0),{startMs:0,endMs:0,durationMs:0});
+  assert.deepEqual(interval(10.125,130.625),{startMs:10.125,endMs:130.625,durationMs:120.5});
+  for(const [a,b] of [[undefined,1],[0,undefined],[NaN,1],[0,Infinity],[-1,1],[2,1]])
+    assert.throws(()=>interval(a,b),/Invalid Stage 2H-2B phase interval/);
+  // Guard wiring to actual observed phase boundaries, including reply-handler completion.
+  for(const wiring of [
+    "syntheticGeneration:phaseInterval(beforeGeneration, generationEndedAt)",
+    "workerCreationAndTransfer:phaseInterval(started, probe.postEndedAt)",
+    "workerWait:phaseInterval(probe.postEndedAt, probe.messageReceivedAt)",
+    "responseHandler:phaseInterval(probe.messageReceivedAt, probe.messageHandlerEndedAt)",
+    "evidenceValidation:phaseInterval(validationStartedAt, validationEndedAt)",
+    "phaseInterval(validationEndedAt, performance.now())",
+    'interpretation:"TEMPORAL_OVERLAP_ONLY_NOT_CAUSAL"',
+    'clock:"MAIN_WINDOW_PERFORMANCE_NOW"',
+    "expectedAtMs=lastTick+25",
+    "...(allocation?{expectedAtMs,observedAtMs:now,",
+  ])assert.ok(harness.includes(wiring),"Missing phase timing wiring: "+wiring);
+  assert.ok(harness.includes("if (allocationProfilingMode) {\n        entry.phaseTiming"));
+  // Execute the actual timer callback with a deterministic late tick.
+  const memoryStart=harness.indexOf("async function runMemoryProfile");
+  const timerStart=harness.indexOf("let lastTick=performance.now();",memoryStart);
+  const timerEnd=harness.indexOf("results.memory.before=",timerStart);
+  assert.ok(timerStart>memoryStart && timerEnd>timerStart);
+  const runTimer=new Function("performance","setInterval","results","allocation","brief",
+    "let beat; const currentContext='case:test',maxObserverEntries=100;"+
+    harness.slice(timerStart,timerEnd));
+  for(const allocation of [false,true]){
+    let now=100,callback;
+    const results={responsiveness:{maxTimerDriftMs:0,longDriftEntries:[]}};
+    runTimer({now:()=>now},fn=>{callback=fn;return 1;},results,allocation,x=>x);
+    now=245;callback();
+    const entry=results.responsiveness.longDriftEntries[0];
+    assert.equal(entry.driftMs,120);
+    assert.equal(entry.contextIsNotCausalAttribution,true);
+    assert.equal(entry.expectedAtMs,allocation?125:undefined);
+    assert.equal(entry.observedAtMs,allocation?245:undefined);
+    now=270;callback();
+    assert.equal(results.responsiveness.longDriftEntries.length,1);
+  }
+});
