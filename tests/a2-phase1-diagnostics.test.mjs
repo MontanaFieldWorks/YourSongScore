@@ -2086,7 +2086,7 @@ test("Stage 2H-2A Stage 2G-6 FFT allocation report fails closed on analyzer/harn
       "noRetries:true,allCasesSequential:true",
       "stopOnFirstFailure:true",
       "results.completedMeasuredRuns===6",
-      "if(!allowedHost)",
+      "if (!allowedHost)",
     ])assert.ok(htmlText.includes(guardrail),"Stage 2G resource/safety guard lost: "+guardrail);
   };
   check(source,harness);
