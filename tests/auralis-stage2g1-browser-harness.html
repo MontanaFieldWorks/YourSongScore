@@ -39,10 +39,11 @@
   is not worker CPU time; results can be inconclusive about a timer delay.</small></p>
   <p><small>Stage 2G-4 must be selected explicitly. One 0.2s/48k stereo warm-up then two runs each: 15s/192k stereo, 30s/96k stereo, 60s/48k stereo. All six have 2,880,000 samples per channel, 23,040,000 PCM bytes (21.97 MiB) and 1,405 FFT frames. Strict 24 MiB per-case limit, sequential first-failure stop, no retries, 30s worker timeout, foreground-only, and optional Long Task/Long Animation Frame and memory observations. Worker wall time is not Worker CPU; memory snapshots are not process/worker peaks.</small></p>
   <p><small>Stage 2G-5 is a separate opt-in memory-observability check: one 0.2s/48k stereo warm-up plus two runs each of 0.2s/48k stereo, 15s/48k stereo and 15s/192k stereo. Each case is capped at 24 MiB decoded PCM, 30s worker timeout, one at a time, no retries or songs. Phase snapshots of Chromium JS heap are optional, approximate and neither worker/process peaks nor proof of a leak. The main-thread copy/setup envelope and response-handler interval are not copy-only or worker CPU time. Worker FFT allocations and worker memory peaks cannot be directly measured from this test HTML; they are reported UNAVAILABLE. Evidence JSON character count is not structured-clone byte size. Keep Chrome foreground on localhost only.</small></p>
-  <p><small>Stage 2G-6 is independently opt-in via the new button or <code>?allocation=1</code>. The same bounded warm-up and six synthetic stereo cases as Stage 2G-5 are used. The report combines source-derived FFT copy-operation counts and an additional main-thread <code>structuredClone</code> timing proxy. These do <strong>not</strong> measure Worker allocations, the actual Worker-to-main message-clone time or bytes, peak RAM or CPU. Unsupported cloning is reported UNAVAILABLE. No DSP changes, no user songs and no increased resource limits.</small></p>
+  <p><small>Stage 2G-6 is independently opt-in via the button or <code>?allocation=1</code>. It reuses Stage 2G-5's bounded warm-up and six synthetic stereo cases. Stage 2H-2A corrects its source-derived Stage 2B2 accounting: <strong>zero per-frame full-spectrum copies</strong>, with two reusable complex FFT output arrays allocated once per stereo invocation. A local runtime source-contract guard fails the run if this allocation assumption no longer matches the imported analyzer. There are still other allocations. The separate main-thread <code>structuredClone</code> is a proxy, <strong>not</strong> actual Worker-to-main cloning. Neither the accounting nor the clone proxy measures Worker allocations, peak RAM, CPU or a leak. Unsupported cloning is UNAVAILABLE. No DSP changes, songs or increased resource limits.</small></p>
   <pre id="result" aria-live="polite">Not run.</pre>
   <script type="module">
     import { analyzeEngineeringDiagnosticsInWorker } from "/src/lib/batchAudioWorker.ts";
+    import { analyzeStage2b2Stereo } from "/src/lib/liveAudioAnalyzer.ts";
 
     const out = document.querySelector("#result");
     const runButton = document.querySelector("#run");
@@ -65,6 +66,27 @@
     const assert = (condition, message) => { if (!condition) fail(message); };
     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     const brief = value => Math.round(value * 100) / 100;
+
+    // Stage 2H-2A: fail CLOSED rather than report stale FFT allocation counts
+    // if the local, imported Stage 2B2 implementation changes in the future.
+    // Source inspection is deliberately strict and limited to this test-only
+    // localhost mode. A source refactor requires explicit test-contract review.
+    function assertStage2b2ReusableFftSourceContract(){
+      const compact=Function.prototype.toString.call(analyzeStage2b2Stereo)
+        .replace(/\/\*[\s\S]*?\*\//g,"")
+        .replace(/\/\/[^\r\n]*/g,"")
+        .replace(/\s+/g,"");
+      const frameLoop=compact.indexOf("for(letframe=0;frame<frameCount;frame++)");
+      assert(frameLoop>0,"Stage 2G-6 allocation accounting requires audited FFT frame loop");
+      const setup=compact.slice(0,frameLoop),perFrame=compact.slice(frameLoop);
+      assert(setup.includes("constinput=fft.createComplexArray(),leftSpectrum=fft.createComplexArray()") &&
+        setup.includes("constrightSpectrum=channels.length===2?fft.createComplexArray():leftSpectrum") &&
+        perFrame.includes("fft.transform(chIndex===0?leftSpectrum:rightSpectrum,input)") &&
+        perFrame.includes("consta=leftSpectrum,b=rightSpectrum") &&
+        !/Array\.from\(out\)|spectra\.push\(|createComplexArray\(/.test(perFrame),
+        "Stage 2G-6 FFT allocation source changed; refusing stale copy estimates");
+      return "VERIFIED_STAGE2H1B_REUSABLE_OUTPUT_ARRAYS";
+    }
     // Chromium-specific, approximate snapshot of the reporting context JS heap.
     // Does NOT include reliable worker/process peaks or typed-array backing stores.
     const jsHeapNow = () => {
@@ -345,18 +367,24 @@
           assert(evidence.bands.every(b=>b.frameCount===expectedFrames &&
             b.frameEvidence.length===expectedFrames),
             "Stage 2G-6 frame-evidence mismatch");
-          // Source-grounded accounting of Stage 2B2's spectra.push(Array.from(out)):
-          // 2*fftSize numerical elements per complex output, one copy per channel/frame.
-          // 8 bytes/number below is a conceptual equivalent, NOT allocated
-          // JS Array memory, a lower bound, a peak, or measured Worker memory.
-          const copiedElements=expectedFrames*channelCount*(2*fftSize);
+          // Stage 2H-1B: one reusable complex FFT output array per channel
+          // is allocated ONCE per Stage 2B2 invocation; the FFT writes into it.
+          // No per-frame full-spectrum Array.from(out) copies remain. These
+          // counts do NOT measure total allocations, JS Array bytes, GC or RAM.
+          const reusableOutputArrays=channelCount;
           const proxy={
-            sourceOperation:"Stage 2B2 spectra.push(Array.from(out)) per channel per frame",
+            sourceOperation:"Stage 2B2 fft.transform writes directly into reusable per-channel complex FFT output arrays",
             fftSize,hopSize,frameCount:expectedFrames,channels:channelCount,
-            calculatedCopyOperations:expectedFrames*channelCount,
-            calculatedNumericElements:copiedElements,
-            conceptualEightByteEquivalent:copiedElements*8,
-            accountingType:"SOURCE_DERIVED_CUMULATIVE_EQUIVALENT_NOT_MEMORY_MEASUREMENT",
+            calculatedCopyOperations:0,
+            calculatedNumericElements:0,
+            conceptualEightByteEquivalent:0,
+            reusableFftOutputArrayCount:reusableOutputArrays,
+            reusableFftOutputNumericElementsPerArray:2*fftSize,
+            reusableFftOutputTotalNumericElements:reusableOutputArrays*2*fftSize,
+            reusableFftOutputAllocationFrequency:"ONCE_PER_STAGE2B2_INVOCATION",
+            reusableFftOutputActualAllocatedBytes:null,
+            otherFrameAndWorkerAllocations:"NOT_MEASURED_OR_INCLUDED",
+            accountingType:"SOURCE_DERIVED_ZERO_PER_FRAME_SPECTRUM_COPIES_NOT_MEMORY_MEASUREMENT",
             measuredWorkerFftAllocationBytes:null,
             measuredWorkerPeakMemoryBytes:null,
             actualWorkerToMainCloneMs:null,
@@ -788,7 +816,8 @@
           "Long Tasks and Long Animation Frames are optional and cannot prove task attribution",
           "Per-case 24 MiB decoded PCM limit is not a browser memory limit",
           ...(allocation?[
-            "FFT copy equivalents are source-derived counts, NOT measured Worker allocations",
+            "Stage 2B2 per-frame full-spectrum copies are now zero; other frame/Worker allocations remain",
+            "Reusable FFT output buffer counts are source-derived, NOT measured Worker allocation bytes",
             "Additional main-thread structuredClone is a proxy, NOT the actual Worker-to-main transfer",
             "Proxy cloning itself adds an intrusive allocation after the real Worker response"
           ]:[]),
@@ -848,6 +877,7 @@
       allocationProfilingMode=false; // Exclude short warm-up from 2G-6 clone measurements.
       document.addEventListener("visibilitychange",visibilityListener);
       try{
+        if(allocation)results.policy.stage2b2SourceGuard=assertStage2b2ReusableFftSourceContract();
         observe("longtask","longTasks");
         observe("long-animation-frame","longAnimationFrames");
         let lastTick=performance.now();
@@ -882,8 +912,14 @@
               entry.workerTerminations===1,"Memory case lacked validated Worker evidence");
             if(allocation)assert(entry.allocationProxy &&
               entry.allocationProxy.accountingType===
-                "SOURCE_DERIVED_CUMULATIVE_EQUIVALENT_NOT_MEMORY_MEASUREMENT",
-              "Stage 2G-6 allocation accounting not captured");
+                "SOURCE_DERIVED_ZERO_PER_FRAME_SPECTRUM_COPIES_NOT_MEMORY_MEASUREMENT" &&
+              entry.allocationProxy.calculatedCopyOperations===0 &&
+              entry.allocationProxy.calculatedNumericElements===0 &&
+              entry.allocationProxy.reusableFftOutputArrayCount===scenario.channels &&
+              entry.allocationProxy.reusableFftOutputTotalNumericElements===
+                scenario.channels*2*entry.allocationProxy.fftSize &&
+              results.policy.stage2b2SourceGuard==="VERIFIED_STAGE2H1B_REUSABLE_OUTPUT_ARRAYS",
+              "Stage 2G-6 zero-copy source contract or allocation report mismatch");
             assert(!visibilityChanged && document.visibilityState==="visible",
               "Tab visibility changed during measured case");
             results.cases.push({...entry,repetition});
