@@ -49,7 +49,8 @@
   <pre id="result" aria-live="polite">Not run.</pre>
   <script type="module">
     import { analyzeEngineeringDiagnosticsInWorker } from "/src/lib/batchAudioWorker.ts";
-    import { analyzeStage2b2Stereo, decodeAudioFile, interpretStage2d1EngineeringEvidence, interpretStage2d3CrossMeasurementEvidence } from "/src/lib/liveAudioAnalyzer.ts";
+    import { analyzeStage2b2Stereo } from "/src/lib/liveAudioAnalyzer.ts";
+    import { decodeAudioFile, interpretStage2d1EngineeringEvidence, interpretStage2d3CrossMeasurementEvidence } from "/src/lib/liveAudioAnalyzer.ts";
 
     const out = document.querySelector("#result");
     const runButton = document.querySelector("#run");
