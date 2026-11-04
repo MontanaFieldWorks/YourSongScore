@@ -2090,6 +2090,18 @@ test("Stage 2H-2A Stage 2G-6 FFT allocation report fails closed on analyzer/harn
     ])assert.ok(htmlText.includes(guardrail),"Stage 2G resource/safety guard lost: "+guardrail);
   };
   check(source,harness);
+  // Exercise the ACTUAL harness guard against the imported TypeScript/JS
+  // analyzer function, not only the text signatures above. Node and Vite
+  // transpilation differ; one real local Chrome run remains necessary.
+  const guardStart=harness.indexOf("function assertStage2b2ReusableFftSourceContract()");
+  const guardEnd=harness.indexOf("// Chromium-specific",guardStart);
+  const guardCode=harness.slice(guardStart,guardEnd);
+  const runRuntimeGuard=new Function("analyzeStage2b2Stereo","assert",
+    guardCode+";return assertStage2b2ReusableFftSourceContract();");
+  assert.equal(runRuntimeGuard(analyzeStage2b2Stereo,(ok,msg)=>assert.ok(ok,msg)),
+    "VERIFIED_STAGE2H1B_REUSABLE_OUTPUT_ARRAYS");
+  assert.throws(()=>runRuntimeGuard(()=>{},(ok,msg)=>assert.ok(ok,msg)),
+    /requires audited FFT frame loop/);
   const replaceOne=(text,from,to)=>{
     assert.equal(text.split(from).length,2,"mutation precondition must occur exactly once");
     return text.replace(from,to);
