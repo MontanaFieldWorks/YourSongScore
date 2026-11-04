@@ -4062,7 +4062,7 @@ test("Stage 2I-1 records bridge failure and no Worker without inventing Worker e
 
 test("Stage 2I-1 installs the Worker probe on a fresh page and retains any failed case",async()=>{
   const harness=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
-  const source=harness.slice(harness.indexOf("async function runCapacityProfile()"),harness.indexOf("\\n    const query ="));
+  const source=harness.slice(harness.indexOf("async function runCapacityProfile()"),harness.indexOf("    const query ="));
   assert.ok(source.startsWith("async function runCapacityProfile()"));
   const vm=await import("node:vm");
   const NativeWorker=class NativeWorker{};
