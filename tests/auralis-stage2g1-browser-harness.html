@@ -274,7 +274,8 @@
         sourcePreserved(audio, expected);
         return {
           sampleRate: sr, channels: channelCount, seconds, inputPcmBytes: pcmBytes,
-          status: result.status, reason: result.reason || "WORKER_NOT_CREATED",
+          status: "UNAVAILABLE", reason: result.status === "AVAILABLE" ? "WORKER_NOT_INSTRUMENTED" :
+            (result.reason || "WORKER_NOT_CREATED"), bridgeStatus: result.status,
           pcmMiB: brief(pcmBytes / (1024*1024)), generationMs,
           wallElapsedMs: brief(elapsedMs), timeoutMs, workerCreated: false,
           workerConstructionError, originalAudioPreserved: true,
@@ -1048,6 +1049,7 @@
         allocationButton.disabled=capacityButton.disabled=true;
       try{
         if(!allowedHost)fail("Stage 2I-1 is localhost-only");
+        globalThis.Worker=InstrumentedWorker;
         const completed=[];
         for(const mib of result.policy.caseMiB){
           const bytes=mib*1024*1024;
@@ -1059,10 +1061,15 @@
             result.failedCase={...entry,targetInputPcmMiB:mib};
             fail("Stage 2I-1 worker case failed: "+entry.reason);
           }
-          assert(entry.workerTerminations===1&&entry.copyTransferOwnershipVerified&&
-            entry.originalAudioPreserved,"Stage 2I-1 Worker lifecycle or PCM ownership check failed");
-          assert(entry.inputPcmBytes<=bytes&&entry.inputPcmBytes>bytes-8,
-            "Stage 2I-1 PCM byte target drifted");
+          if(entry.workerTerminations!==1||!entry.copyTransferOwnershipVerified||
+             !entry.originalAudioPreserved){
+            result.failedCase={...entry,targetInputPcmMiB:mib};
+            fail("Stage 2I-1 Worker lifecycle or PCM ownership check failed");
+          }
+          if(entry.inputPcmBytes>bytes||entry.inputPcmBytes<=bytes-8){
+            result.failedCase={...entry,targetInputPcmMiB:mib};
+            fail("Stage 2I-1 PCM byte target drifted");
+          }
           completed.push({...entry,targetInputPcmMiB:mib});
           result.completedCases=completed.length;
           result.cases=completed;
@@ -1077,6 +1084,7 @@
       }finally{
         result.finishedAt=new Date().toISOString();
         out.textContent=JSON.stringify(result,null,2);
+        globalThis.Worker=NativeWorker;
         runButton.disabled=profileButton.disabled=matchedButton.disabled=memoryButton.disabled=
           allocationButton.disabled=capacityButton.disabled=false;
         capacityMode=false;
