@@ -3997,3 +3997,30 @@ test("Stage 2H-2B phase timing rejects invalid clocks and preserves timer eviden
     assert.equal(results.responsiveness.longDriftEntries.length,1);
   }
 });
+
+test("Stage 2I-1 capacity mode stays opt-in, sequential, bounded and stop-on-first-failure",async()=>{
+  const harness=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
+  assert.match(harness,/query\.get\("capacity"\) === "1"\)runCapacityProfile\(\)/);
+  assert.match(harness,/Run Stage 2I-1 Worker input capacity profile/);
+  for(const contract of [
+    'mode:"OPT_IN_WORKER_INPUT_CAPACITY"',
+    'caseMiB:[32,64,96,128]',
+    'workerTimeoutMs:30000,stopOnFirstFailure:true',
+    'noRetries:true,sequential:true,syntheticOnly:true',
+    'peakBrowserMemory:"UNAVAILABLE"',
+    'if(!allowedHost)fail("Stage 2I-1 is localhost-only")',
+    'runCase(48000,2,seconds,normalCaseTimeoutMs,"NORMAL",capBytes)',
+    'entry.status==="AVAILABLE"',
+    'result.status="FAIL"',
+    'result.stopOnFirstFailure=true',
+    'capacityButton.addEventListener("click", () => runCapacityProfile())',
+  ])assert.ok(harness.includes(contract),"Missing Stage 2I-1 contract "+contract);
+  assert.match(harness,/maxCasePcmBytes = 24 \* 1024 \* 1024/);
+  assert.match(harness,/capBytes = 128 \* 1024 \* 1024/);
+  for(const mib of [32,64,96,128]){
+    const target=mib*1024*1024;
+    const samples=Math.floor(target/8);
+    assert.equal(samples*2*4,target);
+    assert.ok(target<=128*1024*1024);
+  }
+});
