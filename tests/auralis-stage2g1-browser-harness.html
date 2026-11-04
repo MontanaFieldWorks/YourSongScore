@@ -30,6 +30,7 @@
   <button id="matched" type="button">Run Stage 2G-4 matched samples (6 measured cases)</button>
   <button id="memory" type="button">Run Stage 2G-5 memory observability (6 measured cases)</button>
   <button id="allocation" type="button">Run Stage 2G-6 FFT allocation accounting and clone proxy (6 measured cases)</button>
+  <button id="capacity" type="button">Run Stage 2I-1 Worker input capacity profile (4 cases, up to 128 MiB)</button>
   <p><small>Stage 2G-3 is optional and must be selected explicitly. It runs one
   0.2s/48k stereo warm-up followed by three repeats each of 0.2s/48k stereo,
   15s/48k stereo, and 15s/192k stereo. One case at a time, no retries,
@@ -40,6 +41,7 @@
   <p><small>Stage 2G-4 must be selected explicitly. One 0.2s/48k stereo warm-up then two runs each: 15s/192k stereo, 30s/96k stereo, 60s/48k stereo. All six have 2,880,000 samples per channel, 23,040,000 PCM bytes (21.97 MiB) and 1,405 FFT frames. Strict 24 MiB per-case limit, sequential first-failure stop, no retries, 30s worker timeout, foreground-only, and optional Long Task/Long Animation Frame and memory observations. Worker wall time is not Worker CPU; memory snapshots are not process/worker peaks.</small></p>
   <p><small>Stage 2G-5 is a separate opt-in memory-observability check: one 0.2s/48k stereo warm-up plus two runs each of 0.2s/48k stereo, 15s/48k stereo and 15s/192k stereo. Each case is capped at 24 MiB decoded PCM, 30s worker timeout, one at a time, no retries or songs. Phase snapshots of Chromium JS heap are optional, approximate and neither worker/process peaks nor proof of a leak. The main-thread copy/setup envelope and response-handler interval are not copy-only or worker CPU time. Worker FFT allocations and worker memory peaks cannot be directly measured from this test HTML; they are reported UNAVAILABLE. Evidence JSON character count is not structured-clone byte size. Keep Chrome foreground on localhost only.</small></p>
   <p><small>Stage 2G-6 is independently opt-in via the button or <code>?allocation=1</code>. It reuses Stage 2G-5's bounded warm-up and six synthetic stereo cases. Stage 2H-2A corrects its source-derived Stage 2B2 accounting: <strong>zero per-frame full-spectrum copies</strong>, with two reusable complex FFT output arrays allocated once per stereo invocation. A local runtime source-contract guard fails the run if this allocation assumption no longer matches the imported analyzer. There are still other allocations. The separate main-thread <code>structuredClone</code> is a proxy, <strong>not</strong> actual Worker-to-main cloning. Neither the accounting nor the clone proxy measures Worker allocations, peak RAM, CPU or a leak. Unsupported cloning is UNAVAILABLE. No DSP changes, songs or increased resource limits.</small></p>
+  <p><small>Stage 2I-1 is an explicit opt-in local-browser capacity check. It runs synthetic stereo inputs of 32, 64, 96 and 128 MiB decoded PCM at 48 kHz, once each, in order. The bridge copies each channel before transfer, so input PCM alone may occupy about twice the case size at peak, before evidence and browser overhead. Stop on first failure, no retries, 30-second timeout per Worker. This is not a general browser memory guarantee. Keep Chrome foreground and close other demanding applications first.</small></p>
   <p><small>Stage 2H-2B adds main-window phase intervals and expected/observed timer timestamps to Stage 2G-6. Compare intervals to locate temporal overlap. Worker waiting includes scheduling and transport, and overlap alone cannot establish the cause of a delay.</small></p>
   <pre id="result" aria-live="polite">Not run.</pre>
   <script type="module">
@@ -52,10 +54,12 @@
     const matchedButton = document.querySelector("#matched");
     const memoryButton = document.querySelector("#memory");
     const allocationButton = document.querySelector("#allocation");
+    const capacityButton = document.querySelector("#capacity");
     let profilingMode = false;
     let matchedSampleMode = false;
     let memoryProfilingMode = false;
     let allocationProfilingMode = false;
+    let capacityMode = false;
     const capBytes = 128 * 1024 * 1024; // actual bridge preflight
     const maxCasePcmBytes = 24 * 1024 * 1024; // smaller harness safety budget
     const rates = [44100, 48000, 96000, 192000];
@@ -238,10 +242,10 @@
       return {startMs, endMs, durationMs:endMs-startMs};
     }
 
-    async function runCase(sr, channelCount, seconds, timeoutMs = normalCaseTimeoutMs, policy = "NORMAL") {
+    async function runCase(sr, channelCount, seconds, timeoutMs = normalCaseTimeoutMs, policy = "NORMAL", casePcmLimit = maxCasePcmBytes) {
       const samples = Math.max(4096, Math.ceil(sr * seconds));
       const pcmBytes = samples * channelCount * 4;
-      assert(pcmBytes <= maxCasePcmBytes && pcmBytes <= capBytes,
+      assert(pcmBytes <= casePcmLimit && pcmBytes <= capBytes,
         "Harness case exceeds its strict 24 MiB decoded PCM cap");
       const mainHeapBeforeGenerationBytes = memoryProfilingMode ? jsHeapNow() : null;
       const beforeGeneration = performance.now();
@@ -500,6 +504,7 @@
       };
       window.__auralis2g2 = results;
       runButton.disabled = true;
+      capacityButton.disabled = true;
       profileButton.disabled = true;
       matchedButton.disabled = true;
       memoryButton.disabled = true;
@@ -562,6 +567,7 @@
         globalThis.Worker = NativeWorker;
         currentPolicy = "NORMAL";
         runButton.disabled = false;
+        capacityButton.disabled = false;
         profileButton.disabled = false;
         matchedButton.disabled = false;
         memoryButton.disabled = false;
@@ -1010,10 +1016,59 @@
     matchedButton.addEventListener("click", () => runProfile(true));
     memoryButton.addEventListener("click", () => runMemoryProfile(false));
     allocationButton.addEventListener("click", () => runMemoryProfile(true));
+    capacityButton.addEventListener("click", () => runCapacityProfile());
+    async function runCapacityProfile(){
+      if(capacityMode)return;
+      capacityMode=true;
+      const result={stage:"2I-1",mode:"OPT_IN_WORKER_INPUT_CAPACITY",status:"RUNNING",
+        startedAt:new Date().toISOString(),
+        policy:{sampleRate:48000,channels:2,caseMiB:[32,64,96,128],
+          maxDecodedPcmMiBPerCase:128,workerTimeoutMs:30000,stopOnFirstFailure:true,
+          noRetries:true,sequential:true,syntheticOnly:true,
+          estimatedPcmCopyFootprint:"UP TO ABOUT TWICE INPUT SIZE; DOES NOT INCLUDE EVIDENCE OR BROWSER OVERHEAD",
+          peakBrowserMemory:"UNAVAILABLE"}};
+      out.textContent=JSON.stringify(result,null,2);
+      runButton.disabled=profileButton.disabled=matchedButton.disabled=memoryButton.disabled=
+        allocationButton.disabled=capacityButton.disabled=true;
+      try{
+        if(!allowedHost)fail("Stage 2I-1 is localhost-only");
+        const completed=[];
+        for(const mib of result.policy.caseMiB){
+          const bytes=mib*1024*1024;
+          const samples=Math.floor(bytes/(2*Float32Array.BYTES_PER_ELEMENT));
+          const seconds=samples/48000;
+          result.currentCase={mib,sampleRate:48000,channels:2,seconds};
+          const entry=await runCase(48000,2,seconds,normalCaseTimeoutMs,"NORMAL",capBytes);
+          assert(entry.status==="AVAILABLE","Stage 2I-1 worker case failed: "+entry.reason);
+          assert(entry.workerTerminations===1&&entry.copyTransferOwnershipVerified&&
+            entry.originalAudioPreserved,"Stage 2I-1 Worker lifecycle or PCM ownership check failed");
+          assert(entry.inputPcmBytes<=bytes&&entry.inputPcmBytes>bytes-8,
+            "Stage 2I-1 PCM byte target drifted");
+          completed.push({...entry,targetInputPcmMiB:mib});
+          result.completedCases=completed.length;
+          result.cases=completed;
+          out.textContent=JSON.stringify(result,null,2);
+          await delay(100);
+        }
+        result.status="PASS";
+      }catch(error){
+        result.status="FAIL";
+        result.error=String(error?.stack||error);
+        result.stopOnFirstFailure=true;
+      }finally{
+        result.finishedAt=new Date().toISOString();
+        out.textContent=JSON.stringify(result,null,2);
+        runButton.disabled=profileButton.disabled=matchedButton.disabled=memoryButton.disabled=
+          allocationButton.disabled=capacityButton.disabled=false;
+        capacityMode=false;
+      }
+    }
+
     const query = new URLSearchParams(location.search);
     // allocation=1 opts into 2G-6, memory=1 into 2G-5;
     // all 2G-2 through 2G-4 URL modes are preserved.
-    if (query.get("allocation") === "1")runMemoryProfile(true);
+    if (query.get("capacity") === "1")runCapacityProfile();
+    else if (query.get("allocation") === "1")runMemoryProfile(true);
     else if (query.get("memory") === "1")runMemoryProfile(false);
     else if (query.get("matched") === "1")runProfile(true);
     else if (query.get("profile") === "1")runProfile(false);
