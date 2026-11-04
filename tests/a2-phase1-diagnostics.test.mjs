@@ -4048,7 +4048,8 @@ test("Stage 2I-1 records bridge failure and no Worker without inventing Worker e
   const failed=await runCase(48000,2,.2,30000,"NORMAL",128*1024*1024);
   assert.equal(failed.status,"UNAVAILABLE");
   assert.equal(failed.reason,"WORKER_SETUP_FAILED");
-  assert.equal(failed.workerCreated,false);
+  assert.equal(failed.workerCreated,null);
+  assert.equal(failed.workerProbeRecorded,false);
   assert.equal(failed.originalAudioPreserved,true);
   assert.equal(failed.workerTerminations,undefined);
   assert.equal(context.createdWorkers.length,0);
@@ -4057,6 +4058,7 @@ test("Stage 2I-1 records bridge failure and no Worker without inventing Worker e
   assert.equal(unprobed.status,"UNAVAILABLE");
   assert.equal(unprobed.reason,"WORKER_NOT_INSTRUMENTED");
   assert.equal(unprobed.bridgeStatus,"AVAILABLE");
+  assert.equal(unprobed.workerCreated,true);
   assert.match(harness,/result\.failedCase=\{\.\.\.entry,targetInputPcmMiB:mib\}/);
 });
 
@@ -4091,4 +4093,16 @@ test("Stage 2I-1 installs the Worker probe on a fresh page and retains any faile
   assert.equal(context.globalThis.Worker,NativeWorker);
   assert.equal(context.capacityMode,false);
   assert.ok(buttons.every(button=>button.disabled===false));
+  context.runCase=async()=>{calls++;assert.equal(context.globalThis.Worker,InstrumentedWorker);
+    return {status:"AVAILABLE",workerTerminations:1,copyTransferOwnershipVerified:true,
+      originalAudioPreserved:true,inputPcmBytes:32*1024*1024};};
+  context.delay=async()=>{context.globalThis.Worker=NativeWorker;};
+  await runCapacityProfile();
+  const replaced=JSON.parse(out.textContent);
+  assert.equal(replaced.status,"FAIL");
+  assert.equal(replaced.completedCases,1);
+  assert.equal(replaced.currentCase.mib,64);
+  assert.equal(replaced.failedCase.reason,"WORKER_PROBE_REPLACED_BEFORE_CASE");
+  assert.equal(calls,2,"second run stops before dispatching 64 MiB");
+  assert.equal(context.globalThis.Worker,NativeWorker);
 });
