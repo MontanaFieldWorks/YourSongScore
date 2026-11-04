@@ -4064,7 +4064,7 @@ test("Stage 2I-1 records bridge failure and no Worker without inventing Worker e
 
 test("Stage 2I-1 installs the Worker probe on a fresh page and retains any failed case",async()=>{
   const harness=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
-  const source=harness.slice(harness.indexOf("async function runCapacityProfile()"),harness.indexOf("    const query ="));
+  const source=harness.slice(harness.indexOf("async function runCapacityProfile()"),harness.indexOf("    // Stage 2I-2: compact"));
   assert.ok(source.startsWith("async function runCapacityProfile()"));
   const vm=await import("node:vm");
   const NativeWorker=class NativeWorker{};
@@ -4076,6 +4076,7 @@ test("Stage 2I-1 installs the Worker probe on a fresh page and retains any faile
     NativeWorker,InstrumentedWorker,out,Float32Array,Date,JSON,
     runButton:buttons[0],profileButton:buttons[1],matchedButton:buttons[2],
     memoryButton:buttons[3],allocationButton:buttons[4],capacityButton:buttons[5],
+    pilotButton:{disabled:false},pilotFile:{disabled:false},
     normalCaseTimeoutMs:30000,capBytes:128*1024*1024,
     runCase:async()=>{calls++;assert.equal(context.globalThis.Worker,InstrumentedWorker);
       return {status:"UNAVAILABLE",reason:"WORKER_SETUP_FAILED",workerCreated:false};},
@@ -4144,7 +4145,7 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
     analyzeEngineeringDiagnosticsInWorker:async()=>{
       workerCalls++;
       assert.equal(context.globalThis.Worker,InstrumentedWorker);
-      probes.push({moduleWorker:true,transfers:[{byteLengthsBefore:[16384,16384],
+      probes.push({moduleWorker:true,transfers:[{byteLengthsBefore:[32768,32768],
         byteLengthsAfter:[0,0]}],terminateCount:1});
       return {status:"AVAILABLE",evidence};
     },
