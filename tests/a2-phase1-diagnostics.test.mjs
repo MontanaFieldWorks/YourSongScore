@@ -2009,6 +2009,123 @@ test("Stage 2H-1B ABBA paired performance and exact frozen-reference parity",asy
   }finally{observer?.disconnect();}
 });
 
+
+test("Stage 2H-2A Stage 2G-6 FFT allocation report fails closed on analyzer/harness divergence",async()=>{
+  const source=await readFile(new URL("../src/lib/liveAudioAnalyzer.ts",import.meta.url),"utf8");
+  const harness=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
+  const check=(analyzerText,htmlText)=>{
+    const start=analyzerText.indexOf("export function analyzeStage2b2Stereo(");
+    const end=analyzerText.indexOf("export function assembleStage2c1EngineeringEvidence(",start);
+    assert.ok(start>=0&&end>start,"Stage 2H-2A requires identifiable Stage 2B2 function");
+    const compact=analyzerText.slice(start,end)
+      .replace(/\/\*[\s\S]*?\*\//g,"")
+      .replace(/\/\/[^\r\n]*/g,"")
+      .replace(/\s+/g,"");
+    const frameLoop=compact.indexOf("for(letframe=0;frame<frameCount;frame++)");
+    assert.ok(frameLoop>0,"Stage 2H-2A requires exact audited FFT frame loop");
+    const setup=compact.slice(0,frameLoop),perFrame=compact.slice(frameLoop);
+    assert.ok(setup.includes("constinput=fft.createComplexArray(),leftSpectrum=fft.createComplexArray()"),
+      "Stage 2H-2A input/left FFT allocations changed");
+    assert.ok(setup.includes("constrightSpectrum=channels.length===2?fft.createComplexArray():leftSpectrum"),
+      "Stage 2H-2A reusable right-output/mono contract changed");
+    assert.ok(perFrame.includes("fft.transform(chIndex===0?leftSpectrum:rightSpectrum,input)"),
+      "Stage 2H-2A direct FFT output write changed");
+    assert.ok(perFrame.includes("consta=leftSpectrum,b=rightSpectrum"),
+      "Stage 2H-2A FFT band data source changed");
+    assert.doesNotMatch(perFrame,/Array\.from\(out\)|spectra\.push\(|createComplexArray\(/,
+      "Stage 2H-2A unexpected per-frame spectrum allocation");
+
+    const guardStart=htmlText.indexOf("function assertStage2b2ReusableFftSourceContract()");
+    const guardEnd=htmlText.indexOf("// Chromium-specific",guardStart);
+    assert.ok(guardStart>=0&&guardEnd>guardStart,"Stage 2G-6 source audit must be present");
+    const guard=htmlText.slice(guardStart,guardEnd);
+    assert.ok(htmlText.includes('import { analyzeStage2b2Stereo } from "/src/lib/liveAudioAnalyzer.ts";'),
+      "Stage 2G-6 must inspect actual imported analyzer, not a hardcoded value");
+    for(const contract of [
+      "constinput=fft.createComplexArray(),leftSpectrum=fft.createComplexArray()",
+      "constrightSpectrum=channels.length===2?fft.createComplexArray():leftSpectrum",
+      "fft.transform(chIndex===0?leftSpectrum:rightSpectrum,input)",
+      "consta=leftSpectrum,b=rightSpectrum",
+      "Stage 2G-6 FFT allocation source changed; refusing stale copy estimates"
+    ])assert.ok(guard.includes(contract),"Stage 2G-6 runtime guard missing "+contract);
+    assert.ok(guard.includes("!/"+"Array\\.from\\(out\\)|spectra\\.push\\(|createComplexArray\\(/"+".test(perFrame)"),
+      "Stage 2G-6 runtime guard must reject new frame allocations");
+    assert.ok(htmlText.includes('if(allocation)results.policy.stage2b2SourceGuard=assertStage2b2ReusableFftSourceContract();'),
+      "Stage 2G-6 must run source audit before cases");
+    const proxyStart=htmlText.indexOf("const reusableOutputArrays=channelCount;");
+    const proxyEnd=htmlText.indexOf('if(typeof structuredClone==="function")',proxyStart);
+    assert.ok(proxyStart>=0&&proxyEnd>proxyStart,"Stage 2G-6 allocation proxy not found");
+    const proxy=htmlText.slice(proxyStart,proxyEnd);
+    for(const expected of [
+      "calculatedCopyOperations:0,",
+      "calculatedNumericElements:0,",
+      "conceptualEightByteEquivalent:0,",
+      "reusableFftOutputArrayCount:reusableOutputArrays,",
+      "reusableFftOutputNumericElementsPerArray:2*fftSize,",
+      "reusableFftOutputTotalNumericElements:reusableOutputArrays*2*fftSize,",
+      'reusableFftOutputAllocationFrequency:"ONCE_PER_STAGE2B2_INVOCATION"',
+      "reusableFftOutputActualAllocatedBytes:null,",
+      "measuredWorkerFftAllocationBytes:null,",
+      "measuredWorkerPeakMemoryBytes:null,",
+      "actualWorkerToMainCloneMs:null,",
+      "actualWorkerToMainCloneBytes:null,",
+      'accountingType:"SOURCE_DERIVED_ZERO_PER_FRAME_SPECTRUM_COPIES_NOT_MEMORY_MEASUREMENT"'
+    ])assert.ok(proxy.includes(expected),"Stage 2G-6 allocation report contract missing "+expected);
+    assert.ok(htmlText.includes("entry.allocationProxy.calculatedCopyOperations===0") &&
+      htmlText.includes('results.policy.stage2b2SourceGuard==="VERIFIED_STAGE2H1B_REUSABLE_OUTPUT_ARRAYS"'),
+      "Stage 2G-6 case-level zero-copy assertion missing");
+    assert.doesNotMatch(proxy,/expectedFrames\*channelCount/,"Stale per-frame copy estimate detected");
+    // Historical mode routes and bounded-run constraints must survive the fix.
+    for(const route of [
+      'query.get("autorun")','query.get("profile")','query.get("matched")',
+      'query.get("memory")','query.get("allocation")'
+    ])assert.ok(htmlText.includes(route),"Stage 2G mode routing lost: "+route);
+    for(const guardrail of [
+      "const maxCasePcmBytes = 24 * 1024 * 1024",
+      "maxDecodedPcmMiBPerCase:24,workerTimeoutMs:30000",
+      "noRetries:true,allCasesSequential:true",
+      "stopOnFirstFailure:true",
+      "results.completedMeasuredRuns===6",
+      "if(!allowedHost)",
+    ])assert.ok(htmlText.includes(guardrail),"Stage 2G resource/safety guard lost: "+guardrail);
+  };
+  check(source,harness);
+  const replaceOne=(text,from,to)=>{
+    assert.equal(text.split(from).length,2,"mutation precondition must occur exactly once");
+    return text.replace(from,to);
+  };
+  // Deliberately corrupt each side independently. Every case must fail CI,
+  // rather than permitting a stale or unguarded 2G-6 PASS.
+  assert.throws(()=>check(replaceOne(source,
+    "fft.transform(chIndex===0?leftSpectrum:rightSpectrum,input);",
+    "fft.transform(out,input);"),harness),/direct FFT output write changed/);
+  assert.throws(()=>check(replaceOne(source,
+    "const rightSpectrum=channels.length===2?fft.createComplexArray():leftSpectrum;",
+    "const rightSpectrum=fft.createComplexArray();"),harness),/reusable right-output/);
+  assert.throws(()=>check(replaceOne(source,
+    "const accum=Array.from({length:2}",
+    "spectra.push(Array.from(out));const accum=Array.from({length:2}"),harness),
+    /unexpected per-frame spectrum allocation/);
+  assert.throws(()=>check(source,replaceOne(harness,
+    "calculatedCopyOperations:0,","calculatedCopyOperations:expectedFrames*channelCount,")),
+    /allocation report contract missing/);
+  assert.throws(()=>check(source,replaceOne(harness,
+    "if(allocation)results.policy.stage2b2SourceGuard=assertStage2b2ReusableFftSourceContract();",
+    'if(allocation)results.policy.stage2b2SourceGuard="UNVERIFIED";')),
+    /must run source audit before cases/);
+  for(const scenario of [
+    {sampleRate:48000,seconds:0.2,frames:3},
+    {sampleRate:48000,seconds:15,frames:350},
+    {sampleRate:192000,seconds:15,frames:1405},
+  ]){
+    const samples=Math.max(4096,Math.ceil(scenario.sampleRate*scenario.seconds));
+    assert.equal(samples<4096?1:1+Math.floor((samples-4096)/2048),scenario.frames);
+    assert.ok(samples*2*4<=24*1024*1024);
+    assert.equal(2*4096*2,16384); // two reusable 8192-number complex outputs
+  }
+  console.log("Stage 2H-2A source/harness synchronization: PASS; five deliberate divergence mutations rejected");
+});
+
 test("Stage 2B2 analytical stereo polarity, gain, quadrature and mono sum",()=>{
   for(const sr of [44100,48000]){
     const N=4096,k1=Math.round(40*N/sr),k2=Math.round(120*N/sr);
