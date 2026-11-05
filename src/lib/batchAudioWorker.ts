@@ -168,6 +168,45 @@ function validEngineeringWorkerEvidence(
   return true;
 }
 
+// Optional aggregate Stage 2A profile, validated separately from the stable
+// Stage 2C1 low-band contract. Old diagnostic responses may omit this field.
+function validEngineeringSpectralProfile(
+  candidate:unknown,
+  evidence:ReturnType<typeof import("./liveAudioAnalyzer").assembleStage2c1EngineeringEvidence>,
+  input:Pick<AudioBuffer,"length"|"numberOfChannels"|"sampleRate">,
+): candidate is import("./liveAudioAnalyzer").Stage2j1SpectralProfile {
+  if(!candidate||typeof candidate!=="object")return false;
+  const p=candidate as import("./liveAudioAnalyzer").Stage2j1SpectralProfile;
+  const edges=[20,60,250,500,2000,6000,11000,20000];
+  const validPower=(value:unknown)=>typeof value==="number"&&Number.isFinite(value)&&value>=0;
+  const source=evidence.sourceProvenance;
+  if(p.schemaVersion!=="stage2j1-spectral-profile-v1"||p.scoringImpact!=="NONE"||
+     p.method!=="stage2a-hann-fft-power-v1"||p.units!=="mean-square-full-scale-pcm"||
+     p.sampleRate!==input.sampleRate||p.channelCount!==input.numberOfChannels||
+     p.inputSampleCount!==input.length||p.fftSize!==source.fftSize||
+     p.hopSize!==source.hopSize||p.representedSampleCount!==source.representedSampleCount||
+     p.omittedTrailingSampleCount!==source.omittedTrailingSampleCount||
+     p.zeroPaddedSampleCount!==source.zeroPaddedSampleCount||
+     p.frames!==(input.length<4096?1:1+Math.floor((input.length-4096)/2048))||
+     !Array.isArray(p.bandEdgesHz)||p.bandEdgesHz.length!==edges.length||
+     p.bandEdgesHz.some((edge,i)=>edge!==edges[i])||
+     !Array.isArray(p.channelBandPower)||p.channelBandPower.length!==input.numberOfChannels||
+     !Array.isArray(p.channelUnassignedPower)||p.channelUnassignedPower.length!==input.numberOfChannels||
+     !Array.isArray(p.channelTotalPower)||p.channelTotalPower.length!==input.numberOfChannels)
+    return false;
+  for(let ch=0;ch<input.numberOfChannels;ch++){
+    const bands=p.channelBandPower[ch],unassigned=p.channelUnassignedPower[ch],total=p.channelTotalPower[ch];
+    if(!Array.isArray(bands)||bands.length!==edges.length-1||
+       !bands.every(validPower)||!validPower(unassigned)||!validPower(total)||
+       Math.abs(bands.reduce((sum,power)=>sum+power,unassigned)-total)>1e-8*Math.max(1,total)||
+       bands[0]!==evidence.bands[0].spectralChannelPower[ch]||
+       bands[1]!==evidence.bands[1].spectralChannelPower[ch])return false;
+    for(let i=0;i<bands.length;i++)
+      if(edges[i]>=input.sampleRate/2&&bands[i]!==0)return false;
+  }
+  return true;
+}
+
 // Stage 2C2B: optional, separate worker request; never used by the legacy batch path.
 // Copies are transferred, so the original decoded AudioBuffer is never detached.
 export function analyzeEngineeringDiagnosticsInWorker(
@@ -176,7 +215,7 @@ export function analyzeEngineeringDiagnosticsInWorker(
   maxInputBytes = 128 * 1024 * 1024,
   timeoutMs = 30000,
 ): Promise<
-  | {status:"AVAILABLE"; evidence: ReturnType<typeof import("./liveAudioAnalyzer").assembleStage2c1EngineeringEvidence>}
+  | {status:"AVAILABLE"; evidence: ReturnType<typeof import("./liveAudioAnalyzer").assembleStage2c1EngineeringEvidence>; spectralProfile?:import("./liveAudioAnalyzer").Stage2j1SpectralProfile}
   | {status:"UNAVAILABLE"|"CANCELLED"; reason:string}
 > {
   if(signal?.aborted)return Promise.resolve({status:"CANCELLED",reason:"ABORTED"});
@@ -216,7 +255,12 @@ export function analyzeEngineeringDiagnosticsInWorker(
           if(!validEngineeringWorkerEvidence(data.evidence,audioBuffer)){
             finish({status:"UNAVAILABLE",reason:"INVALID_WORKER_EVIDENCE"});return;
           }
-          finish({status:"AVAILABLE",evidence:data.evidence});return;
+          if(data.spectralProfile!==undefined &&
+             !validEngineeringSpectralProfile(data.spectralProfile,data.evidence,audioBuffer)){
+            finish({status:"UNAVAILABLE",reason:"INVALID_WORKER_EVIDENCE"});return;
+          }
+          finish({status:"AVAILABLE",evidence:data.evidence,
+            ...(data.spectralProfile===undefined?{}:{spectralProfile:data.spectralProfile})});return;
         }
         finish({status:"UNAVAILABLE",reason:
           typeof data.reason==="string"&&data.reason.length?data.reason:"DIAGNOSTIC_COMPUTATION_FAILED"});

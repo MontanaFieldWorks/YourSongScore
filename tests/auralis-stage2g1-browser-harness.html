@@ -45,6 +45,7 @@
   <p><small>Stage 2G-6 is independently opt-in via the button or <code>?allocation=1</code>. It reuses Stage 2G-5's bounded warm-up and six synthetic stereo cases. Stage 2H-2A corrects its source-derived Stage 2B2 accounting: <strong>zero per-frame full-spectrum copies</strong>, with two reusable complex FFT output arrays allocated once per stereo invocation. A local runtime source-contract guard fails the run if this allocation assumption no longer matches the imported analyzer. There are still other allocations. The separate main-thread <code>structuredClone</code> is a proxy, <strong>not</strong> actual Worker-to-main cloning. Neither the accounting nor the clone proxy measures Worker allocations, peak RAM, CPU or a leak. Unsupported cloning is UNAVAILABLE. No DSP changes, songs or increased resource limits.</small></p>
   <p><small>Stage 2I-1 is an explicit opt-in local-browser capacity check. It runs synthetic stereo inputs of 32, 64, 96 and 128 MiB decoded PCM at 48 kHz, once each, in order. The bridge copies each channel before transfer, so input PCM alone may occupy about twice the case size at peak, before evidence and browser overhead. Stop on first failure, no retries, 30-second timeout per Worker. This is not a general browser memory guarantee. Keep Chrome foreground and close other demanding applications first.</small></p>
   <p><small>Stage 2I-2 is a separate local-only opt-in pilot. Select one audio file at a time (up to four files). The file stays in this browser tab: no upload, Gemini call, production scoring, or report change. Encoded files over 24 MiB are rejected before decoding; decoded PCM over 128 MiB is rejected after decoding and before Worker creation. Browser decoding itself can use more memory than these limits. The 30-second Worker timeout applies per selected file. Stop on first failure, no automatic retries. Only a small descriptive summary is shown; no raw audio or frame arrays are saved in the result. This is an engineering reality check, not a mix-quality score.</small></p>
+  <p><small>Stage 2J-1 adds seven aggregate Stage 2A frequency bands (20 Hz to 20 kHz) to the local song pilot using the existing Worker computation. A band above Nyquist is UNAVAILABLE; a band crossing Nyquist is PARTIAL. These are windowed PCM powers, not a high-frequency quality score or proof of audibility. No second main-window FFT is run.</small></p>
   <p><small>Stage 2H-2B adds main-window phase intervals and expected/observed timer timestamps to Stage 2G-6. Compare intervals to locate temporal overlap. Worker waiting includes scheduling and transport, and overlap alone cannot establish the cause of a delay.</small></p>
   <pre id="result" aria-live="polite">Not run.</pre>
   <script type="module">
@@ -1132,14 +1133,32 @@
 
     // Stage 2I-2: compact descriptive evidence only. Never expose raw PCM or
     // the per-frame arrays in the browser report.
-    function summarizePilotEvidence(evidence) {
+    function summarizePilotEvidence(evidence,spectralProfile) {
       const descriptive=interpretStage2d1EngineeringEvidence(evidence);
       const cross=interpretStage2d3CrossMeasurementEvidence(evidence);
       assert(evidence.scoringImpact==="NONE" && descriptive.scoringImpact==="NONE" &&
-        cross.scoringImpact==="NONE", "Song pilot must remain diagnostic only");
+        cross.scoringImpact==="NONE" && spectralProfile?.scoringImpact==="NONE" &&
+        spectralProfile.schemaVersion==="stage2j1-spectral-profile-v1",
+        "Song pilot requires validated diagnostic spectral evidence");
+      const nyquist=spectralProfile.sampleRate/2;
+      const spectralBands=spectralProfile.bandEdgesHz.slice(0,-1).map((low,index)=>{
+        const high=spectralProfile.bandEdgesHz[index+1];
+        return {bandHz:[low,high],status:low>=nyquist?"UNAVAILABLE":
+          high>nyquist?"PARTIAL":"AVAILABLE",
+          channelPower:spectralProfile.channelBandPower.map(channel=>channel[index])};
+      });
       return {
         schemaVersion:"stage2i2-local-song-summary-v1",scoringImpact:"NONE",
         sourceProvenance:{...evidence.sourceProvenance},
+        spectralProfile:{schemaVersion:spectralProfile.schemaVersion,
+          method:spectralProfile.method,units:spectralProfile.units,
+          sampleRate:spectralProfile.sampleRate,fftSize:spectralProfile.fftSize,
+          hopSize:spectralProfile.hopSize,frames:spectralProfile.frames,
+          representedSampleCount:spectralProfile.representedSampleCount,
+          omittedTrailingSampleCount:spectralProfile.omittedTrailingSampleCount,
+          zeroPaddedSampleCount:spectralProfile.zeroPaddedSampleCount,
+          channelCount:spectralProfile.channelCount,bands:spectralBands,
+          interpretation:"Windowed aggregate spectral power only; band availability follows Nyquist. No mix quality or audibility conclusion."},
         bands:descriptive.conditions.map((condition,index)=>({
           bandHz:condition.bandHz,frameCount:condition.frameCount,
           sourcePower:condition.sourcePower,powerRangeDb:condition.powerRangeDb,
@@ -1214,7 +1233,7 @@
           probe.transfers[0].byteLengthsBefore.reduce((a,b)=>a+b,0)===pcmBytes &&
           probe.transfers[0].byteLengthsAfter.every(n=>n===0) &&
           probe.terminateCount===1,"Stage 2I-2 Worker lifecycle or transfer check failed");
-        const summary=summarizePilotEvidence(diagnostic.evidence);
+        const summary=summarizePilotEvidence(diagnostic.evidence,diagnostic.spectralProfile);
         pilotReports.push({...report.currentFile,status:"AVAILABLE",wallElapsedMs,
           workerTerminations:probe.terminateCount,copyTransferOwnershipVerified:true,
           originalAudioPreserved:true,summary});
