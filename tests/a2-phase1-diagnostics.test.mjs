@@ -4064,7 +4064,7 @@ test("Stage 2I-1 records bridge failure and no Worker without inventing Worker e
 
 test("Stage 2I-1 installs the Worker probe on a fresh page and retains any failed case",async()=>{
   const harness=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
-  const source=harness.slice(harness.indexOf("async function runCapacityProfile()"),harness.indexOf("    const query ="));
+  const source=harness.slice(harness.indexOf("async function runCapacityProfile()"),harness.indexOf("    // Stage 2I-2: compact"));
   assert.ok(source.startsWith("async function runCapacityProfile()"));
   const vm=await import("node:vm");
   const NativeWorker=class NativeWorker{};
@@ -4076,6 +4076,7 @@ test("Stage 2I-1 installs the Worker probe on a fresh page and retains any faile
     NativeWorker,InstrumentedWorker,out,Float32Array,Date,JSON,
     runButton:buttons[0],profileButton:buttons[1],matchedButton:buttons[2],
     memoryButton:buttons[3],allocationButton:buttons[4],capacityButton:buttons[5],
+    pilotButton:{disabled:false},pilotFile:{disabled:false},pilotStopped:false,pilotReports:[],
     normalCaseTimeoutMs:30000,capBytes:128*1024*1024,
     runCase:async()=>{calls++;assert.equal(context.globalThis.Worker,InstrumentedWorker);
       return {status:"UNAVAILABLE",reason:"WORKER_SETUP_FAILED",workerCreated:false};},
@@ -4105,4 +4106,89 @@ test("Stage 2I-1 installs the Worker probe on a fresh page and retains any faile
   assert.equal(replaced.failedCase.reason,"WORKER_PROBE_REPLACED_BEFORE_CASE");
   assert.equal(calls,2,"second run stops before dispatching 64 MiB");
   assert.equal(context.globalThis.Worker,NativeWorker);
+});
+
+
+test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diagnostic evidence",async()=>{
+  const harness=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
+  assert.match(harness,/id="pilotFile" type="file"/);
+  assert.match(harness,/pilotButton.addEventListener\("click",runLocalSongPilot\)/);
+  const start=harness.indexOf("function summarizePilotEvidence(");
+  const end=harness.indexOf('pilotButton.addEventListener("click",runLocalSongPilot);',start);
+  assert.ok(start>0&&end>start);
+  const vm=await import("node:vm");
+  const NativeWorker=class NativeWorker{};
+  const InstrumentedWorker=class InstrumentedWorker extends NativeWorker{};
+  const buttons=Array.from({length:7},()=>({disabled:false}));
+  const input={disabled:false,value:"chosen",files:[{name:"local.mp3",size:100}]};
+  const out={textContent:""};
+  const channels=[new Float32Array(8192),new Float32Array(8192)];
+  const audio={length:8192,numberOfChannels:2,sampleRate:48000,duration:8192/48000,
+    getChannelData:i=>channels[i]};
+  const evidence={scoringImpact:"NONE",sourceProvenance:{sampleRate:48000,channelCount:2},
+    bands:[{frameEvidence:[{rawPcm:"MUST_NOT_APPEAR"}]}]};
+  let decoded=0,workerCalls=0,preserved=0;
+  const probes=[];
+  const context={performance,Date,JSON,Float32Array,NativeWorker,InstrumentedWorker,
+    globalThis:{Worker:NativeWorker},pilotRunning:false,pilotStopped:false,pilotReports:[],
+    pilotFile:input,pilotButton:buttons[0],runButton:buttons[1],profileButton:buttons[2],
+    matchedButton:buttons[3],memoryButton:buttons[4],allocationButton:buttons[5],
+    capacityButton:buttons[6],out,allowedHost:true,document:{visibilityState:"visible"},
+    capBytes:128*1024*1024,createdWorkers:probes,currentPolicy:"NORMAL",
+    workerConstructionError:null,
+    assert:(ok,message)=>{if(!ok)throw Error(message);},
+    fail:message=>{throw Error(message);},
+    brief:n=>Math.round(n*100)/100,
+    decodeAudioFile:async()=>{decoded++;return audio;},
+    sourceFingerprint:()=>[],
+    sourcePreserved:()=>{preserved++;},
+    analyzeEngineeringDiagnosticsInWorker:async()=>{
+      workerCalls++;
+      assert.equal(context.globalThis.Worker,InstrumentedWorker);
+      probes.push({moduleWorker:true,transfers:[{byteLengthsBefore:[32768,32768],
+        byteLengthsAfter:[0,0]}],terminateCount:1});
+      return {status:"AVAILABLE",evidence};
+    },
+    interpretStage2d1EngineeringEvidence:()=>({scoringImpact:"NONE",
+      conditions:[{bandHz:[20,60],frameCount:3,sourcePower:[1,1],
+        riseEvents:{numerator:1,denominator:2},evidenceStrength:{},
+        negativeStereoCorrelation:{},monoAttenuation:{},completeCancellation:{}}]}),
+    interpretStage2d3CrossMeasurementEvidence:()=>({scoringImpact:"NONE",
+      bands:[{temporalCoincidence:{status:"AVAILABLE"},measurementFamilies:{}}]}),
+  };
+  const source=harness.slice(start,end);
+  const functions=vm.runInNewContext("(function(){"+source+
+    "; return {runLocalSongPilot,summarizePilotEvidence};})()",context);
+  input.files=[{name:"too-large.mp3",size:24*1024*1024+1}];
+  await functions.runLocalSongPilot();
+  let report=JSON.parse(out.textContent);
+  assert.equal(report.status,"FAIL");
+  assert.equal(decoded,0);assert.equal(workerCalls,0);
+  assert.equal(context.globalThis.Worker,NativeWorker);
+  assert.equal(context.pilotStopped,true);
+  context.pilotStopped=false;
+  input.files=[{name:"decoded-too-large.mp3",size:100}];
+  context.decodeAudioFile=async()=>{decoded++;return {...audio,length:20*1024*1024};};
+  await functions.runLocalSongPilot();
+  report=JSON.parse(out.textContent);
+  assert.equal(report.status,"FAIL");
+  assert.match(report.error,/Decoded PCM unsupported or exceeds 128 MiB/);
+  assert.equal(workerCalls,0,"decoded over-cap input never starts a Worker");
+  context.pilotStopped=false;
+  context.decodeAudioFile=async()=>{decoded++;return audio;};
+  input.files=[{name:"local.mp3",size:100}];
+  await functions.runLocalSongPilot();
+  report=JSON.parse(out.textContent);
+  assert.equal(report.status,"PASS");
+  assert.equal(report.completedFiles,1);
+  assert.equal(report.results[0].summary.scoringImpact,"NONE");
+  assert.equal(report.results[0].workerTerminations,1);
+  assert.equal(report.results[0].copyTransferOwnershipVerified,true);
+  assert.equal(preserved,1);
+  assert.equal(workerCalls,1);
+  assert.equal(context.globalThis.Worker,NativeWorker);
+  assert.equal(context.pilotReports.length,1);
+  assert.ok(!out.textContent.includes("MUST_NOT_APPEAR"));
+  assert.ok(!out.textContent.includes("frameEvidence"));
+  assert.ok(buttons.every(button=>button.disabled===false));
 });
