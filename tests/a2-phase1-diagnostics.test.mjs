@@ -3939,6 +3939,38 @@ test("Stage 2J-1 accepts bounded Worker spectral aggregates and rejects corrupte
   }finally{globalThis.Worker=OriginalWorker;}
 });
 
+test("Stage 2J-2 paired spectral comparison separates uniform gain from an upper-band change",()=>{
+  const frequencies=[40,120,300,1000,3000,8000,15000];
+  const amplitudes=[.08,.07,.06,.05,.04,.03,.02];
+  const db=(part,whole)=>10*Math.log10(part/whole);
+  for(const sampleRate of [44100,48000]){
+    const length=sampleRate;
+    const make=(gain=1,upperGain=1)=>Float32Array.from({length},(_,i)=>
+      gain*frequencies.reduce((sum,hz,index)=>sum+
+        amplitudes[index]*(index>=4?upperGain:1)*Math.sin(2*Math.PI*hz*i/sampleRate),0));
+    const profile=pcm=>{
+      const result=runStage2c2aBrowserDiagnostics({numberOfChannels:1,sampleRate,
+        getChannelData:()=>pcm},true);
+      assert.equal(result.status,"AVAILABLE");
+      assert.equal(result.spectralProfile.schemaVersion,"stage2j1-spectral-profile-v1");
+      return result.spectralProfile.channelBandPower[0];
+    };
+    const original=profile(make());
+    const quieter=profile(make(.5));
+    const lessUpper=profile(make(1,.5));
+    assert.ok(original.every(power=>power>1e-8));
+    for(let band=0;band<original.length;band++){
+      assert.ok(Math.abs(db(quieter[band],original[band])+6.0206)<.01,
+        `uniform gain changes absolute power in ${band} at ${sampleRate} Hz`);
+      assert.ok(Math.abs(db(quieter[band]/quieter[1],original[band]/original[1]))<.01,
+        `uniform gain preserves relative power in ${band} at ${sampleRate} Hz`);
+      const relativeUpperChange=db(lessUpper[band]/lessUpper[1],original[band]/original[1]);
+      assert.ok(Math.abs(relativeUpperChange-(band>=4?-6.0206:0))<.02,
+        `upper-band change remains visible in ${band} at ${sampleRate} Hz`);
+    }
+  }
+});
+
 test("Auralis 2F2: worker diagnostic exception envelope and legacy error branch remain separate",async()=>{
   const workerSource=await readFile(new URL("../src/workers/audioAnalysisWorker.ts",import.meta.url),"utf8");
   // Transpile the existing TypeScript file in-memory with its already-installed
