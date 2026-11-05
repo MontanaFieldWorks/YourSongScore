@@ -3997,3 +3997,112 @@ test("Stage 2H-2B phase timing rejects invalid clocks and preserves timer eviden
     assert.equal(results.responsiveness.longDriftEntries.length,1);
   }
 });
+
+test("Stage 2I-1 capacity mode stays opt-in, sequential, bounded and stop-on-first-failure",async()=>{
+  const harness=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
+  assert.match(harness,/query\.get\("capacity"\) === "1"\)runCapacityProfile\(\)/);
+  assert.match(harness,/Run Stage 2I-1 Worker input capacity profile/);
+  for(const contract of [
+    'mode:"OPT_IN_WORKER_INPUT_CAPACITY"',
+    'caseMiB:[32,64,96,128]',
+    'workerTimeoutMs:30000,stopOnFirstFailure:true',
+    'noRetries:true,sequential:true,syntheticOnly:true',
+    'peakBrowserMemory:"UNAVAILABLE"',
+    'if(!allowedHost)fail("Stage 2I-1 is localhost-only")',
+    'runCase(48000,2,seconds,normalCaseTimeoutMs,"NORMAL",capBytes)',
+    'if(entry.status!=="AVAILABLE")',
+    'result.status="FAIL"',
+    'result.stopOnFirstFailure=true',
+    'capacityButton.addEventListener("click", () => runCapacityProfile())',
+  ])assert.ok(harness.includes(contract),"Missing Stage 2I-1 contract "+contract);
+  assert.match(harness,/maxCasePcmBytes = 24 \* 1024 \* 1024/);
+  assert.match(harness,/capBytes = 128 \* 1024 \* 1024/);
+  for(const mib of [32,64,96,128]){
+    const target=mib*1024*1024;
+    const samples=Math.floor(target/8);
+    assert.equal(samples*2*4,target);
+    assert.ok(target<=128*1024*1024);
+  }
+});
+
+test("Stage 2I-1 records bridge failure and no Worker without inventing Worker evidence",async()=>{
+  const harness=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
+  const source=harness.slice(harness.indexOf("async function runCase("),harness.indexOf("async function runAbortCase()"));
+  assert.ok(source.startsWith("async function runCase("));
+  // Exercise the real harness function at a tiny synthetic size; the bridge is
+  // replaced only to reproduce the observed no-Worker return deterministically.
+  const vm=await import("node:vm");
+  const context={performance,Float32Array,createdWorkers:[],capacityMode:true,
+    memoryProfilingMode:false,allocationProfilingMode:false,capBytes:128*1024*1024,
+    maxCasePcmBytes:24*1024*1024,normalCaseTimeoutMs:30000,
+    currentPolicy:"NORMAL",workerConstructionError:null,
+    syntheticAudio:(sr,channels,n)=>{const original=Array.from({length:channels},()=>new Float32Array(n));
+      return {sampleRate:sr,numberOfChannels:channels,length:n,original,getChannelData:i=>original[i]};},
+    sourceFingerprint:audio=>audio.original.map(ch=>ch.length),
+    sourcePreserved:(audio,expected)=>assert.deepEqual(audio.original.map(ch=>ch.length),expected),
+    brief:n=>Math.round(n*10)/10,
+    analyzeEngineeringDiagnosticsInWorker:async()=>({status:"UNAVAILABLE",reason:"WORKER_SETUP_FAILED"}),
+    assert:(condition,message)=>{if(!condition)throw Error(message);},
+  };
+  const runCase=vm.runInNewContext("("+source+")",context);
+  const failed=await runCase(48000,2,.2,30000,"NORMAL",128*1024*1024);
+  assert.equal(failed.status,"UNAVAILABLE");
+  assert.equal(failed.reason,"WORKER_SETUP_FAILED");
+  assert.equal(failed.workerCreated,null);
+  assert.equal(failed.workerProbeRecorded,false);
+  assert.equal(failed.originalAudioPreserved,true);
+  assert.equal(failed.workerTerminations,undefined);
+  assert.equal(context.createdWorkers.length,0);
+  context.analyzeEngineeringDiagnosticsInWorker=async()=>({status:"AVAILABLE",evidence:{}});
+  const unprobed=await runCase(48000,2,.2,30000,"NORMAL",128*1024*1024);
+  assert.equal(unprobed.status,"UNAVAILABLE");
+  assert.equal(unprobed.reason,"WORKER_NOT_INSTRUMENTED");
+  assert.equal(unprobed.bridgeStatus,"AVAILABLE");
+  assert.equal(unprobed.workerCreated,true);
+  assert.match(harness,/result\.failedCase=\{\.\.\.entry,targetInputPcmMiB:mib\}/);
+});
+
+test("Stage 2I-1 installs the Worker probe on a fresh page and retains any failed case",async()=>{
+  const harness=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
+  const source=harness.slice(harness.indexOf("async function runCapacityProfile()"),harness.indexOf("    const query ="));
+  assert.ok(source.startsWith("async function runCapacityProfile()"));
+  const vm=await import("node:vm");
+  const NativeWorker=class NativeWorker{};
+  const InstrumentedWorker=class InstrumentedWorker extends NativeWorker{};
+  const out={textContent:""};
+  const buttons=Array.from({length:6},()=>({disabled:false}));
+  let calls=0;
+  const context={capacityMode:false,allowedHost:true,globalThis:{Worker:NativeWorker},
+    NativeWorker,InstrumentedWorker,out,Float32Array,Date,JSON,
+    runButton:buttons[0],profileButton:buttons[1],matchedButton:buttons[2],
+    memoryButton:buttons[3],allocationButton:buttons[4],capacityButton:buttons[5],
+    normalCaseTimeoutMs:30000,capBytes:128*1024*1024,
+    runCase:async()=>{calls++;assert.equal(context.globalThis.Worker,InstrumentedWorker);
+      return {status:"UNAVAILABLE",reason:"WORKER_SETUP_FAILED",workerCreated:false};},
+    fail:message=>{throw Error(message);},
+    delay:async()=>{},
+  };
+  const runCapacityProfile=vm.runInNewContext("("+source+")",context);
+  await runCapacityProfile();
+  const report=JSON.parse(out.textContent);
+  assert.equal(report.status,"FAIL");
+  assert.equal(report.currentCase.mib,32);
+  assert.equal(report.failedCase.reason,"WORKER_SETUP_FAILED");
+  assert.equal(report.failedCase.targetInputPcmMiB,32);
+  assert.equal(calls,1);
+  assert.equal(context.globalThis.Worker,NativeWorker);
+  assert.equal(context.capacityMode,false);
+  assert.ok(buttons.every(button=>button.disabled===false));
+  context.runCase=async()=>{calls++;assert.equal(context.globalThis.Worker,InstrumentedWorker);
+    return {status:"AVAILABLE",workerTerminations:1,copyTransferOwnershipVerified:true,
+      originalAudioPreserved:true,inputPcmBytes:32*1024*1024};};
+  context.delay=async()=>{context.globalThis.Worker=NativeWorker;};
+  await runCapacityProfile();
+  const replaced=JSON.parse(out.textContent);
+  assert.equal(replaced.status,"FAIL");
+  assert.equal(replaced.completedCases,1);
+  assert.equal(replaced.currentCase.mib,64);
+  assert.equal(replaced.failedCase.reason,"WORKER_PROBE_REPLACED_BEFORE_CASE");
+  assert.equal(calls,2,"second run stops before dispatching 64 MiB");
+  assert.equal(context.globalThis.Worker,NativeWorker);
+});
