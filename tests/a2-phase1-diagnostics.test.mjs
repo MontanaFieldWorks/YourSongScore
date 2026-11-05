@@ -2456,6 +2456,12 @@ test("Stage 2C2A enabled/disabled equivalence, failure isolation and provenance"
       assert.equal(available.evidence.scoringImpact,"NONE");
       assert.equal(available.evidence.sourceProvenance.sampleRate,sr);
       assert.equal(available.evidence.sourceProvenance.channelCount,channels.length);
+      assert.equal(available.spectralProfile.schemaVersion,"stage2j1-spectral-profile-v1");
+      assert.deepEqual(available.spectralProfile.bandEdgesHz,[20,60,250,500,2000,6000,11000,20000]);
+      assert.equal(available.spectralProfile.channelBandPower.length,channels.length);
+      assert.equal(available.spectralProfile.frames,available.evidence.bands[0].frameCount);
+      for(let ch=0;ch<channels.length;ch++)
+        assert.equal(available.spectralProfile.channelBandPower[ch][0],available.evidence.bands[0].spectralChannelPower[ch]);
       assert.deepEqual(channels.map(x=>Array.from(x)),originals);
       if(channels.length===1)assert.equal(available.evidence.bands[0].stereoStatusCounts.MONO_NOT_APPLICABLE,2);
     }
@@ -3889,6 +3895,50 @@ test("Auralis 2F2: invalid, truncated and wrong-version evidence never returns A
   }finally{globalThis.Worker=OriginalWorker;}
 });
 
+test("Stage 2J-1 accepts bounded Worker spectral aggregates and rejects corrupted bands",async()=>{
+  const sr=48000,n=8192;
+  const tone=Float32Array.from({length:n},(_,i)=>.1*Math.sin(2*Math.PI*3000*i/sr));
+  const audio={sampleRate:sr,numberOfChannels:2,length:n,getChannelData:()=>tone};
+  const source=runStage2c2aBrowserDiagnostics(audio,true);
+  assert.equal(source.status,"AVAILABLE");
+  assert.ok(source.spectralProfile.channelBandPower[0][4]>0);
+  const OriginalWorker=globalThis.Worker;
+  let mutate=()=>{},terminated=0;
+  class FakeWorker{
+    terminate(){terminated++;}
+    postMessage(){
+      const data={kind:"ENGINEERING_DIAGNOSTICS",status:"AVAILABLE",
+        evidence:structuredClone(source.evidence),spectralProfile:structuredClone(source.spectralProfile)};
+      mutate(data);
+      this.onmessage({data});
+    }
+  }
+  globalThis.Worker=FakeWorker;
+  try{
+    const valid=await analyzeEngineeringDiagnosticsInWorker(audio);
+    assert.equal(valid.status,"AVAILABLE");
+    assert.equal(valid.spectralProfile.channelBandPower[0].length,7);
+    for(const change of [
+      x=>{x.spectralProfile.bandEdgesHz[3]=501;},
+      x=>{x.spectralProfile.channelBandPower[0][4]=NaN;},
+      x=>{x.spectralProfile.channelBandPower[0].pop();},
+      x=>{x.spectralProfile.channelBandPower[0][0]+=1;},
+      x=>{x.spectralProfile.channelTotalPower[0]+=1;},
+      x=>{x.spectralProfile.scoringImpact="SCORE";},
+      x=>{x.spectralProfile.frames++;},
+    ]){
+      mutate=change;
+      assert.deepEqual(await analyzeEngineeringDiagnosticsInWorker(audio),
+        {status:"UNAVAILABLE",reason:"INVALID_WORKER_EVIDENCE"});
+    }
+    mutate=x=>{delete x.spectralProfile;};
+    const legacy=await analyzeEngineeringDiagnosticsInWorker(audio);
+    assert.equal(legacy.status,"AVAILABLE","existing diagnostic responses remain compatible");
+    assert.equal(legacy.spectralProfile,undefined);
+    assert.equal(terminated,9);
+  }finally{globalThis.Worker=OriginalWorker;}
+});
+
 test("Auralis 2F2: worker diagnostic exception envelope and legacy error branch remain separate",async()=>{
   const workerSource=await readFile(new URL("../src/workers/audioAnalysisWorker.ts",import.meta.url),"utf8");
   // Transpile the existing TypeScript file in-memory with its already-installed
@@ -4127,6 +4177,13 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
     getChannelData:i=>channels[i]};
   const evidence={scoringImpact:"NONE",sourceProvenance:{sampleRate:48000,channelCount:2},
     bands:[{frameEvidence:[{rawPcm:"MUST_NOT_APPEAR"}]}]};
+  const spectralProfile={schemaVersion:"stage2j1-spectral-profile-v1",scoringImpact:"NONE",
+    method:"stage2a-hann-fft-power-v1",units:"mean-square-full-scale-pcm",
+    sampleRate:48000,channelCount:2,fftSize:4096,hopSize:2048,frames:3,
+    representedSampleCount:8192,omittedTrailingSampleCount:0,zeroPaddedSampleCount:0,
+    bandEdgesHz:[20,60,250,500,2000,6000,11000,20000],
+    channelBandPower:[[1,2,3,4,5,6,7],[1,2,3,4,5,6,7]],
+    rawFrameEvidence:"MUST_NOT_APPEAR"};
   let decoded=0,workerCalls=0,preserved=0;
   const probes=[];
   const context={performance,Date,JSON,Float32Array,NativeWorker,InstrumentedWorker,
@@ -4147,7 +4204,7 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
       assert.equal(context.globalThis.Worker,InstrumentedWorker);
       probes.push({moduleWorker:true,transfers:[{byteLengthsBefore:[32768,32768],
         byteLengthsAfter:[0,0]}],terminateCount:1});
-      return {status:"AVAILABLE",evidence};
+      return {status:"AVAILABLE",evidence,spectralProfile};
     },
     interpretStage2d1EngineeringEvidence:()=>({scoringImpact:"NONE",
       conditions:[{bandHz:[20,60],frameCount:3,sourcePower:[1,1],
@@ -4182,6 +4239,14 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
   assert.equal(report.status,"PASS");
   assert.equal(report.completedFiles,1);
   assert.equal(report.results[0].summary.scoringImpact,"NONE");
+  assert.equal(report.results[0].summary.spectralProfile.bands.length,7);
+  assert.deepEqual(Array.from(report.results[0].summary.spectralProfile.bands[6].bandHz),[11000,20000]);
+  assert.equal(report.results[0].summary.spectralProfile.bands[6].status,"AVAILABLE");
+  const lowRateProfile={...spectralProfile,sampleRate:8000,
+    channelBandPower:[[1,2,3,4,0,0,0],[1,2,3,4,0,0,0]]};
+  const lowRateSummary=functions.summarizePilotEvidence(evidence,lowRateProfile);
+  assert.equal(lowRateSummary.spectralProfile.bands[5].status,"UNAVAILABLE");
+  assert.equal(lowRateSummary.spectralProfile.bands[4].status,"PARTIAL");
   assert.equal(report.results[0].workerTerminations,1);
   assert.equal(report.results[0].copyTransferOwnershipVerified,true);
   assert.equal(preserved,1);
