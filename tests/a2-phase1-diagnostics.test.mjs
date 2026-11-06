@@ -4260,6 +4260,8 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
   const harness=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
   assert.match(harness,/id="pilotFile" type="file"/);
   assert.match(harness,/pilotButton.addEventListener\("click",runLocalSongPilot\)/);
+  assert.match(harness,/id="pilotStatus" role="status" aria-live="polite"/);
+  assert.match(harness,/session-only metadata matching, not byte-level duplicate detection/);
   const start=harness.indexOf("function summarizePilotEvidence(");
   const end=harness.indexOf('pilotButton.addEventListener("click",runLocalSongPilot);',start);
   assert.ok(start>0&&end>start);
@@ -4267,8 +4269,9 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
   const NativeWorker=class NativeWorker{};
   const InstrumentedWorker=class InstrumentedWorker extends NativeWorker{};
   const buttons=Array.from({length:7},()=>({disabled:false}));
-  const input={disabled:false,value:"chosen",files:[{name:"local.mp3",size:100}]};
+  const input={disabled:false,value:"chosen",files:[{name:"local.mp3",size:100,lastModified:1000}]};
   const out={textContent:""};
+  const pilotStatus={textContent:""};
   const channels=[new Float32Array(8192),new Float32Array(8192)];
   const audio={length:8192,numberOfChannels:2,sampleRate:48000,duration:8192/48000,
     getChannelData:i=>channels[i]};
@@ -4291,6 +4294,7 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
   const probes=[];
   const context={performance,Date,JSON,Float32Array,NativeWorker,InstrumentedWorker,
     globalThis:{Worker:NativeWorker},pilotRunning:false,pilotStopped:false,pilotReports:[],
+    pilotCompletedFiles:new Set(),pilotStatus,
     pilotFile:input,pilotButton:buttons[0],runButton:buttons[1],profileButton:buttons[2],
     matchedButton:buttons[3],memoryButton:buttons[4],allocationButton:buttons[5],
     capacityButton:buttons[6],out,allowedHost:true,document:{visibilityState:"visible"},
@@ -4304,6 +4308,8 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
     sourcePreserved:()=>{preserved++;},
     analyzeEngineeringDiagnosticsInWorker:async(...args)=>{
       workerCalls++;
+      assert.equal(args[2],128*1024*1024);
+      assert.equal(args[3],30000);
       assert.equal(args[4],true,"only the local pilot opts into Stage 2K meters");
       assert.equal(context.globalThis.Worker,InstrumentedWorker);
       probes.push({moduleWorker:true,transfers:[{byteLengthsBefore:[32768,32768],
@@ -4327,6 +4333,12 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
   assert.equal(decoded,0);assert.equal(workerCalls,0);
   assert.equal(context.globalThis.Worker,NativeWorker);
   assert.equal(context.pilotStopped,true);
+  assert.match(pilotStatus.textContent,/FAIL — STOPPED — 0\/4 completed/);
+  assert.match(pilotStatus.textContent,/Controls are disabled; no retries/);
+  const firstFailure=out.textContent;
+  await functions.runLocalSongPilot();
+  assert.equal(out.textContent,firstFailure);
+  assert.equal(decoded,0,"first failure cannot be retried");
   context.pilotStopped=false;
   input.files=[{name:"decoded-too-large.mp3",size:100}];
   context.decodeAudioFile=async()=>{decoded++;return {...audio,length:20*1024*1024};};
@@ -4337,7 +4349,7 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
   assert.equal(workerCalls,0,"decoded over-cap input never starts a Worker");
   context.pilotStopped=false;
   context.decodeAudioFile=async()=>{decoded++;return audio;};
-  input.files=[{name:"local.mp3",size:100}];
+  input.files=[{name:"local.mp3",size:100,lastModified:1000}];
   await functions.runLocalSongPilot();
   report=JSON.parse(out.textContent);
   assert.equal(report.status,"PASS");
@@ -4366,4 +4378,87 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
   assert.ok(!out.textContent.includes("MUST_NOT_APPEAR"));
   assert.ok(!out.textContent.includes("frameEvidence"));
   assert.ok(buttons.every(button=>button.disabled===false));
+  assert.equal(input.disabled,false);
+  assert.match(pilotStatus.textContent,/PASS — 1\/4 completed/);
+  assert.match(pilotStatus.textContent,/Latest completed file: local.mp3 — PASS/);
+
+  // Stage 2L-1: recreated File objects with the same metadata must not use
+  // another slot, decode, Worker, or erase the earlier successful report.
+  const firstSuccess=out.textContent,beforeDuplicate=decoded;
+  input.files=[{name:"local.mp3",size:100,lastModified:1000}];
+  await functions.runLocalSongPilot();
+  assert.match(pilotStatus.textContent,/DUPLICATE BLOCKED — 1\/4 completed/);
+  assert.equal(out.textContent,firstSuccess);
+  assert.equal(decoded,beforeDuplicate);assert.equal(workerCalls,1);
+  assert.equal(context.pilotReports.length,1);
+  assert.equal(context.pilotStopped,false);
+  assert.equal(input.disabled,false);assert.equal(buttons[0].disabled,false);
+  input.files=[];
+  await functions.runLocalSongPilot();
+  assert.equal(out.textContent,firstSuccess,"empty selection preserves the result history");
+
+  // A changed lastModified is intentionally a different selection. Hold the
+  // decode open to check current/latest labels, sequential gating and no retries.
+  let releaseDecode;
+  context.decodeAudioFile=()=>{decoded++;return new Promise(resolve=>{releaseDecode=resolve;});};
+  input.files=[{name:"local.mp3",size:100,lastModified:1001}];
+  const second=functions.runLocalSongPilot();
+  assert.match(pilotStatus.textContent,/RUNNING — 1\/4 completed/);
+  assert.match(pilotStatus.textContent,/Current file: local.mp3/);
+  assert.ok(buttons.every(button=>button.disabled));assert.equal(input.disabled,true);
+  const whileRunning=decoded;
+  await functions.runLocalSongPilot();
+  assert.equal(decoded,whileRunning,"an in-flight click cannot start another decode");
+  assert.equal(workerCalls,1);
+  releaseDecode(audio);await second;
+  assert.equal(context.pilotReports.length,2);assert.equal(workerCalls,2);
+
+  context.decodeAudioFile=async()=>{decoded++;return audio;};
+  const thirdName="next <script>.mp3";
+  input.files=[{name:thirdName,size:100,lastModified:1001}];
+  await functions.runLocalSongPilot();
+  assert.match(pilotStatus.textContent,/PASS — 3\/4 completed/);
+  assert.ok(pilotStatus.textContent.includes(`Latest completed file: ${thirdName} — PASS`));
+  assert.doesNotMatch(source,/innerHTML/,"file names must be rendered as text");
+  // Only size differs from the third selection. The guard compares all three
+  // metadata fields; it makes no claim to identify renamed or modified copies.
+  input.files=[{name:thirdName,size:101,lastModified:1001}];
+  await functions.runLocalSongPilot();
+  report=JSON.parse(out.textContent);
+  assert.equal(report.status,"PASS");assert.equal(report.completedFiles,4);
+  assert.deepEqual(report.results.map(r=>r.name),["local.mp3","local.mp3",thirdName,thirdName]);
+  assert.match(pilotStatus.textContent,/COMPLETE — 4\/4 completed/);
+  assert.match(pilotStatus.textContent,/Four-file limit reached/);
+  assert.equal(input.disabled,true);assert.equal(buttons[0].disabled,true);
+  assert.ok(buttons.slice(1).every(button=>!button.disabled),"synthetic modes stay available");
+  const beforeLimit=decoded,completeResult=out.textContent;
+  input.files=[{name:"fifth.mp3",size:100,lastModified:1001}];
+  await functions.runLocalSongPilot();
+  assert.equal(decoded,beforeLimit);assert.equal(workerCalls,4);
+  assert.equal(out.textContent,completeResult);
+  assert.ok(!out.textContent.includes("MUST_NOT_APPEAR"));
+
+  // Fresh simulated session: retain a completed result when the next Worker
+  // fails, and keep both failure lockout and its explanation on subsequent clicks.
+  context.pilotReports.length=0;context.pilotCompletedFiles.clear();
+  buttons[0].disabled=input.disabled=false;
+  input.files=[{name:"first.mp3",size:100,lastModified:1000}];
+  await functions.runLocalSongPilot();
+  context.analyzeEngineeringDiagnosticsInWorker=async()=>{workerCalls++;return {status:"UNAVAILABLE",reason:"WORKER_TIMEOUT"};};
+  input.files=[{name:"failed.mp3",size:100,lastModified:1000}];
+  await functions.runLocalSongPilot();
+  report=JSON.parse(out.textContent);
+  assert.equal(report.status,"FAIL");assert.equal(report.completedFiles,1);
+  assert.equal(report.results[0].name,"first.mp3");
+  assert.equal(report.failedCase.reason,"WORKER_TIMEOUT");
+  assert.match(pilotStatus.textContent,/Current file: failed.mp3/);
+  assert.match(pilotStatus.textContent,/Latest completed file: first.mp3 — PASS/);
+  assert.match(pilotStatus.textContent,/FAIL — STOPPED — 1\/4 completed/);
+  assert.equal(context.pilotCompletedFiles.size,1,"failure is not recorded as completion");
+  assert.equal(input.disabled,true);assert.equal(buttons[0].disabled,true);
+  const stoppedResult=out.textContent,stoppedDecodes=decoded,stoppedWorkers=workerCalls;
+  await functions.runLocalSongPilot();
+  assert.equal(out.textContent,stoppedResult);
+  assert.equal(decoded,stoppedDecodes);assert.equal(workerCalls,stoppedWorkers);
+  assert.match(pilotStatus.textContent,/Stopped after the first failure. No retries/);
 });
