@@ -6,12 +6,13 @@ self.onmessage = (event: MessageEvent<{
   ch0: ArrayBuffer;
   ch1?: ArrayBuffer;
   kind?: "ENGINEERING_DIAGNOSTICS";
+  includeReferenceMeters?: true;
 }>) => {
   try {
     const { sampleRate, numChannels, ch0, ch1 } = event.data;
     if (event.data.kind === "ENGINEERING_DIAGNOSTICS") {
       const channels = [new Float32Array(ch0), ...(ch1 ? [new Float32Array(ch1)] : [])];
-      const result = runStage2c2aBrowserDiagnostics({ sampleRate, numberOfChannels: numChannels, getChannelData: (i: number) => channels[i] }, true);
+      const result = runStage2c2aBrowserDiagnostics({ sampleRate, numberOfChannels: numChannels, getChannelData: (i: number) => channels[i] }, true, event.data.includeReferenceMeters === true);
       (self as any).postMessage({ kind: "ENGINEERING_DIAGNOSTICS", ...result });
       return;
     }

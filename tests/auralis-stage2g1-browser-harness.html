@@ -46,6 +46,7 @@
   <p><small>Stage 2I-1 is an explicit opt-in local-browser capacity check. It runs synthetic stereo inputs of 32, 64, 96 and 128 MiB decoded PCM at 48 kHz, once each, in order. The bridge copies each channel before transfer, so input PCM alone may occupy about twice the case size at peak, before evidence and browser overhead. Stop on first failure, no retries, 30-second timeout per Worker. This is not a general browser memory guarantee. Keep Chrome foreground and close other demanding applications first.</small></p>
   <p><small>Stage 2I-2 is a separate local-only opt-in pilot. Select one audio file at a time (up to four files). The file stays in this browser tab: no upload, Gemini call, production scoring, or report change. Encoded files over 24 MiB are rejected before decoding; decoded PCM over 128 MiB is rejected after decoding and before Worker creation. Browser decoding itself can use more memory than these limits. The 30-second Worker timeout applies per selected file. Stop on first failure, no automatic retries. Only a small descriptive summary is shown; no raw audio or frame arrays are saved in the result. This is an engineering reality check, not a mix-quality score.</small></p>
   <p><small>Stage 2J-1 adds seven aggregate Stage 2A frequency bands (20 Hz to 20 kHz) to the local song pilot using the existing Worker computation. A band above Nyquist is UNAVAILABLE; a band crossing Nyquist is PARTIAL. These are windowed PCM powers, not a high-frequency quality score or proof of audibility. No second main-window FFT is run.</small></p>
+  <p><small>Stage 2K requests compact Stage 1A reference meter readings inside the same Worker only for the local song pilot. LUFS, LRA, peaks and crest are descriptive; they do not identify clipping, compression, quality or audibility. The four-phase true-peak estimate is not independently certified. Existing modes and production scoring remain unchanged.</small></p>
   <p><small>Stage 2H-2B adds main-window phase intervals and expected/observed timer timestamps to Stage 2G-6. Compare intervals to locate temporal overlap. Worker waiting includes scheduling and transport, and overlap alone cannot establish the cause of a delay.</small></p>
   <pre id="result" aria-live="polite">Not run.</pre>
   <script type="module">
@@ -1133,13 +1134,18 @@
 
     // Stage 2I-2: compact descriptive evidence only. Never expose raw PCM or
     // the per-frame arrays in the browser report.
-    function summarizePilotEvidence(evidence,spectralProfile) {
+    function summarizePilotEvidence(evidence,spectralProfile,referenceMeters) {
       const descriptive=interpretStage2d1EngineeringEvidence(evidence);
       const cross=interpretStage2d3CrossMeasurementEvidence(evidence);
       assert(evidence.scoringImpact==="NONE" && descriptive.scoringImpact==="NONE" &&
         cross.scoringImpact==="NONE" && spectralProfile?.scoringImpact==="NONE" &&
-        spectralProfile.schemaVersion==="stage2j1-spectral-profile-v1",
-        "Song pilot requires validated diagnostic spectral evidence");
+        spectralProfile.schemaVersion==="stage2j1-spectral-profile-v1" &&
+        referenceMeters?.scoringImpact==="NONE" &&
+        referenceMeters.schemaVersion==="stage2k-meter-summary-v1" &&
+        referenceMeters.sampleRate===evidence.sourceProvenance.sampleRate &&
+        referenceMeters.channelCount===evidence.sourceProvenance.channelCount &&
+        referenceMeters.sampleCount===evidence.sourceProvenance.inputSampleCount,
+        "Song pilot requires validated diagnostic spectral and meter evidence");
       const nyquist=spectralProfile.sampleRate/2;
       const spectralBands=spectralProfile.bandEdgesHz.slice(0,-1).map((low,index)=>{
         const high=spectralProfile.bandEdgesHz[index+1];
@@ -1159,6 +1165,21 @@
           zeroPaddedSampleCount:spectralProfile.zeroPaddedSampleCount,
           channelCount:spectralProfile.channelCount,bands:spectralBands,
           interpretation:"Windowed aggregate spectral power only; band availability follows Nyquist. No mix quality or audibility conclusion."},
+        referenceMeters:{schemaVersion:referenceMeters.schemaVersion,
+          method:referenceMeters.method,sampleRate:referenceMeters.sampleRate,
+          channelCount:referenceMeters.channelCount,sampleCount:referenceMeters.sampleCount,
+          lraAvailability:referenceMeters.lraAvailability,
+          truePeakAccuracyStatus:referenceMeters.truePeakAccuracyStatus,
+          measurements:{
+            samplePeakDbfs:referenceMeters.measurements.samplePeakDbfs,
+            truePeakDbtp4x:referenceMeters.measurements.truePeakDbtp4x,
+            rmsDbfs:referenceMeters.measurements.rmsDbfs,
+            midRmsDbfs:referenceMeters.measurements.midRmsDbfs,
+            crestFactorDb:referenceMeters.measurements.crestFactorDb,
+            midCrestFactorDb:referenceMeters.measurements.midCrestFactorDb,
+            integratedLufs:referenceMeters.measurements.integratedLufs,
+            loudnessRangeLu:referenceMeters.measurements.loudnessRangeLu},
+          interpretation:"Reference-oriented meters only; LRA and peaks do not identify clipping, compression, quality or audibility."},
         bands:descriptive.conditions.map((condition,index)=>({
           bandHz:condition.bandHz,frameCount:condition.frameCount,
           sourcePower:condition.sourcePower,powerRangeDb:condition.powerRangeDb,
@@ -1219,7 +1240,7 @@
         assert(globalThis.Worker===NativeWorker,"Another Worker probe is active");
         globalThis.Worker=InstrumentedWorker;
         const started=performance.now();
-        const diagnostic=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,capBytes,30000);
+        const diagnostic=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,capBytes,30000,true);
         const wallElapsedMs=brief(performance.now()-started);
         sourcePreserved(sampleProbe,fingerprint);
         const probe=createdWorkers.length===beforeWorkers+1?createdWorkers.at(-1):null;
@@ -1233,7 +1254,7 @@
           probe.transfers[0].byteLengthsBefore.reduce((a,b)=>a+b,0)===pcmBytes &&
           probe.transfers[0].byteLengthsAfter.every(n=>n===0) &&
           probe.terminateCount===1,"Stage 2I-2 Worker lifecycle or transfer check failed");
-        const summary=summarizePilotEvidence(diagnostic.evidence,diagnostic.spectralProfile);
+        const summary=summarizePilotEvidence(diagnostic.evidence,diagnostic.spectralProfile,diagnostic.referenceMeters);
         pilotReports.push({...report.currentFile,status:"AVAILABLE",wallElapsedMs,
           workerTerminations:probe.terminateCount,copyTransferOwnershipVerified:true,
           originalAudioPreserved:true,summary});

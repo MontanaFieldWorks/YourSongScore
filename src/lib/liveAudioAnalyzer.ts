@@ -3044,10 +3044,20 @@ export interface Stage2j1SpectralProfile {
   bandEdgesHz:number[]; channelBandPower:number[][];
   channelUnassignedPower:number[]; channelTotalPower:number[];
 }
+export interface Stage2kMeterSummary {
+  schemaVersion:"stage2k-meter-summary-v1";
+  scoringImpact:"NONE";
+  method:"stage1a-reference-v1";
+  sampleRate:number; channelCount:number; sampleCount:number;
+  lraAvailability:Stage1aMeterComparison["lraAvailability"];
+  truePeakAccuracyStatus:Stage1aMeterComparison["truePeakAccuracyStatus"];
+  measurements:Stage1aMeterReadings;
+}
 export function runStage2c2aBrowserDiagnostics(
   audio: Pick<AudioBuffer, "numberOfChannels"|"sampleRate"|"getChannelData">,
   enabled: boolean,
-): {status:"DISABLED"|"AVAILABLE"|"UNAVAILABLE"; evidence?:ReturnType<typeof assembleStage2c1EngineeringEvidence>; spectralProfile?:Stage2j1SpectralProfile; reason?:string} {
+  includeReferenceMeters = false,
+): {status:"DISABLED"|"AVAILABLE"|"UNAVAILABLE"; evidence?:ReturnType<typeof assembleStage2c1EngineeringEvidence>; spectralProfile?:Stage2j1SpectralProfile; referenceMeters?:Stage2kMeterSummary; reason?:string} {
   if(!enabled)return {status:"DISABLED"};
   try {
     if(audio.numberOfChannels!==1&&audio.numberOfChannels!==2)
@@ -3071,7 +3081,17 @@ export function runStage2c2aBrowserDiagnostics(
       channelUnassignedPower:spectral.channelUnassignedPower,
       channelTotalPower:spectral.channelTotalPower,
     };
-    return {status:"AVAILABLE",evidence:assembleStage2c1EngineeringEvidence(spectral,temporal,stereo),spectralProfile};
+    const referenceMeters:Stage2kMeterSummary|undefined=includeReferenceMeters?(()=>{
+      const result=analyzeStage1aMeterReference(channels,audio.sampleRate);
+      return {schemaVersion:"stage2k-meter-summary-v1",scoringImpact:"NONE",
+        method:result.method,sampleRate:result.sampleRate,
+        channelCount:result.channelCount,sampleCount:result.sampleCount,
+        lraAvailability:result.lraAvailability,
+        truePeakAccuracyStatus:result.truePeakAccuracyStatus,
+        measurements:result.measurements};
+    })():undefined;
+    return {status:"AVAILABLE",evidence:assembleStage2c1EngineeringEvidence(spectral,temporal,stereo),
+      spectralProfile,...(referenceMeters?{referenceMeters}:{})};
   } catch {
     // Diagnostic failure must never fail a user analysis or expose raw audio.
     return {status:"UNAVAILABLE",reason:"DIAGNOSTIC_COMPUTATION_FAILED"};
