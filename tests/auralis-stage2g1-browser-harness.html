@@ -9,6 +9,7 @@
     button { padding: .6rem 1rem; cursor: pointer; }
     pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f3f4f6; padding: 1rem; }
     small { color: #52525b; }
+    #pilotStatus { font-weight: 600; white-space: pre-wrap; }
   </style>
 </head>
 <body>
@@ -30,6 +31,7 @@
   <button id="memory" type="button">Run Stage 2G-5 memory observability (6 measured cases)</button>
   <button id="allocation" type="button">Run Stage 2G-6 FFT allocation accounting and clone proxy (6 measured cases)</button>
   <button id="capacity" type="button">Run Stage 2I-1 Worker input capacity profile (4 cases, up to 128 MiB)</button>
+  <p id="pilotStatus" role="status" aria-live="polite">Local song pilot — READY — 0/4 completed. Select one file, then analyze it once.</p>
   <div><label for="pilotFile">Stage 2I-2 local song pilot (one file at a time, up to four):</label>
   <input id="pilotFile" type="file" accept="audio/*">
   <button id="pilot" type="button">Analyze selected song locally</button></div>
@@ -47,6 +49,7 @@
   <p><small>Stage 2I-2 is a separate local-only opt-in pilot. Select one audio file at a time (up to four files). The file stays in this browser tab: no upload, Gemini call, production scoring, or report change. Encoded files over 24 MiB are rejected before decoding; decoded PCM over 128 MiB is rejected after decoding and before Worker creation. Browser decoding itself can use more memory than these limits. The 30-second Worker timeout applies per selected file. Stop on first failure, no automatic retries. Only a small descriptive summary is shown; no raw audio or frame arrays are saved in the result. This is an engineering reality check, not a mix-quality score.</small></p>
   <p><small>Stage 2J-1 adds seven aggregate Stage 2A frequency bands (20 Hz to 20 kHz) to the local song pilot using the existing Worker computation. A band above Nyquist is UNAVAILABLE; a band crossing Nyquist is PARTIAL. These are windowed PCM powers, not a high-frequency quality score or proof of audibility. No second main-window FFT is run.</small></p>
   <p><small>Stage 2K requests compact Stage 1A reference meter readings inside the same Worker only for the local song pilot. LUFS, LRA, peaks and crest are descriptive; they do not identify clipping, compression, quality or audibility. The four-phase true-peak estimate is not independently certified. Existing modes and production scoring remain unchanged.</small></p>
+  <p><small>Stage 2L-1 shows the current and latest completed file above the picker; the JSON below retains the full compact history in run order. An already completed selection with the same filename, byte size and last-modified time is blocked before decoding and does not use a slot. This is session-only metadata matching, not byte-level duplicate detection: renamed copies or changed metadata may bypass it, and different files with matching metadata may be blocked. Four completed files end the session; the disabled picker then means COMPLETE, not a hang. Any failure stops the pilot with no retries. Reloading clears this page's history and duplicate guard; it does not authorize another run.</small></p>
   <p><small>Stage 2H-2B adds main-window phase intervals and expected/observed timer timestamps to Stage 2G-6. Compare intervals to locate temporal overlap. Worker waiting includes scheduling and transport, and overlap alone cannot establish the cause of a delay.</small></p>
   <pre id="result" aria-live="polite">Not run.</pre>
   <script type="module">
@@ -63,9 +66,11 @@
     const capacityButton = document.querySelector("#capacity");
     const pilotButton = document.querySelector("#pilot");
     const pilotFile = document.querySelector("#pilotFile");
+    const pilotStatus = document.querySelector("#pilotStatus");
     let pilotRunning = false;
     let pilotStopped = false;
     const pilotReports = [];
+    const pilotCompletedFiles = new Set();
     let profilingMode = false;
     let matchedSampleMode = false;
     let memoryProfilingMode = false;
@@ -1195,13 +1200,33 @@
       };
     }
 
+    function showPilotStatus(state,currentName,message) {
+      const latest=pilotReports.at(-1);
+      pilotStatus.textContent=`Local song pilot — ${state} — ${pilotReports.length}/4 completed.\n`+
+        (currentName?`Current file: ${currentName}\n`:"")+
+        (latest?`Latest completed file: ${latest.name} — PASS\n`:"")+message;
+    }
+
     async function runLocalSongPilot() {
-      if(pilotRunning || pilotStopped || pilotReports.length>=4)return;
+      if(pilotRunning)return;
+      if(pilotStopped){
+        showPilotStatus("STOPPED",null,"Stopped after the first failure. No retries; see the failure result below.");return;
+      }
+      if(pilotReports.length>=4){
+        showPilotStatus("COMPLETE",null,"Four-file limit reached. Controls are disabled intentionally; no further runs.");return;
+      }
       const file=pilotFile.files?.[0];
-      if(!file){out.textContent="Select one local audio file first.";return;}
+      if(!file){showPilotStatus("READY",null,"Select one local audio file first. Previous results remain below.");return;}
       if(runButton.disabled||profileButton.disabled||matchedButton.disabled||
          memoryButton.disabled||allocationButton.disabled||capacityButton.disabled)return;
+      const fileKey=JSON.stringify([file.name,file.size,file.lastModified??null]);
+      if(pilotCompletedFiles.has(fileKey)){
+        showPilotStatus("DUPLICATE BLOCKED",file.name,
+          "Already completed in this session. No decode, Worker or slot used. Select a different authorized file.");
+        pilotFile.value="";return;
+      }
       pilotRunning=true;
+      showPilotStatus("RUNNING",file.name,"Keep this tab visible. Do not click Analyze again; wait for PASS or FAIL.");
       runButton.disabled=profileButton.disabled=matchedButton.disabled=memoryButton.disabled=
         allocationButton.disabled=capacityButton.disabled=pilotButton.disabled=pilotFile.disabled=true;
       const report={stage:"2I-2",mode:"LOCAL_SONG_DIAGNOSTIC_PILOT",
@@ -1258,6 +1283,7 @@
         pilotReports.push({...report.currentFile,status:"AVAILABLE",wallElapsedMs,
           workerTerminations:probe.terminateCount,copyTransferOwnershipVerified:true,
           originalAudioPreserved:true,summary});
+        pilotCompletedFiles.add(fileKey);
         report.completedFiles=pilotReports.length;
         report.results=[...pilotReports];
         report.status="PASS";
@@ -1273,6 +1299,10 @@
         pilotRunning=false;
         report.finishedAt=new Date().toISOString();
         out.textContent=JSON.stringify(report,null,2);
+        showPilotStatus(pilotStopped?"FAIL — STOPPED":pilotReports.length>=4?"COMPLETE":"PASS",file.name,
+          pilotStopped?"Stopped after the first failure. Controls are disabled; no retries. See the failure result below.":
+          pilotReports.length>=4?"Four-file limit reached. Controls are disabled intentionally; no further runs.":
+          "Finished successfully. Previous results stay first in the JSON below; the latest completed file is named above. Select only the next authorized file.");
         runButton.disabled=profileButton.disabled=matchedButton.disabled=memoryButton.disabled=
           allocationButton.disabled=capacityButton.disabled=false;
         pilotButton.disabled=pilotFile.disabled=pilotStopped||pilotReports.length>=4;
