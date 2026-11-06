@@ -1103,8 +1103,9 @@ test("Stage 1A new meters remain explicitly unconnected to production scoring", 
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
   assert.match(source,/Stage 1A: opt-in, reference-oriented meters/);
-  assert.equal(source.match(/analyzeStage1aMeterReference\(/g)?.length,1,
-    "prototype is exported but not called by the existing analyzer");
+  assert.equal(source.match(/analyzeStage1aMeterReference\(/g)?.length,2,
+    "reference meters have one explicit pilot-only call");
+  assert.match(source,/includeReferenceMeters\?\(\(\)=>\{\s*const result=analyzeStage1aMeterReference\(channels,audio\.sampleRate\)/);
   assert.doesNotMatch(app,/analyzeStage1aMeterReference/);
   assert.doesNotMatch(server,/analyzeStage1aMeterReference/);
   assert.doesNotMatch(source,/new Float64Array\(count \+ 1\)/,
@@ -1407,7 +1408,8 @@ test("Stage 1D LRA validity and true-peak evidence remain disconnected from scor
   assert.match(source,/equivalentPeakPowerDurationSeconds/);
   assert.doesNotMatch(source,/equivalentPeakPowerDurationSeconds < 0\\.05/);
   assert.match(source,/no 50 ms LRA availability threshold is applied/);
-  assert.equal((source.match(/analyzeStage1aMeterReference\(/g)||[]).length,1);
+  assert.equal((source.match(/analyzeStage1aMeterReference\(/g)||[]).length,2);
+  assert.match(source,/includeReferenceMeters\?\(\(\)=>\{\s*const result=analyzeStage1aMeterReference\(channels,audio\.sampleRate\)/);
   assert.doesNotMatch(app,/analyzeStage1aMeterReference/);
   assert.doesNotMatch(server,/analyzeStage1aMeterReference/);
 });
@@ -3939,6 +3941,69 @@ test("Stage 2J-1 accepts bounded Worker spectral aggregates and rejects corrupte
   }finally{globalThis.Worker=OriginalWorker;}
 });
 
+test("Stage 2K meters are pilot-only, bounded scalar evidence and fail closed at the Worker bridge",async()=>{
+  const workerSource=await readFile(new URL("../src/workers/audioAnalysisWorker.ts",import.meta.url),"utf8");
+  assert.match(workerSource,/event\.data\.includeReferenceMeters === true/);
+  const sr=48000,n=8192;
+  const tone=Float32Array.from({length:n},(_,i)=>.1*Math.sin(2*Math.PI*120*i/sr));
+  const audio={sampleRate:sr,numberOfChannels:2,length:n,getChannelData:()=>tone};
+  const old=runStage2c2aBrowserDiagnostics(audio,true);
+  assert.equal(old.status,"AVAILABLE");
+  assert.equal(old.referenceMeters,undefined);
+  const source=runStage2c2aBrowserDiagnostics(audio,true,true);
+  assert.equal(source.status,"AVAILABLE");
+  assert.equal(source.referenceMeters.schemaVersion,"stage2k-meter-summary-v1");
+  assert.equal(source.referenceMeters.sampleCount,n);
+  assert.equal(source.referenceMeters.lraAvailability,"TOO_SHORT");
+  assert.equal(source.referenceMeters.measurements.loudnessRangeLu,null);
+  assert.deepEqual(Object.keys(source.referenceMeters.measurements).sort(),
+    ["samplePeakDbfs","truePeakDbtp4x","rmsDbfs","midRmsDbfs",
+      "crestFactorDb","midCrestFactorDb","integratedLufs","loudnessRangeLu"].sort());
+  const NativeWorker=globalThis.Worker;
+  let mutate=()=>{},requested=true,terminations=0;
+  class FakeWorker{
+    terminate(){terminations++;}
+    postMessage(request){
+      assert.equal(request.includeReferenceMeters,requested?true:undefined);
+      const base=requested?source:old;
+      const data={kind:"ENGINEERING_DIAGNOSTICS",status:"AVAILABLE",
+        evidence:structuredClone(base.evidence),
+        spectralProfile:structuredClone(base.spectralProfile),
+        ...(requested?{referenceMeters:structuredClone(base.referenceMeters)}:{})};
+      mutate(data);
+      this.onmessage({data});
+    }
+  }
+  globalThis.Worker=FakeWorker;
+  try{
+    const valid=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,128*1024*1024,30000,true);
+    assert.equal(valid.status,"AVAILABLE");
+    assert.equal(valid.referenceMeters.measurements.crestFactorDb,
+      source.referenceMeters.measurements.crestFactorDb);
+    for(const change of [
+      x=>{delete x.referenceMeters;},
+      x=>{x.referenceMeters.schemaVersion="wrong";},
+      x=>{x.referenceMeters.sampleCount++;},
+      x=>{x.referenceMeters.measurements.truePeakDbtp4x=NaN;},
+      x=>{x.referenceMeters.measurements.rawPcm=[1,2,3];},
+      x=>{x.referenceMeters.measurements.crestFactorDb++;},
+      x=>{x.referenceMeters.measurements.rmsDbfs=1e3;},
+      x=>{x.referenceMeters.lraAvailability="AVAILABLE";},
+      x=>{x.referenceMeters.truePeakAccuracyStatus="CERTIFIED";},
+      x=>{x.referenceMeters.scoringImpact="SCORE";},
+    ]){
+      mutate=change;
+      assert.deepEqual(await analyzeEngineeringDiagnosticsInWorker(audio,undefined,128*1024*1024,30000,true),
+        {status:"UNAVAILABLE",reason:"INVALID_WORKER_EVIDENCE"});
+    }
+    requested=false;mutate=()=>{};
+    const legacy=await analyzeEngineeringDiagnosticsInWorker(audio);
+    assert.equal(legacy.status,"AVAILABLE");
+    assert.equal(legacy.referenceMeters,undefined);
+    assert.equal(terminations,12);
+  }finally{globalThis.Worker=NativeWorker;}
+});
+
 test("Stage 2J-2 paired spectral comparison separates uniform gain from an upper-band change",()=>{
   const frequencies=[40,120,300,1000,3000,8000,15000];
   const amplitudes=[.08,.07,.06,.05,.04,.03,.02];
@@ -4207,7 +4272,7 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
   const channels=[new Float32Array(8192),new Float32Array(8192)];
   const audio={length:8192,numberOfChannels:2,sampleRate:48000,duration:8192/48000,
     getChannelData:i=>channels[i]};
-  const evidence={scoringImpact:"NONE",sourceProvenance:{sampleRate:48000,channelCount:2},
+  const evidence={scoringImpact:"NONE",sourceProvenance:{sampleRate:48000,channelCount:2,inputSampleCount:8192},
     bands:[{frameEvidence:[{rawPcm:"MUST_NOT_APPEAR"}]}]};
   const spectralProfile={schemaVersion:"stage2j1-spectral-profile-v1",scoringImpact:"NONE",
     method:"stage2a-hann-fft-power-v1",units:"mean-square-full-scale-pcm",
@@ -4216,6 +4281,12 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
     bandEdgesHz:[20,60,250,500,2000,6000,11000,20000],
     channelBandPower:[[1,2,3,4,5,6,7],[1,2,3,4,5,6,7]],
     rawFrameEvidence:"MUST_NOT_APPEAR"};
+  const referenceMeters={schemaVersion:"stage2k-meter-summary-v1",scoringImpact:"NONE",
+    method:"stage1a-reference-v1",sampleRate:48000,channelCount:2,sampleCount:8192,
+    lraAvailability:"TOO_SHORT",truePeakAccuracyStatus:"ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED",
+    measurements:{samplePeakDbfs:-3,truePeakDbtp4x:-2.5,rmsDbfs:-12,midRmsDbfs:-13,
+      crestFactorDb:9,midCrestFactorDb:10,integratedLufs:null,loudnessRangeLu:null},
+    rawPcm:"MUST_NOT_APPEAR"};
   let decoded=0,workerCalls=0,preserved=0;
   const probes=[];
   const context={performance,Date,JSON,Float32Array,NativeWorker,InstrumentedWorker,
@@ -4231,12 +4302,13 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
     decodeAudioFile:async()=>{decoded++;return audio;},
     sourceFingerprint:()=>[],
     sourcePreserved:()=>{preserved++;},
-    analyzeEngineeringDiagnosticsInWorker:async()=>{
+    analyzeEngineeringDiagnosticsInWorker:async(...args)=>{
       workerCalls++;
+      assert.equal(args[4],true,"only the local pilot opts into Stage 2K meters");
       assert.equal(context.globalThis.Worker,InstrumentedWorker);
       probes.push({moduleWorker:true,transfers:[{byteLengthsBefore:[32768,32768],
         byteLengthsAfter:[0,0]}],terminateCount:1});
-      return {status:"AVAILABLE",evidence,spectralProfile};
+      return {status:"AVAILABLE",evidence,spectralProfile,referenceMeters};
     },
     interpretStage2d1EngineeringEvidence:()=>({scoringImpact:"NONE",
       conditions:[{bandHz:[20,60],frameCount:3,sourcePower:[1,1],
@@ -4274,9 +4346,15 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
   assert.equal(report.results[0].summary.spectralProfile.bands.length,7);
   assert.deepEqual(Array.from(report.results[0].summary.spectralProfile.bands[6].bandHz),[11000,20000]);
   assert.equal(report.results[0].summary.spectralProfile.bands[6].status,"AVAILABLE");
+  assert.equal(report.results[0].summary.referenceMeters.measurements.crestFactorDb,9);
+  assert.equal(report.results[0].summary.referenceMeters.lraAvailability,"TOO_SHORT");
+  assert.throws(()=>functions.summarizePilotEvidence(evidence,spectralProfile,
+    {...referenceMeters,sampleCount:8193}),/validated diagnostic spectral and meter evidence/);
+  assert.throws(()=>functions.summarizePilotEvidence(evidence,spectralProfile,undefined),
+    /validated diagnostic spectral and meter evidence/);
   const lowRateProfile={...spectralProfile,sampleRate:8000,
     channelBandPower:[[1,2,3,4,0,0,0],[1,2,3,4,0,0,0]]};
-  const lowRateSummary=functions.summarizePilotEvidence(evidence,lowRateProfile);
+  const lowRateSummary=functions.summarizePilotEvidence(evidence,lowRateProfile,referenceMeters);
   assert.equal(lowRateSummary.spectralProfile.bands[5].status,"UNAVAILABLE");
   assert.equal(lowRateSummary.spectralProfile.bands[4].status,"PARTIAL");
   assert.equal(report.results[0].workerTerminations,1);

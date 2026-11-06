@@ -207,6 +207,52 @@ function validEngineeringSpectralProfile(
   return true;
 }
 
+// Stage 2K meter evidence is requested only by the local song pilot. Keep
+// older diagnostic responses compatible, but fail closed when it is requested.
+function validEngineeringReferenceMeters(
+  candidate:unknown,
+  input:Pick<AudioBuffer,"length"|"numberOfChannels"|"sampleRate">,
+): candidate is import("./liveAudioAnalyzer").Stage2kMeterSummary {
+  if(!candidate||typeof candidate!=="object"||Array.isArray(candidate))return false;
+  const p=candidate as import("./liveAudioAnalyzer").Stage2kMeterSummary;
+  const fields=["samplePeakDbfs","truePeakDbtp4x","rmsDbfs","midRmsDbfs",
+    "crestFactorDb","midCrestFactorDb","integratedLufs","loudnessRangeLu"] as const;
+  const status=["AVAILABLE","SILENCE","TOO_SHORT","INSUFFICIENT_GATED_WINDOWS"];
+  if(Object.keys(p).sort().join(",")!==
+     ["schemaVersion","scoringImpact","method","sampleRate","channelCount",
+       "sampleCount","lraAvailability","truePeakAccuracyStatus","measurements"].sort().join(",")||
+     p.schemaVersion!=="stage2k-meter-summary-v1"||p.scoringImpact!=="NONE"||
+     p.method!=="stage1a-reference-v1"||p.sampleRate!==input.sampleRate||
+     p.channelCount!==input.numberOfChannels||p.sampleCount!==input.length||
+     !status.includes(p.lraAvailability)||
+     p.truePeakAccuracyStatus!==(input.sampleRate===48000?
+       "ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED":"NON_48KHZ_UNVERIFIED")||
+     !p.measurements||typeof p.measurements!=="object"||
+     Array.isArray(p.measurements)||
+     Object.keys(p.measurements).sort().join(",")!==[...fields].sort().join(","))
+    return false;
+  const m=p.measurements;
+  if(fields.some(key=>m[key]!==null&&
+       (typeof m[key]!=="number"||!Number.isFinite(m[key])))||
+     (p.lraAvailability==="AVAILABLE")!==(m.loudnessRangeLu!==null)||
+     (p.lraAvailability==="SILENCE")!==(m.samplePeakDbfs===null)||
+     (p.lraAvailability==="TOO_SHORT"&&input.length>=Math.round(3*input.sampleRate))||
+     (p.lraAvailability==="AVAILABLE"&&input.length<Math.round(3*input.sampleRate))||
+     (m.crestFactorDb===null)!==(m.samplePeakDbfs===null||m.rmsDbfs===null)||
+     (m.midCrestFactorDb===null)!==(m.samplePeakDbfs===null||m.midRmsDbfs===null))
+    return false;
+  if(m.samplePeakDbfs!==null&&
+     (m.truePeakDbtp4x===null||m.truePeakDbtp4x<m.samplePeakDbfs-1e-8||
+      (m.rmsDbfs!==null&&m.rmsDbfs>m.samplePeakDbfs+1e-8)||
+      (m.midRmsDbfs!==null&&m.midRmsDbfs>m.samplePeakDbfs+1e-8)))return false;
+  if(m.loudnessRangeLu!==null&&m.loudnessRangeLu<0)return false;
+  if(m.crestFactorDb!==null&&m.samplePeakDbfs!==null&&m.rmsDbfs!==null&&
+     Math.abs(m.crestFactorDb-(m.samplePeakDbfs-m.rmsDbfs))>1e-8)return false;
+  if(m.midCrestFactorDb!==null&&m.samplePeakDbfs!==null&&m.midRmsDbfs!==null&&
+     Math.abs(m.midCrestFactorDb-(m.samplePeakDbfs-m.midRmsDbfs))>1e-8)return false;
+  return true;
+}
+
 // Stage 2C2B: optional, separate worker request; never used by the legacy batch path.
 // Copies are transferred, so the original decoded AudioBuffer is never detached.
 export function analyzeEngineeringDiagnosticsInWorker(
@@ -214,8 +260,9 @@ export function analyzeEngineeringDiagnosticsInWorker(
   signal?: AbortSignal,
   maxInputBytes = 128 * 1024 * 1024,
   timeoutMs = 30000,
+  includeReferenceMeters = false,
 ): Promise<
-  | {status:"AVAILABLE"; evidence: ReturnType<typeof import("./liveAudioAnalyzer").assembleStage2c1EngineeringEvidence>; spectralProfile?:import("./liveAudioAnalyzer").Stage2j1SpectralProfile}
+  | {status:"AVAILABLE"; evidence: ReturnType<typeof import("./liveAudioAnalyzer").assembleStage2c1EngineeringEvidence>; spectralProfile?:import("./liveAudioAnalyzer").Stage2j1SpectralProfile; referenceMeters?:import("./liveAudioAnalyzer").Stage2kMeterSummary}
   | {status:"UNAVAILABLE"|"CANCELLED"; reason:string}
 > {
   if(signal?.aborted)return Promise.resolve({status:"CANCELLED",reason:"ABORTED"});
@@ -259,8 +306,14 @@ export function analyzeEngineeringDiagnosticsInWorker(
              !validEngineeringSpectralProfile(data.spectralProfile,data.evidence,audioBuffer)){
             finish({status:"UNAVAILABLE",reason:"INVALID_WORKER_EVIDENCE"});return;
           }
+          if(includeReferenceMeters?
+             !validEngineeringReferenceMeters(data.referenceMeters,audioBuffer):
+             data.referenceMeters!==undefined){
+            finish({status:"UNAVAILABLE",reason:"INVALID_WORKER_EVIDENCE"});return;
+          }
           finish({status:"AVAILABLE",evidence:data.evidence,
-            ...(data.spectralProfile===undefined?{}:{spectralProfile:data.spectralProfile})});return;
+            ...(data.spectralProfile===undefined?{}:{spectralProfile:data.spectralProfile}),
+            ...(data.referenceMeters===undefined?{}:{referenceMeters:data.referenceMeters})});return;
         }
         finish({status:"UNAVAILABLE",reason:
           typeof data.reason==="string"&&data.reason.length?data.reason:"DIAGNOSTIC_COMPUTATION_FAILED"});
@@ -271,7 +324,8 @@ export function analyzeEngineeringDiagnosticsInWorker(
       const ch0=new Float32Array(audioBuffer.getChannelData(0));
       const ch1=channels===2?new Float32Array(audioBuffer.getChannelData(1)):undefined;
       worker.postMessage({kind:"ENGINEERING_DIAGNOSTICS",sampleRate:audioBuffer.sampleRate,
-        numChannels:channels,ch0:ch0.buffer,ch1:ch1?.buffer},
+        numChannels:channels,ch0:ch0.buffer,ch1:ch1?.buffer,
+        ...(includeReferenceMeters?{includeReferenceMeters:true as const}:{})},
         ch1?[ch0.buffer,ch1.buffer]:[ch0.buffer]);
     }catch{
       finish({status:"UNAVAILABLE",reason:"WORKER_SETUP_FAILED"});
