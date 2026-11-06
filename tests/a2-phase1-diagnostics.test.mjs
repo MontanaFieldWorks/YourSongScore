@@ -1172,6 +1172,110 @@ test("Stage 1A reports gain shifts without changing LRA or input arrays", () => 
   assert.deepEqual(a,before);
 });
 
+// Stage 2M-1: bounded synthetic counterexamples, not defect classifiers.
+// Each pair is generated and measured sequentially at 44.1/48 kHz using
+// mono Float32 PCM only (40 s, <=7.68 MB per array). No songs or paid calls.
+test("Stage 2M-1 low LRA can coexist with high crest after flattening a sustained envelope", () => {
+  for(const sr of [44100,48000]) {
+    const n=40*sr, varying=new Float32Array(n), flatWithPeak=new Float32Array(n);
+    const high=.1,low=10**(-30/20),flatAmplitude=.02,isolatedPeak=.5;
+    for(let i=0;i<n;i++) {
+      const carrier=Math.sin(2*Math.PI*1000*i/sr);
+      varying[i]=(i<20*sr?high:low)*carrier;
+      flatWithPeak[i]=flatAmplitude*carrier;
+    }
+    // Replace a zero crossing at exactly 10 s. This is a constructed steady
+    // envelope plus a single peak, not a model or proof of a compressor.
+    flatWithPeak[10*sr]=isolatedPeak;
+    const first=analyzeStage1aMeterReference([varying],sr);
+    const second=analyzeStage1aMeterReference([flatWithPeak],sr);
+    assert.equal(first.lraAvailability,"AVAILABLE");
+    assert.equal(second.lraAvailability,"AVAILABLE");
+    const a=first.measurements,b=second.measurements;
+    // Independent integer-cycle sine energy: half the samples at each
+    // amplitude, each with mean square A^2/2. The replaced zero adds P^2.
+    const varyingRms=Math.sqrt((high**2+low**2)/4);
+    const flatRms=Math.sqrt(flatAmplitude**2/2+isolatedPeak**2/n);
+    const expectedVaryingCrest=20*Math.log10(high/varyingRms);
+    const expectedFlatCrest=20*Math.log10(isolatedPeak/flatRms);
+    // 0.01 dB allows Float32 and sample-grid peak rounding, not meter fitting.
+    assert.ok(Math.abs(a.rmsDbfs-20*Math.log10(varyingRms))<.01);
+    assert.ok(Math.abs(b.rmsDbfs-20*Math.log10(flatRms))<.01);
+    assert.ok(Math.abs(a.crestFactorDb-expectedVaryingCrest)<.01);
+    assert.ok(Math.abs(b.crestFactorDb-expectedFlatCrest)<.01);
+    // The two 20 s tone plateaus differ by 10 dB (1 LU acceptance as in
+    // existing tone LRA references). The flat case allows <0.2 LU for the
+    // isolated sample's filtered energy and existing file-end window handling.
+    assert.ok(Math.abs(a.loudnessRangeLu-10)<1);
+    assert.ok(b.loudnessRangeLu>=0&&b.loudnessRangeLu<.2);
+    assert.ok(b.crestFactorDb>a.crestFactorDb+20,
+      sr+": lower LRA does not require lower whole-programme crest");
+  }
+});
+
+test("Stage 2M-1 uniform gain crossing the absolute LRA gate can change LRA without changing crest", () => {
+  for(const sr of [44100,48000]) {
+    const n=40*sr,quiet=new Float32Array(n),raised=new Float32Array(n);
+    const high=10**(-55/20),low=10**(-75/20),gain=10;
+    for(let i=0;i<n;i++) {
+      quiet[i]=(i<20*sr?high:low)*Math.sin(2*Math.PI*1000*i/sr);
+      raised[i]=quiet[i]*gain; // exactly uniform linear gain, no clipping stage
+    }
+    const first=analyzeStage1aMeterReference([quiet],sr);
+    const second=analyzeStage1aMeterReference([raised],sr);
+    assert.equal(first.lraAvailability,"AVAILABLE");
+    assert.equal(second.lraAvailability,"AVAILABLE");
+    const a=first.measurements,b=second.measurements;
+    const rms=Math.sqrt((high**2+low**2)/4),gainDb=20*Math.log10(gain);
+    const expectedCrest=20*Math.log10(high/rms);
+    assert.ok(Math.abs(a.rmsDbfs-20*Math.log10(rms))<.01);
+    assert.ok(Math.abs(a.crestFactorDb-expectedCrest)<.01);
+    assert.ok(Math.abs((b.rmsDbfs-a.rmsDbfs)-gainDb)<.01);
+    assert.ok(Math.abs((b.samplePeakDbfs-a.samplePeakDbfs)-gainDb)<.01);
+    assert.ok(Math.abs(b.crestFactorDb-a.crestFactorDb)<.01);
+    // At 1 kHz mono the quiet plateau sits below -70 LUFS before the gain
+    // and above it afterward. Once absolute gating admits both plateaus,
+    // their 20 dB gap is within the -20 LU relative gate from the combined
+    // mean. Percentile/window transitions need not give exactly zero LRA
+    // in the original; allow up to 2 LU there and 1 LU around the 20 LU gap.
+    assert.ok(a.loudnessRangeLu>=0&&a.loudnessRangeLu<2);
+    assert.ok(Math.abs(b.loudnessRangeLu-20)<1);
+    assert.ok(b.loudnessRangeLu-a.loudnessRangeLu>17,
+      sr+": uniform-gain LRA invariance must not be assumed across the absolute gate");
+  }
+});
+
+test("Stage 2M-1 sample peak alone cannot identify hard clipping followed by attenuation", () => {
+  for(const sr of [44100,48000]) {
+    const n=40*sr,linear=new Float32Array(n),clippedThenAttenuated=new Float32Array(n);
+    const amplitude=1.1,ceiling=.4,gain=.5;
+    let flatTopSamples=0;
+    for(let i=0;i<n;i++) {
+      linear[i]=amplitude*Math.sin(2*Math.PI*1000*i/sr);
+      const limited=Math.max(-ceiling,Math.min(ceiling,linear[i]));
+      if(Math.abs(linear[i])>=ceiling)flatTopSamples++;
+      clippedThenAttenuated[i]=limited*gain;
+    }
+    assert.ok(flatTopSamples>n*.7,"known clipping is established by construction");
+    const a=analyzeStage1aMeterReference([linear],sr).measurements;
+    const b=analyzeStage1aMeterReference([clippedThenAttenuated],sr).measurements;
+    assert.ok(Math.abs(a.samplePeakDbfs-20*Math.log10(amplitude))<.01);
+    assert.ok(Math.abs(a.rmsDbfs-20*Math.log10(amplitude/Math.sqrt(2)))<.01);
+    assert.ok(Math.abs(a.crestFactorDb-20*Math.log10(Math.sqrt(2)))<.01);
+    assert.ok(Math.abs(b.samplePeakDbfs-20*Math.log10(ceiling*gain))<.01);
+    // Independent continuous-cycle integral of min(A*abs(sin(t)), C)^2.
+    // 0.03 dB allows discrete 1 kHz sample-grid integration at these rates.
+    const alpha=Math.asin(ceiling/amplitude);
+    const clippedPower=(2/Math.PI)*(amplitude**2*(alpha/2-Math.sin(2*alpha)/4)+
+      ceiling**2*(Math.PI/2-alpha));
+    assert.ok(Math.abs(b.rmsDbfs-20*Math.log10(gain*Math.sqrt(clippedPower)))<.03);
+    assert.ok(a.samplePeakDbfs>0&&b.samplePeakDbfs< -10,
+      sr+": positive floating-point peaks need not be hard clipped; earlier clipping can end below 0 dBFS");
+    // No integer encoding/playback stage is modeled. This does not establish
+    // audibility, true-peak accuracy, clipping history of real songs or quality.
+  }
+});
+
 test("Stage 1A true-peak FIR measures high-frequency intersample peaks and boundary transients", () => {
   const sr=48000,n=sr*2,a=new Float32Array(n),amplitude=0.6;
   for(let i=0;i<n;i++) a[i]=amplitude*Math.sin(2*Math.PI*12000*i/sr + Math.PI/4);
