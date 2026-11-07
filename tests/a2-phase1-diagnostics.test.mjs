@@ -4399,6 +4399,8 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
   const context={performance,Date,JSON,Float32Array,NativeWorker,InstrumentedWorker,
     globalThis:{Worker:NativeWorker},pilotRunning:false,pilotStopped:false,pilotReports:[],
     pilotCompletedFiles:new Set(),pilotStatus,
+    pilotReference:{value:"",replaceChildren(){},add(){}},pilotComparison:{textContent:""},
+    Option:class Option{},
     pilotFile:input,pilotButton:buttons[0],runButton:buttons[1],profileButton:buttons[2],
     matchedButton:buttons[3],memoryButton:buttons[4],allocationButton:buttons[5],
     capacityButton:buttons[6],out,allowedHost:true,document:{visibilityState:"visible"},
@@ -4565,4 +4567,98 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
   assert.equal(out.textContent,stoppedResult);
   assert.equal(decoded,stoppedDecodes);assert.equal(workerCalls,stoppedWorkers);
   assert.match(pilotStatus.textContent,/Stopped after the first failure. No retries/);
+});
+
+
+test("Stage 2N-1 completed-summary comparisons preserve gain controls and fail closed",async()=>{
+  const harness=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
+  const vm=await import("node:vm");
+  const source=harness.slice(harness.indexOf("function summarizePilotEvidence("),harness.indexOf("function showPilotStatus("));
+  const referenceSelect={value:"",disabled:true,options:[],replaceChildren(x){this.options=[x];},add(x){this.options.push(x);}};
+  const output={textContent:""},reports=[];
+  const context={interpretStage2d1EngineeringEvidence,interpretStage2d3CrossMeasurementEvidence,
+    assert:(ok,message)=>assert.ok(ok,message),pilotReference:referenceSelect,pilotComparison:output,pilotReports:reports,
+    Option:class Option{constructor(text,value){this.text=text;this.value=value;}}};
+  const api=vm.runInNewContext("(function(){"+source+";return {summarizePilotEvidence,comparePilotSummaries,renderPilotComparisons};})()",context);
+  // No decoder, audio, Worker, fetch, timer or run function exists in this context.
+  const summary=(sampleRate,gain=1,upperGain=1,length=sampleRate)=>{
+    const frequencies=[40,120,300,1000,3000,8000,15000];
+    const pcm=Float32Array.from({length},(_,i)=>gain*frequencies.reduce((v,hz,k)=>v+
+      .02*(k>=4?upperGain:1)*Math.sin(2*Math.PI*hz*i/sampleRate),0));
+    const result=runStage2c2aBrowserDiagnostics({sampleRate,numberOfChannels:1,getChannelData:()=>pcm},true,true);
+    assert.equal(result.status,"AVAILABLE");
+    return api.summarizePilotEvidence(result.evidence,result.spectralProfile,result.referenceMeters);
+  };
+  for(const rate of [44100,48000]){
+    const reference=summary(rate),gain=summary(rate,.5),upper=summary(rate,1,.5);
+    const before=JSON.stringify([reference,gain,upper]);
+    const uniform=api.comparePilotSummaries(reference,gain),selective=api.comparePilotSummaries(reference,upper);
+    assert.equal(uniform.status,"AVAILABLE");assert.equal(uniform.scoringImpact,"NONE");
+    assert.equal(uniform.sourceIdentity,"UNVERIFIED");
+    uniform.spectralBands.forEach(b=>{
+      assert.ok(Math.abs(b.absolute.value+6.0206)<.02);
+      assert.ok(Math.abs(b.relativeTo60_250Hz.value)<.02);
+    });
+    selective.spectralBands.forEach((b,i)=>assert.ok(Math.abs(b.relativeTo60_250Hz.value-(i>=4?-6.0206:0))<.03));
+    assert.ok(Math.abs(uniform.meters.rmsDbfs.delta+6.0206)<.01);
+    assert.ok(Math.abs(uniform.meters.crestFactorDb.delta)<.01);
+    assert.equal(uniform.meters.loudnessRangeLu.status,"UNAVAILABLE");
+    assert.equal(uniform.meterAvailability.reference,"TOO_SHORT");
+    assert.equal(uniform.truePeakAccuracy.reference,reference.referenceMeters.truePeakAccuracyStatus);
+    // Frozen Stage 2M counterexample readings must remain descriptive deltas,
+    // including lower LRA with higher crest, gain-sensitive LRA, and lower peaks
+    // in a known clipped/attenuated signal. No inferred processing verdict.
+    for(const [rValues,cValues] of [
+      [{loudnessRangeLu:10,crestFactorDb:5.607},{loudnessRangeLu:.083,crestFactorDb:30.966}],
+      [{loudnessRangeLu:1.331,crestFactorDb:5.977},{loudnessRangeLu:20,crestFactorDb:5.977}],
+      [{samplePeakDbfs:.828},{samplePeakDbfs:-13.979}],
+    ]){
+      const r=structuredClone(reference),c=structuredClone(reference);
+      for(const [s,values] of [[r,rValues],[c,cValues]]){
+        Object.assign(s.referenceMeters.measurements,values);
+        if(values.loudnessRangeLu!==undefined)s.referenceMeters.lraAvailability="AVAILABLE";
+      }
+      const compared=api.comparePilotSummaries(r,c);
+      for(const key of Object.keys(rValues))assert.equal(compared.meters[key].delta,cValues[key]-rValues[key]);
+      assert.equal(compared.scoringImpact,"NONE");
+      assert.match(compared.interpretation,/No clipping, compression, audibility or quality verdict/);
+    }
+    const reverse=api.comparePilotSummaries(gain,reference);
+    assert.ok(Math.abs(reverse.spectralBands[0].absolute.value-6.0206)<.02);
+    assert.equal(JSON.stringify([reference,gain,upper]),before);
+    for(const mutate of [s=>delete s.sourceProvenance,s=>s.scoringImpact="SCORE",s=>s.schemaVersion="v99",
+      s=>s.spectralProfile.method="unknown",s=>s.sourceProvenance.methods=[],s=>s.spectralProfile.frames++,
+      s=>s.spectralProfile.bands.pop(),s=>s.spectralProfile.bands[0].channelPower=[NaN],
+      s=>s.spectralProfile.bands[0].channelPower=[-1],s=>s.spectralProfile.bands[0].status="PARTIAL",
+      s=>delete s.referenceMeters.measurements.rmsDbfs,s=>s.referenceMeters.measurements.rmsDbfs=Infinity,
+      s=>s.referenceMeters.sampleCount++,s=>s.referenceMeters.lraAvailability="AVAILABLE",
+      s=>s.referenceMeters.truePeakAccuracyStatus="CERTIFIED"]){
+      const bad=structuredClone(gain);mutate(bad);
+      assert.equal(api.comparePilotSummaries(reference,bad).status,"UNAVAILABLE");
+    }
+    const floor=structuredClone(gain);floor.spectralProfile.bands[1].channelPower=[1e-12];
+    const low=api.comparePilotSummaries(reference,floor);
+    assert.equal(low.status,"AVAILABLE");assert.equal(low.spectralBands[0].absolute.status,"AVAILABLE");
+    assert.ok(low.spectralBands.every(b=>b.relativeTo60_250Hz.status==="UNAVAILABLE"));
+    floor.spectralProfile.bands[0].channelPower=[0];
+    assert.equal(api.comparePilotSummaries(reference,floor).spectralBands[0].absolute.status,"UNAVAILABLE");
+    assert.equal(api.comparePilotSummaries(reference,summary(rate,1,1,rate+2048)).status,"UNAVAILABLE");
+    reports.splice(0,reports.length,{name:"<b>reference</b>",summary:reference},{name:"candidate",summary:gain});
+    api.renderPilotComparisons();assert.equal(referenceSelect.value,"");
+    assert.match(output.textContent,/Choose a reference/);
+    referenceSelect.value="0";api.renderPilotComparisons();
+    assert.equal(JSON.parse(output.textContent).comparisons[0].candidate.run,2);
+    referenceSelect.value="1";api.renderPilotComparisons();
+    assert.equal(JSON.parse(output.textContent).comparisons[0].candidate.run,1);
+    assert.equal(reports.length,2);assert.equal(JSON.stringify([reference,gain,upper]),before);
+    referenceSelect.value="999";api.renderPilotComparisons();assert.match(output.textContent,/Choose a reference/);
+    referenceSelect.value="";
+  }
+  assert.equal(api.comparePilotSummaries(summary(44100),summary(48000)).status,"UNAVAILABLE");
+  const lowRate=summary(16000),partial=api.comparePilotSummaries(lowRate,lowRate);
+  assert.equal(partial.status,"AVAILABLE");
+  assert.equal(partial.spectralBands[5].absolute.status,"UNAVAILABLE");
+  assert.equal(partial.spectralBands[6].absolute.status,"UNAVAILABLE");
+  assert.match(harness,/pilotReference.addEventListener\("change",renderPilotComparisons\)/);
+  assert.doesNotMatch(source,/decodeAudioFile|new Worker|analyzeEngineeringDiagnosticsInWorker|fetch\(/);
 });

@@ -51,6 +51,12 @@
   <p><small>Stage 2K requests compact Stage 1A reference meter readings inside the same Worker only for the local song pilot. LUFS, LRA, peaks and crest are descriptive; they do not identify clipping, compression, quality or audibility. The four-phase true-peak estimate is not independently certified. Existing modes and production scoring remain unchanged.</small></p>
   <p><small>Stage 2L-1 shows the current and latest completed file above the picker; the JSON below retains the full compact history in run order. An already completed selection with the same filename, byte size and last-modified time is blocked before decoding and does not use a slot. This is session-only metadata matching, not byte-level duplicate detection: renamed copies or changed metadata may bypass it, and different files with matching metadata may be blocked. Four completed files end the session; the disabled picker then means COMPLETE, not a hang. Any failure stops the pilot with no retries. Reloading clears this page's history and duplicate guard; it does not authorize another run.</small></p>
   <p><small>Stage 2H-2B adds main-window phase intervals and expected/observed timer timestamps to Stage 2G-6. Compare intervals to locate temporal overlap. Worker waiting includes scheduling and transport, and overlap alone cannot establish the cause of a delay.</small></p>
+  <section aria-label="Completed pilot comparisons">
+    <label for="pilotReference">Stage 2N-1 comparison reference (choose explicitly):</label>
+    <select id="pilotReference" disabled><option value="">Choose a completed result</option></select>
+    <p>Candidate minus reference; descriptive differences only. Matching format and length do not prove source identity or alignment. Relative spectral shifts use 60–250 Hz. No defect, quality or score verdict. Changing this selection uses completed summaries only and does not run audio again.</p>
+    <pre id="pilotComparison" aria-live="polite">Choose a reference after two files complete.</pre>
+  </section>
   <pre id="result" aria-live="polite">Not run.</pre>
   <script type="module">
     import { analyzeEngineeringDiagnosticsInWorker } from "/src/lib/batchAudioWorker.ts";
@@ -67,6 +73,8 @@
     const pilotButton = document.querySelector("#pilot");
     const pilotFile = document.querySelector("#pilotFile");
     const pilotStatus = document.querySelector("#pilotStatus");
+    const pilotReference = document.querySelector("#pilotReference");
+    const pilotComparison = document.querySelector("#pilotComparison");
     let pilotRunning = false;
     let pilotStopped = false;
     const pilotReports = [];
@@ -1200,6 +1208,92 @@
       };
     }
 
+    // Stage 2N-1: pure compact-summary comparison; no audio or Worker access.
+    function comparePilotSummaries(reference,candidate) {
+      const unavailable=reason=>({status:"UNAVAILABLE",reason});
+      const result={schemaVersion:"stage2n1-paired-summary-v1",scoringImpact:"NONE",
+        direction:"CANDIDATE_MINUS_REFERENCE",sourceIdentity:"UNVERIFIED",
+        interpretation:"Descriptive differences only. No clipping, compression, audibility or quality verdict. LRA can change under uniform gain because of absolute gating; crest and peaks do not identify processing history."};
+      const edges=[20,60,250,500,2000,6000,11000,20000];
+      const meterUnits={samplePeakDbfs:"dB",truePeakDbtp4x:"dB",rmsDbfs:"dB",midRmsDbfs:"dB",
+        crestFactorDb:"dB",midCrestFactorDb:"dB",integratedLufs:"LU",loudnessRangeLu:"LU"};
+      function valid(s) {
+        if(s?.schemaVersion!=="stage2i2-local-song-summary-v1"||s.scoringImpact!=="NONE")return false;
+        const p=s.sourceProvenance,f=s.spectralProfile,m=s.referenceMeters;
+        if(!p||!f||!m||f.schemaVersion!=="stage2j1-spectral-profile-v1"||
+          f.method!=="stage2a-hann-fft-power-v1"||f.units!=="mean-square-full-scale-pcm"||
+          m.schemaVersion!=="stage2k-meter-summary-v1"||m.method!=="stage1a-reference-v1"||
+          !Number.isInteger(p.sampleRate)||p.sampleRate<8000||p.sampleRate>192000||
+          ![1,2].includes(p.channelCount)||!Number.isSafeInteger(p.inputSampleCount)||p.inputSampleCount<1||
+          p.inputSampleCount*p.channelCount*4>128*1024*1024||
+          p.fftSize!==4096||p.hopSize!==2048||p.window!=="periodic-hann"||
+          p.spectralNormalization!=="one-sided-parseval-sum-window-squared"||
+          p.numericBandPowerFloor!==1e-12||p.cancellationRelativePowerTolerance!==1e-12||
+          JSON.stringify(p.methods)!==JSON.stringify(["stage2a-hann-fft-power-v1","stage2b1-low-frame-power-v1","stage2b2-band-stereo-v1"]))return false;
+        const frames=p.inputSampleCount<4096?1:Math.floor((p.inputSampleCount-4096)/2048)+1;
+        const represented=Math.min(p.inputSampleCount,4096+(frames-1)*2048);
+        for(const [key,value] of Object.entries({sampleRate:p.sampleRate,channelCount:p.channelCount,
+          fftSize:4096,hopSize:2048,representedSampleCount:represented,
+          omittedTrailingSampleCount:p.inputSampleCount-represented,zeroPaddedSampleCount:Math.max(0,4096-p.inputSampleCount)}))
+          if(p[key]!==value||f[key]!==value)return false;
+        if(f.frames!==frames||m.sampleRate!==p.sampleRate||m.channelCount!==p.channelCount||
+          m.sampleCount!==p.inputSampleCount||!Array.isArray(f.bands)||f.bands.length!==7||
+          !["AVAILABLE","SILENCE","TOO_SHORT","INSUFFICIENT_GATED_WINDOWS"].includes(m.lraAvailability)||
+          m.truePeakAccuracyStatus!==(p.sampleRate===48000?"ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED":"NON_48KHZ_UNVERIFIED")||
+          !m.measurements||Object.keys(m.measurements).length!==8)return false;
+        for(const key of Object.keys(meterUnits))if(m.measurements[key]!==null&&!Number.isFinite(m.measurements[key]))return false;
+        if((m.lraAvailability==="AVAILABLE")!==(m.measurements.loudnessRangeLu!==null)||
+          (m.measurements.loudnessRangeLu!==null&&m.measurements.loudnessRangeLu<0))return false;
+        return f.bands.every((b,i)=>b&&JSON.stringify(b.bandHz)===JSON.stringify(edges.slice(i,i+2))&&
+          b.status===(edges[i]>=p.sampleRate/2?"UNAVAILABLE":edges[i+1]>p.sampleRate/2?"PARTIAL":"AVAILABLE")&&
+          Array.isArray(b.channelPower)&&b.channelPower.length===p.channelCount&&
+          b.channelPower.every(v=>Number.isFinite(v)&&v>=0));
+      }
+      if(!valid(reference)||!valid(candidate))return {...result,...unavailable("MALFORMED_OR_UNSUPPORTED_SUMMARY")};
+      for(const key of Object.keys(reference.sourceProvenance))
+        if(JSON.stringify(reference.sourceProvenance[key])!==JSON.stringify(candidate.sourceProvenance[key]))
+          return {...result,...unavailable("INCOMPATIBLE_PROVENANCE: "+key)};
+      const mean=b=>b.channelPower.reduce((a,v)=>a+v,0)/b.channelPower.length;
+      const powers=(s,i)=>s.spectralProfile.bands[i].status!=="AVAILABLE"?unavailable("BAND_NOT_FULLY_AVAILABLE"):
+        mean(s.spectralProfile.bands[i])<=1e-12?unavailable("POWER_AT_OR_BELOW_NUMERIC_FLOOR"):
+        {status:"AVAILABLE",value:mean(s.spectralProfile.bands[i])};
+      const difference=(r,c)=>r.status!=="AVAILABLE"?unavailable("REFERENCE: "+r.reason):
+        c.status!=="AVAILABLE"?unavailable("CANDIDATE: "+c.reason):
+        {status:"AVAILABLE",value:10*(Math.log10(c.value)-Math.log10(r.value)),unit:"dB"};
+      const anchor=difference(powers(reference,1),powers(candidate,1));
+      const spectralBands=edges.slice(0,-1).map((low,i)=>{
+        const absolute=difference(powers(reference,i),powers(candidate,i));
+        const relative=absolute.status!=="AVAILABLE"?{...absolute}:anchor.status!=="AVAILABLE"?
+          unavailable("60–250 Hz ANCHOR: "+anchor.reason):
+          {status:"AVAILABLE",value:absolute.value-anchor.value,unit:"dB"};
+        return {bandHz:[low,edges[i+1]],absolute,relativeTo60_250Hz:relative};
+      });
+      const meters=Object.fromEntries(Object.entries(meterUnits).map(([key,unit])=>{
+        const r=reference.referenceMeters.measurements[key],c=candidate.referenceMeters.measurements[key];
+        return [key,r===null||c===null?unavailable("METER_UNAVAILABLE_IN_ONE_OR_BOTH_RESULTS"):
+          Number.isFinite(c-r)?{status:"AVAILABLE",reference:r,candidate:c,delta:c-r,unit}:unavailable("NONFINITE_DELTA")];
+      }));
+      return {...result,status:"AVAILABLE",normalizationBandHz:[60,250],spectralBands,meters,
+        meterAvailability:{reference:reference.referenceMeters.lraAvailability,candidate:candidate.referenceMeters.lraAvailability},
+        truePeakAccuracy:{reference:reference.referenceMeters.truePeakAccuracyStatus,candidate:candidate.referenceMeters.truePeakAccuracyStatus}};
+    }
+
+    function renderPilotComparisons() {
+      const selected=pilotReference.value;
+      pilotReference.replaceChildren(new Option("Choose a completed result",""));
+      pilotReports.forEach((r,i)=>pilotReference.add(new Option(`${i+1}: ${r.name}`,String(i))));
+      pilotReference.value=selected;
+      pilotReference.disabled=pilotReports.length<2;
+      const index=Number(selected);
+      if(selected===""||!Number.isInteger(index)||index<0||index>=pilotReports.length){
+        pilotComparison.textContent="Choose a reference after two files complete. No audio is rerun.";return;
+      }
+      const reference=pilotReports[index];
+      pilotComparison.textContent=JSON.stringify({reference:{run:index+1,name:reference.name},
+        comparisons:pilotReports.flatMap((candidate,i)=>i===index?[]:[{candidate:{run:i+1,name:candidate.name},
+          ...comparePilotSummaries(reference.summary,candidate.summary)}])},null,2);
+    }
+
     function showPilotStatus(state,currentName,message) {
       const latest=pilotReports.at(-1);
       pilotStatus.textContent=`Local song pilot — ${state} — ${pilotReports.length}/4 completed.\n`+
@@ -1284,6 +1378,7 @@
           workerTerminations:probe.terminateCount,copyTransferOwnershipVerified:true,
           originalAudioPreserved:true,summary});
         pilotCompletedFiles.add(fileKey);
+        renderPilotComparisons();
         report.completedFiles=pilotReports.length;
         report.results=[...pilotReports];
         report.status="PASS";
@@ -1309,6 +1404,8 @@
       }
     }
     pilotButton.addEventListener("click",runLocalSongPilot);
+
+    pilotReference.addEventListener("change",renderPilotComparisons);
 
     const query = new URLSearchParams(location.search);
     // allocation=1 opts into 2G-6, memory=1 into 2G-5;
