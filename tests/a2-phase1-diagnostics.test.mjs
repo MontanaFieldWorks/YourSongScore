@@ -4654,6 +4654,54 @@ test("Stage 2N-1 completed-summary comparisons preserve gain controls and fail c
     referenceSelect.value="999";api.renderPilotComparisons();assert.match(output.textContent,/Choose a reference/);
     referenceSelect.value="";
   }
+  // Stage 2Q-2: preserve source-rate facts in the display envelope only.
+  // Numeric comparison and compact summaries remain byte-for-byte unchanged.
+  const base=summary(48000),alt=summary(48000,.5);
+  const beforeLineage=JSON.stringify([base,alt]);
+  const verified=(hz)=>({status:"VERIFIED_HEADER",sourceRateHz:hz,
+    decodedRateHz:48000,workerRateHz:48000});
+  reports.splice(0,reports.length,
+    {name:"44.1 source",summary:base,sampleRateLineage:verified(44100)},
+    {name:"48 source",summary:alt,sampleRateLineage:verified(48000)});
+  referenceSelect.value="0";api.renderPilotComparisons();
+  let rendered=JSON.parse(output.textContent);
+  assert.equal(rendered.reference.sampleRateLineage.sourceRateHz,44100);
+  assert.equal(rendered.comparisons[0].sampleRateLineage.sourceRateHz,48000);
+  assert.equal(rendered.comparisons[0].measurementLineage.sourceRateRelationship,"DIFFERENT");
+  assert.match(rendered.comparisons[0].measurementLineage.caution,/resampling/);
+  assert.match(rendered.comparisons[0].measurementLineage.caution,/Sample-peak deltas are decoded-PCM/);
+  assert.equal(rendered.comparisons[0].sourceIdentity,"UNVERIFIED");
+  assert.equal(rendered.comparisons[0].status,"AVAILABLE");
+  assert.equal(rendered.comparisons[0].meters.samplePeakDbfs.delta,
+    api.comparePilotSummaries(base,alt).meters.samplePeakDbfs.delta);
+  assert.equal(JSON.stringify([base,alt]),beforeLineage);
+  reports[1].sampleRateLineage=verified(44100);
+  api.renderPilotComparisons();
+  rendered=JSON.parse(output.textContent);
+  assert.equal(rendered.comparisons[0].measurementLineage.sourceRateRelationship,"SAME_REPORTED_RATE");
+  assert.match(rendered.comparisons[0].measurementLineage.caution,/does not establish identical/);
+  reports[1].sampleRateLineage={status:"UNKNOWN",sourceRateHz:null,
+    decodedRateHz:48000,workerRateHz:48000};
+  api.renderPilotComparisons();
+  rendered=JSON.parse(output.textContent);
+  assert.equal(rendered.comparisons[0].measurementLineage.sourceRateRelationship,"UNKNOWN");
+  assert.match(rendered.comparisons[0].measurementLineage.caution,/unknown or unverified/);
+  reports[1].sampleRateLineage={status:"VERIFIED_HEADER",sourceRateHz:NaN,
+    decodedRateHz:48000,workerRateHz:48000};
+  api.renderPilotComparisons();
+  rendered=JSON.parse(output.textContent);
+  assert.equal(rendered.comparisons[0].sampleRateLineage.sourceRateStatus,"UNKNOWN");
+  assert.equal(rendered.comparisons[0].sampleRateLineage.sourceRateHz,null);
+  delete reports[1].sampleRateLineage; // legacy reports are still readable
+  api.renderPilotComparisons();
+  rendered=JSON.parse(output.textContent);
+  assert.equal(rendered.comparisons[0].measurementLineage.sourceRateRelationship,"UNKNOWN");
+  assert.equal(rendered.comparisons[0].sampleRateLineage.workerRateHz,null);
+  assert.equal(rendered.comparisons[0].status,"AVAILABLE");
+  assert.equal(rendered.comparisons[0].sourceIdentity,"UNVERIFIED");
+  assert.equal(JSON.stringify([base,alt]),beforeLineage);
+  reports.splice(0,reports.length);
+  referenceSelect.value="";
   assert.equal(api.comparePilotSummaries(summary(44100),summary(48000)).status,"UNAVAILABLE");
   const lowRate=summary(16000),partial=api.comparePilotSummaries(lowRate,lowRate);
   assert.equal(partial.status,"AVAILABLE");
