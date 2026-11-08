@@ -4822,7 +4822,7 @@ test("Stage 2R-2C rejects contradictory displayed rate lineage while preserving 
   assert.equal(missing.sampleRateLineage.lineageIntegrity,"UNVERIFIED");
   assert.equal(missing.sampleRateLineage.lineageReason,"MISSING_RATE_LINEAGE");
   assert.equal(missing.measurementLineage.sourceRateRelationship,"UNKNOWN");
-  assert.match(missing.measurementLineage.caution,/unknown or unverified/);
+  assert.match(missing.measurementLineage.caution,/lineage UNVERIFIED/);
 
   // Different compact summary rates remain incompatible irrespective of
   // seemingly matching display metadata.
