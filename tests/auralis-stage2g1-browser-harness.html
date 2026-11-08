@@ -1316,7 +1316,7 @@
       pilotComparison.textContent=JSON.stringify({reference:{run:index+1,name:reference.name,
         sampleRateLineage:referenceLineage},
         comparisons:pilotReports.flatMap((candidate,i)=>i===index?[]:[{candidate:{run:i+1,name:candidate.name},
-          sampleRateLineage:lineage(candidate)},...comparePilotSummaries(reference.summary,candidate.summary),
+          sampleRateLineage:lineage(candidate),...comparePilotSummaries(reference.summary,candidate.summary),
           measurementLineage:comparisonContext(reference,candidate)}])},null,2);
     }
 
