@@ -1327,6 +1327,10 @@
           if(next>end||next<=offset)return unverified("INVALID_CHUNK_BOUNDARY");
           if(id==="fmt ") {
             if(size<16||offset+24>n)return unverified("TRUNCATED_FMT");
+            if(size!==16&&size!==18)return unknown("UNSUPPORTED_FMT_EXTENSION");
+            if(size===18&&offset+26>n)return unverified("TRUNCATED_FMT_EXTENSION");
+            if(size===18&&v.getUint16(offset+24,true)!==0)
+              return unknown("UNSUPPORTED_FMT_EXTENSION");
             const p=offset+8,format=v.getUint16(p,true),channels=v.getUint16(p+2,true);
             const rate=v.getUint32(p+4,true),byteRate=v.getUint32(p+8,true);
             const align=v.getUint16(p+12,true),bits=v.getUint16(p+14,true);
