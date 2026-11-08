@@ -4712,7 +4712,7 @@ test("Stage 2N-1 completed-summary comparisons preserve gain controls and fail c
 });
 
 
-test("Stage 2R-2B characterizes synthetic A/B measurement-claim boundaries without changing production",async()=>{
+test("Stage 2R-2C rejects contradictory displayed rate lineage while preserving compact-summary comparison",async()=>{
   const harness=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
   const {runInNewContext}=await import("node:vm");
   const source=harness.slice(harness.indexOf("function comparePilotSummaries("),
@@ -4765,6 +4765,8 @@ test("Stage 2R-2B characterizes synthetic A/B measurement-claim boundaries witho
   assert.equal(clean.scoringImpact,"NONE");
   assert.equal(clean.sourceIdentity,"UNVERIFIED");
   assert.equal(clean.measurementLineage.sourceRateRelationship,"DIFFERENT");
+  assert.equal(clean.sampleRateLineage.lineageIntegrity,"VERIFIED_DECODED_PCM");
+  assert.equal(clean.sampleRateLineage.summaryPcmRateHz,48000);
   assert.match(clean.measurementLineage.caution,/resampling/);
   assert.match(clean.measurementLineage.caution,/Sample-peak deltas are decoded-PCM/);
   assert.equal(clean.meters.loudnessRangeLu.status,"UNAVAILABLE");
@@ -4773,39 +4775,54 @@ test("Stage 2R-2B characterizes synthetic A/B measurement-claim boundaries witho
   assert.equal(clean.meters.truePeakDbtp4x.status,"AVAILABLE");
   assert.equal(clean.meters.truePeakDbtp4x.delta,0);
   assert.doesNotMatch(clean.interpretation,/certified compliance/i);
+  assert.match(clean.measurementLineage.caution,/True-peak estimates are NOT CERTIFIED/);
 
-  // CHARACTERIZATION ONLY: these are known currently accepted misleading
-  // presentation combinations, not desirable guarantees or pass criteria.
+  // Stage 2R-2B documented these defects as currently accepted behavior.
+  // Stage 2R-2C now requires fail-closed presentation semantics without
+  // changing underlying numeric comparison eligibility or arithmetic.
   c.sampleRateLineage=rate(48000,44100,48000);
   const badDecoded=render(r,c);
   assert.equal(badDecoded.status,"AVAILABLE");
-  assert.equal(badDecoded.sampleRateLineage.decodedRateHz,44100);
-  assert.equal(badDecoded.sampleRateLineage.workerRateHz,48000);
+  assert.equal(badDecoded.sampleRateLineage.decodedRateHz,null);
+  assert.equal(badDecoded.sampleRateLineage.workerRateHz,null);
+  assert.equal(badDecoded.sampleRateLineage.lineageIntegrity,"UNVERIFIED");
+  assert.equal(badDecoded.sampleRateLineage.lineageReason,"DECODED_RATE_CONTRADICTS_SUMMARY");
+  assert.match(badDecoded.measurementLineage.caution,/lineage UNVERIFIED/);
   assert.equal(candidate.sourceProvenance.sampleRate,48000);
-  assert.equal(badDecoded.measurementLineage.sourceRateRelationship,"DIFFERENT");
+  assert.equal(badDecoded.measurementLineage.sourceRateRelationship,"UNKNOWN");
+  assert.equal(badDecoded.scoringImpact,"NONE");
+  assert.equal(badDecoded.sourceIdentity,"UNVERIFIED");
+  assert.equal(badDecoded.meters.samplePeakDbfs.delta,clean.meters.samplePeakDbfs.delta);
 
   c.sampleRateLineage=rate(48000,48000,44100);
   const badWorker=render(r,c);
   assert.equal(badWorker.status,"AVAILABLE");
-  assert.equal(badWorker.sampleRateLineage.workerRateHz,44100);
-  assert.equal(badWorker.sampleRateLineage.decodedRateHz,48000);
-  assert.equal(badWorker.measurementLineage.sourceRateRelationship,"DIFFERENT");
+  assert.equal(badWorker.sampleRateLineage.workerRateHz,null);
+  assert.equal(badWorker.sampleRateLineage.decodedRateHz,null);
+  assert.equal(badWorker.sampleRateLineage.lineageReason,"WORKER_RATE_CONTRADICTS_SUMMARY");
+  assert.equal(badWorker.sampleRateLineage.lineageIntegrity,"UNVERIFIED");
+  assert.equal(badWorker.measurementLineage.sourceRateRelationship,"UNKNOWN");
 
-  // A fabricated but schema-valid rate is accepted in the descriptive
-  // envelope even when contradicting authoritative decoded PCM provenance.
+  // Even two mutually matching fabricated rates must not override the summary.
   c.sampleRateLineage=rate(48000,96000,96000);
   const badBoth=render(r,c);
   assert.equal(badBoth.status,"AVAILABLE");
-  assert.equal(badBoth.sampleRateLineage.decodedRateHz,96000);
-  assert.equal(badBoth.sampleRateLineage.workerRateHz,96000);
+  assert.equal(badBoth.sampleRateLineage.decodedRateHz,null);
+  assert.equal(badBoth.sampleRateLineage.workerRateHz,null);
+  assert.equal(badBoth.sampleRateLineage.summaryPcmRateHz,48000);
+  assert.equal(badBoth.sampleRateLineage.lineageIntegrity,"UNVERIFIED");
+  assert.equal(badBoth.sampleRateLineage.lineageReason,"DECODED_RATE_CONTRADICTS_SUMMARY");
+  assert.equal(badBoth.measurementLineage.sourceRateRelationship,"UNKNOWN");
   assert.equal(candidate.sourceProvenance.sampleRate,48000);
 
   delete c.sampleRateLineage;
   const missing=render(r,c);
   assert.equal(missing.status,"AVAILABLE");
   assert.equal(missing.sampleRateLineage.sourceRateStatus,"UNKNOWN");
+  assert.equal(missing.sampleRateLineage.lineageIntegrity,"UNVERIFIED");
+  assert.equal(missing.sampleRateLineage.lineageReason,"MISSING_RATE_LINEAGE");
   assert.equal(missing.measurementLineage.sourceRateRelationship,"UNKNOWN");
-  assert.match(missing.measurementLineage.caution,/unknown or unverified/);
+  assert.match(missing.measurementLineage.caution,/lineage UNVERIFIED/);
 
   // Different compact summary rates remain incompatible irrespective of
   // seemingly matching display metadata.
@@ -4817,8 +4834,10 @@ test("Stage 2R-2B characterizes synthetic A/B measurement-claim boundaries witho
   assert.equal(rejected.reason,"MALFORMED_OR_UNSUPPORTED_SUMMARY");
   assert.equal(rejected.scoringImpact,"NONE");
   assert.equal(rejected.sourceIdentity,"UNVERIFIED");
-  assert.equal(rejected.measurementLineage.sourceRateRelationship,"SAME_REPORTED_RATE");
-  assert.match(rejected.measurementLineage.caution,/identical recordings/);
+  assert.equal(rejected.measurementLineage.sourceRateRelationship,"UNKNOWN");
+  assert.equal(rejected.sampleRateLineage.lineageIntegrity,"UNVERIFIED");
+  assert.equal(rejected.sampleRateLineage.lineageReason,"UNVERIFIED_COMPACT_SUMMARY_RATE");
+  assert.match(rejected.measurementLineage.caution,/Numeric comparison UNAVAILABLE/);
 
   const certified=makeSummary();
   certified.referenceMeters.truePeakAccuracyStatus="CERTIFIED";
@@ -4831,12 +4850,28 @@ test("Stage 2R-2B characterizes synthetic A/B measurement-claim boundaries witho
   const badScore=render(r,{name:"fake scoring",summary:score,sampleRateLineage:rate(44100)});
   assert.equal(badScore.status,"UNAVAILABLE");
   assert.equal(badScore.scoringImpact,"NONE");
+  const malformed=render(r,{name:"bad rate type",summary:candidate,
+    sampleRateLineage:{status:"VERIFIED_HEADER",sourceRateHz:48000,
+      decodedRateHz:"48000",workerRateHz:48000}});
+  assert.equal(malformed.status,"AVAILABLE");
+  assert.equal(malformed.sampleRateLineage.lineageIntegrity,"UNVERIFIED");
+  assert.equal(malformed.sampleRateLineage.lineageReason,"MISSING_OR_MALFORMED_DECODED_WORKER_RATE");
+  assert.equal(malformed.measurementLineage.sourceRateRelationship,"UNKNOWN");
+  const absentWorker=render(r,{name:"missing Worker rate",summary:candidate,
+    sampleRateLineage:{status:"UNKNOWN",sourceRateHz:null,decodedRateHz:48000}});
+  assert.equal(absentWorker.status,"AVAILABLE");
+  assert.equal(absentWorker.sampleRateLineage.lineageIntegrity,"UNVERIFIED");
+  assert.equal(absentWorker.sampleRateLineage.workerRateHz,null);
+  assert.equal(absentWorker.measurementLineage.sourceRateRelationship,"UNKNOWN");
   assert.equal(JSON.stringify([baseline,candidate]),before);
   assert.doesNotMatch(source,/decodeAudioFile|new Worker|analyzeEngineeringDiagnosticsInWorker|fetch\(/);
-  console.log("AURALIS_STAGE2R2B_BOUNDARY "+JSON.stringify({
+  console.log("AURALIS_STAGE2R2C_BOUNDARY "+JSON.stringify({
     ordinary:clean.status,missingSource:missing.measurementLineage.sourceRateRelationship,
-    contradictionDecoded:badDecoded.status,contradictionWorker:badWorker.status,
-    contradictionBoth:badBoth.status,invalidSummary:rejected.reason,
-    fakeCertification:badCertified.reason,scoringImpact:badScore.scoringImpact,
-    observedRisk:"PRESENTATION_ACCEPTS_CONTRADICTORY_RATE_LINEAGE"}));
+    contradictionDecoded:badDecoded.sampleRateLineage.lineageReason,
+    contradictionWorker:badWorker.sampleRateLineage.lineageReason,
+    contradictionBoth:badBoth.sampleRateLineage.lineageIntegrity,
+    malformed:malformed.sampleRateLineage.lineageReason,
+    invalidSummary:rejected.reason,fakeCertification:badCertified.reason,
+    scoringImpact:badScore.scoringImpact,
+    observedProtection:"CONTRADICTORY_RATE_LINEAGE_UNVERIFIED"}));
 });

@@ -1292,32 +1292,65 @@
       // Stage 2Q-2: presentation only. Preserve the pure compact-summary comparator
       // and its independent compatibility, arithmetic and UNVERIFIED identity rules.
       const lineage=record=>{
-        const p=record?.sampleRateLineage;
+        const p=record?.sampleRateLineage,summary=record?.summary;
         const validRate=v=>Number.isInteger(v)&&v>=8000&&v<=192000;
-        return {sourceRateStatus:p?.status==="VERIFIED_HEADER"&&validRate(p.sourceRateHz)?
-            "VERIFIED_HEADER":p?.status==="UNVERIFIED"?"UNVERIFIED":"UNKNOWN",
-          sourceRateHz:p?.status==="VERIFIED_HEADER"&&validRate(p.sourceRateHz)?p.sourceRateHz:null,
-          decodedRateHz:validRate(p?.decodedRateHz)?p.decodedRateHz:null,
-          workerRateHz:validRate(p?.workerRateHz)?p.workerRateHz:null};
+        // Source header verification is independent of decoded PCM identity.
+        // The compact summary is authoritative for the rate actually measured.
+        const summaryRate=summary?.sourceProvenance?.sampleRate;
+        const summaryConsistent=validRate(summaryRate)&&
+          summary?.spectralProfile?.sampleRate===summaryRate&&
+          summary?.referenceMeters?.sampleRate===summaryRate;
+        const hasLineage=p!==null&&typeof p==="object"&&!Array.isArray(p);
+        let reason=null;
+        if(!summaryConsistent)reason="UNVERIFIED_COMPACT_SUMMARY_RATE";
+        else if(!hasLineage)reason="MISSING_RATE_LINEAGE";
+        else if(!validRate(p.decodedRateHz)||!validRate(p.workerRateHz))
+          reason="MISSING_OR_MALFORMED_DECODED_WORKER_RATE";
+        else if(p.decodedRateHz!==summaryRate)reason="DECODED_RATE_CONTRADICTS_SUMMARY";
+        else if(p.workerRateHz!==summaryRate)reason="WORKER_RATE_CONTRADICTS_SUMMARY";
+        const verified=reason===null;
+        const sourceVerified=hasLineage&&p.status==="VERIFIED_HEADER"&&validRate(p.sourceRateHz);
+        return {
+          lineageIntegrity:verified?"VERIFIED_DECODED_PCM":"UNVERIFIED",
+          lineageReason:verified?null:reason,
+          summaryPcmRateHz:summaryConsistent?summaryRate:null,
+          sourceRateStatus:sourceVerified?"VERIFIED_HEADER":
+            p?.status==="UNVERIFIED"?"UNVERIFIED":"UNKNOWN",
+          sourceRateHz:sourceVerified?p.sourceRateHz:null,
+          // Do not display conflicting metadata as accepted decoded/Worker rates.
+          decodedRateHz:verified?p.decodedRateHz:null,
+          workerRateHz:verified?p.workerRateHz:null,
+        };
       };
-      const comparisonContext=(a,b)=>{
-        const r=lineage(a),c=lineage(b);
-        const confirmed=r.sourceRateStatus==="VERIFIED_HEADER"&&c.sourceRateStatus==="VERIFIED_HEADER";
+      const comparisonContext=(r,c,comparison)=>{
+        const confirmed=comparison.status==="AVAILABLE"&&
+          r.lineageIntegrity==="VERIFIED_DECODED_PCM"&&
+          c.lineageIntegrity==="VERIFIED_DECODED_PCM"&&
+          r.sourceRateStatus==="VERIFIED_HEADER"&&c.sourceRateStatus==="VERIFIED_HEADER";
         const sourcesDiffer=confirmed&&r.sourceRateHz!==c.sourceRateHz;
+        const contradiction=r.lineageIntegrity==="UNVERIFIED"||c.lineageIntegrity==="UNVERIFIED";
         return {referenceRateLineage:r,candidateRateLineage:c,
           sourceRateRelationship:!confirmed?"UNKNOWN":sourcesDiffer?"DIFFERENT":"SAME_REPORTED_RATE",
           caution:"Non-scoring descriptive decoded-PCM deltas only; source identity remains UNVERIFIED. "+
-            (sourcesDiffer?"Original WAV rates differ; browser resampling may affect compared measurements. ":
+            (comparison.status!=="AVAILABLE"?"Numeric comparison UNAVAILABLE; do not infer a measured difference. ":
+              contradiction?"Displayed decoded/Worker rate lineage UNVERIFIED; summary PCM provenance controls comparison arithmetic. ":
+              sourcesDiffer?"Original WAV rates differ; browser resampling may affect compared measurements. ":
               !confirmed?"Original source rate unknown or unverified for one or both recordings. ":
               "Same source rate does not establish identical recordings or decoded samples. ")+
+            "True-peak estimates are NOT CERTIFIED for delivery compliance. "+
             "Sample-peak deltas are decoded-PCM observations, not evidence of original-file clipping, mastering or gain changes."};
       };
       const referenceLineage=lineage(reference);
       pilotComparison.textContent=JSON.stringify({reference:{run:index+1,name:reference.name,
         sampleRateLineage:referenceLineage},
-        comparisons:pilotReports.flatMap((candidate,i)=>i===index?[]:[{candidate:{run:i+1,name:candidate.name},
-          sampleRateLineage:lineage(candidate),...comparePilotSummaries(reference.summary,candidate.summary),
-          measurementLineage:comparisonContext(reference,candidate)}])},null,2);
+        comparisons:pilotReports.flatMap((candidate,i)=>{
+          if(i===index)return [];
+          const compared=comparePilotSummaries(reference.summary,candidate.summary);
+          const candidateLineage=lineage(candidate);
+          return [{candidate:{run:i+1,name:candidate.name},
+            sampleRateLineage:candidateLineage,...compared,
+            measurementLineage:comparisonContext(referenceLineage,candidateLineage,compared)}];
+        })},null,2);
     }
 
     function showPilotStatus(state,currentName,message) {
