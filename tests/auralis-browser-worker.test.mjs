@@ -76,8 +76,104 @@ async function browserTest(){
   if(invalidRate.status!=="UNAVAILABLE")throw Error("worker diagnostic failure isolation failed");
   const timeout=await analyze(new AudioBuffer({numberOfChannels:1,length:4096,sampleRate:44100}),undefined,128*1024*1024,1);
   if(!["AVAILABLE","UNAVAILABLE"].includes(timeout.status))throw Error("invalid timeout result");
+
+  // Stage 2O-2: deterministic synthetic float WAV inputs distinguish source,
+  // browser-decoded and Worker rates; they never use user recordings.
+  const rateLineage=[];
+  const scaledDb=-6,gain=Math.pow(10,scaledDb/20);
+  const makeSource=(sourceRate,scale=1)=>{
+    const length=sourceRate*2,channels=[new Float32Array(length),new Float32Array(length)];
+    for(let i=0;i<length;i++){
+      const t=i/sourceRate;
+      const transient=(i===Math.round(.63*sourceRate)||i===Math.round(1.38*sourceRate))?.72:0;
+      const v=(.09*Math.sin(2*Math.PI*107*t)+.06*Math.sin(2*Math.PI*441*t)+
+        .04*Math.sin(2*Math.PI*4073*t)+transient)*scale;
+      channels[0][i]=v;channels[1][i]=v*.75;
+    }
+    return channels;
+  };
+  const packFloatWav=(channels,rate)=>{
+    const length=channels[0].length,bytes=44+length*channels.length*4;
+    const bytesOut=new ArrayBuffer(bytes),dv=new DataView(bytesOut);
+    const str=(off,s)=>{for(let i=0;i<s.length;i++)dv.setUint8(off+i,s.charCodeAt(i));};
+    str(0,"RIFF");dv.setUint32(4,bytes-8,true);str(8,"WAVE");
+    str(12,"fmt ");dv.setUint32(16,16,true);dv.setUint16(20,3,true);
+    dv.setUint16(22,channels.length,true);dv.setUint32(24,rate,true);
+    dv.setUint32(28,rate*channels.length*4,true);dv.setUint16(32,channels.length*4,true);
+    dv.setUint16(34,32,true);str(36,"data");dv.setUint32(40,length*channels.length*4,true);
+    let off=44;
+    for(let i=0;i<length;i++)for(const channel of channels){dv.setFloat32(off,channel[i],true);off+=4;}
+    return bytesOut;
+  };
+  const peak=channels=>Math.max(...channels.map(ch=>{
+    let max=0;for(const v of ch)max=Math.max(max,Math.abs(v));return max;
+  }));
+  const sourceResult=async (rate,channels)=>{
+    const pcm=new AudioBuffer({sampleRate:rate,numberOfChannels:2,length:channels[0].length});
+    pcm.copyToChannel(channels[0],0);pcm.copyToChannel(channels[1],1);
+    const worker=await analyze(pcm,undefined,128*1024*1024,30000,true);
+    if(worker.status!=="AVAILABLE")throw Error("Stage 2O direct PCM unavailable "+rate+" "+worker.reason);
+    if(worker.evidence.sourceProvenance.sampleRate!==rate||worker.referenceMeters.sampleRate!==rate)
+      throw Error("Stage 2O direct PCM rate provenance mismatch");
+    return {sampleRate:rate,sourceSamples:pcm.length,workerRate:worker.evidence.sourceProvenance.sampleRate,
+      samplePeak:worker.referenceMeters.measurements.samplePeakDbfs,
+      truePeakStatus:worker.referenceMeters.truePeakAccuracyStatus};
+  };
+  for(const sourceRate of [44100,48000]){
+    const original=makeSource(sourceRate),attenuated=makeSource(sourceRate,gain);
+    const direct=await sourceResult(sourceRate,original);
+    const ctx=new AudioContext({sampleRate:48000});
+    let decoded,decodedGain;
+    try{
+      decoded=await ctx.decodeAudioData(packFloatWav(original,sourceRate));
+      decodedGain=await ctx.decodeAudioData(packFloatWav(attenuated,sourceRate));
+    }finally{await ctx.close();}
+    if(decoded.sampleRate!==48000||decodedGain.sampleRate!==48000)
+      throw Error("Stage 2O explicit browser 48k decode rate mismatch");
+    if(decoded.length!==decodedGain.length||decoded.numberOfChannels!==2)
+      throw Error("Stage 2O decoded pair shape mismatch");
+    const rawBefore=decoded.getChannelData(0)[123],rawGainBefore=decodedGain.getChannelData(0)[123];
+    const a=await analyze(decoded,undefined,128*1024*1024,30000,true);
+    const b=await analyze(decodedGain,undefined,128*1024*1024,30000,true);
+    if(a.status!=="AVAILABLE"||b.status!=="AVAILABLE")
+      throw Error("Stage 2O decoded Worker unavailable "+sourceRate+" "+a.reason+" "+b.reason);
+    for(const result of [a,b]){
+      const p=result.evidence.sourceProvenance;
+      if(p.sampleRate!==decoded.sampleRate||p.inputSampleCount!==decoded.length||
+         result.referenceMeters.sampleRate!==decoded.sampleRate||
+         result.referenceMeters.sampleCount!==decoded.length||
+         result.spectralProfile.sampleRate!==decoded.sampleRate)
+        throw Error("Stage 2O decoded/Worker provenance mismatch");
+      if(result.evidence.scoringImpact!=="NONE"||result.referenceMeters.scoringImpact!=="NONE")
+        throw Error("Stage 2O scoring isolation mismatch");
+    }
+    if(decoded.getChannelData(0)[123]!==rawBefore||decodedGain.getChannelData(0)[123]!==rawGainBefore)
+      throw Error("Stage 2O worker modified decoded PCM");
+    const measuresA=a.referenceMeters.measurements,measuresB=b.referenceMeters.measurements;
+    const close=(actual,expected,tolerance,what)=>{
+      if(!Number.isFinite(actual)||Math.abs(actual-expected)>tolerance)
+        throw Error("Stage 2O "+what+": "+actual+" expected "+expected+" +/-"+tolerance);
+    };
+    close(measuresB.samplePeakDbfs-measuresA.samplePeakDbfs,scaledDb,.015,"sample peak gain");
+    close(measuresB.rmsDbfs-measuresA.rmsDbfs,scaledDb,.015,"RMS gain");
+    close(measuresB.crestFactorDb-measuresA.crestFactorDb,0,.02,"crest gain");
+    for(const index of [1,2,3,4]){
+      const power=result=>result.spectralProfile.channelBandPower.reduce((sum,channel)=>sum+channel[index],0);
+      const delta=10*Math.log10(power(b)/power(a));
+      close(delta,scaledDb,.03,"spectral gain band "+index);
+    }
+    rateLineage.push({sourceRate,sourceSamples:original[0].length,
+      sourcePeakDbfs:20*Math.log10(peak(original)),direct,
+      decodedRate:decoded.sampleRate,decodedSamples:decoded.length,
+      workerRate:a.evidence.sourceProvenance.sampleRate,
+      referencePeakDbfs:measuresA.samplePeakDbfs,
+      gainPeakDeltaDb:measuresB.samplePeakDbfs-measuresA.samplePeakDbfs,
+      truePeakStatus:a.referenceMeters.truePeakAccuracyStatus,
+      sourceToDecodedPeakDeltaDb:measuresA.samplePeakDbfs-20*Math.log10(peak(original))});
+  }
+
   return {userAgent:navigator.userAgent,records,oversize:oversize.reason,abort:abort.status,invalidRate:invalidRate.status,timeout:timeout.status,
-    heapBytes:performance.memory?.usedJSHeapSize??null,lifecycle,repeatedSamples:samples,memoryNote:"renderer JS heap snapshots only; not browser/worker process peak RSS"};
+    heapBytes:performance.memory?.usedJSHeapSize??null,lifecycle,repeatedSamples:samples,rateLineage,memoryNote:"renderer JS heap snapshots only; not browser/worker process peak RSS"};
 }
 // Stage 2N-2: this hook is appended only to the in-memory test response.
 // The repository harness, comparator, renderer and change listener are unmodified.
@@ -208,6 +304,18 @@ test("Auralis real Chromium worker: synthetic 60/300 sec, PCM ownership, budget 
     if(data.exceptionDetails)throw Error("Browser test threw: "+JSON.stringify(data.exceptionDetails).slice(0,1000));
     const result=data.result.value;
     assert.equal(result.records.length,4);
+    assert.equal(result.rateLineage.length,2);
+    for(const item of result.rateLineage){
+      assert.equal(item.decodedRate,48000);
+      assert.equal(item.workerRate,item.decodedRate);
+      assert.equal(item.direct.workerRate,item.sourceRate);
+      assert.equal(item.direct.sourceSamples,item.sourceSamples);
+      assert.ok(Math.abs(item.gainPeakDeltaDb+6)<.015);
+      assert.equal(item.truePeakStatus,"ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED");
+      assert.ok(Number.isFinite(item.sourceToDecodedPeakDeltaDb));
+    }
+    assert.equal(result.rateLineage[0].sourceRate,44100);
+    assert.equal(result.rateLineage[1].sourceRate,48000);
     for(const r of result.records){assert.ok(r.elapsedMs<30000);assert.ok(r.pcmBytes<128*1024*1024)}
     assert.equal(result.lifecycle.length,2);
     assert.equal(result.repeatedSamples.length,3);
