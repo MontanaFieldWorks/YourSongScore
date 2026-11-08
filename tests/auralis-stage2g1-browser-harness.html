@@ -1347,8 +1347,7 @@
           if(i===index)return [];
           const compared=comparePilotSummaries(reference.summary,candidate.summary);
           const candidateLineage=lineage(candidate);
-          return [{candidate:{run:i+1,name:candidate.name,
-            sampleRateLineage:candidateLineage},
+          return [{candidate:{run:i+1,name:candidate.name},
             sampleRateLineage:candidateLineage,...compared,
             measurementLineage:comparisonContext(referenceLineage,candidateLineage,compared)}];
         })},null,2);
