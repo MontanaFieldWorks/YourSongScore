@@ -209,6 +209,7 @@ function installSelectorFixture() {
     output:pilotComparison.textContent,history:JSON.stringify(pilotReports),count:pilotReports.length,
     trustedChanges,work:globalThis.__selectorWork,rawOutput:out.textContent,
     markupCount:pilotReference.querySelectorAll("b").length+pilotComparison.querySelectorAll("b").length});
+  globalThis.__stage2pInspect=inspectPilotWavSourceRate;
   globalThis.__selectorReady=true;
 }
 
@@ -263,6 +264,76 @@ async function checkPilotSelector(cdp,appPort) {
   assert.deepEqual(s.work,{worker:0,audio:0,decode:0});
   console.log("AURALIS_SELECTOR_BROWSER "+JSON.stringify({status:"PASS",completedSummaries:s.count,
     trustedChanges:s.trustedChanges,work:s.work,source:"actual harness with test-only synthetic summaries"}));
+}
+
+// Stage 2P-2: browser-native File/Blob fixtures exercise the actual harness
+// header inspector. This runs no audio decoder, Worker or user-song analysis.
+async function sourceRateFixturesInBrowser(){
+  const inspect=globalThis.__stage2pInspect;
+  if(typeof inspect!=="function")throw Error("Missing actual pilot header inspector");
+  const wav=(rate,junk=0)=>{
+    const extra=junk?8+junk+(junk%2):0,fmt=12+extra,data=fmt+24;
+    const bytes=new ArrayBuffer(data+12),v=new DataView(bytes);
+    const tag=(i,s)=>{for(let j=0;j<s.length;j++)v.setUint8(i+j,s.charCodeAt(j));};
+    tag(0,"RIFF");v.setUint32(4,bytes.byteLength-8,true);tag(8,"WAVE");
+    if(junk){tag(12,"JUNK");v.setUint32(16,junk,true);}
+    tag(fmt,"fmt ");v.setUint32(fmt+4,16,true);
+    v.setUint16(fmt+8,1,true);v.setUint16(fmt+10,1,true);
+    v.setUint32(fmt+12,rate,true);v.setUint32(fmt+16,rate*2,true);
+    v.setUint16(fmt+20,2,true);v.setUint16(fmt+22,16,true);
+    tag(data,"data");v.setUint32(data+4,4,true);
+    return {bytes,fmt};
+  };
+  const cases=[];
+  const add=async(name,bytes,fileName="fixture.wav")=>{
+    const file=new File([bytes],fileName,{type:"audio/wav"});
+    const result=await inspect(file);cases.push({name,...result});
+    return result;
+  };
+  const normal=wav(44100);await add("44100",normal.bytes);
+  const reordered=wav(48000,3);await add("48000_junk_odd",reordered.bytes);
+  const invalidRate=wav(44100);new DataView(invalidRate.bytes).setUint32(invalidRate.fmt+12,0,true);
+  await add("zero_rate",invalidRate.bytes);
+  const invalidByteRate=wav(44100);new DataView(invalidByteRate.bytes).setUint32(invalidByteRate.fmt+16,88201,true);
+  await add("wrong_byte_rate",invalidByteRate.bytes);
+  await add("truncated",new Uint8Array(8));
+  const missing=wav(44100),mv=new DataView(missing.bytes);
+  for(let j=0;j<4;j++)mv.setUint8(missing.fmt+j,"JUNK".charCodeAt(j));
+  await add("missing_fmt",missing.bytes);
+  const rf64=wav(44100),rv=new DataView(rf64.bytes);
+  for(let j=0;j<4;j++)rv.setUint8(j,"RF64".charCodeAt(j));
+  await add("rf64_unsupported",rf64.bytes);
+  await add("mp3_unsupported",normal.bytes,"fixture.mp3");
+  const beyond=wav(44100,65534);
+  await add("fmt_beyond_64k",beyond.bytes);
+  const invalidChunk=wav(44100,3);
+  new DataView(invalidChunk.bytes).setUint32(16,4294967295,true);
+  await add("invalid_chunk",invalidChunk.bytes);
+  const truncatedFmt=wav(44100),tv=new DataView(truncatedFmt.bytes);
+  tv.setUint32(truncatedFmt.fmt+4,12,true);
+  await add("invalid_fmt_size",truncatedFmt.bytes);
+  return {cases,work:globalThis.__selectorWork};
+}
+async function checkPilotSourceRate(cdp){
+  const value=await cdp("Runtime.evaluate",{
+    expression:"("+sourceRateFixturesInBrowser.toString()+")()",
+    awaitPromise:true,returnByValue:true});
+  if(value.exceptionDetails)throw Error("Stage 2P-2 browser source-rate fixtures: "+JSON.stringify(value.exceptionDetails));
+  const out=value.result.value,lookup=Object.fromEntries(out.cases.map(x=>[x.name,x]));
+  for(const [name,rate] of [["44100",44100],["48000_junk_odd",48000]]){
+    assert.equal(lookup[name].status,"VERIFIED_HEADER");
+    assert.equal(lookup[name].sourceRateHz,rate);
+  }
+  for(const name of ["zero_rate","wrong_byte_rate","truncated","missing_fmt","invalid_chunk","invalid_fmt_size"]){
+    assert.equal(lookup[name].status,"UNVERIFIED",name);
+    assert.equal(lookup[name].sourceRateHz,null,name);
+  }
+  for(const name of ["rf64_unsupported","mp3_unsupported","fmt_beyond_64k"]){
+    assert.equal(lookup[name].status,"UNKNOWN",name);
+    assert.equal(lookup[name].sourceRateHz,null,name);
+  }
+  assert.deepEqual(out.work,{worker:0,audio:0,decode:0});
+  console.log("AURALIS_STAGE2P_SOURCE_RATE "+JSON.stringify(out));
 }
 
 test("Auralis real Chromium worker: synthetic 60/300 sec, PCM ownership, budget and abort",{
@@ -322,5 +393,6 @@ test("Auralis real Chromium worker: synthetic 60/300 sec, PCM ownership, budget 
     for(const item of result.lifecycle)assert.equal(item.activeAbort,"CANCELLED");
     console.log("AURALIS_REAL_BROWSER "+JSON.stringify(result));
     await checkPilotSelector(cdp,appPort);
+    await checkPilotSourceRate(cdp);
   }finally{ws?.close();chrome?.kill("SIGKILL");await vite.close()}
 });
