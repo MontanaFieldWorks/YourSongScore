@@ -4710,3 +4710,133 @@ test("Stage 2N-1 completed-summary comparisons preserve gain controls and fail c
   assert.match(harness,/pilotReference.addEventListener\("change",renderPilotComparisons\)/);
   assert.doesNotMatch(source,/decodeAudioFile|new Worker|analyzeEngineeringDiagnosticsInWorker|fetch\(/);
 });
+
+
+test("Stage 2R-2B characterizes synthetic A/B measurement-claim boundaries without changing production",async()=>{
+  const harness=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
+  const {runInNewContext}=await import("node:vm");
+  const source=harness.slice(harness.indexOf("function comparePilotSummaries("),
+    harness.indexOf("function showPilotStatus("));
+  assert.ok(source.startsWith("function comparePilotSummaries("));
+  const select={value:"0",disabled:false,replaceChildren(){},add(){}};
+  const output={textContent:""},reports=[];
+  const context={pilotReference:select,pilotComparison:output,pilotReports:reports,
+    Option:class Option{constructor(text,value){this.text=text;this.value=value;}}};
+  const api=runInNewContext("(function(){"+source+
+    ";return {comparePilotSummaries,renderPilotComparisons};})()",context);
+  // Static fabricated compact summaries: no synthetic PCM generation, decoding,
+  // Worker, browser, network, paid service, or running song analysis.
+  const edges=[20,60,250,500,2000,6000,11000,20000];
+  const makeSummary=()=>({
+    schemaVersion:"stage2i2-local-song-summary-v1",scoringImpact:"NONE",
+    sourceProvenance:{methods:["stage2a-hann-fft-power-v1","stage2b1-low-frame-power-v1",
+      "stage2b2-band-stereo-v1"],sampleRate:48000,channelCount:2,fftSize:4096,
+      hopSize:2048,window:"periodic-hann",
+      spectralNormalization:"one-sided-parseval-sum-window-squared",
+      numericBandPowerFloor:1e-12,cancellationRelativePowerTolerance:1e-12,
+      inputSampleCount:8192,representedSampleCount:8192,
+      omittedTrailingSampleCount:0,zeroPaddedSampleCount:0},
+    spectralProfile:{schemaVersion:"stage2j1-spectral-profile-v1",
+      method:"stage2a-hann-fft-power-v1",units:"mean-square-full-scale-pcm",
+      sampleRate:48000,channelCount:2,fftSize:4096,hopSize:2048,frames:3,
+      representedSampleCount:8192,omittedTrailingSampleCount:0,zeroPaddedSampleCount:0,
+      bands:edges.slice(0,-1).map((lo,i)=>({bandHz:[lo,edges[i+1]],
+        status:"AVAILABLE",channelPower:[0.01,0.02]}))},
+    referenceMeters:{schemaVersion:"stage2k-meter-summary-v1",
+      method:"stage1a-reference-v1",sampleRate:48000,channelCount:2,
+      sampleCount:8192,lraAvailability:"TOO_SHORT",
+      truePeakAccuracyStatus:"ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED",
+      measurements:{samplePeakDbfs:-3,truePeakDbtp4x:-2,rmsDbfs:-12,
+        midRmsDbfs:-13,crestFactorDb:9,midCrestFactorDb:10,
+        integratedLufs:null,loudnessRangeLu:null}}});
+  const baseline=makeSummary(),candidate=makeSummary();
+  const rate=(source,decoded=48000,worker=48000)=>({
+    status:"VERIFIED_HEADER",sourceRateHz:source,decodedRateHz:decoded,workerRateHz:worker});
+  const render=(r,c)=>{
+    reports.splice(0,reports.length,r,c);
+    select.value="0";api.renderPilotComparisons();
+    return JSON.parse(output.textContent).comparisons[0];
+  };
+  const r={name:"fabricated reference",summary:baseline,sampleRateLineage:rate(44100)};
+  const c={name:"fabricated candidate",summary:candidate,sampleRateLineage:rate(48000)};
+  const before=JSON.stringify([baseline,candidate]);
+  const clean=render(r,c);
+  assert.equal(clean.status,"AVAILABLE");
+  assert.equal(clean.scoringImpact,"NONE");
+  assert.equal(clean.sourceIdentity,"UNVERIFIED");
+  assert.equal(clean.measurementLineage.sourceRateRelationship,"DIFFERENT");
+  assert.match(clean.measurementLineage.caution,/resampling/);
+  assert.match(clean.measurementLineage.caution,/Sample-peak deltas are decoded-PCM/);
+  assert.equal(clean.meters.loudnessRangeLu.status,"UNAVAILABLE");
+  assert.equal(clean.truePeakAccuracy.reference,"ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED");
+  assert.equal(clean.truePeakAccuracy.candidate,"ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED");
+  assert.equal(clean.meters.truePeakDbtp4x.status,"AVAILABLE");
+  assert.equal(clean.meters.truePeakDbtp4x.delta,0);
+  assert.doesNotMatch(clean.interpretation,/certified compliance/i);
+
+  // CHARACTERIZATION ONLY: these are known currently accepted misleading
+  // presentation combinations, not desirable guarantees or pass criteria.
+  c.sampleRateLineage=rate(48000,44100,48000);
+  const badDecoded=render(r,c);
+  assert.equal(badDecoded.status,"AVAILABLE");
+  assert.equal(badDecoded.sampleRateLineage.decodedRateHz,44100);
+  assert.equal(badDecoded.sampleRateLineage.workerRateHz,48000);
+  assert.equal(candidate.sourceProvenance.sampleRate,48000);
+  assert.equal(badDecoded.measurementLineage.sourceRateRelationship,"DIFFERENT");
+
+  c.sampleRateLineage=rate(48000,48000,44100);
+  const badWorker=render(r,c);
+  assert.equal(badWorker.status,"AVAILABLE");
+  assert.equal(badWorker.sampleRateLineage.workerRateHz,44100);
+  assert.equal(badWorker.sampleRateLineage.decodedRateHz,48000);
+  assert.equal(badWorker.measurementLineage.sourceRateRelationship,"DIFFERENT");
+
+  // A fabricated but schema-valid rate is accepted in the descriptive
+  // envelope even when contradicting authoritative decoded PCM provenance.
+  c.sampleRateLineage=rate(48000,96000,96000);
+  const badBoth=render(r,c);
+  assert.equal(badBoth.status,"AVAILABLE");
+  assert.equal(badBoth.sampleRateLineage.decodedRateHz,96000);
+  assert.equal(badBoth.sampleRateLineage.workerRateHz,96000);
+  assert.equal(candidate.sourceProvenance.sampleRate,48000);
+
+  delete c.sampleRateLineage;
+  const missing=render(r,c);
+  assert.equal(missing.status,"AVAILABLE");
+  assert.equal(missing.sampleRateLineage.sourceRateStatus,"UNKNOWN");
+  assert.equal(missing.measurementLineage.sourceRateRelationship,"UNKNOWN");
+  assert.match(missing.measurementLineage.caution,/unknown or unverified/);
+
+  // Different compact summary rates remain incompatible irrespective of
+  // seemingly matching display metadata.
+  const inconsistent=makeSummary();
+  inconsistent.sourceProvenance.sampleRate=44100;
+  const rejected=render(r,{name:"mismatch",summary:inconsistent,
+    sampleRateLineage:rate(44100,48000,48000)});
+  assert.equal(rejected.status,"UNAVAILABLE");
+  assert.equal(rejected.reason,"MALFORMED_OR_UNSUPPORTED_SUMMARY");
+  assert.equal(rejected.scoringImpact,"NONE");
+  assert.equal(rejected.sourceIdentity,"UNVERIFIED");
+  assert.equal(rejected.measurementLineage.sourceRateRelationship,"SAME_REPORTED_RATE");
+  assert.match(rejected.measurementLineage.caution,/identical recordings/);
+
+  const certified=makeSummary();
+  certified.referenceMeters.truePeakAccuracyStatus="CERTIFIED";
+  const badCertified=render(r,{name:"fake certified",summary:certified,
+    sampleRateLineage:rate(44100)});
+  assert.equal(badCertified.status,"UNAVAILABLE");
+  assert.equal(badCertified.reason,"MALFORMED_OR_UNSUPPORTED_SUMMARY");
+  assert.equal(badCertified.scoringImpact,"NONE");
+  const score=makeSummary();score.scoringImpact="SCORE";
+  const badScore=render(r,{name:"fake scoring",summary:score,sampleRateLineage:rate(44100)});
+  assert.equal(badScore.status,"UNAVAILABLE");
+  assert.equal(badScore.scoringImpact,"NONE");
+  assert.equal(JSON.stringify([baseline,candidate]),before);
+  assert.doesNotMatch(source,/decodeAudioFile|new Worker|analyzeEngineeringDiagnosticsInWorker|fetch\(/);
+  console.log("AURALIS_STAGE2R2B_BOUNDARY "+JSON.stringify({
+    ordinary:clean.status,missingSource:missing.measurementLineage.sourceRateRelationship,
+    contradictionDecoded:badDecoded.status,contradictionWorker:badWorker.status,
+    contradictionBoth:badBoth.status,invalidSummary:rejected.reason,
+    fakeCertification:badCertified.reason,scoringImpact:badScore.scoringImpact,
+    observedRisk:"PRESENTATION_ACCEPTS_CONTRADICTORY_RATE_LINEAGE"}));
+});
