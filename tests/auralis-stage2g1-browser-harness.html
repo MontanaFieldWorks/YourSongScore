@@ -1289,9 +1289,35 @@
         pilotComparison.textContent="Choose a reference after two files complete. No audio is rerun.";return;
       }
       const reference=pilotReports[index];
-      pilotComparison.textContent=JSON.stringify({reference:{run:index+1,name:reference.name},
+      // Stage 2Q-2: presentation only. Preserve the pure compact-summary comparator
+      // and its independent compatibility, arithmetic and UNVERIFIED identity rules.
+      const lineage=record=>{
+        const p=record?.sampleRateLineage;
+        const validRate=v=>Number.isInteger(v)&&v>=8000&&v<=192000;
+        return {sourceRateStatus:p?.status==="VERIFIED_HEADER"&&validRate(p.sourceRateHz)?
+            "VERIFIED_HEADER":p?.status==="UNVERIFIED"?"UNVERIFIED":"UNKNOWN",
+          sourceRateHz:p?.status==="VERIFIED_HEADER"&&validRate(p.sourceRateHz)?p.sourceRateHz:null,
+          decodedRateHz:validRate(p?.decodedRateHz)?p.decodedRateHz:null,
+          workerRateHz:validRate(p?.workerRateHz)?p.workerRateHz:null};
+      };
+      const comparisonContext=(a,b)=>{
+        const r=lineage(a),c=lineage(b);
+        const confirmed=r.sourceRateStatus==="VERIFIED_HEADER"&&c.sourceRateStatus==="VERIFIED_HEADER";
+        const sourcesDiffer=confirmed&&r.sourceRateHz!==c.sourceRateHz;
+        return {referenceRateLineage:r,candidateRateLineage:c,
+          sourceRateRelationship:!confirmed?"UNKNOWN":sourcesDiffer?"DIFFERENT":"SAME_REPORTED_RATE",
+          caution:"Non-scoring descriptive decoded-PCM deltas only; source identity remains UNVERIFIED. "+
+            (sourcesDiffer?"Original WAV rates differ; browser resampling may affect compared measurements. ":
+              !confirmed?"Original source rate unknown or unverified for one or both recordings. ":
+              "Same source rate does not establish identical recordings or decoded samples. ")+
+            "Sample-peak deltas are decoded-PCM observations, not evidence of original-file clipping, mastering or gain changes."};
+      };
+      const referenceLineage=lineage(reference);
+      pilotComparison.textContent=JSON.stringify({reference:{run:index+1,name:reference.name,
+        sampleRateLineage:referenceLineage},
         comparisons:pilotReports.flatMap((candidate,i)=>i===index?[]:[{candidate:{run:i+1,name:candidate.name},
-          ...comparePilotSummaries(reference.summary,candidate.summary)}])},null,2);
+          sampleRateLineage:lineage(candidate),...comparePilotSummaries(reference.summary,candidate.summary),
+          measurementLineage:comparisonContext(reference,candidate)}])},null,2);
     }
 
     function showPilotStatus(state,currentName,message) {
