@@ -1383,7 +1383,10 @@
         assert(document.visibilityState==="visible","Stage 2I-2 requires a foreground tab");
         assert(file.size>0 && file.size<=24*1024*1024,
           "Encoded file exceeds the 24 MiB pilot limit or is empty");
-        const sourceRate=await inspectPilotWavSourceRate(file);
+        // Keep existing non-WAV pilot timing unchanged; only WAVs require I/O.
+        const sourceRate=file.name.toLowerCase().endsWith(".wav")
+          ?await inspectPilotWavSourceRate(file)
+          :{status:"UNKNOWN",sourceRateHz:null,reason:"UNSUPPORTED_SOURCE_FORMAT"};
         report.currentFile={...report.currentFile,
           sampleRateLineage:{...sourceRate,decodedRateHz:null,workerRateHz:null,
             interpretation:"Source header only; PCM analysis uses decoded rate. Equal rates do not prove identical PCM."}};
