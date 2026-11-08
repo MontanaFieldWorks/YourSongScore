@@ -271,13 +271,13 @@ async function checkPilotSelector(cdp,appPort) {
 async function sourceRateFixturesInBrowser(){
   const inspect=globalThis.__stage2pInspect;
   if(typeof inspect!=="function")throw Error("Missing actual pilot header inspector");
-  const wav=(rate,junk=0)=>{
-    const extra=junk?8+junk+(junk%2):0,fmt=12+extra,data=fmt+24;
+  const wav=(rate,junk=0,fmtSize=16)=>{
+    const extra=junk?8+junk+(junk%2):0,fmt=12+extra,data=fmt+8+fmtSize;
     const bytes=new ArrayBuffer(data+12),v=new DataView(bytes);
     const tag=(i,s)=>{for(let j=0;j<s.length;j++)v.setUint8(i+j,s.charCodeAt(j));};
     tag(0,"RIFF");v.setUint32(4,bytes.byteLength-8,true);tag(8,"WAVE");
     if(junk){tag(12,"JUNK");v.setUint32(16,junk,true);}
-    tag(fmt,"fmt ");v.setUint32(fmt+4,16,true);
+    tag(fmt,"fmt ");v.setUint32(fmt+4,fmtSize,true);
     v.setUint16(fmt+8,1,true);v.setUint16(fmt+10,1,true);
     v.setUint32(fmt+12,rate,true);v.setUint32(fmt+16,rate*2,true);
     v.setUint16(fmt+20,2,true);v.setUint16(fmt+22,16,true);
@@ -292,6 +292,8 @@ async function sourceRateFixturesInBrowser(){
   };
   const normal=wav(44100);await add("44100",normal.bytes);
   const reordered=wav(48000,3);await add("48000_junk_odd",reordered.bytes);
+  await add("48000_fmt18",wav(48000,0,18).bytes);
+  await add("unsupported_fmt22",wav(48000,0,22).bytes);
   const invalidRate=wav(44100);new DataView(invalidRate.bytes).setUint32(invalidRate.fmt+12,0,true);
   await add("zero_rate",invalidRate.bytes);
   const invalidByteRate=wav(44100);new DataView(invalidByteRate.bytes).setUint32(invalidByteRate.fmt+16,88201,true);
@@ -320,7 +322,7 @@ async function checkPilotSourceRate(cdp){
     awaitPromise:true,returnByValue:true});
   if(value.exceptionDetails)throw Error("Stage 2P-2 browser source-rate fixtures: "+JSON.stringify(value.exceptionDetails));
   const out=value.result.value,lookup=Object.fromEntries(out.cases.map(x=>[x.name,x]));
-  for(const [name,rate] of [["44100",44100],["48000_junk_odd",48000]]){
+  for(const [name,rate] of [["44100",44100],["48000_junk_odd",48000],["48000_fmt18",48000]]){
     assert.equal(lookup[name].status,"VERIFIED_HEADER");
     assert.equal(lookup[name].sourceRateHz,rate);
   }
@@ -328,7 +330,7 @@ async function checkPilotSourceRate(cdp){
     assert.equal(lookup[name].status,"UNVERIFIED",name);
     assert.equal(lookup[name].sourceRateHz,null,name);
   }
-  for(const name of ["rf64_unsupported","mp3_unsupported","fmt_beyond_64k"]){
+  for(const name of ["rf64_unsupported","mp3_unsupported","fmt_beyond_64k","unsupported_fmt22"]){
     assert.equal(lookup[name].status,"UNKNOWN",name);
     assert.equal(lookup[name].sourceRateHz,null,name);
   }
