@@ -158,7 +158,7 @@ async function browserTest(){
     close(measuresB.rmsDbfs-measuresA.rmsDbfs,scaledDb,.015,"RMS gain");
     close(measuresB.crestFactorDb-measuresA.crestFactorDb,0,.02,"crest gain");
     for(const index of [1,2,3,4]){
-      const power=result=>result.spectralProfile.bands[index].channelPower.reduce((x,y)=>x+y,0);
+      const power=result=>result.spectralProfile.channelBandPower.reduce((sum,channel)=>sum+channel[index],0);
       const delta=10*Math.log10(power(b)/power(a));
       close(delta,scaledDb,.03,"spectral gain band "+index);
     }
