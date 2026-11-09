@@ -9,6 +9,9 @@ import {
   MUD_DIAGNOSTIC_STATUS,
   getMixBalanceEffectiveWeight,
   evaluateAuralisSpectralShadowCandidate,
+  prepareAuralisEngineeringEvidence,
+  AURALIS_ENGINEERING_ADAPTER_VERSION,
+  AURALIS_ENGINEERING_SCORE_POLICY,
 } from "../src/lib/mudPreventionDiagnostic.ts";
 
 const fullMix = () => ({
@@ -181,4 +184,48 @@ test("Stage 3A synthetic-only Auralis shadow candidate is gain invariant, fail-c
     noLiveWiring:true,default:missing.reason,hypotheticalCap:result.proposedCap,
     gainInvariant:true,projectedCommercialDelta:result.projectedCommercialDelta,
     unchangedMixBalance:true}));
+});
+
+ 
+test("Stage 3D-1 evidence remains score-inert, gain-invariant and fail-closed",async()=>{
+  const edges=[20,60,250,500,2000,6000,11000,20000];
+  const profile={schemaVersion:"stage2j1-spectral-profile-v1",scoringImpact:"NONE",
+    units:"mean-square-full-scale-pcm",sampleRate:48000,channelCount:2,
+    bands:edges.slice(0,7).map((x,i)=>({
+      bandHz:[x,edges[i+1]],status:"AVAILABLE",
+      channelPower:[i===1?0.02:0.01,i===1?0.02:0.01]}))};
+  const input={status:"AVAILABLE",evidence:{scoringImpact:"NONE",
+    sourceProvenance:{sampleRate:48000,channelCount:2}},spectralProfile:profile};
+  const unchanged=JSON.stringify(input);
+  const result=prepareAuralisEngineeringEvidence(input);
+  assert.equal(result.schemaVersion,AURALIS_ENGINEERING_ADAPTER_VERSION);
+  assert.equal(result.scoringImpact,"NONE");
+  assert.equal(result.scoringAdapter.status,AURALIS_ENGINEERING_SCORE_POLICY);
+  assert.deepEqual(result.scoringAdapter.adjustments,[]);
+  assert.ok(result.observations.every(x=>x.includes("intentional")));
+  assert.equal(JSON.stringify(input),unchanged,"input measurements unchanged");
+  const gain=structuredClone(input);
+  for(const b of gain.spectralProfile.bands)b.channelPower=b.channelPower.map(v=>v/4);
+  assert.equal(prepareAuralisEngineeringEvidence(gain).metrics.lowToUpperDb,
+    result.metrics.lowToUpperDb);
+  for(const invalid of [null,{...input,status:"UNAVAILABLE"},
+    {...input,evidence:{scoringImpact:"SCORED",sourceProvenance:input.evidence.sourceProvenance}},
+    {...input,spectralProfile:{...profile,bands:profile.bands.slice(0,6)}},
+    {...input,spectralProfile:{...profile,bands:profile.bands.map((b,i)=>
+      i===1?{...b,status:"PARTIAL"}:b)}},
+    {...input,spectralProfile:{...profile,bands:profile.bands.map((b,i)=>
+      i===1?{...b,channelPower:[NaN,0]}:b)}}]){
+    assert.equal(prepareAuralisEngineeringEvidence(invalid),null);
+  }
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const display=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  assert.match(app,/STAGE3D1_AURALIS_EVIDENCE_ENABLED = true/);
+  assert.match(app,/!a2PilotEnabled/);
+  assert.match(app,/prepareAuralisEngineeringEvidence\(result\)/);
+  assert.match(app,/auralisEvidencePromise/);
+  assert.match(display,/Conditional engineering observation \(NOT SCORED\)/);
+  assert.match(display,/Auralis observations \(not scored\)/);
+  assert.doesNotMatch(server,/prepareAuralisEngineeringEvidence/);
+  assert.doesNotMatch(app,/evaluateAuralisSpectralShadowCandidate/);
 });
