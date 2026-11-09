@@ -1382,7 +1382,7 @@ export default function App() {
           diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
         const controller = new AbortController();
         auralisDiagnosticAbortRef.current = controller;
-        auralisEvidencePromise = analyzeEngineeringDiagnosticsInWorker(audioBuffer, controller.signal)
+        auralisEvidencePromise = analyzeEngineeringDiagnosticsInWorker(audioBuffer, controller.signal, undefined, undefined, true)
           .then(result => controller.signal.aborted ||
             diagnosticGeneration !== auralisDiagnosticGenerationRef.current
               ? null : prepareAuralisEngineeringEvidence(result))
