@@ -8,6 +8,7 @@ import {
   MUD_DIAGNOSTIC_SCORING_VERSION,
   MUD_DIAGNOSTIC_STATUS,
   getMixBalanceEffectiveWeight,
+  evaluateAuralisSpectralShadowCandidate,
 } from "../src/lib/mudPreventionDiagnostic.ts";
 
 const fullMix = () => ({
@@ -98,4 +99,86 @@ test("Excel and UI mark only new Mud Prevention rows diagnostic-only", async () 
   assert.match(display, /applicable: !diagnosticMud && realSub\?\.applicable !== false/);
   assert.match(display, /wsSourceDiagnostics\.addRow\(\{ section: "Mud Prevention"/);
   assert.match(display, /betaMixWeightLabel\("lowEndDivision"\)/);
+});
+
+
+test("Stage 3A synthetic-only Auralis shadow candidate is gain invariant, fail-closed and inert",async()=>{
+  // These fabricated summaries do not represent calibrated professional masters.
+  const policy={calibration:"SYNTHETIC_TEST_ONLY_NOT_VALIDATED",
+    limitedLowMidToMidDb:3,materialLowMidToMidDb:7};
+  const make=(low=0.04,mid=0.01)=>({
+    schemaVersion:"stage2i2-local-song-summary-v1",scoringImpact:"NONE",
+    sourceProvenance:{methods:["stage2a-hann-fft-power-v1","stage2b1-low-frame-power-v1",
+      "stage2b2-band-stereo-v1"],window:"periodic-hann",
+      spectralNormalization:"one-sided-parseval-sum-window-squared",
+      fftSize:4096,hopSize:2048,numericBandPowerFloor:1e-12,
+      sampleRate:48000,channelCount:2,inputSampleCount:8192,
+      representedSampleCount:8192,omittedTrailingSampleCount:0,zeroPaddedSampleCount:0},
+    spectralProfile:{schemaVersion:"stage2j1-spectral-profile-v1",
+      method:"stage2a-hann-fft-power-v1",units:"mean-square-full-scale-pcm",
+      sampleRate:48000,channelCount:2,fftSize:4096,hopSize:2048,frames:3,
+      representedSampleCount:8192,omittedTrailingSampleCount:0,zeroPaddedSampleCount:0,
+      bands:[20,60,250,500,2000,6000,11000].map((edge,i)=>({
+        bandHz:[edge,[60,250,500,2000,6000,11000,20000][i]],
+        status:"AVAILABLE",channelPower:[i===1?low:i===2?mid:0.01,
+          i===1?low:i===2?mid:0.01]}))}});
+  const summary=make();
+  const original=JSON.stringify(summary);
+  const projection={hook:88,dynamicVariety:85,sectionalContrast:90};
+  const missing=evaluateAuralisSpectralShadowCandidate(summary,93,undefined,projection);
+  assert.deepEqual(missing,{status:"ABSTAIN",reason:"NO_CALIBRATED_POLICY",scoringImpact:"NONE"});
+  const result=evaluateAuralisSpectralShadowCandidate(summary,93,policy,projection);
+  assert.equal(result.status,"PROPOSED_CAP");
+  assert.equal(result.proposedCap,79);
+  assert.equal(result.hypotheticalScore,79);
+  assert.equal(result.scoringImpact,"NONE");
+  assert.equal(result.projectedCommercialReadiness,Math.round((88*60+85*20+79*10+90*10)/100));
+  assert.equal(result.projectedCommercialDelta,Math.round((88*60+85*20+79*10+90*10)/100)-
+    Math.round((88*60+85*20+93*10+90*10)/100));
+  assert.ok(result.projectedCommercialDelta<=0);
+  assert.equal(evaluateAuralisSpectralShadowCandidate(summary,79,policy).status,"ABSTAIN");
+  assert.equal(evaluateAuralisSpectralShadowCandidate(make(0.01,0.01),93,policy).status,"ABSTAIN");
+  assert.equal(evaluateAuralisSpectralShadowCandidate(make(0.1,0.01),93,policy).proposedCap,71);
+  const gain=make();
+  for(const b of gain.spectralProfile.bands)
+    b.channelPower=b.channelPower.map(x=>x*Math.pow(10,-6/10));
+  const attenuated=evaluateAuralisSpectralShadowCandidate(gain,93,policy,projection);
+  assert.equal(attenuated.status,"PROPOSED_CAP");
+  assert.equal(attenuated.proposedCap,result.proposedCap);
+  assert.ok(Math.abs(attenuated.lowMidToMidDb-result.lowMidToMidDb)<1e-10);
+  assert.equal(JSON.stringify(summary),original,"no input mutation");
+  const invalid=[
+    null,{...summary,scoringImpact:"SCORE"},
+    {...summary,spectralProfile:{...summary.spectralProfile,units:"UNSUPPORTED"}},
+    {...summary,spectralProfile:{...summary.spectralProfile,sampleRate:44100}},
+    {...summary,spectralProfile:{...summary.spectralProfile,bands:summary.spectralProfile.bands.slice(0,6)}},
+    {...summary,spectralProfile:{...summary.spectralProfile,bands:summary.spectralProfile.bands.map((b,i)=>
+      i===1?{...b,status:"UNAVAILABLE"}:b)}},
+    {...summary,spectralProfile:{...summary.spectralProfile,bands:summary.spectralProfile.bands.map((b,i)=>
+      i===1?{...b,channelPower:[NaN,0.04]}:b)}},
+    make(1e-13,0.01),
+    {...summary,sourceProvenance:{...summary.sourceProvenance,fftSize:2048}},
+  ];
+  for(const malformed of invalid){
+    const x=evaluateAuralisSpectralShadowCandidate(malformed,93,policy);
+    assert.equal(x.status,"ABSTAIN","malformed or unavailable evidence must abstain");
+    assert.equal(x.scoringImpact,"NONE");
+  }
+  assert.equal(evaluateAuralisSpectralShadowCandidate(summary,93,{
+    ...policy,materialLowMidToMidDb:2}).status,"ABSTAIN");
+  // Mix Balance never includes Spectral Match; the only projected aggregate
+  // here is Commercial Readiness. The original scoring path stays untouched.
+  const call1=fullMix(),beforeMix=computeMixBalanceScore(call1,true);
+  assert.equal(computeMixBalanceScore(call1,true),beforeMix);
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  assert.match(app,/const STAGE2C2A_DIAGNOSTICS_ENABLED = false/);
+  assert.doesNotMatch(app,/evaluateAuralisSpectralShadowCandidate/);
+  assert.doesNotMatch(server,/evaluateAuralisSpectralShadowCandidate/);
+  assert.match(app,/\[spectral, 10\]/);
+  assert.match(app,/computeMixBalanceScore\(call1, isMudDiagnosticCritique\(critique\)\)/);
+  console.log("AURALIS_STAGE3A_SHADOW "+JSON.stringify({status:"PASS",
+    noLiveWiring:true,default:missing.reason,hypotheticalCap:result.proposedCap,
+    gainInvariant:true,projectedCommercialDelta:result.projectedCommercialDelta,
+    unchangedMixBalance:true}));
 });
