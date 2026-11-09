@@ -185,6 +185,15 @@ export function prepareAuralisEngineeringEvidence(diagnostic: unknown): {
   if(power[1] <= 1e-12 || upper <= 1e-12)return null;
   const ratio = 10*Math.log10(power[1]/upper);
   if(!Number.isFinite(ratio))return null;
+  const meters = d?.referenceMeters;
+  const integratedLufs = meters?.schemaVersion === "stage2k-meter-summary-v1" &&
+    meters?.scoringImpact === "NONE" ? meters?.measurements?.integratedLufs : null;
+  const samplePeakDbfs = meters?.schemaVersion === "stage2k-meter-summary-v1" &&
+    meters?.scoringImpact === "NONE" ? meters?.measurements?.samplePeakDbfs : null;
+  const masteringNote = typeof integratedLufs === "number" && Number.isFinite(integratedLufs) &&
+    typeof samplePeakDbfs === "number" && Number.isFinite(samplePeakDbfs)
+      ? `Measured integrated loudness ${integratedLufs.toFixed(1)} LUFS and sample peak ${samplePeakDbfs.toFixed(1)} dBFS. These readings are not a mastering-quality verdict. If the delivered loudness is an intentional production choice, it may not require correction.`
+      : null;
   return {
     schemaVersion: AURALIS_ENGINEERING_ADAPTER_VERSION,
     scoringImpact: "NONE",
@@ -193,7 +202,8 @@ export function prepareAuralisEngineeringEvidence(diagnostic: unknown): {
     metrics: {lowToUpperDb: Math.round(ratio*100)/100, stereoEvidenceStatus: "MEASURED_NOT_GRADED"},
     observations: [
       `Measured 60–250 Hz energy relative to 500–20,000 Hz: ${ratio.toFixed(2)} dB. This is descriptive spectral balance, not proof of masking, muddiness or a mix defect. If this is an intentional production choice, no correction may be necessary.`,
-      "Auralis measured stereo engineering evidence, but this release does not infer a Stereo Width defect or change its score from those measurements. If the stereo presentation is intentional, review mono compatibility by listening before making changes."
+      "Auralis measured stereo engineering evidence, but this release does not infer a Stereo Width defect or change its score from those measurements. If the stereo presentation is intentional, review mono compatibility by listening before making changes.",
+      ...(masteringNote ? [masteringNote] : []),
     ]
   };
 }
