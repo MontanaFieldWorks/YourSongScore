@@ -6,8 +6,10 @@ import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey }
 
 // Disabled by default: internal opt-in diagnostic computation only, no report/scoring data.
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
+// Stage 3D-1 collects evidence during normal file analysis; scoring remains disabled.
+const STAGE3D1_AURALIS_EVIDENCE_ENABLED = true;
 import { analyzeAudioBufferInWorker, analyzeEngineeringDiagnosticsInWorker } from "./lib/batchAudioWorker";
-import { computeMixBalanceScore, isMudDiagnosticCritique, markMudPreventionDiagnosticOnly } from "./lib/mudPreventionDiagnostic";
+import { computeMixBalanceScore, isMudDiagnosticCritique, markMudPreventionDiagnosticOnly, prepareAuralisEngineeringEvidence } from "./lib/mudPreventionDiagnostic";
 import { captureA2BeforeClient, captureA2AfterClient, captureA2BrowserUnavailable } from "./lib/a2ScoringProvenance";
 
 // Runs the new, validated essentia.js key detection and overwrites the old,
@@ -1330,6 +1332,7 @@ export default function App() {
     // A newer analysis invalidates any previous optional diagnostic worker.
     cancelAuralisDiagnostic();
     const diagnosticGeneration = auralisDiagnosticGenerationRef.current;
+    let auralisEvidencePromise: Promise<ReturnType<typeof prepareAuralisEngineeringEvidence>> | null = null;
     setLoading(true);
     setLoadingStatus("Summoning studio-grade mixing engineer...");
     setErrorHeader(null);
@@ -1372,6 +1375,18 @@ export default function App() {
           .finally(() => {
             if (auralisDiagnosticAbortRef.current === controller) auralisDiagnosticAbortRef.current = null;
           });
+      }
+      // Optional score-inert engineering evidence. The Worker validates the
+      // envelope and PCM provenance. Never pass this to Gemini or the scoring guards.
+      if (STAGE3D1_AURALIS_EVIDENCE_ENABLED && !a2PilotEnabled &&
+          diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
+        const controller = new AbortController();
+        auralisDiagnosticAbortRef.current = controller;
+        auralisEvidencePromise = analyzeEngineeringDiagnosticsInWorker(audioBuffer, controller.signal)
+          .then(result => controller.signal.aborted ||
+            diagnosticGeneration !== auralisDiagnosticGenerationRef.current
+              ? null : prepareAuralisEngineeringEvidence(result))
+          .catch(() => null);
       }
       await applyRealKeyDetection(audioBuffer, preAnalysisLiveMetrics, a2PilotEnabled);
       if (preAnalysisLiveMetrics?.calculatedKey) {
@@ -1425,6 +1440,15 @@ export default function App() {
       if (liveMetrics) console.log("[App] Live Metrics analyzed:", liveMetrics);
 
       const overriddenCritique = applyGenreOverride(data.critique);
+      // Attach only validated compact observations, not PCM or full frame arrays.
+      // Failures and A2 pilots retain the original untouched score path.
+      if (auralisEvidencePromise) {
+        const auralisEvidence = await auralisEvidencePromise;
+        if (auralisEvidence &&
+            diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
+          (overriddenCritique as any).auralisEngineering = auralisEvidence;
+        }
+      }
       if (liveMetrics) {
         overriddenCritique.liveMetrics = liveMetrics;
         applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
