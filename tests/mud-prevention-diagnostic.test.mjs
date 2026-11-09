@@ -204,6 +204,14 @@ test("Stage 3D-1 evidence remains score-inert, gain-invariant and fail-closed",a
   assert.deepEqual(result.scoringAdapter.adjustments,[]);
   assert.ok(result.observations.every(x=>x.includes("intentional")));
   assert.equal(JSON.stringify(input),unchanged,"input measurements unchanged");
+  const withMeters={...input,referenceMeters:{
+    schemaVersion:"stage2k-meter-summary-v1",scoringImpact:"NONE",
+    measurements:{integratedLufs:-11.5,samplePeakDbfs:-0.6}}};
+  const master=prepareAuralisEngineeringEvidence(withMeters);
+  assert.equal(master.observations.length,3);
+  assert.match(master.observations[2],/mastering-quality verdict/);
+  assert.match(master.observations[2],/intentional production choice/);
+  assert.equal(master.scoringAdapter.adjustments.length,0);
   const gain=structuredClone(input);
   for(const b of gain.spectralProfile.bands)b.channelPower=b.channelPower.map(v=>v/4);
   assert.equal(prepareAuralisEngineeringEvidence(gain).metrics.lowToUpperDb,
