@@ -295,3 +295,99 @@ export function reconcileAuralisExistingMixCapsShadow(
     interpretation:"Shadow-only comparison of existing browser caps and Auralis spectral evidence. No additional cap, penalty, score change, or masking verdict is warranted by this ratio alone. If the tonal balance is an intentional production choice, no correction may be necessary."
   };
 }
+
+
+// Stage 3D-2C: synthetic-replay calibration evidence gate, NOT a scoring policy.
+// No production caller or song calibration; output is descriptive only.
+// Real source identity, artistic intent, and pre-cap score lineage cannot be
+// inferred from Auralis frequency ratios. Missing proof always ABSTAINS.
+export const AURALIS_CALIBRATION_GATE_VERSION="auralis-stage3d2c-synthetic-evidence-v1";
+export type AuralisCalibrationGateResult=
+  | {status:"ABSTAIN";reason:string;scoringImpact:"NONE";adjustments:[]}
+  | {status:"EVIDENCE_ONLY";schemaVersion:typeof AURALIS_CALIBRATION_GATE_VERSION;
+      scoringImpact:"NONE";adjustments:[];calibration:"SYNTHETIC_REPLAY_NOT_REAL_SONG_VALIDATION";
+      existingChanges:{spectralMatch:number;midrangeSpacing:number;
+        mixBalance:number;commercialReadiness:number};
+      note:string};
+
+export function evaluateAuralisCalibrationEvidenceGateShadow(
+  diagnostic:unknown,critique:unknown,audit:unknown,
+):AuralisCalibrationGateResult {
+  const abstain=(reason:string):AuralisCalibrationGateResult=>({
+    status:"ABSTAIN",reason,scoringImpact:"NONE",adjustments:[]});
+  const previous=reconcileAuralisExistingMixCapsShadow(diagnostic,critique);
+  if(previous.status!=="COMPARED")return abstain("UNVERIFIED_RECONCILIATION");
+  const c=critique as any,a=audit as any,d=diagnostic as any;
+  // Synthetic-only contract: never accept missing/unverified resampling lineage
+  // or inferred source identity as a basis for numerical calibration.
+  const lineage=a?.lineage;
+  const rate=d?.evidence?.sourceProvenance?.sampleRate;
+  if(a?.captureStatus!=="SYNTHETIC_PRE_POST_REPLAY_ONLY"||
+     lineage?.sourceIdentity!=="VERIFIED_SYNTHETIC"||
+     lineage?.resampled!==false||
+     !Number.isSafeInteger(rate)||
+     ![lineage?.sourceSampleRate,lineage?.decodedSampleRate,
+       lineage?.workerSampleRate,lineage?.browserSampleRate].every(v=>v===rate))
+    return abstain("UNVERIFIED_OR_INCOMPATIBLE_SAMPLE_RATE_LINEAGE");
+  // A spectral characteristic is not proof of a defect. An explicitly
+  // intentional mix, or unknown listening/intent evidence, stays ungraded.
+  if(a?.artisticIntent!=="SYNTHETIC_NONINTENTIONAL_CONTROL")
+    return abstain("INTENTIONAL_OR_UNVERIFIED_ARTISTIC_CHOICE");
+  // Never attribute reductions to Auralis if another technical family may
+  // also have capped the same score or its parent.
+  if(!Array.isArray(a?.overlapFamilies)||a.overlapFamilies.length!==0||
+     c?.productionFinishEvidence?.ceiling!==null&&
+       c?.productionFinishEvidence?.ceiling!==undefined)
+    return abstain("OVERLAPPING_OR_UNVERIFIED_PENALTY");
+  const finiteScore=(v:unknown):v is number=>
+    typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=100;
+  const original=a?.preCapScores;
+  if(!original||typeof original!=="object")return abstain("MISSING_PRE_CAP_SCORES");
+  const final=c?.subMetricsCall1, caps=c?.mixBalanceEvidence;
+  if(!final||!caps)return abstain("MISSING_FINAL_SCORING_EVIDENCE");
+  // Applicable scores must follow ONLY the already-existing browser cap.
+  // This replays old decisions; there are no novel cap limits or quality tiers.
+  const replay=(key:"spectralMatch"|"midrangeSpacing",
+      capKey:"spectralCap"|"midrangeCap"):number|null=>{
+    const current=final[key],before=original[key],cap=caps[capKey];
+    if(current?.applicable===false)
+      return before===null?0:null;
+    if(!finiteScore(before)||!finiteScore(current?.score)||
+       (cap!==null&&!finiteScore(cap)))return null;
+    const expected=cap===null?before:Math.min(before,cap);
+    return expected===current.score?current.score-before:null;
+  };
+  const spectral=replay("spectralMatch","spectralCap");
+  const midrange=replay("midrangeSpacing","midrangeCap");
+  if(spectral===null||midrange===null)return abstain("UNCORROBORATED_CAP_APPLICATION");
+  const beforeMixChildren={
+    ...final,midrangeSpacing:{...final.midrangeSpacing,
+      score:final.midrangeSpacing?.applicable===false
+        ? final.midrangeSpacing?.score:original.midrangeSpacing},
+  };
+  const beforeMix=computeMixBalanceScore(beforeMixChildren,true);
+  const afterMix=computeMixBalanceScore(final,true);
+  if(beforeMix===null||afterMix===null||
+     !finiteScore(c?.mixQuality?.score)||c.mixQuality.score!==afterMix)
+    return abstain("UNVERIFIED_MIX_PARENT_PROPAGATION");
+  const commercial=a?.commercialChildren;
+  if(![commercial?.hook,commercial?.dynamicVariety,
+       commercial?.sectionalContrast].every(finiteScore)||
+     !finiteScore(c?.scores?.commercialReadiness))return abstain("MISSING_COMMERCIAL_CHILDREN");
+  const readiness=(spectralScore:number)=>Math.round(
+    (commercial.hook*60+commercial.dynamicVariety*20+
+      spectralScore*10+commercial.sectionalContrast*10)/100);
+  const beforeReadiness=readiness(original.spectralMatch);
+  const afterReadiness=readiness(final.spectralMatch.score);
+  if(c.scores.commercialReadiness!==afterReadiness)
+    return abstain("UNVERIFIED_COMMERCIAL_PARENT_PROPAGATION");
+  return {
+    status:"EVIDENCE_ONLY",schemaVersion:AURALIS_CALIBRATION_GATE_VERSION,
+    scoringImpact:"NONE",adjustments:[],
+    calibration:"SYNTHETIC_REPLAY_NOT_REAL_SONG_VALIDATION",
+    existingChanges:{spectralMatch:spectral,midrangeSpacing:midrange,
+      mixBalance:afterMix-beforeMix,
+      commercialReadiness:afterReadiness-beforeReadiness},
+    note:"Synthetic replay of already-existing browser caps only. Auralis band power cannot prove masking, a production defect, or a new scoring threshold. Intentional style choices remain ungraded."
+  };
+}
