@@ -85,7 +85,7 @@ export function evaluateAuralisSpectralShadowCandidate(
   const p=s?.sourceProvenance,profile=s?.spectralProfile;
   const edges=[20,60,250,500,2000,6000,11000,20000];
   if(s?.schemaVersion!=="stage2i2-local-song-summary-v1"||s?.scoringImpact!=="NONE"||
-     p?.methods?.join(",")!=="stage2a-hann-fft-power-v1,stage2b1-low-frame-power-v1,stage2b2-band-stereo-v1"||
+     (!Array.isArray(p?.methods)||p.methods.join(",")!=="stage2a-hann-fft-power-v1,stage2b1-low-frame-power-v1,stage2b2-band-stereo-v1")||
      p?.window!=="periodic-hann"||
      p?.spectralNormalization!=="one-sided-parseval-sum-window-squared"||
      p?.fftSize!==4096||p?.hopSize!==2048||
