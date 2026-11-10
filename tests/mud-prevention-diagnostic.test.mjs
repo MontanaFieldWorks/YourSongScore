@@ -14,6 +14,8 @@ import {
   AURALIS_ENGINEERING_SCORE_POLICY,
   AURALIS_RECONCILIATION_VERSION,
   reconcileAuralisExistingMixCapsShadow,
+  evaluateAuralisCalibrationEvidenceGateShadow,
+  AURALIS_CALIBRATION_GATE_VERSION,
 } from "../src/lib/mudPreventionDiagnostic.ts";
 
 const fullMix = () => ({
@@ -352,5 +354,105 @@ test("Stage 3D-2A reconciles existing caps without new numeric policies or write
   assert.match(app,/computeMixBalanceScore\(call1, isMudDiagnosticCritique\(critique\)\)/);
   assert.match(server,/computeMixBalanceScore\(c1Ready, true\)/);
   assert.match(display,/Auralis observations \(not scored\)/);
+  assert.equal(AURALIS_ENGINEERING_SCORE_POLICY,"DISABLED_PENDING_STAGE_3D_2");
+});
+
+
+test("Stage 3D-2C synthetic calibration gate proves lineage, cap replay, parent propagation and abstention",async()=>{
+  // Fabricated PCM-derived envelope only; no audio, Gemini or real-song test.
+  const edges=[20,60,250,500,2000,6000,11000,20000];
+  const provenance={methods:["stage2a-hann-fft-power-v1","stage2b1-low-frame-power-v1",
+    "stage2b2-band-stereo-v1"],window:"periodic-hann",
+    spectralNormalization:"one-sided-parseval-sum-window-squared",
+    fftSize:4096,hopSize:2048,numericBandPowerFloor:1e-12,
+    sampleRate:48000,channelCount:2,inputSampleCount:8192,
+    representedSampleCount:8192,omittedTrailingSampleCount:0,zeroPaddedSampleCount:0};
+  const diagnostic={status:"AVAILABLE",evidence:{scoringImpact:"NONE",sourceProvenance:provenance},
+    spectralProfile:{schemaVersion:"stage2j1-spectral-profile-v1",scoringImpact:"NONE",
+      method:"stage2a-hann-fft-power-v1",units:"mean-square-full-scale-pcm",
+      sampleRate:48000,channelCount:2,fftSize:4096,hopSize:2048,frames:3,
+      representedSampleCount:8192,omittedTrailingSampleCount:0,zeroPaddedSampleCount:0,
+      bands:edges.slice(0,7).map((edge,i)=>({bandHz:[edge,edges[i+1]],
+        status:"AVAILABLE",channelPower:[i===1?0.02:0.01,i===1?0.02:0.01]}))}};
+  const commercialChildren={hook:88,dynamicVariety:85,sectionalContrast:90};
+  const ready=(spectral)=>Math.round((88*60+85*20+spectral*10+90*10)/100);
+  const critique={productionScoringVersion:MUD_DIAGNOSTIC_SCORING_VERSION,
+    subMetricsCall1:{...fullMix(),spectralMatch:{score:76,applicable:true},
+      midrangeSpacing:{score:72,applicable:true}},
+    mixBalanceEvidence:{spectralCap:76,midrangeCap:72},
+    mixQuality:{score:null},scores:{commercialReadiness:ready(76)}};
+  critique.mixQuality.score=computeMixBalanceScore(critique.subMetricsCall1,true);
+  const lineage={sourceIdentity:"VERIFIED_SYNTHETIC",resampled:false,
+    sourceSampleRate:48000,decodedSampleRate:48000,
+    workerSampleRate:48000,browserSampleRate:48000};
+  const audit={captureStatus:"SYNTHETIC_PRE_POST_REPLAY_ONLY",lineage,
+    artisticIntent:"SYNTHETIC_NONINTENTIONAL_CONTROL",overlapFamilies:[],
+    preCapScores:{spectralMatch:93,midrangeSpacing:88},commercialChildren};
+  const unchanged=JSON.stringify({diagnostic,critique,audit});
+  const result=evaluateAuralisCalibrationEvidenceGateShadow(diagnostic,critique,audit);
+  assert.equal(result.status,"EVIDENCE_ONLY");
+  assert.equal(result.schemaVersion,AURALIS_CALIBRATION_GATE_VERSION);
+  assert.equal(result.scoringImpact,"NONE");
+  assert.deepEqual(result.adjustments,[]);
+  assert.equal(result.calibration,"SYNTHETIC_REPLAY_NOT_REAL_SONG_VALIDATION");
+  assert.equal(result.existingChanges.spectralMatch,-17);
+  assert.equal(result.existingChanges.midrangeSpacing,-16);
+  assert.equal(result.existingChanges.commercialReadiness,ready(76)-ready(93));
+  const beforeMix=structuredClone(critique.subMetricsCall1);
+  beforeMix.midrangeSpacing.score=88;
+  assert.equal(result.existingChanges.mixBalance,
+    critique.mixQuality.score-computeMixBalanceScore(beforeMix,true));
+  assert.equal(JSON.stringify({diagnostic,critique,audit}),unchanged,"no mutation");
+  // A cap being present is not evidence it reduced the original value.
+  const below=structuredClone(critique);
+  below.subMetricsCall1.spectralMatch.score=74;
+  below.subMetricsCall1.midrangeSpacing.score=69;
+  below.mixQuality.score=computeMixBalanceScore(below.subMetricsCall1,true);
+  below.scores.commercialReadiness=ready(74);
+  const belowAudit={...audit,preCapScores:{spectralMatch:74,midrangeSpacing:69}};
+  const belowResult=evaluateAuralisCalibrationEvidenceGateShadow(diagnostic,below,belowAudit);
+  assert.equal(belowResult.status,"EVIDENCE_ONLY");
+  assert.deepEqual(belowResult.existingChanges,{spectralMatch:0,midrangeSpacing:0,
+    mixBalance:0,commercialReadiness:0});
+
+  const blocked=[
+    [diagnostic,critique,{},"UNVERIFIED_OR_INCOMPATIBLE_SAMPLE_RATE_LINEAGE"],
+    [diagnostic,critique,{...audit,lineage:{...lineage,sourceIdentity:"UNVERIFIED"}},
+      "UNVERIFIED_OR_INCOMPATIBLE_SAMPLE_RATE_LINEAGE"],
+    [diagnostic,critique,{...audit,lineage:{...lineage,resampled:true,
+      sourceSampleRate:44100}},"UNVERIFIED_OR_INCOMPATIBLE_SAMPLE_RATE_LINEAGE"],
+    [diagnostic,critique,{...audit,lineage:{...lineage,browserSampleRate:44100}},
+      "UNVERIFIED_OR_INCOMPATIBLE_SAMPLE_RATE_LINEAGE"],
+    [diagnostic,critique,{...audit,artisticIntent:"INTENTIONAL_WARMTH"},
+      "INTENTIONAL_OR_UNVERIFIED_ARTISTIC_CHOICE"],
+    [diagnostic,critique,{...audit,artisticIntent:"UNKNOWN"},
+      "INTENTIONAL_OR_UNVERIFIED_ARTISTIC_CHOICE"],
+    [diagnostic,critique,{...audit,overlapFamilies:["PRODUCTION_FINISH"]},
+      "OVERLAPPING_OR_UNVERIFIED_PENALTY"],
+    [diagnostic,{...critique,productionFinishEvidence:{ceiling:82}},audit,
+      "OVERLAPPING_OR_UNVERIFIED_PENALTY"],
+    [diagnostic,critique,{...audit,preCapScores:{spectralMatch:90,midrangeSpacing:68}},
+      "UNCORROBORATED_CAP_APPLICATION"],
+    [diagnostic,critique,{...audit,preCapScores:{spectralMatch:93}},
+      "UNCORROBORATED_CAP_APPLICATION"],
+    [diagnostic,{...critique,mixQuality:{score:99}},audit,
+      "UNVERIFIED_MIX_PARENT_PROPAGATION"],
+    [diagnostic,{...critique,scores:{commercialReadiness:99}},audit,
+      "UNVERIFIED_COMMERCIAL_PARENT_PROPAGATION"],
+    [{...diagnostic,status:"UNAVAILABLE"},critique,audit,"UNVERIFIED_RECONCILIATION"],
+    [diagnostic,{...critique,productionScoringVersion:"scoring-tier-v7"},audit,
+      "UNVERIFIED_RECONCILIATION"],
+  ];
+  for(const [d,c,a,reason] of blocked){
+    const x=evaluateAuralisCalibrationEvidenceGateShadow(d,c,a);
+    assert.deepEqual(x,{status:"ABSTAIN",reason,scoringImpact:"NONE",adjustments:[]});
+  }
+  // Not wired to App, server, browser exports or old report readers.
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  const display=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  for(const source of [app,server,display]){
+    assert.doesNotMatch(source,/evaluateAuralisCalibrationEvidenceGateShadow|AURALIS_CALIBRATION_GATE_VERSION/);
+  }
   assert.equal(AURALIS_ENGINEERING_SCORE_POLICY,"DISABLED_PENDING_STAGE_3D_2");
 });
