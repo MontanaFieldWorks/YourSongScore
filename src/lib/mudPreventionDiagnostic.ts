@@ -333,11 +333,24 @@ export function evaluateAuralisCalibrationEvidenceGateShadow(
   // intentional mix, or unknown listening/intent evidence, stays ungraded.
   if(a?.artisticIntent!=="SYNTHETIC_NONINTENTIONAL_CONTROL")
     return abstain("INTENTIONAL_OR_UNVERIFIED_ARTISTIC_CHOICE");
-  // Never attribute reductions to Auralis if another technical family may
-  // also have capped the same score or its parent.
-  if(!Array.isArray(a?.overlapFamilies)||a.overlapFamilies.length!==0||
-     c?.productionFinishEvidence?.ceiling!==null&&
-       c?.productionFinishEvidence?.ceiling!==undefined)
+  // Synthetic penalty inventory must explicitly cover the production-finish
+  // ceiling AND both technical-penalty components. An absent field, missing
+  // inventory, or disagreement is unknown evidence, never evidence of zero.
+  const penalty=a?.penaltyEvidence, finish=c?.productionFinishEvidence;
+  const has=(obj:any,key:string):boolean=>
+    obj!==null&&typeof obj==="object"&&
+    Object.prototype.hasOwnProperty.call(obj,key);
+  const penaltyFields=["ceiling","technicalFinishPenalty",
+    "dynamicFinishPenalty","brickwallFinishPenalty"] as const;
+  if(a?.penaltyCoverage!=="COMPLETE_SYNTHETIC_PENALTY_INVENTORY"||
+     !Array.isArray(a?.overlapFamilies)||a.overlapFamilies.length!==0||
+     !penalty||typeof penalty!=="object"||
+     !finish||typeof finish!=="object"||
+     !penaltyFields.every(key=>has(penalty,key)&&has(finish,key))||
+     penaltyFields.some(key=>penalty[key]!==finish[key])||
+     penalty.ceiling!==null||
+     !["technicalFinishPenalty","dynamicFinishPenalty","brickwallFinishPenalty"]
+       .every(key=>penalty[key]===0))
     return abstain("OVERLAPPING_OR_UNVERIFIED_PENALTY");
   const finiteScore=(v:unknown):v is number=>
     typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=100;
@@ -370,12 +383,26 @@ export function evaluateAuralisCalibrationEvidenceGateShadow(
   if(beforeMix===null||afterMix===null||
      !finiteScore(c?.mixQuality?.score)||c.mixQuality.score!==afterMix)
     return abstain("UNVERIFIED_MIX_PARENT_PROPAGATION");
+  // Audit snapshots are not authoritative unless they match the actual
+  // child score paths consumed by the browser's Commercial Readiness formula.
   const commercial=a?.commercialChildren;
   if(final.spectralMatch?.applicable===false||!finiteScore(original.spectralMatch))
     return abstain("INAPPLICABLE_COMMERCIAL_SPECTRAL_CHILD");
-  if(![commercial?.hook,commercial?.dynamicVariety,
+  const childMetrics=[
+    c?.subMetricsCall3?.compositionFlowSubs?.hookPlacement,
+    final?.dynamicVariety,
+    c?.subMetricsCall3?.compositionFlowSubs?.sectionalContrast
+  ];
+  if(childMetrics.some(metric=>metric?.applicable===false||
+       !finiteScore(metric?.score))||
+     ![commercial?.hook,commercial?.dynamicVariety,
        commercial?.sectionalContrast].every(finiteScore)||
-     !finiteScore(c?.scores?.commercialReadiness))return abstain("MISSING_COMMERCIAL_CHILDREN");
+     !finiteScore(c?.scores?.commercialReadiness))
+    return abstain("MISSING_COMMERCIAL_CHILDREN");
+  if(commercial.hook!==childMetrics[0].score||
+     commercial.dynamicVariety!==childMetrics[1].score||
+     commercial.sectionalContrast!==childMetrics[2].score)
+    return abstain("INCONSISTENT_COMMERCIAL_CHILD_LINEAGE");
   const readiness=(spectralScore:number)=>Math.round(
     (commercial.hook*60+commercial.dynamicVariety*20+
       spectralScore*10+commercial.sectionalContrast*10)/100);
