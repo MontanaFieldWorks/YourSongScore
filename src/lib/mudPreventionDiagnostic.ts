@@ -220,9 +220,9 @@ export type AuralisCapReconciliation =
       schemaVersion:typeof AURALIS_RECONCILIATION_VERSION;
       lowToUpperDb:number;
       metrics:{
-        spectralMatch:{status:"ALREADY_CAPPED"|"NO_EXISTING_CAP"|"NOT_APPLICABLE";
+        spectralMatch:{status:"CAP_PRESENT_EFFECT_UNVERIFIED"|"NO_EXISTING_CAP"|"NOT_APPLICABLE";
           score:number|null; existingCap:number|null};
-        midrangeSpacing:{status:"ALREADY_CAPPED"|"NO_EXISTING_CAP"|"NOT_APPLICABLE";
+        midrangeSpacing:{status:"CAP_PRESENT_EFFECT_UNVERIFIED"|"NO_EXISTING_CAP"|"NOT_APPLICABLE";
           score:number|null; existingCap:number|null};
       };
       interpretation:string};
@@ -276,11 +276,12 @@ export function reconcileAuralisExistingMixCapsShadow(
     if(metric?.applicable===false)
       return {status:"NOT_APPLICABLE" as const,score:null,existingCap:null};
     if(!finiteScore(metric?.score))return null;
-    // The original score should already reflect any existing cap. If it does
-    // not, abstain rather than accidentally legitimizing an inconsistent state.
+    // A final score at or below the cap does not prove the cap reduced it:
+    // we lack the uncapped score. Record cap presence, not application.
+    // A final score above the cap is inconsistent and must abstain.
     if(cap!==null&&metric.score>cap)return null;
-    return {status:(cap===null?"NO_EXISTING_CAP":"ALREADY_CAPPED") as
-      "NO_EXISTING_CAP"|"ALREADY_CAPPED",
+    return {status:(cap===null?"NO_EXISTING_CAP":"CAP_PRESENT_EFFECT_UNVERIFIED") as
+      "NO_EXISTING_CAP"|"CAP_PRESENT_EFFECT_UNVERIFIED",
       score:metric.score as number,existingCap:cap as number|null};
   };
   const spectralMatch=reconcile("spectralMatch","spectralCap");
