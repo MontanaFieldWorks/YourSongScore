@@ -12,6 +12,8 @@ import {
   prepareAuralisEngineeringEvidence,
   AURALIS_ENGINEERING_ADAPTER_VERSION,
   AURALIS_ENGINEERING_SCORE_POLICY,
+  AURALIS_RECONCILIATION_VERSION,
+  reconcileAuralisExistingMixCapsShadow,
 } from "../src/lib/mudPreventionDiagnostic.ts";
 
 const fullMix = () => ({
@@ -236,4 +238,97 @@ test("Stage 3D-1 evidence remains score-inert, gain-invariant and fail-closed",a
   assert.match(display,/Auralis observations \(not scored\)/);
   assert.doesNotMatch(server,/prepareAuralisEngineeringEvidence/);
   assert.doesNotMatch(app,/evaluateAuralisSpectralShadowCandidate/);
+});
+
+
+test("Stage 3D-2A reconciles existing caps without new numeric policies or writes",async()=>{
+  // Synthetic data only: no song fixture or genre-specific spectral threshold.
+  const edges=[20,60,250,500,2000,6000,11000,20000];
+  const provenance={
+    methods:["stage2a-hann-fft-power-v1","stage2b1-low-frame-power-v1",
+      "stage2b2-band-stereo-v1"],
+    window:"periodic-hann",spectralNormalization:"one-sided-parseval-sum-window-squared",
+    fftSize:4096,hopSize:2048,numericBandPowerFloor:1e-12,
+    sampleRate:48000,channelCount:2,inputSampleCount:8192,
+    representedSampleCount:8192,omittedTrailingSampleCount:0,zeroPaddedSampleCount:0};
+  const diagnostic={status:"AVAILABLE",evidence:{scoringImpact:"NONE",sourceProvenance:provenance},
+    spectralProfile:{schemaVersion:"stage2j1-spectral-profile-v1",
+      scoringImpact:"NONE",method:"stage2a-hann-fft-power-v1",
+      units:"mean-square-full-scale-pcm",sampleRate:48000,channelCount:2,
+      fftSize:4096,hopSize:2048,frames:3,
+      representedSampleCount:8192,omittedTrailingSampleCount:0,zeroPaddedSampleCount:0,
+      bands:edges.slice(0,7).map((edge,i)=>({bandHz:[edge,edges[i+1]],
+        status:"AVAILABLE",channelPower:[i===1?0.02:0.01,i===1?0.02:0.01]}))}};
+  const critique={productionScoringVersion:MUD_DIAGNOSTIC_SCORING_VERSION,
+    subMetricsCall1:{...fullMix(),spectralMatch:{score:76,applicable:true},
+      midrangeSpacing:{score:72,applicable:true}},
+    mixBalanceEvidence:{spectralCap:76,midrangeCap:72}};
+  const original=JSON.stringify({diagnostic,critique});
+  const result=reconcileAuralisExistingMixCapsShadow(diagnostic,critique);
+  assert.equal(result.status,"COMPARED");
+  assert.equal(result.schemaVersion,AURALIS_RECONCILIATION_VERSION);
+  assert.equal(result.scoringImpact,"NONE");
+  assert.deepEqual(result.adjustments,[]);
+  assert.equal(result.metrics.spectralMatch.status,"ALREADY_CAPPED");
+  assert.equal(result.metrics.midrangeSpacing.status,"ALREADY_CAPPED");
+  assert.equal(result.metrics.spectralMatch.existingCap,76);
+  assert.equal(result.metrics.midrangeSpacing.existingCap,72);
+  assert.match(result.interpretation,/intentional production choice/);
+  assert.equal(JSON.stringify({diagnostic,critique}),original,"read-only, no mutation");
+  // Existing weighted mix score and both existing caps are unchanged.
+  const before=computeMixBalanceScore(critique.subMetricsCall1,true);
+  assert.equal(computeMixBalanceScore(critique.subMetricsCall1,true),before);
+  assert.equal(critique.subMetricsCall1.spectralMatch.score,76);
+  assert.equal(critique.subMetricsCall1.midrangeSpacing.score,72);
+
+  const noCaps=structuredClone(critique);
+  noCaps.mixBalanceEvidence={spectralCap:null,midrangeCap:null};
+  assert.equal(reconcileAuralisExistingMixCapsShadow(diagnostic,noCaps).metrics.spectralMatch.status,
+    "NO_EXISTING_CAP");
+  const notApplicable=structuredClone(noCaps);
+  notApplicable.subMetricsCall1.midrangeSpacing.applicable=false;
+  assert.deepEqual(reconcileAuralisExistingMixCapsShadow(diagnostic,notApplicable)
+    .metrics.midrangeSpacing,{status:"NOT_APPLICABLE",score:null,existingCap:null});
+  const gain=structuredClone(diagnostic);
+  for(const b of gain.spectralProfile.bands)b.channelPower=b.channelPower.map(v=>v/4);
+  assert.equal(reconcileAuralisExistingMixCapsShadow(gain,critique).lowToUpperDb,
+    result.lowToUpperDb,"power-ratio is gain invariant");
+
+  const abstentions=[
+    [diagnostic,{...critique,productionScoringVersion:"scoring-tier-v7"}],
+    [{...diagnostic,status:"UNAVAILABLE"},critique],
+    [{...diagnostic,evidence:{...diagnostic.evidence,scoringImpact:"SCORE"}},critique],
+    [{...diagnostic,evidence:{...diagnostic.evidence,
+      sourceProvenance:{...provenance,methods:"not-an-array"}}},critique],
+    [{...diagnostic,evidence:{...diagnostic.evidence,
+      sourceProvenance:{...provenance,fftSize:2048}}},critique],
+    [{...diagnostic,spectralProfile:{...diagnostic.spectralProfile,
+      bands:diagnostic.spectralProfile.bands.slice(0,6)}},critique],
+    [{...diagnostic,spectralProfile:{...diagnostic.spectralProfile,
+      bands:diagnostic.spectralProfile.bands.map((b,i)=>
+        i===1?{...b,status:"UNAVAILABLE"}:b)}},critique],
+    [diagnostic,{...critique,mixBalanceEvidence:null}],
+    [diagnostic,{...critique,mixBalanceEvidence:{midrangeCap:72}}],
+    [diagnostic,{...critique,mixBalanceEvidence:{midrangeCap:70,spectralCap:76}}],
+    [diagnostic,{...critique,subMetricsCall1:{...critique.subMetricsCall1,
+      spectralMatch:{score:96}}}],
+  ];
+  for(const [d,c] of abstentions){
+    const x=reconcileAuralisExistingMixCapsShadow(d,c);
+    assert.equal(x.status,"ABSTAIN");
+    assert.equal(x.scoringImpact,"NONE");
+    assert.deepEqual(x.adjustments,[]);
+  }
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  const display=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  for(const source of [app,server,display])
+    assert.doesNotMatch(source,/reconcileAuralisExistingMixCapsShadow|AURALIS_RECONCILIATION_VERSION/,
+      "shadow policy is not wired to production or historical reporting");
+  assert.match(app,/const STAGE3D1_AURALIS_EVIDENCE_ENABLED = true/);
+  assert.match(app,/const STAGE2C2A_DIAGNOSTICS_ENABLED = false/);
+  assert.match(app,/computeMixBalanceScore\\(call1, isMudDiagnosticCritique\\(critique\\)\\)/);
+  assert.match(server,/computeMixBalanceScore\\(c1Ready, true\\)/);
+  assert.match(display,/Auralis observations \\(not scored\\)/);
+  assert.equal(AURALIS_ENGINEERING_SCORE_POLICY,"DISABLED_PENDING_STAGE_3D_2");
 });
