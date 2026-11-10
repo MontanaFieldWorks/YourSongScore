@@ -371,6 +371,8 @@ export function evaluateAuralisCalibrationEvidenceGateShadow(
      !finiteScore(c?.mixQuality?.score)||c.mixQuality.score!==afterMix)
     return abstain("UNVERIFIED_MIX_PARENT_PROPAGATION");
   const commercial=a?.commercialChildren;
+  if(final.spectralMatch?.applicable===false||!finiteScore(original.spectralMatch))
+    return abstain("INAPPLICABLE_COMMERCIAL_SPECTRAL_CHILD");
   if(![commercial?.hook,commercial?.dynamicVariety,
        commercial?.sectionalContrast].every(finiteScore)||
      !finiteScore(c?.scores?.commercialReadiness))return abstain("MISSING_COMMERCIAL_CHILDREN");
