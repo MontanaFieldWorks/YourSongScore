@@ -207,3 +207,90 @@ export function prepareAuralisEngineeringEvidence(diagnostic: unknown): {
     ]
   };
 }
+
+
+// Stage 3D-2A: isolated, read-only reconciliation of the EXISTING browser caps.
+// This function is deliberately not imported by App/server/report export. It
+// makes no cap proposals: Auralis spectrum ratios are descriptive and there
+// is no validated production threshold or evidence of perceptual masking.
+export const AURALIS_RECONCILIATION_VERSION = "auralis-stage3d2a-shadow-v1";
+export type AuralisCapReconciliation =
+  | {status:"ABSTAIN"; reason:string; scoringImpact:"NONE"; adjustments:[]}
+  | {status:"COMPARED"; scoringImpact:"NONE"; adjustments:[];
+      schemaVersion:typeof AURALIS_RECONCILIATION_VERSION;
+      lowToUpperDb:number;
+      metrics:{
+        spectralMatch:{status:"ALREADY_CAPPED"|"NO_EXISTING_CAP"|"NOT_APPLICABLE";
+          score:number|null; existingCap:number|null};
+        midrangeSpacing:{status:"ALREADY_CAPPED"|"NO_EXISTING_CAP"|"NOT_APPLICABLE";
+          score:number|null; existingCap:number|null};
+      };
+      interpretation:string};
+
+export function reconcileAuralisExistingMixCapsShadow(
+  diagnostic:unknown,
+  critique:unknown,
+):AuralisCapReconciliation {
+  const abstain=(reason:string):AuralisCapReconciliation=>({
+    status:"ABSTAIN",reason,scoringImpact:"NONE",adjustments:[]});
+  const d=diagnostic as any, c=critique as any;
+  // Require the current-version critique; archived scoring and incomplete
+  // score paths must never be silently reinterpreted.
+  if(c?.productionScoringVersion!==MUD_DIAGNOSTIC_SCORING_VERSION)
+    return abstain("HISTORICAL_OR_UNKNOWN_SCORING_VERSION");
+  const p=d?.evidence?.sourceProvenance, s=d?.spectralProfile;
+  if(d?.status!=="AVAILABLE"||d?.evidence?.scoringImpact!=="NONE"||
+     p?.methods?.join(",")!=="stage2a-hann-fft-power-v1,stage2b1-low-frame-power-v1,stage2b2-band-stereo-v1"||
+     p?.window!=="periodic-hann"||
+     p?.spectralNormalization!=="one-sided-parseval-sum-window-squared"||
+     p?.fftSize!==4096||p?.hopSize!==2048||
+     p?.numericBandPowerFloor!==1e-12||
+     !Number.isSafeInteger(p?.sampleRate)||p.sampleRate<8000||p.sampleRate>192000||
+     ![1,2].includes(p?.channelCount)||
+     !Number.isSafeInteger(p?.inputSampleCount)||p.inputSampleCount<4096||
+     !Number.isSafeInteger(p?.representedSampleCount)||p.representedSampleCount<4096||
+     !Number.isSafeInteger(p?.omittedTrailingSampleCount)||p.omittedTrailingSampleCount<0||
+     !Number.isSafeInteger(p?.zeroPaddedSampleCount)||p.zeroPaddedSampleCount<0||
+     p.representedSampleCount+p.omittedTrailingSampleCount!==p.inputSampleCount||
+     p.inputSampleCount*p.channelCount*4>128*1024*1024||
+     s?.method!=="stage2a-hann-fft-power-v1"||
+     s?.fftSize!==p.fftSize||s?.hopSize!==p.hopSize||
+     s?.representedSampleCount!==p.representedSampleCount||
+     s?.omittedTrailingSampleCount!==p.omittedTrailingSampleCount||
+     s?.zeroPaddedSampleCount!==p.zeroPaddedSampleCount||
+     !Number.isSafeInteger(s?.frames)||s.frames<1)
+    return abstain("UNVERIFIED_WORKER_PROVENANCE");
+  // Reuse Stage 3D-1's independent spectral-band and channel validation.
+  const evidence=prepareAuralisEngineeringEvidence(diagnostic);
+  if(!evidence||!Number.isFinite(evidence.metrics.lowToUpperDb))
+    return abstain("INVALID_OR_UNAVAILABLE_AURALIS_EVIDENCE");
+  const current=c?.subMetricsCall1, caps=c?.mixBalanceEvidence;
+  if(!current||!caps||typeof caps!=="object")
+    return abstain("MISSING_EXISTING_SCORING_EVIDENCE");
+  const finiteScore=(v:unknown):v is number=>
+    typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=100;
+  const reconcile=(key:"spectralMatch"|"midrangeSpacing",
+      capKey:"spectralCap"|"midrangeCap")=>{
+    const metric=current[key], cap=caps[capKey];
+    if(cap!==null&&!finiteScore(cap))return null;
+    if(metric?.applicable===false)
+      return {status:"NOT_APPLICABLE" as const,score:null,existingCap:null};
+    if(!finiteScore(metric?.score))return null;
+    // The original score should already reflect any existing cap. If it does
+    // not, abstain rather than accidentally legitimizing an inconsistent state.
+    if(cap!==null&&metric.score>cap)return null;
+    return {status:(cap===null?"NO_EXISTING_CAP":"ALREADY_CAPPED") as
+      "NO_EXISTING_CAP"|"ALREADY_CAPPED",
+      score:metric.score as number,existingCap:cap as number|null};
+  };
+  const spectralMatch=reconcile("spectralMatch","spectralCap");
+  const midrangeSpacing=reconcile("midrangeSpacing","midrangeCap");
+  if(!spectralMatch||!midrangeSpacing)return abstain("INCONSISTENT_EXISTING_CAPS_OR_APPLICABILITY");
+  return {
+    status:"COMPARED",scoringImpact:"NONE",adjustments:[],
+    schemaVersion:AURALIS_RECONCILIATION_VERSION,
+    lowToUpperDb:evidence.metrics.lowToUpperDb,
+    metrics:{spectralMatch,midrangeSpacing},
+    interpretation:"Shadow-only comparison of existing browser caps and Auralis spectral evidence. No additional cap, penalty, score change, or masking verdict is warranted by this ratio alone. If the tonal balance is an intentional production choice, no correction may be necessary."
+  };
+}
