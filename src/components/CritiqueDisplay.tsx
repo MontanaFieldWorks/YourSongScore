@@ -1635,7 +1635,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ],
       callout: "This Metric secures clear frequency separations so that your low and high ends decode without clipping.",
       description: "Audits decibel levels, EQ notches, sibilance de-essing, low frequency separation, and relative placement in the stereo panning field.",
-      feedback: `${critique?.mixQuality?.stereoField ?? "Solid width."} Low frequencies: ${critique?.mixQuality?.frequencyBalance?.lowEnd ?? "Balanced"}. Midrange: ${critique?.mixQuality?.frequencyBalance?.midrange ?? "Clear"}. High-end sibilance: ${critique?.mixQuality?.frequencyBalance?.highEnd ?? "Contained"}. Frequency issues: ${critique?.mixQuality?.dominanceIssues ?? "No bloating present."}`
+      feedback: `${critique?.mixQuality?.stereoField ?? "Solid width."} Low frequencies: ${critique?.mixQuality?.frequencyBalance?.lowEnd ?? "Balanced"}. Midrange: ${critique?.mixQuality?.frequencyBalance?.midrange ?? "Clear"}. High-end sibilance: ${critique?.mixQuality?.frequencyBalance?.highEnd ?? "Contained"}. Frequency issues: ${critique?.mixQuality?.dominanceIssues ?? "No bloating present."} ${(critique as any)?.auralisEngineering?.scoringAdapter?.status === "DISABLED_PENDING_STAGE_3D_2" ? "Auralis observations (not scored): " + ((critique as any).auralisEngineering.observations ?? []).join(" ") : ""}`
     },
     {
       id: "vocals",
@@ -1799,6 +1799,22 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       const row = wsSourceDiagnostics.addRow(diagnostic);
       row.alignment = { vertical: "top", wrapText: true };
       row.height = 32;
+    }
+    // Stage 3D-1: report-only engineering observations; historical critiques
+    // have no such field. No scoring fields or cached category values are read.
+    if ((critique as any)?.auralisEngineering?.scoringAdapter?.status === "DISABLED_PENDING_STAGE_3D_2") {
+      for(const observation of (critique as any).auralisEngineering.observations ?? []) {
+        const row = wsSourceDiagnostics.addRow({
+          section: "Auralis Stage 3D-1", field: "Conditional engineering observation (NOT SCORED)",
+          value: String(observation),
+        });
+        row.alignment = { vertical: "top", wrapText: true };
+        row.height = 52;
+      }
+      wsSourceDiagnostics.addRow({
+        section: "Auralis Stage 3D-1", field: "Scoring adapter",
+        value: "DISABLED_PENDING_STAGE_3D_2 — zero adjustments; Gemini, weights and existing guardrails unchanged",
+      });
     }
     // Source-lineage replay uses ACTUAL unchanged scorecard and summary
     // functions. Its output is report-only, never an input to scoring.
