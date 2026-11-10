@@ -378,7 +378,8 @@ test("Stage 3D-2C synthetic calibration gate proves lineage, cap replay, parent 
   const ready=(spectral)=>Math.round((88*60+85*20+spectral*10+90*10)/100);
   const critique={productionScoringVersion:MUD_DIAGNOSTIC_SCORING_VERSION,
     subMetricsCall1:{...fullMix(),spectralMatch:{score:76,applicable:true},
-      midrangeSpacing:{score:72,applicable:true}},
+      midrangeSpacing:{score:72,applicable:true},
+      dynamicVariety:{score:85,applicable:true}},
     mixBalanceEvidence:{spectralCap:76,midrangeCap:72},
     subMetricsCall3:{compositionFlowSubs:{
       hookPlacement:{score:88,applicable:true},
