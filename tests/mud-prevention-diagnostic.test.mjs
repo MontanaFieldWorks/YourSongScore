@@ -269,8 +269,8 @@ test("Stage 3D-2A reconciles existing caps without new numeric policies or write
   assert.equal(result.schemaVersion,AURALIS_RECONCILIATION_VERSION);
   assert.equal(result.scoringImpact,"NONE");
   assert.deepEqual(result.adjustments,[]);
-  assert.equal(result.metrics.spectralMatch.status,"ALREADY_CAPPED");
-  assert.equal(result.metrics.midrangeSpacing.status,"ALREADY_CAPPED");
+  assert.equal(result.metrics.spectralMatch.status,"CAP_PRESENT_EFFECT_UNVERIFIED");
+  assert.equal(result.metrics.midrangeSpacing.status,"CAP_PRESENT_EFFECT_UNVERIFIED");
   assert.equal(result.metrics.spectralMatch.existingCap,76);
   assert.equal(result.metrics.midrangeSpacing.existingCap,72);
   assert.match(result.interpretation,/intentional production choice/);
@@ -281,10 +281,31 @@ test("Stage 3D-2A reconciles existing caps without new numeric policies or write
   assert.equal(critique.subMetricsCall1.spectralMatch.score,76);
   assert.equal(critique.subMetricsCall1.midrangeSpacing.score,72);
 
+  // Equal-to-cap and below-cap scores prove only the presence of a ceiling,
+  // not whether it actually reduced the score.
+  const belowCaps=structuredClone(critique);
+  belowCaps.subMetricsCall1.spectralMatch.score=74; // below 76
+  belowCaps.subMetricsCall1.midrangeSpacing.score=69; // below 72
+  const belowResult=reconcileAuralisExistingMixCapsShadow(diagnostic,belowCaps);
+  assert.equal(belowResult.status,"COMPARED");
+  assert.equal(belowResult.metrics.spectralMatch.status,"CAP_PRESENT_EFFECT_UNVERIFIED");
+  assert.equal(belowResult.metrics.midrangeSpacing.status,"CAP_PRESENT_EFFECT_UNVERIFIED");
+  assert.equal(belowResult.metrics.spectralMatch.score,74);
+  assert.equal(belowResult.metrics.midrangeSpacing.score,69);
+  assert.deepEqual(belowResult.adjustments,[]);
+  assert.equal(belowCaps.subMetricsCall1.spectralMatch.score,74);
+  assert.equal(belowCaps.subMetricsCall1.midrangeSpacing.score,69);
+  assert.doesNotMatch(JSON.stringify(belowResult),/ALREADY_CAPPED|CAP_APPLIED/);
+
   const noCaps=structuredClone(critique);
   noCaps.mixBalanceEvidence={spectralCap:null,midrangeCap:null};
-  assert.equal(reconcileAuralisExistingMixCapsShadow(diagnostic,noCaps).metrics.spectralMatch.status,
-    "NO_EXISTING_CAP");
+  const missingCapResult=reconcileAuralisExistingMixCapsShadow(diagnostic,noCaps);
+  assert.equal(missingCapResult.status,"COMPARED");
+  assert.equal(missingCapResult.metrics.spectralMatch.status,"NO_EXISTING_CAP");
+  assert.equal(missingCapResult.metrics.midrangeSpacing.status,"NO_EXISTING_CAP");
+  assert.equal(missingCapResult.metrics.spectralMatch.existingCap,null);
+  assert.equal(missingCapResult.metrics.midrangeSpacing.existingCap,null);
+  assert.deepEqual(missingCapResult.adjustments,[]);
   const notApplicable=structuredClone(noCaps);
   notApplicable.subMetricsCall1.midrangeSpacing.applicable=false;
   assert.deepEqual(reconcileAuralisExistingMixCapsShadow(diagnostic,notApplicable)
@@ -310,6 +331,7 @@ test("Stage 3D-2A reconciles existing caps without new numeric policies or write
     [diagnostic,{...critique,mixBalanceEvidence:null}],
     [diagnostic,{...critique,mixBalanceEvidence:{midrangeCap:72}}],
     [diagnostic,{...critique,mixBalanceEvidence:{midrangeCap:70,spectralCap:76}}],
+    [diagnostic,{...critique,mixBalanceEvidence:{midrangeCap:72,spectralCap:75}}],
     [diagnostic,{...critique,subMetricsCall1:{...critique.subMetricsCall1,
       spectralMatch:{score:96}}}],
   ];
