@@ -240,7 +240,7 @@ export function reconcileAuralisExistingMixCapsShadow(
     return abstain("HISTORICAL_OR_UNKNOWN_SCORING_VERSION");
   const p=d?.evidence?.sourceProvenance, s=d?.spectralProfile;
   if(d?.status!=="AVAILABLE"||d?.evidence?.scoringImpact!=="NONE"||
-     p?.methods?.join(",")!=="stage2a-hann-fft-power-v1,stage2b1-low-frame-power-v1,stage2b2-band-stereo-v1"||
+     (!Array.isArray(p?.methods)||p.methods.join(",")!=="stage2a-hann-fft-power-v1,stage2b1-low-frame-power-v1,stage2b2-band-stereo-v1")||
      p?.window!=="periodic-hann"||
      p?.spectralNormalization!=="one-sided-parseval-sum-window-squared"||
      p?.fftSize!==4096||p?.hopSize!==2048||
