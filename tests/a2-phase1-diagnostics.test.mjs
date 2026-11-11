@@ -5128,15 +5128,15 @@ test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle a
         expression,awaitPromise:true,returnByValue:true
       }}));
     });
-    let ready=false;
+    let harnessReady=false;
     for(let i=0;i<70;i++){
       const state=await evaluate("JSON.stringify({ready:document.readyState,button:!!document.querySelector('#identity'),url:location.pathname})");
       const page=JSON.parse(state);
       if(page.ready==="complete"&&page.button&&
-         page.url==="/tests/auralis-stage2g1-browser-harness.html"){ready=true;break;}
+         page.url==="/tests/auralis-stage2g1-browser-harness.html"){harnessReady=true;break;}
       await new Promise(r=>setTimeout(r,150));
     }
-    assert.ok(ready,"Chromium identity harness never completed initial navigation");
+    assert.ok(harnessReady,"Chromium identity harness never completed initial navigation");
     await new Promise(r=>setTimeout(r,500));
     // Exactly one click triggers the existing seven-case actual module Worker
     // profile. The worker profile itself performs no retries.
