@@ -812,11 +812,13 @@ test("Stage 3D-2K records server, browser spectral, and finish cap stages separa
   // Only the pre-existing scoring path changes these values; captures are inert.
   c.subMetricsCall1.spectralMatch.score = 88;
   const old = structuredClone(c.subMetricsCall1.spectralMatch);
+  c.productionFinishEvidence.ceiling = 88;
   captureA2ServerSpectralScore(c, 88);
   captureA2BeforeClient(c);
   c.subMetricsCall1.spectralMatch.score = 82;
   captureA2SpectralAfterBrowserMix(c, 82);
   c.subMetricsCall1.spectralMatch.score = 80;
+  c.productionFinishEvidence.ceiling = 80;
   captureA2SpectralAfterFinish(c, 80);
   const e = c.subMetricsCall1.a2ScoringProvenance.spectralMatch;
   assert.equal(e.canonicalMappedScore, 93);
@@ -901,3 +903,102 @@ test("Stage 3D-2K spectral audit rows cannot disclose raw model commentary", asy
   assert.ok(!JSON.stringify(loaded.getWorksheet("Source Diagnostics")?.getSheetValues()).includes("SECRET SPECTRAL TEXT"));
 });
 
+
+test("Stage 3D-2K unexplained server changes fail closed including workbook rows", async () => {
+  const c = spectralFixture();
+  c.subMetricsCall1.spectralMatch.score = 85;
+  captureA2ServerSpectralScore(c, null);
+  const e = c.subMetricsCall1.a2ScoringProvenance.spectralMatch;
+  assert.equal(e.serverSpectralStatus, "UNATTRIBUTED_SCORE_CHANGE");
+  assert.equal(e.serverFinishCapReason, "UNATTRIBUTED_SCORE_CHANGE");
+  assert.equal(e.serverFinishCapApplied, null);
+  captureA2BeforeClient(c);
+  captureA2SpectralAfterBrowserMix(c, null);
+  captureA2SpectralAfterFinish(c, null);
+  assert.equal(e.browserSpectralStatus, "NOT_CAPTURED");
+  assert.equal(e.finalScore, null);
+  const rows = getA2ScoringProvenanceRows(c);
+  assert.equal(row(rows, SP, "Server finish cap applied"), "NOT_CAPTURED");
+  assert.equal(row(rows, SP, "Final captured score"), "NOT_CAPTURED");
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Source Diagnostics");
+  appendA2ProvenanceToSourceDiagnostics(ws, c);
+  const saved = await wb.xlsx.writeBuffer();
+  const wb2 = new ExcelJS.Workbook();
+  await wb2.xlsx.load(saved);
+  assert.match(JSON.stringify(wb2.getWorksheet("Source Diagnostics").getSheetValues()), /UNATTRIBUTED_SCORE_CHANGE/);
+});
+test("Stage 3D-2K browser spectral discrepancies do not claim an applied or absent cap", () => {
+  for (const cap of [null,82]) {
+    const c = spectralFixture();
+    captureA2ServerSpectralScore(c, null);
+    captureA2BeforeClient(c);
+    c.subMetricsCall1.spectralMatch.score = 80;
+    captureA2SpectralAfterBrowserMix(c, cap);
+    const e = c.subMetricsCall1.a2ScoringProvenance.spectralMatch;
+    assert.equal(e.browserSpectralStatus, "UNATTRIBUTED_SCORE_CHANGE");
+    assert.equal(e.browserSpectralCapReason, "UNATTRIBUTED_SCORE_CHANGE");
+    assert.equal(e.browserSpectralCapApplied, null);
+    captureA2SpectralAfterFinish(c, null);
+    assert.equal(e.finalScore, null);
+  }
+});
+test("Stage 3D-2K browser finish discrepancies cannot certify final score", () => {
+  for (const cap of [null,82]) {
+    const c = spectralFixture();
+    captureA2ServerSpectralScore(c, null);
+    captureA2BeforeClient(c);
+    captureA2SpectralAfterBrowserMix(c, null);
+    c.subMetricsCall1.spectralMatch.score = 80;
+    c.productionFinishEvidence.ceiling = cap;
+    captureA2SpectralAfterFinish(c, cap);
+    const e = c.subMetricsCall1.a2ScoringProvenance.spectralMatch;
+    assert.equal(e.browserFinishStatus, "UNATTRIBUTED_SCORE_CHANGE");
+    assert.equal(e.browserFinishCapApplied, null);
+    assert.equal(e.browserFinishCapReason, "UNATTRIBUTED_SCORE_CHANGE");
+    assert.equal(e.finalScore, null);
+  }
+});
+test("Stage 3D-2K missing finish evidence differs from verified absence of cap", async () => {
+  for (const missing of [undefined,{}, {ceiling:undefined},{ceiling:80}]) {
+    const c = spectralFixture();
+    c.productionFinishEvidence = missing;
+    captureA2ServerSpectralScore(c, null);
+    const e = c.subMetricsCall1.a2ScoringProvenance.spectralMatch;
+    assert.equal(e.serverSpectralStatus, "NOT_CAPTURED");
+    assert.equal(e.serverFinishCapReason, "NOT_CAPTURED");
+    assert.equal(row(getA2ScoringProvenanceRows(c), SP, "Server finish cap candidate"), "NOT_CAPTURED");
+    c.productionFinishEvidence = {ceiling:null};
+    captureA2ServerSpectralScore(c, null);
+    captureA2BeforeClient(c);
+    captureA2SpectralAfterBrowserMix(c, null);
+    c.productionFinishEvidence = missing;
+    captureA2SpectralAfterFinish(c, null);
+    assert.equal(e.browserFinishStatus, "NOT_CAPTURED");
+    assert.equal(e.finalScore, null);
+    const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet("Source Diagnostics");
+    appendA2ProvenanceToSourceDiagnostics(ws, c);
+    const data = await wb.xlsx.writeBuffer(), reload = new ExcelJS.Workbook();
+    await reload.xlsx.load(data);
+    assert.match(JSON.stringify(reload.getWorksheet("Source Diagnostics").getSheetValues()), /NOT_CAPTURED/);
+  }
+  const c = spectralFixture();
+  captureA2ServerSpectralScore(c, null);
+  captureA2BeforeClient(c);
+  captureA2SpectralAfterBrowserMix(c, null);
+  captureA2SpectralAfterFinish(c, null);
+  assert.equal(row(getA2ScoringProvenanceRows(c), SP, "Browser finish cap candidate"), "NONE");
+  assert.equal(c.subMetricsCall1.a2ScoringProvenance.spectralMatch.finalScore, 93);
+});
+test("Stage 3D-2K undefined browser cap is NOT_CAPTURED rather than NONE", () => {
+  const c = spectralFixture();
+  captureA2ServerSpectralScore(c, null);
+  captureA2BeforeClient(c);
+  captureA2SpectralAfterBrowserMix(c, undefined);
+  const e = c.subMetricsCall1.a2ScoringProvenance.spectralMatch;
+  assert.equal(e.browserSpectralStatus, "NOT_CAPTURED");
+  assert.equal(e.browserSpectralCapReason, "NOT_CAPTURED");
+  assert.equal(row(getA2ScoringProvenanceRows(c), SP, "Browser spectral cap candidate"), "NOT_CAPTURED");
+  captureA2SpectralAfterFinish(c, null);
+  assert.equal(e.finalScore, null);
+});

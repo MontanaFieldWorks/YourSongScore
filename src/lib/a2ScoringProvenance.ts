@@ -78,12 +78,26 @@ export function captureA2ServerSpectralScore(critique: any, finishCeiling: numbe
     entry.serverFinishCapReason = "NOT_CAPTURED";
     return;
   }
-  entry.serverSpectralStatus = "CAPTURED";
+  // A null ceiling proves "no cap" only when finish evidence explicitly
+  // records null; missing or contradictory evidence is never an implicit NONE.
+  const finish = critique?.productionFinishEvidence;
+  const ceilingKnown = finish !== null && typeof finish === "object" &&
+    Object.prototype.hasOwnProperty.call(finish, "ceiling") &&
+    (finish.ceiling === null || finite(finish.ceiling)) &&
+    finish.ceiling === finishCeiling;
+  const capKnown = finishCeiling === null || finite(finishCeiling);
+  const expected = capKnown ? finishCeiling === null ?
+    original : Math.min(original, finishCeiling) : null;
+  const valid = ceilingKnown && capKnown && after === expected;
+  entry.serverSpectralStatus = !ceilingKnown || !capKnown ? "NOT_CAPTURED" :
+    valid ? "CAPTURED" : "UNATTRIBUTED_SCORE_CHANGE";
   entry.serverScoreAfterFinishCap = after;
-  entry.serverFinishCapCandidate = finite(finishCeiling) ? finishCeiling : null;
-  const applied = finite(finishCeiling) && original > finishCeiling && after === finishCeiling;
-  entry.serverFinishCapApplied = applied;
-  entry.serverFinishCapReason = applied ? "PRODUCTION_FINISH_MULTI_SIGNAL_CEILING" : "NONE";
+  entry.serverFinishCapCandidate = ceilingKnown && finite(finishCeiling) ? finishCeiling : null;
+  const applied = valid && finite(finishCeiling) && original > finishCeiling;
+  entry.serverFinishCapApplied = valid ? applied : null;
+  entry.serverFinishCapReason = !ceilingKnown || !capKnown ? "NOT_CAPTURED" :
+    !valid ? "UNATTRIBUTED_SCORE_CHANGE" :
+    applied ? "PRODUCTION_FINISH_MULTI_SIGNAL_CEILING" : "NONE";
 }
 
 export function captureA2SpectralAfterBrowserMix(critique: any, spectralCap: number | null): void {
@@ -108,12 +122,23 @@ export function captureA2SpectralAfterBrowserMix(critique: any, spectralCap: num
     entry.browserSpectralCapReason = "NOT_CAPTURED";
     return;
   }
-  entry.browserSpectralStatus = "CAPTURED";
+  // Explicit null means no selected cap; undefined means missing evidence.
+  const capKnown = spectralCap === null || finite(spectralCap);
+  const serverVerified = entry.serverSpectralStatus === "CAPTURED" &&
+    finite(entry.serverScoreAfterFinishCap) &&
+    before === entry.serverScoreAfterFinishCap;
+  const expected = capKnown ? spectralCap === null ?
+    before : Math.min(before, spectralCap) : null;
+  const valid = capKnown && serverVerified && after === expected;
+  entry.browserSpectralStatus = !capKnown || !serverVerified ? "NOT_CAPTURED" :
+    valid ? "CAPTURED" : "UNATTRIBUTED_SCORE_CHANGE";
   entry.afterSpectralCapScore = after;
-  entry.browserSpectralCapCandidate = finite(spectralCap) ? spectralCap : null;
-  const applied = finite(spectralCap) && before > spectralCap && after === spectralCap;
-  entry.browserSpectralCapApplied = applied;
-  entry.browserSpectralCapReason = applied ? "BROWSER_SPECTRAL_OUTLIER_CAP" : "NONE";
+  entry.browserSpectralCapCandidate = capKnown && finite(spectralCap) ? spectralCap : null;
+  const applied = valid && finite(spectralCap) && before > spectralCap;
+  entry.browserSpectralCapApplied = valid ? applied : null;
+  entry.browserSpectralCapReason = !capKnown || !serverVerified ? "NOT_CAPTURED" :
+    !valid ? "UNATTRIBUTED_SCORE_CHANGE" :
+    applied ? "BROWSER_SPECTRAL_OUTLIER_CAP" : "NONE";
 }
 
 export function captureA2SpectralAfterFinish(critique: any, finishCeiling: number | null): void {
@@ -140,13 +165,26 @@ export function captureA2SpectralAfterFinish(critique: any, finishCeiling: numbe
     entry.browserFinishCapReason = "NOT_CAPTURED";
     return;
   }
-  entry.browserFinishStatus = "COMPLETED";
+  // Verify the selected browser ceiling against its reconciled finish record.
+  const finish = critique?.productionFinishEvidence;
+  const ceilingKnown = finish !== null && typeof finish === "object" &&
+    Object.prototype.hasOwnProperty.call(finish, "ceiling") &&
+    (finish.ceiling === null || finite(finish.ceiling)) &&
+    finish.ceiling === finishCeiling;
+  const capKnown = finishCeiling === null || finite(finishCeiling);
+  const expected = capKnown ? finishCeiling === null ?
+    before : Math.min(before, finishCeiling) : null;
+  const valid = ceilingKnown && capKnown && after === expected;
+  entry.browserFinishStatus = !ceilingKnown || !capKnown ? "NOT_CAPTURED" :
+    valid ? "COMPLETED" : "UNATTRIBUTED_SCORE_CHANGE";
   entry.afterFinishCeilingScore = after;
-  entry.finalScore = after;
-  entry.browserFinishCapCandidate = finite(finishCeiling) ? finishCeiling : null;
-  const applied = finite(finishCeiling) && before > finishCeiling && after === finishCeiling;
-  entry.browserFinishCapApplied = applied;
-  entry.browserFinishCapReason = applied ? "PRODUCTION_FINISH_MULTI_SIGNAL_CEILING" : "NONE";
+  entry.finalScore = valid ? after : null;
+  entry.browserFinishCapCandidate = ceilingKnown && finite(finishCeiling) ? finishCeiling : null;
+  const applied = valid && finite(finishCeiling) && before > finishCeiling;
+  entry.browserFinishCapApplied = valid ? applied : null;
+  entry.browserFinishCapReason = !ceilingKnown || !capKnown ? "NOT_CAPTURED" :
+    !valid ? "UNATTRIBUTED_SCORE_CHANGE" :
+    applied ? "PRODUCTION_FINISH_MULTI_SIGNAL_CEILING" : "NONE";
 }
 
 /** Mirror the server Mix Balance scorer, including Mud exclusion and N/A gates. */
