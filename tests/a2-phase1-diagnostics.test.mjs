@@ -4875,3 +4875,125 @@ test("Stage 2R-2C rejects contradictory displayed rate lineage while preserving 
     scoringImpact:badScore.scoringImpact,
     observedProtection:"CONTRADICTORY_RATE_LINEAGE_UNVERIFIED"}));
 });
+
+
+import { auralisSourceHeaderRate, captureAuralisEncodedSourceIdentity } from "../src/lib/liveAudioAnalyzer.ts";
+import { createHash } from "node:crypto";
+
+const fixtureWavHeader=(rate=44100)=>{
+  const bytes=new ArrayBuffer(48),view=new DataView(bytes);
+  const word=(off,str)=>{for(let i=0;i<str.length;i++)view.setUint8(off+i,str.charCodeAt(i));};
+  word(0,"RIFF");view.setUint32(4,40,true);word(8,"WAVE");
+  word(12,"fmt ");view.setUint32(16,16,true);
+  view.setUint16(20,1,true);view.setUint16(22,1,true);
+  view.setUint32(24,rate,true);view.setUint32(28,rate*2,true);
+  view.setUint16(32,2,true);view.setUint16(34,16,true);
+  word(36,"data");view.setUint32(40,4,true);
+  return bytes;
+};
+test("Stage 3D-2L-1 encoded SHA-256 and conservative WAV source-rate checks",async()=>{
+  const wav=fixtureWavHeader(44100),original=new Uint8Array(wav.slice(0));
+  const got=await captureAuralisEncodedSourceIdentity(wav);
+  assert.equal(got.status,"VERIFIED");
+  assert.equal(got.encodedSha256,createHash("sha256").update(new Uint8Array(wav)).digest("hex"));
+  assert.equal(got.sourceRateStatus,"VERIFIED_WAV_HEADER");
+  assert.equal(got.sourceSampleRate,44100);
+  assert.equal(got.format,"WAV_PCM");
+  assert.deepEqual(new Uint8Array(wav),original,"source bytes must not be mutated");
+  const mp3=new Uint8Array([0x49,0x44,0x33,0,0,0,0,0]).buffer;
+  const other=await captureAuralisEncodedSourceIdentity(mp3);
+  assert.equal(other.status,"VERIFIED","encoded identity independent of container parsing");
+  assert.equal(other.sourceRateStatus,"UNVERIFIED","MP3 rate must never be inferred");
+  assert.equal(other.sourceSampleRate,null);
+  for(const rate of [0,1,7999,192001]){
+    assert.equal(auralisSourceHeaderRate(fixtureWavHeader(rate)).sourceRateStatus,"UNVERIFIED");
+  }
+  const bad=fixtureWavHeader(48000);
+  new DataView(bad).setUint32(16,0xffffffff,true);
+  assert.equal(auralisSourceHeaderRate(bad).sourceRateStatus,"UNVERIFIED");
+});
+
+test("Stage 3D-2L-1 optional Worker identity verifies independently received PCM and preserves legacy response",async()=>{
+  const originalWorker=globalThis.Worker;
+  const tone=Float32Array.from({length:4096},(_,i)=>0.1*Math.sin(i/100));
+  const audio={sampleRate:48000,numberOfChannels:1,length:tone.length,getChannelData:()=>tone};
+  const encoded=await captureAuralisEncodedSourceIdentity(fixtureWavHeader(44100));
+  let tamper="NONE",terminated=0,requests=[];
+  class FakeWorker{
+    terminate(){terminated++;}
+    postMessage(request,transfer){
+      requests.push({captureIdentity:request.captureIdentity,bytes:transfer[0].byteLength});
+      const data=runStage2c2aBrowserDiagnostics({
+        sampleRate:request.sampleRate,numberOfChannels:request.numChannels,
+        getChannelData:()=>new Float32Array(request.ch0),
+      },true,true);
+      const sha=createHash("sha256").update(new Uint8Array(request.ch0)).digest("hex");
+      if(request.captureIdentity){
+        data.pcmIdentity={channelSha256:[sha],sampleRate:request.sampleRate,
+          channels:request.numChannels,samples:new Float32Array(request.ch0).length};
+        if(tamper==="HASH")data.pcmIdentity.channelSha256=["0".repeat(64)];
+        if(tamper==="MISSING")delete data.pcmIdentity;
+        if(tamper==="RATE")data.pcmIdentity.sampleRate=44100;
+      }
+      this.onmessage({data:{kind:"ENGINEERING_DIAGNOSTICS",...data}});
+    }
+  }
+  globalThis.Worker=FakeWorker;
+  try{
+    const good=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,128*1024*1024,30000,true,Promise.resolve(encoded));
+    assert.equal(good.status,"AVAILABLE");
+    assert.equal(good.identity?.status,"VERIFIED");
+    assert.equal(good.identity?.encodedSha256,encoded.encodedSha256);
+    assert.equal(good.identity?.rateRelationship,"DECODED_RATE_DIFFERENT");
+    assert.equal(good.identity?.sourceRateStatus,"VERIFIED_WAV_HEADER");
+    assert.deepEqual(good.identity?.decodedChannelSha256,good.identity?.workerChannelSha256);
+    assert.equal(tone.byteLength,4096*4,"original decoded PCM remains intact");
+    assert.equal(requests[0].captureIdentity,true);
+    const noHashReport=JSON.stringify((await import("../src/lib/mudPreventionDiagnostic.ts")).prepareAuralisEngineeringEvidence(good));
+    assert.ok(!noHashReport.includes(encoded.encodedSha256),"public adapter must redact source SHA-256");
+    assert.ok(!noHashReport.includes(good.identity.decodedChannelSha256[0]),"PCM SHA-256 must stay private");
+    assert.ok(noHashReport.includes("DECODED_RATE_DIFFERENT"));
+    for(tamper of ["HASH","MISSING","RATE"]){
+      const bad=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,128*1024*1024,30000,true,Promise.resolve(encoded));
+      assert.deepEqual(bad,{status:"UNAVAILABLE",reason:"PCM_IDENTITY_MISMATCH"});
+    }
+    tamper="NONE";
+    const legacy=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,128*1024*1024,30000,true);
+    assert.equal(legacy.status,"AVAILABLE");
+    assert.equal(legacy.identity,undefined);
+    assert.equal(requests.at(-1).captureIdentity,undefined);
+    assert.equal(terminated,5);
+  }finally{globalThis.Worker=originalWorker;}
+});
+
+test("Stage 3D-2L-1 fail-closed hashing, cancellation, timeout and budget",async()=>{
+  const before=globalThis.Worker,pcm=new Float32Array(4096);
+  const audio={sampleRate:48000,numberOfChannels:1,length:4096,getChannelData:()=>pcm};
+  let workers=0,terminated=0,posted=0;
+  class FakeWorker{
+    constructor(){workers++;}
+    terminate(){terminated++;}
+    postMessage(){posted++;}
+  }
+  globalThis.Worker=FakeWorker;
+  const source=await captureAuralisEncodedSourceIdentity(fixtureWavHeader(48000));
+  try{
+    const oversized={...audio,length:33_554_433};
+    assert.deepEqual(await analyzeEngineeringDiagnosticsInWorker(oversized,undefined,128*1024*1024,50,true,Promise.resolve(source)),
+      {status:"UNAVAILABLE",reason:"INPUT_BUDGET_EXCEEDED"});
+    assert.equal(workers,0);
+    const corrupt={...source,status:"UNAVAILABLE",encodedSha256:null};
+    const bad=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,128*1024*1024,100,true,Promise.resolve(corrupt));
+    assert.deepEqual(bad,{status:"UNAVAILABLE",reason:"ENCODED_IDENTITY_UNAVAILABLE"});
+    assert.equal(posted,0);
+    const controller=new AbortController();
+    const held=new Promise(()=>{});
+    const cancelled=analyzeEngineeringDiagnosticsInWorker(audio,controller.signal,128*1024*1024,80,true,held);
+    controller.abort();
+    assert.deepEqual(await cancelled,{status:"CANCELLED",reason:"ABORTED"});
+    const timed=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,128*1024*1024,5,true,held);
+    assert.deepEqual(timed,{status:"UNAVAILABLE",reason:"TIMEOUT"});
+    assert.equal(posted,0);
+    assert.equal(terminated,3);
+  }finally{globalThis.Worker=before;}
+});

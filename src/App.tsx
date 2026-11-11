@@ -3,6 +3,7 @@ import jsmediatags from "jsmediatags";
 import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile, InternalBatchResult } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
+import type { AuralisEncodedSourceIdentity } from "./lib/liveAudioAnalyzer";
 
 // Disabled by default: internal opt-in diagnostic computation only, no report/scoring data.
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
@@ -1338,6 +1339,7 @@ export default function App() {
     cancelAuralisDiagnostic();
     const diagnosticGeneration = auralisDiagnosticGenerationRef.current;
     let auralisEvidencePromise: Promise<ReturnType<typeof prepareAuralisEngineeringEvidence>> | null = null;
+    let auralisEncodedIdentity: Promise<AuralisEncodedSourceIdentity> | undefined;
     setLoading(true);
     setLoadingStatus("Summoning studio-grade mixing engineer...");
     setErrorHeader(null);
@@ -1357,7 +1359,9 @@ export default function App() {
     // returns so this does not add a second DSP pass.
     let preAnalysisLiveMetrics: any = null;
     try {
-      const audioBuffer = await decodeAudioFile(selectedFile);
+      const audioBuffer = await decodeAudioFile(selectedFile,
+        !a2PilotEnabled && STAGE3D1_AURALIS_EVIDENCE_ENABLED
+          ? identity => { auralisEncodedIdentity = identity; } : undefined);
       preAnalysisLiveMetrics = analyzeAudioBuffer(audioBuffer);
       if (STAGE2C2A_DIAGNOSTICS_ENABLED &&
           diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
@@ -1387,7 +1391,7 @@ export default function App() {
           diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
         const controller = new AbortController();
         auralisDiagnosticAbortRef.current = controller;
-        auralisEvidencePromise = analyzeEngineeringDiagnosticsInWorker(audioBuffer, controller.signal, undefined, undefined, true)
+        auralisEvidencePromise = analyzeEngineeringDiagnosticsInWorker(audioBuffer, controller.signal, undefined, undefined, true, auralisEncodedIdentity)
           .then(result => controller.signal.aborted ||
             diagnosticGeneration !== auralisDiagnosticGenerationRef.current
               ? null : prepareAuralisEngineeringEvidence(result))
