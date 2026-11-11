@@ -922,6 +922,10 @@ test("Stage 3D-2K unexplained server changes fail closed including workbook rows
   assert.equal(row(rows, SP, "Final captured score"), "NOT_CAPTURED");
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Source Diagnostics");
+  ws.columns = [
+    {header:"Metric",key:"section"}, {header:"Diagnostic field",key:"field"},
+    {header:"Recorded evidence / decision",key:"value"},
+  ];
   appendA2ProvenanceToSourceDiagnostics(ws, c);
   const saved = await wb.xlsx.writeBuffer();
   const wb2 = new ExcelJS.Workbook();
@@ -977,6 +981,10 @@ test("Stage 3D-2K missing finish evidence differs from verified absence of cap",
     assert.equal(e.browserFinishStatus, "NOT_CAPTURED");
     assert.equal(e.finalScore, null);
     const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet("Source Diagnostics");
+  ws.columns = [
+    {header:"Metric",key:"section"}, {header:"Diagnostic field",key:"field"},
+    {header:"Recorded evidence / decision",key:"value"},
+  ];
     appendA2ProvenanceToSourceDiagnostics(ws, c);
     const data = await wb.xlsx.writeBuffer(), reload = new ExcelJS.Workbook();
     await reload.xlsx.load(data);
