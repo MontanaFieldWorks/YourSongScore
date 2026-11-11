@@ -220,7 +220,201 @@ export function exactMixContribution(critique: any): {
   };
 }
 
+
+// Stage 3D-2L-2. Snapshot ONLY existing numeric decisions, never model text.
+// Capture functions are diagnostic observers; neither computes nor writes a score.
+export const AURALIS_PENALTY_INVENTORY_VERSION = "auralis-stage3d2l2-penalty-inventory-v1";
+const auditNumber=(v:any):number|null=>finite(v)&&v>=0&&v<=100?v:null;
+const auditCeiling=(v:any):number|null|"NOT_CAPTURED"=>
+  v===null?null:auditNumber(v)??"NOT_CAPTURED";
+const auditPenalty=(v:any):number|"NOT_CAPTURED"=>
+  finite(v)&&v>=0&&v<=100?v:"NOT_CAPTURED";
+const auditFreeze=(v:any):any=>{
+  if(v&&typeof v==="object"&&!Object.isFrozen(v)){
+    Object.values(v).forEach(auditFreeze);Object.freeze(v);
+  }
+  return v;
+};
+const auditStage=(before:any,candidate:any,after:any,applicable:any)=>{
+  if(applicable===false)return auditFreeze({status:"NOT_APPLICABLE",before:null,candidate:null,after:null,applied:false});
+  const a=auditNumber(before),b=auditNumber(after),cap=auditCeiling(candidate);
+  if(a===null||b===null||cap==="NOT_CAPTURED")
+    return auditFreeze({status:"NOT_CAPTURED",before:a,candidate:cap,after:b,applied:null});
+  const expected=cap===null?a:Math.min(a,cap);
+  if(expected!==b)return auditFreeze({status:"CONTRADICTORY",before:a,candidate:cap,after:b,applied:null});
+  return auditFreeze({status:"VERIFIED",before:a,candidate:cap,after:b,applied:b<a});
+};
+
+/** Captures server-returned state BEFORE existing browser corrections. */
+export function captureAuralisPenaltyInventoryBeforeClient(c:any):void {
+  if(c?.productionScoringVersion!=="scoring-tier-v8-mud-diagnostic"||c?.auralisPenaltyInventory)return;
+  const call=c?.subMetricsCall1,trace=call?.a2ScoringProvenance;
+  const before=auditFreeze({
+    scoringVersion:c.productionScoringVersion,
+    serverFinishSource:c?.productionFinishEvidence?.source==="server"?"server":"NOT_CAPTURED",
+    serverFinishCeiling:auditCeiling(c?.productionFinishEvidence?.ceiling),
+    spectralCanonical:auditNumber(trace?.spectralMatch?.canonicalMappedScore),
+    spectralAfterServer:auditNumber(call?.spectralMatch?.score),
+    spectralServerStatus:trace?.spectralMatch?.serverSpectralStatus==="CAPTURED"?"CAPTURED":"NOT_CAPTURED",
+    midrangeAfterServer:auditNumber(call?.midrangeSpacing?.score),
+    productionAfterServer:auditNumber(c?.scores?.overallProduction),
+    mixAfterServer:auditNumber(c?.mixQuality?.score),
+    commercialAfterServer:auditNumber(c?.scores?.commercialReadiness),
+    transientBeforeBrowser:auditNumber(c?.subMetricsCall3?.instrumentalStagingSubs?.transientPunch?.score),
+    transientApplicable:c?.subMetricsCall3?.instrumentalStagingSubs?.transientPunch?.applicable!==false,
+  });
+  c.auralisPenaltyInventory=auditFreeze({
+    schemaVersion:AURALIS_PENALTY_INVENTORY_VERSION,
+    scoringImpact:"NONE",adjustments:[] as [],
+    status:"PRE_CLIENT_ONLY",capture:"ACTUAL_SERVER_RETURNED_SNAPSHOT",
+    before,after:null,stages:null,overlapFamilies:[] as string[],
+  });
+}
+
+/** Called after existing browser penalties/ceilings; never mutates scoring. */
+export function captureAuralisPenaltyInventoryAfterClient(c:any):void {
+  const old=c?.auralisPenaltyInventory;
+  if(old?.schemaVersion!==AURALIS_PENALTY_INVENTORY_VERSION||
+     old.status!=="PRE_CLIENT_ONLY")return;
+  const pre=old.before,call=c?.subMetricsCall1,trace=call?.a2ScoringProvenance;
+  const finish=c?.productionFinishEvidence,caps=c?.mixBalanceEvidence;
+  const after=auditFreeze({
+    finishSource:finish?.source==="reconciled"?"reconciled":"NOT_CAPTURED",
+    effectiveFinishCeiling:auditCeiling(finish?.ceiling),
+    browserSpectralCandidate:auditCeiling(caps?.spectralCap),
+    browserMidrangeCandidate:auditCeiling(caps?.midrangeCap),
+    dynamicPenalty:auditPenalty(finish?.dynamicFinishPenalty),
+    brickwallPenalty:auditPenalty(finish?.brickwallFinishPenalty),
+    effectiveTechnicalPenalty:auditPenalty(finish?.technicalFinishPenalty),
+    transientPunchCandidate:auditCeiling(finish?.transientPunchCap===undefined?"NOT_CAPTURED":finish.transientPunchCap),
+    spectralAfterBrowser:auditNumber(trace?.spectralMatch?.afterSpectralCapScore),
+    spectralFinal:auditNumber(call?.spectralMatch?.score),
+    midrangeFinal:auditNumber(call?.midrangeSpacing?.score),
+    transientFinal:auditNumber(c?.subMetricsCall3?.instrumentalStagingSubs?.transientPunch?.score),
+    productionFinal:auditNumber(c?.scores?.overallProduction),
+    mixFinal:auditNumber(c?.mixQuality?.score),
+    commercialFinal:auditNumber(c?.scores?.commercialReadiness),
+  });
+  const spectralServer=auditStage(pre.spectralCanonical,pre.serverFinishCeiling,
+    pre.spectralAfterServer,call?.spectralMatch?.applicable);
+  const spectralBrowser=auditStage(pre.spectralAfterServer,after.browserSpectralCandidate,
+    after.spectralAfterBrowser,call?.spectralMatch?.applicable);
+  const spectralFinish=auditStage(after.spectralAfterBrowser,after.effectiveFinishCeiling,
+    after.spectralFinal,call?.spectralMatch?.applicable);
+  const midrange=auditStage(pre.midrangeAfterServer,after.browserMidrangeCandidate,
+    after.midrangeFinal,call?.midrangeSpacing?.applicable);
+  const transient=auditStage(pre.transientBeforeBrowser,after.transientPunchCandidate,
+    after.transientFinal,pre.transientApplicable);
+  const d=after.dynamicPenalty,b=after.brickwallPenalty,t=after.effectiveTechnicalPenalty;
+  const technicalStatus=[d,b,t].some(x=>x==="NOT_CAPTURED")?"NOT_CAPTURED":
+    t===Math.max(d as number,b as number)?"VERIFIED":"CONTRADICTORY";
+  const prodBefore=pre.productionAfterServer,prodAfter=after.productionFinal;
+  const ceiling=after.effectiveFinishCeiling;
+  const expectedProduction=prodBefore===null||t==="NOT_CAPTURED"||ceiling==="NOT_CAPTURED"
+    ?null:ceiling===null?Math.max(0,prodBefore-(t as number)):
+      Math.min(Math.max(0,prodBefore-(t as number)),ceiling);
+  const productionStatus=expectedProduction===null?"NOT_CAPTURED":
+    prodAfter===expectedProduction?"VERIFIED":"CONTRADICTORY";
+  const mixParts:[string,number][]=[
+    ["midrangeSpacing",25],["lowEndDivision",20],
+    ["sibilanceShaving",15],["stereoWidth",15]];
+  const validParts=mixParts.filter(([key])=>call?.[key]?.applicable!==false&&
+    auditNumber(call?.[key]?.score)!==null);
+  const denom=validParts.reduce((sum,[,w])=>sum+w,0);
+  const expectedMix=!denom||ceiling==="NOT_CAPTURED"?null:
+    Math.round(validParts.reduce((sum,[key,w])=>sum+call[key].score*w,0)/denom);
+  const finalMix=expectedMix===null?null:ceiling===null?expectedMix:Math.min(expectedMix,ceiling);
+  const mixStatus=finalMix===null?"NOT_CAPTURED":
+    after.mixFinal===finalMix?"VERIFIED":"CONTRADICTORY";
+  const commercialParts:[any,number][]=[
+    [c?.subMetricsCall3?.compositionFlowSubs?.hookPlacement?.score,60],
+    [call?.dynamicVariety?.score,20],
+    [call?.spectralMatch?.score,10],
+    [c?.subMetricsCall3?.compositionFlowSubs?.sectionalContrast?.score,10]];
+  const available=commercialParts.filter(([score])=>finite(score));
+  const commercialDenom=available.reduce((sum,[,w])=>sum+w,0);
+  const expectedCommercial=commercialDenom?
+    Math.round(available.reduce((sum,[score,w])=>sum+score*w,0)/commercialDenom):null;
+  const commercialStatus=expectedCommercial===null?"NOT_CAPTURED":
+    after.commercialFinal===expectedCommercial?"VERIFIED":"CONTRADICTORY";
+  const overlaps:string[]=[];
+  if(after.browserSpectralCandidate!=="NOT_CAPTURED"&&
+     after.browserSpectralCandidate!==null&&after.browserMidrangeCandidate!=="NOT_CAPTURED"&&
+     after.browserMidrangeCandidate!==null)overlaps.push("MIDRANGE_SPECTRAL_SHARED");
+  if(after.effectiveFinishCeiling!=="NOT_CAPTURED"&&after.effectiveFinishCeiling!==null&&
+     after.browserSpectralCandidate!=="NOT_CAPTURED"&&
+     after.browserSpectralCandidate!==null)overlaps.push("SPECTRAL_FINISH_SHARED");
+  if(b!=="NOT_CAPTURED"&&b>0&&after.transientPunchCandidate!=="NOT_CAPTURED"&&
+     after.transientPunchCandidate!==null)overlaps.push("PEAK_DENSITY_SHARED");
+  if(d!=="NOT_CAPTURED"&&b!=="NOT_CAPTURED"&&d>0&&b>0)
+    overlaps.push("DYNAMIC_LRA_SHARED");
+  const stages=auditFreeze({
+    spectralServer,spectralBrowser,spectralFinish,midrange,transient,
+    technical:{status:technicalStatus,dynamic:d,brickwall:b,effective:t},
+    production:{status:productionStatus,before:prodBefore,after:prodAfter,expected:expectedProduction},
+    mix:{status:mixStatus,after:after.mixFinal,expected:finalMix},
+    commercial:{status:commercialStatus,after:after.commercialFinal,expected:expectedCommercial}
+  });
+  const statuses=[spectralServer.status,spectralBrowser.status,spectralFinish.status,
+    midrange.status,transient.status,technicalStatus,productionStatus,mixStatus,commercialStatus];
+  // Fail closed: completeness requires every replay verified or inapplicable.
+  // A known overlap is descriptive evidence, NOT a new scoring adjustment.
+  const status=statuses.includes("CONTRADICTORY")?"CONTRADICTORY":
+    statuses.some(x=>x!=="VERIFIED"&&x!=="NOT_APPLICABLE")||
+      pre.serverFinishSource!=="server"||after.finishSource!=="reconciled"||
+      pre.spectralServerStatus!=="CAPTURED"?"INCOMPLETE":"VERIFIED";
+  c.auralisPenaltyInventory=auditFreeze({
+    schemaVersion:AURALIS_PENALTY_INVENTORY_VERSION,
+    scoringImpact:"NONE",adjustments:[] as [],
+    status,capture:"ACTUAL_PRE_POST_BROWSER_SNAPSHOTS",
+    before:pre,after,stages,overlapFamilies:overlaps,
+  });
+}
+
+/** Public diagnostic rows are limited to numeric scores and fixed vocabulary. */
+export function getAuralisPenaltyInventoryRows(c:any):A2DiagnosticRow[] {
+  const i=c?.auralisPenaltyInventory;
+  const rows:A2DiagnosticRow[]=[];
+  const add=(field:string,value:any)=>rows.push({
+    section:"Auralis Penalty Inventory (NOT SCORED)",field,
+    value:typeof value==="number"?value:
+      typeof value==="string"&&/^(VERIFIED|INCOMPLETE|CONTRADICTORY|NOT_CAPTURED|NOT_APPLICABLE|CAPTURED|server|reconciled|ACTUAL_[A-Z_]+|NONE|MIDRANGE_SPECTRAL_SHARED|SPECTRAL_FINISH_SHARED|PEAK_DENSITY_SHARED|DYNAMIC_LRA_SHARED)$/.test(value)
+        ?value:"NOT_CAPTURED"
+  });
+  if(i?.schemaVersion!==AURALIS_PENALTY_INVENTORY_VERSION){
+    add("Capture status","NOT_CAPTURED");return rows;
+  }
+  add("Capture status",i.status);
+  add("Server finish provenance",i.before?.serverFinishSource);
+  add("Browser finish provenance",i.after?.finishSource);
+  add("Original server finish ceiling",i.before?.serverFinishCeiling);
+  add("Effective browser finish ceiling",i.after?.effectiveFinishCeiling);
+  for(const [key,label] of [
+    ["spectralServer","Server Spectral Match cap"],
+    ["spectralBrowser","Browser Spectral Match cap"],
+    ["spectralFinish","Reconciled finish Spectral Match cap"],
+    ["midrange","Browser Midrange Spacing cap"],
+    ["transient","Transient Punch cap"]] as const){
+    const stage=i.stages?.[key];
+    add(label+" status",stage?.status);
+    add(label+" before",stage?.before);
+    add(label+" candidate",stage?.candidate);
+    add(label+" after",stage?.after);
+  }
+  for(const key of ["dynamic","brickwall","effective"]){
+    add("Technical finish "+key,i.stages?.technical?.[key]);
+  }
+  add("Technical max-not-sum status",i.stages?.technical?.status);
+  for(const key of ["production","mix","commercial"]){
+    add(key+" replay status",i.stages?.[key]?.status);
+    add(key+" final score",i.stages?.[key]?.after);
+  }
+  for(const family of i.overlapFamilies??[])add("Shared evidence family",family);
+  return rows;
+}
+
 export function captureA2BeforeClient(critique: any): void {
+  captureAuralisPenaltyInventoryBeforeClient(critique);
   const trace = critique?.subMetricsCall1?.a2ScoringProvenance;
   if (!trace) return;
   for (const key of ["spaceAndDensity", "midrangeSpacing", "spectralMatch"]) {
@@ -296,6 +490,7 @@ export function captureA2AfterClient(
       entry.postClientMixContribution = mix.contribution;
     }
   }
+  captureAuralisPenaltyInventoryAfterClient(critique);
 }
 
 /** The worksheet may be downloaded publicly: NEVER render raw model commentary. */
