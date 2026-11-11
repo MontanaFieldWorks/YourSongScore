@@ -5031,3 +5031,15 @@ test("Stage 3D-2L-1 standalone lineage adapter rejects unverifiable claims and n
   assert.match(report,/const lineage=\(critique as any\)\.auralisSourceLineage/);
   assert.doesNotMatch(report,/lineage\.encodedSha256|lineage\.workerChannelSha256|lineage\.decodedChannelSha256/);
 });
+
+test("Stage 3D-2L-1 identity capture stays default-off without affecting Stage 3D-1 observations",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  assert.match(app,/const STAGE3D1_AURALIS_EVIDENCE_ENABLED = true;/);
+  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = false;/);
+  assert.match(app,/STAGE3D2L1_IDENTITY_ENABLED \? auralisEncodedIdentity : undefined/);
+  assert.match(app,/STAGE3D2L1_IDENTITY_ENABLED && !a2PilotEnabled/);
+  const bridge=await readFile(new URL("../src/lib/batchAudioWorker.ts",import.meta.url),"utf8");
+  const worker=await readFile(new URL("../src/workers/audioAnalysisWorker.ts",import.meta.url),"utf8");
+  assert.match(bridge,/\.\.\.\(encodedIdentity\?\{captureIdentity:true as const\}:\{\}\)/);
+  assert.match(worker,/if\(event\.data\.captureIdentity===true\)/);
+});

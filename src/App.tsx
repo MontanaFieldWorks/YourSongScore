@@ -10,6 +10,9 @@ import { prepareAuralisSourceLineage } from "./lib/mudPreventionDiagnostic";
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
 // Stage 3D-1 collects evidence during normal file analysis; scoring remains disabled.
 const STAGE3D1_AURALIS_EVIDENCE_ENABLED = true;
+// Opt-in identity hashing is separate from existing Stage 3D-1 observations.
+// Default OFF to preserve normal analysis CPU, memory and Worker behavior.
+const STAGE3D2L1_IDENTITY_ENABLED = false;
 import { analyzeAudioBufferInWorker, analyzeEngineeringDiagnosticsInWorker } from "./lib/batchAudioWorker";
 import { computeMixBalanceScore, isMudDiagnosticCritique, markMudPreventionDiagnosticOnly, prepareAuralisEngineeringEvidence } from "./lib/mudPreventionDiagnostic";
 import { captureA2BeforeClient, captureA2AfterClient, captureA2BrowserUnavailable, captureA2SpectralAfterBrowserMix, captureA2SpectralAfterFinish } from "./lib/a2ScoringProvenance";
@@ -1364,7 +1367,7 @@ export default function App() {
     let preAnalysisLiveMetrics: any = null;
     try {
       const audioBuffer = await decodeAudioFile(selectedFile,
-        !a2PilotEnabled && STAGE3D1_AURALIS_EVIDENCE_ENABLED
+        STAGE3D2L1_IDENTITY_ENABLED && !a2PilotEnabled && STAGE3D1_AURALIS_EVIDENCE_ENABLED
           ? identity => { auralisEncodedIdentity = identity; } : undefined);
       preAnalysisLiveMetrics = analyzeAudioBuffer(audioBuffer);
       if (STAGE2C2A_DIAGNOSTICS_ENABLED &&
@@ -1395,7 +1398,8 @@ export default function App() {
           diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
         const controller = new AbortController();
         auralisDiagnosticAbortRef.current = controller;
-        auralisEvidencePromise = analyzeEngineeringDiagnosticsInWorker(audioBuffer, controller.signal, undefined, undefined, true, auralisEncodedIdentity)
+        auralisEvidencePromise = analyzeEngineeringDiagnosticsInWorker(audioBuffer, controller.signal, undefined, undefined, true,
+          STAGE3D2L1_IDENTITY_ENABLED ? auralisEncodedIdentity : undefined)
           .then(result => controller.signal.aborted ||
             diagnosticGeneration !== auralisDiagnosticGenerationRef.current
               ? null : {engineering:prepareAuralisEngineeringEvidence(result),
