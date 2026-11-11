@@ -5043,3 +5043,91 @@ test("Stage 3D-2L-1 identity capture stays default-off without affecting Stage 3
   assert.match(bridge,/\.\.\.\(encodedIdentity\?\{captureIdentity:true as const\}:\{\}\)/);
   assert.match(worker,/if\(event\.data\.captureIdentity===true\)/);
 });
+
+
+test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle and honest memory", {timeout:180000}, async t=>{
+  const {spawn,execFileSync}=await import("node:child_process");
+  const {promisify}=await import("node:util");
+  const {execFile}=await import("node:child_process");
+  const {mkdtempSync,rmSync,existsSync}=await import("node:fs");
+  const {tmpdir}=await import("node:os");
+  const {join,resolve}=await import("node:path");
+  const root=resolve(new URL("..",import.meta.url).pathname);
+  const chromeNames=["google-chrome","google-chrome-stable","chromium","chromium-browser"];
+  let browser=null;
+  for(const name of chromeNames){
+    try{browser=execFileSync("which",[name],{encoding:"utf8"}).trim();if(browser)break;}catch{}
+  }
+  if(!browser){t.skip("No installed Chromium executable; real-browser validation remains UNVERIFIED");return;}
+  const profile=mkdtempSync(join(tmpdir(),"yss-auralis-identity-"));
+  const port=41897;
+  let server;
+  try{
+    const vite=resolve(root,"node_modules/vite/bin/vite.js");
+    assert.ok(existsSync(vite),"Existing Vite dependency is required");
+    server=spawn(process.execPath,[vite,"--host","127.0.0.1","--port",String(port),"--strictPort"],{
+      cwd:root,stdio:["ignore","pipe","pipe"],
+      env:{...process.env,NO_COLOR:"1"},
+    });
+    let viteOut="";
+    server.stdout.on("data",b=>viteOut+=String(b).slice(-3000));
+    server.stderr.on("data",b=>viteOut+=String(b).slice(-3000));
+    const url="http://127.0.0.1:"+port+"/tests/auralis-stage2g1-browser-harness.html?identity=1";
+    let ready=false;
+    for(let i=0;i<50;i++){
+      if(server.exitCode!==null)break;
+      try{const r=await fetch(url,{signal:AbortSignal.timeout(800)});if(r.ok){ready=true;break;}}catch{}
+      await new Promise(r=>setTimeout(r,200));
+    }
+    assert.ok(ready,"Local Vite test server unavailable: "+viteOut.slice(-1000));
+    const run=promisify(execFile);
+    const {stdout,stderr}=await run(browser,[
+      "--headless=new","--no-sandbox","--disable-gpu","--disable-dev-shm-usage",
+      "--disable-background-timer-throttling","--disable-renderer-backgrounding",
+      "--enable-precise-memory-info","--virtual-time-budget=120000",
+      "--user-data-dir="+profile,"--dump-dom",url
+    ],{cwd:root,encoding:"utf8",timeout:155000,maxBuffer:12*1024*1024});
+    const match=stdout.match(/<pre id="identityResult" data-state="(PASS|FAIL|RUNNING|NOT_RUN)"[^>]*>([\s\S]*?)<\/pre>/);
+    assert.ok(match,"Chromium did not render identity profile; stderr="+stderr.slice(-1200));
+    const unescape=x=>x.replace(/&quot;/g,'"').replace(/&amp;/g,"&")
+      .replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&#39;/g,"'");
+    let outcome;
+    try{outcome=JSON.parse(unescape(match[2]));}
+    catch{throw Error("Unparseable browser evidence: "+match[2].slice(0,1500));}
+    assert.equal(match[1],"PASS","Real Chromium identity failure: "+JSON.stringify(outcome).slice(-5000));
+    assert.equal(outcome.status,"PASS");
+    const verified=outcome.cases.filter(c=>c.kind==="verified");
+    assert.equal(verified.length,7);
+    for(const c of verified){
+      assert.equal(c.verified,true);
+      assert.equal(c.transferredPcmBytes,c.pcmBytes);
+      assert.equal(c.actualWorkerCreated,1);
+      assert.equal(c.actualWorkerTerminated,1);
+      assert.ok(c.elapsedMs>0&&c.elapsedMs<30000);
+    }
+    assert.ok(outcome.cases.some(x=>x.kind==="corrupted-worker-digest"&&x.reason==="PCM_IDENTITY_MISMATCH"));
+    assert.ok(outcome.cases.some(x=>x.kind==="128MiB-boundary-plus-one-sample"&&x.reason==="INPUT_BUDGET_EXCEEDED"));
+    assert.ok(outcome.cases.some(x=>x.kind==="abort-before-identity-completion"&&x.reason==="ABORTED"));
+    assert.ok(outcome.cases.some(x=>x.kind==="5ms-explicit-timeout"&&x.reason==="TIMEOUT"));
+    assert.equal(outcome.workerLifecycle.created,outcome.workerLifecycle.terminated);
+    assert.equal(outcome.workerPeakBytes,null);
+    assert.equal(outcome.processPeakBytes,null);
+    assert.equal(outcome.exclusiveWorkerCpuMs,null);
+    const rows=verified.map(c=>({durationSeconds:c.seconds,rateHz:c.sampleRate,
+      channels:c.channels,pcmMiB:Math.round(c.pcmBytes/1048576*100)/100,
+      wallMs:c.elapsedMs,
+      mainHeapBeforeMiB:c.chromiumMainJSHeapBeforeBytes===null?null:
+        Math.round(c.chromiumMainJSHeapBeforeBytes/1048576*100)/100,
+      mainHeapAfterMiB:c.chromiumMainJSHeapAfterBytes===null?null:
+        Math.round(c.chromiumMainJSHeapAfterBytes/1048576*100)/100,
+    }));
+    console.log("[AURALIS_REAL_BROWSER_IDENTITY] "+JSON.stringify({
+      browser,measurements:rows,boundary:outcome.cases.slice(7),
+      memoryLimitations:outcome.memoryInterpretation,
+      workerPeakBytes:outcome.workerPeakBytes,processPeakBytes:outcome.processPeakBytes,
+    }));
+  }finally{
+    if(server&&!server.killed)server.kill("SIGTERM");
+    rmSync(profile,{recursive:true,force:true});
+  }
+});
