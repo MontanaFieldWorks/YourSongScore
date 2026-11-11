@@ -5061,7 +5061,7 @@ test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle a
   if(!browser){t.skip("No installed Chromium executable; real-browser validation remains UNVERIFIED");return;}
   const profile=mkdtempSync(join(tmpdir(),"yss-auralis-identity-"));
   const port=41897;
-  let server;
+  let server,chrome,socket;
   try{
     const vite=resolve(root,"node_modules/vite/bin/vite.js");
     assert.ok(existsSync(vite),"Existing Vite dependency is required");
@@ -5080,21 +5080,53 @@ test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle a
       await new Promise(r=>setTimeout(r,200));
     }
     assert.ok(ready,"Local Vite test server unavailable: "+viteOut.slice(-1000));
-    const run=promisify(execFile);
-    const {stdout,stderr}=await run(browser,[
+    // CDP observes real wall-clock Worker completion. Chromium's accelerated
+    // --virtual-time-budget is not used: it can incorrectly fire the 30-second
+    // application timeout before a native Worker finishes computing.
+    const cdpPort=41898;
+    chrome=spawn(browser,[
       "--headless=new","--no-sandbox","--disable-gpu","--disable-dev-shm-usage",
       "--disable-background-timer-throttling","--disable-renderer-backgrounding",
-      "--enable-precise-memory-info","--virtual-time-budget=120000",
-      "--user-data-dir="+profile,"--dump-dom",url
-    ],{cwd:root,encoding:"utf8",timeout:155000,maxBuffer:12*1024*1024});
-    const match=stdout.match(/<pre id="identityResult" data-state="(PASS|FAIL|RUNNING|NOT_RUN)"[^>]*>([\s\S]*?)<\/pre>/);
-    assert.ok(match,"Chromium did not render identity profile; stderr="+stderr.slice(-1200));
-    const unescape=x=>x.replace(/&quot;/g,'"').replace(/&amp;/g,"&")
-      .replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&#39;/g,"'");
-    let outcome;
-    try{outcome=JSON.parse(unescape(match[2]));}
-    catch{throw Error("Unparseable browser evidence: "+match[2].slice(0,1500));}
-    assert.equal(match[1],"PASS","Real Chromium identity failure: "+JSON.stringify(outcome).slice(-5000));
+      "--enable-precise-memory-info","--remote-allow-origins=*",
+      "--remote-debugging-port="+cdpPort,"--user-data-dir="+profile,url
+    ],{cwd:root,stdio:["ignore","ignore","pipe"]});
+    let chromeErrors="";
+    chrome.stderr.on("data",b=>chromeErrors+=String(b).slice(-3000));
+    let target=null;
+    for(let i=0;i<100;i++){
+      if(chrome.exitCode!==null)break;
+      try{
+        const pages=await (await fetch("http://127.0.0.1:"+cdpPort+"/json/list",
+          {signal:AbortSignal.timeout(1000)})).json();
+        target=pages.find(x=>x.type==="page"&&x.url.includes("identity=1")&&x.webSocketDebuggerUrl);
+        if(target)break;
+      }catch{}
+      await new Promise(r=>setTimeout(r,150));
+    }
+    assert.ok(target,"Chrome debugging page unavailable: "+chromeErrors.slice(-1200));
+    socket=new WebSocket(target.webSocketDebuggerUrl);
+    await new Promise((resolve,reject)=>{
+      socket.addEventListener("open",resolve,{once:true});
+      socket.addEventListener("error",reject,{once:true});
+    });
+    const reply=await new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error("CDP real-clock browser profile did not finish within 125 seconds")),125000);
+      socket.addEventListener("message",ev=>{
+        let msg;
+        try{msg=JSON.parse(ev.data);}catch{return;}
+        if(msg.id!==1)return;
+        clearTimeout(timer);
+        if(msg.error||msg.result?.exceptionDetails)reject(Error(JSON.stringify(msg.error||msg.result.exceptionDetails)));
+        else resolve(msg.result);
+      });
+      socket.send(JSON.stringify({id:1,method:"Runtime.evaluate",params:{
+        expression:"new Promise(resolve => { const check=()=>{ const node=document.querySelector('#identityResult'); if(node && (node.dataset.state==='PASS' || node.dataset.state==='FAIL')) resolve(JSON.stringify({state:node.dataset.state,body:node.textContent})); else setTimeout(check,100); }; check(); })",
+        awaitPromise:true,returnByValue:true
+      }}));
+    });
+    const browserResult=JSON.parse(reply.result.value);
+    const outcome=JSON.parse(browserResult.body);
+    assert.equal(browserResult.state,"PASS","Real Chromium identity failure: "+JSON.stringify(outcome).slice(-5000));
     assert.equal(outcome.status,"PASS");
     const verified=outcome.cases.filter(c=>c.kind==="verified");
     assert.equal(verified.length,7);
@@ -5127,6 +5159,8 @@ test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle a
       workerPeakBytes:outcome.workerPeakBytes,processPeakBytes:outcome.processPeakBytes,
     }));
   }finally{
+    if(socket&&socket.readyState===WebSocket.OPEN)socket.close();
+    if(chrome&&!chrome.killed)chrome.kill("SIGTERM");
     if(server&&!server.killed)server.kill("SIGTERM");
     rmSync(profile,{recursive:true,force:true});
   }
