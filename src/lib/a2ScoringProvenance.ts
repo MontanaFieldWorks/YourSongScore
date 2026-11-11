@@ -378,7 +378,7 @@ export function getAuralisPenaltyInventoryRows(c:any):A2DiagnosticRow[] {
   const add=(field:string,value:any)=>rows.push({
     section:"Auralis Penalty Inventory (NOT SCORED)",field,
     value:typeof value==="number"?value:
-      typeof value==="string"&&/^(VERIFIED|INCOMPLETE|PRE_CLIENT_ONLY|CONTRADICTORY|NOT_CAPTURED|NOT_APPLICABLE|CAPTURED|server|reconciled|ACTUAL_[A-Z_]+|NONE|MIDRANGE_SPECTRAL_SHARED|SPECTRAL_FINISH_SHARED|PEAK_DENSITY_SHARED|DYNAMIC_LRA_SHARED)$/.test(value)
+      typeof value==="string"&&/^(VERIFIED|INCOMPLETE|PRE_CLIENT_ONLY|CONTRADICTORY|NOT_CAPTURED|NOT_APPLICABLE|CAPTURED|APPLIED|NOT_APPLIED|server|reconciled|ACTUAL_[A-Z_]+|NONE|MIDRANGE_SPECTRAL_SHARED|SPECTRAL_FINISH_SHARED|PEAK_DENSITY_SHARED|DYNAMIC_LRA_SHARED)$/.test(value)
         ?value:"NOT_CAPTURED"
   });
   if(i?.schemaVersion!==AURALIS_PENALTY_INVENTORY_VERSION){
@@ -399,6 +399,8 @@ export function getAuralisPenaltyInventoryRows(c:any):A2DiagnosticRow[] {
     add(label+" status",stage?.status);
     add(label+" before",stage?.before);
     add(label+" candidate",stage?.candidate===null?"NONE":stage?.candidate);
+    add(label+" application",stage?.status==="NOT_APPLICABLE"?"NOT_APPLICABLE":
+      stage?.status==="VERIFIED"?(stage.applied?"APPLIED":"NOT_APPLIED"):"NOT_CAPTURED");
     add(label+" after",stage?.after);
   }
   for(const key of ["dynamic","brickwall","effective"]){
@@ -407,6 +409,8 @@ export function getAuralisPenaltyInventoryRows(c:any):A2DiagnosticRow[] {
   add("Technical max-not-sum status",i.stages?.technical?.status);
   for(const key of ["production","mix","commercial"]){
     add(key+" replay status",i.stages?.[key]?.status);
+    add(key+" server-returned score",i.before?.[key==="production"?
+      "productionAfterServer":key==="mix"?"mixAfterServer":"commercialAfterServer"]);
     add(key+" final score",i.stages?.[key]?.after);
   }
   for(const family of i.overlapFamilies??[])add("Shared evidence family",family);

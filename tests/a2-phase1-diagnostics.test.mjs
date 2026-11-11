@@ -5252,6 +5252,9 @@ test("Stage 3D-2L-2 numeric-only immutable inventory captures verified no-cap pa
     "An explicit null ceiling is NONE, not missing");
   assert.ok(exportRows.some(x=>x.field==="Browser Spectral Match cap candidate"&&x.value==="NONE"),
     "Unapplied explicit null cap must be preserved");
+  assert.ok(exportRows.some(x=>x.field==="Browser Spectral Match cap application"&&x.value==="NOT_APPLIED"));
+  assert.ok(exportRows.some(x=>x.field==="production server-returned score"&&x.value===90));
+  assert.ok(exportRows.some(x=>x.field==="production final score"&&x.value===90));
   assert.equal(critique.scores.overallProduction,90,"audit cannot alter production scores");
   assert.equal(critique.mixQuality.score,80,"audit cannot alter mix");
 });
