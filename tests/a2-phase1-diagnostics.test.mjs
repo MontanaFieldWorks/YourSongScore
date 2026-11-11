@@ -5047,8 +5047,6 @@ test("Stage 3D-2L-1 identity capture stays default-off without affecting Stage 3
 
 test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle and honest memory", {timeout:180000}, async t=>{
   const {spawn,execFileSync}=await import("node:child_process");
-  const {promisify}=await import("node:util");
-  const {execFile}=await import("node:child_process");
   const {mkdtempSync,rmSync,existsSync}=await import("node:fs");
   const {tmpdir}=await import("node:os");
   const {join,resolve}=await import("node:path");
@@ -5058,7 +5056,7 @@ test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle a
   for(const name of chromeNames){
     try{browser=execFileSync("which",[name],{encoding:"utf8"}).trim();if(browser)break;}catch{}
   }
-  if(!browser){t.skip("No installed Chromium executable; real-browser validation remains UNVERIFIED");return;}
+  assert.ok(browser,"Real-browser validation requires installed Chromium; do not silently skip");
   const profile=mkdtempSync(join(tmpdir(),"yss-auralis-identity-"));
   const port=41897;
   let server,chrome,socket;
@@ -5072,7 +5070,7 @@ test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle a
     let viteOut="";
     server.stdout.on("data",b=>viteOut+=String(b).slice(-3000));
     server.stderr.on("data",b=>viteOut+=String(b).slice(-3000));
-    const url="http://127.0.0.1:"+port+"/tests/auralis-stage2g1-browser-harness.html?identity=1";
+    const url="http://127.0.0.1:"+port+"/tests/auralis-stage2g1-browser-harness.html";
     let ready=false;
     for(let i=0;i<50;i++){
       if(server.exitCode!==null)break;
@@ -5098,7 +5096,7 @@ test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle a
       try{
         const pages=await (await fetch("http://127.0.0.1:"+cdpPort+"/json/list",
           {signal:AbortSignal.timeout(1000)})).json();
-        target=pages.find(x=>x.type==="page"&&x.url.includes("identity=1")&&x.webSocketDebuggerUrl);
+        target=pages.find(x=>x.type==="page"&&x.url.startsWith(url)&&x.webSocketDebuggerUrl);
         if(target)break;
       }catch{}
       await new Promise(r=>setTimeout(r,150));
@@ -5109,22 +5107,43 @@ test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle a
       socket.addEventListener("open",resolve,{once:true});
       socket.addEventListener("error",reject,{once:true});
     });
-    const reply=await new Promise((resolve,reject)=>{
-      const timer=setTimeout(()=>reject(new Error("CDP real-clock browser profile did not finish within 125 seconds")),125000);
-      socket.addEventListener("message",ev=>{
-        let msg;
-        try{msg=JSON.parse(ev.data);}catch{return;}
-        if(msg.id!==1)return;
-        clearTimeout(timer);
-        if(msg.error||msg.result?.exceptionDetails)reject(Error(JSON.stringify(msg.error||msg.result.exceptionDetails)));
-        else resolve(msg.result);
-      });
-      socket.send(JSON.stringify({id:1,method:"Runtime.evaluate",params:{
-        expression:"new Promise(resolve => { const check=()=>{ const node=document.querySelector('#identityResult'); if(node && (node.dataset.state==='PASS' || node.dataset.state==='FAIL')) resolve(JSON.stringify({state:node.dataset.state,body:node.textContent})); else setTimeout(check,100); }; check(); })",
-        awaitPromise:true,returnByValue:true
+    // One CDP connection, but no automatic Worker run on page load.
+    // Wait for the Vite module to finish initial navigation before clicking.
+    // A destroyed context *after* the click is a test failure, not a retry.
+    let commandId=0;
+    const evaluate=expression=>new Promise((resolve,reject)=>{
+      const id=++commandId;
+      const timer=setTimeout(()=>{socket.removeEventListener("message",onMessage);
+        reject(new Error("CDP evaluation timed out"));},125000);
+      const onMessage=ev=>{
+        let msg;try{msg=JSON.parse(ev.data);}catch{return;}
+        if(msg.id!==id)return;
+        clearTimeout(timer);socket.removeEventListener("message",onMessage);
+        if(msg.error||msg.result?.exceptionDetails)
+          reject(Error(JSON.stringify(msg.error||msg.result.exceptionDetails)));
+        else resolve(msg.result?.result?.value);
+      };
+      socket.addEventListener("message",onMessage);
+      socket.send(JSON.stringify({id,method:"Runtime.evaluate",params:{
+        expression,awaitPromise:true,returnByValue:true
       }}));
     });
-    const browserResult=JSON.parse(reply.result.value);
+    let ready=false;
+    for(let i=0;i<70;i++){
+      const state=await evaluate("JSON.stringify({ready:document.readyState,button:!!document.querySelector('#identity'),url:location.pathname})");
+      const page=JSON.parse(state);
+      if(page.ready==="complete"&&page.button&&
+         page.url==="/tests/auralis-stage2g1-browser-harness.html"){ready=true;break;}
+      await new Promise(r=>setTimeout(r,150));
+    }
+    assert.ok(ready,"Chromium identity harness never completed initial navigation");
+    await new Promise(r=>setTimeout(r,500));
+    // Exactly one click triggers the existing seven-case actual module Worker
+    // profile. The worker profile itself performs no retries.
+    const runState=await evaluate("new Promise(resolve=>{const node=document.querySelector('#identityResult');if(!node||node.dataset.state!=='NOT_RUN'){resolve('INVALID_INITIAL_STATE');return;}document.querySelector('#identity').click();resolve('STARTED');})");
+    assert.equal(runState,"STARTED","Identity harness must be started exactly once");
+    const outcomeText=await evaluate("new Promise(resolve=>{const check=()=>{const node=document.querySelector('#identityResult');if(node&&(node.dataset.state==='PASS'||node.dataset.state==='FAIL'))resolve(JSON.stringify({state:node.dataset.state,body:node.textContent}));else setTimeout(check,100)};check()})");
+    const browserResult=JSON.parse(outcomeText);
     const outcome=JSON.parse(browserResult.body);
     assert.equal(browserResult.state,"PASS","Real Chromium identity failure: "+JSON.stringify(outcome).slice(-5000));
     assert.equal(outcome.status,"PASS");
@@ -5160,8 +5179,18 @@ test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle a
     }));
   }finally{
     if(socket&&socket.readyState===WebSocket.OPEN)socket.close();
-    if(chrome&&!chrome.killed)chrome.kill("SIGTERM");
-    if(server&&!server.killed)server.kill("SIGTERM");
-    rmSync(profile,{recursive:true,force:true});
+    const stop=async child=>{
+      if(!child||child.exitCode!==null||child.signalCode!==null)return;
+      await new Promise(resolve=>{
+        let settled=false;
+        const finish=()=>{if(settled)return;settled=true;clearTimeout(timer);resolve();};
+        child.once("exit",finish);
+        child.kill("SIGTERM");
+        const timer=setTimeout(()=>{if(!settled)child.kill("SIGKILL");},3000);
+      });
+    };
+    await stop(chrome);
+    await stop(server);
+    rmSync(profile,{recursive:true,force:true,maxRetries:8,retryDelay:200});
   }
 });
