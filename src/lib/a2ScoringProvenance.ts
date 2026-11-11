@@ -378,7 +378,7 @@ export function getAuralisPenaltyInventoryRows(c:any):A2DiagnosticRow[] {
   const add=(field:string,value:any)=>rows.push({
     section:"Auralis Penalty Inventory (NOT SCORED)",field,
     value:typeof value==="number"?value:
-      typeof value==="string"&&/^(VERIFIED|INCOMPLETE|CONTRADICTORY|NOT_CAPTURED|NOT_APPLICABLE|CAPTURED|server|reconciled|ACTUAL_[A-Z_]+|NONE|MIDRANGE_SPECTRAL_SHARED|SPECTRAL_FINISH_SHARED|PEAK_DENSITY_SHARED|DYNAMIC_LRA_SHARED)$/.test(value)
+      typeof value==="string"&&/^(VERIFIED|INCOMPLETE|PRE_CLIENT_ONLY|CONTRADICTORY|NOT_CAPTURED|NOT_APPLICABLE|CAPTURED|server|reconciled|ACTUAL_[A-Z_]+|NONE|MIDRANGE_SPECTRAL_SHARED|SPECTRAL_FINISH_SHARED|PEAK_DENSITY_SHARED|DYNAMIC_LRA_SHARED)$/.test(value)
         ?value:"NOT_CAPTURED"
   });
   if(i?.schemaVersion!==AURALIS_PENALTY_INVENTORY_VERSION){
@@ -387,8 +387,8 @@ export function getAuralisPenaltyInventoryRows(c:any):A2DiagnosticRow[] {
   add("Capture status",i.status);
   add("Server finish provenance",i.before?.serverFinishSource);
   add("Browser finish provenance",i.after?.finishSource);
-  add("Original server finish ceiling",i.before?.serverFinishCeiling);
-  add("Effective browser finish ceiling",i.after?.effectiveFinishCeiling);
+  add("Original server finish ceiling",i.before?.serverFinishCeiling===null?"NONE":i.before?.serverFinishCeiling);
+  add("Effective browser finish ceiling",i.after?.effectiveFinishCeiling===null?"NONE":i.after?.effectiveFinishCeiling);
   for(const [key,label] of [
     ["spectralServer","Server Spectral Match cap"],
     ["spectralBrowser","Browser Spectral Match cap"],
@@ -398,7 +398,7 @@ export function getAuralisPenaltyInventoryRows(c:any):A2DiagnosticRow[] {
     const stage=i.stages?.[key];
     add(label+" status",stage?.status);
     add(label+" before",stage?.before);
-    add(label+" candidate",stage?.candidate);
+    add(label+" candidate",stage?.candidate===null?"NONE":stage?.candidate);
     add(label+" after",stage?.after);
   }
   for(const key of ["dynamic","brickwall","effective"]){
