@@ -156,10 +156,6 @@ export function prepareAuralisEngineeringEvidence(diagnostic: unknown): {
   scoringAdapter: {version: string; status: typeof AURALIS_ENGINEERING_SCORE_POLICY; adjustments: []};
   observations: string[];
   metrics: {lowToUpperDb: number; stereoEvidenceStatus: "MEASURED_NOT_GRADED"};
-  sourceLineage?: {status:"VERIFIED";sourceFormat:string;sourceRateStatus:string;
-    sourceSampleRate:number|null;decodedSampleRate:number;workerSampleRate:number;
-    decodedChannels:number;workerChannels:number;decodedSamples:number;workerSamples:number;
-    rateRelationship:string;encodedSha256Status:"CAPTURED_PRIVATE";pcmIdentityStatus:"VERIFIED"};
 } | null {
   const d = diagnostic as any;
   const p = d?.evidence?.sourceProvenance;
@@ -204,30 +200,6 @@ export function prepareAuralisEngineeringEvidence(diagnostic: unknown): {
     scoringAdapter: {version: AURALIS_ENGINEERING_ADAPTER_VERSION,
       status: AURALIS_ENGINEERING_SCORE_POLICY, adjustments: []},
     metrics: {lowToUpperDb: Math.round(ratio*100)/100, stereoEvidenceStatus: "MEASURED_NOT_GRADED"},
-    ...(d?.identity?.status==="VERIFIED" &&
-      /^[a-f0-9]{64}$/.test(d.identity.encodedSha256) &&
-      Array.isArray(d.identity.decodedChannelSha256) &&
-      d.identity.decodedChannelSha256.length===p.channelCount &&
-      d.identity.decodedChannelSha256.every((h:string,i:number)=>h===d.identity.workerChannelSha256?.[i]) &&
-      d.identity.decodedSampleRate===p.sampleRate &&
-      d.identity.workerSampleRate===p.sampleRate &&
-      d.identity.decodedChannels===p.channelCount &&
-      d.identity.workerChannels===p.channelCount &&
-      d.identity.decodedSamples===p.inputSampleCount &&
-      d.identity.workerSamples===p.inputSampleCount
-        ? {sourceLineage:{status:"VERIFIED" as const,
-            sourceFormat:d.identity.sourceFormat,
-            sourceRateStatus:d.identity.sourceRateStatus,
-            sourceSampleRate:d.identity.sourceSampleRate,
-            decodedSampleRate:d.identity.decodedSampleRate,
-            workerSampleRate:d.identity.workerSampleRate,
-            decodedChannels:d.identity.decodedChannels,
-            workerChannels:d.identity.workerChannels,
-            decodedSamples:d.identity.decodedSamples,
-            workerSamples:d.identity.workerSamples,
-            rateRelationship:d.identity.rateRelationship,
-            encodedSha256Status:"CAPTURED_PRIVATE" as const,
-            pcmIdentityStatus:"VERIFIED" as const}} : {}),
     observations: [
       `Measured 60–250 Hz energy relative to 500–20,000 Hz: ${ratio.toFixed(2)} dB. This is descriptive spectral balance, not proof of masking, muddiness or a mix defect. If this is an intentional production choice, no correction may be necessary.`,
       "Auralis measured stereo engineering evidence, but this release does not infer a Stereo Width defect or change its score from those measurements. If the stereo presentation is intentional, review mono compatibility by listening before making changes.",
@@ -236,6 +208,49 @@ export function prepareAuralisEngineeringEvidence(diagnostic: unknown): {
   };
 }
 
+
+
+/** Independent, score-inert identity status adapter. It does not depend on
+ * spectral interpretation or expose any cryptographic digest to public reports.
+ */
+export function prepareAuralisSourceLineage(diagnostic:unknown): {
+  status:"VERIFIED";scoringImpact:"NONE";sourceFormat:string;sourceRateStatus:string;
+  sourceSampleRate:number|null;decodedSampleRate:number;workerSampleRate:number;
+  decodedChannels:number;workerChannels:number;decodedSamples:number;workerSamples:number;
+  rateRelationship:string;encodedSha256Status:"CAPTURED_PRIVATE";pcmIdentityStatus:"VERIFIED";
+} | null {
+  const d=diagnostic as any,i=d?.identity,p=d?.evidence?.sourceProvenance;
+  const hash=(v:unknown)=>typeof v==="string"&&/^[a-f0-9]{64}$/.test(v);
+  if(d?.status!=="AVAILABLE"||d?.evidence?.scoringImpact!=="NONE"||
+     i?.status!=="VERIFIED"||!hash(i.encodedSha256)||
+     !Array.isArray(i.decodedChannelSha256)||
+     !Array.isArray(i.workerChannelSha256)||
+     ![1,2].includes(p?.channelCount)||
+     i.decodedChannelSha256.length!==p.channelCount||
+     i.workerChannelSha256.length!==p.channelCount||
+     !i.decodedChannelSha256.every((h:unknown,n:number)=>hash(h)&&h===i.workerChannelSha256[n])||
+     i.decodedSampleRate!==p.sampleRate||i.workerSampleRate!==p.sampleRate||
+     i.decodedChannels!==p.channelCount||i.workerChannels!==p.channelCount||
+     i.decodedSamples!==p.inputSampleCount||i.workerSamples!==p.inputSampleCount||
+     !Number.isSafeInteger(i.decodedSamples)||i.decodedSamples<1||
+     !Number.isSafeInteger(i.encodedBytes)||i.encodedBytes<1||
+     !["WAV_PCM","WAV_FLOAT","UNVERIFIED"].includes(i.sourceFormat)||
+     !["VERIFIED_WAV_HEADER","UNVERIFIED"].includes(i.sourceRateStatus)||
+     (i.sourceRateStatus==="UNVERIFIED"&&i.sourceSampleRate!==null)||
+     (i.sourceRateStatus==="VERIFIED_WAV_HEADER"&&
+      (!Number.isSafeInteger(i.sourceSampleRate)||
+       i.sourceSampleRate<8000||i.sourceSampleRate>192000))||
+     i.rateRelationship!==(i.sourceSampleRate===null?"SOURCE_RATE_UNVERIFIED":
+       i.sourceSampleRate===p.sampleRate?"SAME_RATE":"DECODED_RATE_DIFFERENT"))
+    return null;
+  return {status:"VERIFIED",scoringImpact:"NONE",sourceFormat:i.sourceFormat,
+    sourceRateStatus:i.sourceRateStatus,sourceSampleRate:i.sourceSampleRate,
+    decodedSampleRate:i.decodedSampleRate,workerSampleRate:i.workerSampleRate,
+    decodedChannels:i.decodedChannels,workerChannels:i.workerChannels,
+    decodedSamples:i.decodedSamples,workerSamples:i.workerSamples,
+    rateRelationship:i.rateRelationship,encodedSha256Status:"CAPTURED_PRIVATE",
+    pcmIdentityStatus:"VERIFIED"};
+}
 
 // Stage 3D-2A: isolated, read-only reconciliation of the EXISTING browser caps.
 // This function is deliberately not imported by App/server/report export. It

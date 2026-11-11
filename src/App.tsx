@@ -4,6 +4,7 @@ import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile, InternalBatchResult } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
 import type { AuralisEncodedSourceIdentity } from "./lib/liveAudioAnalyzer";
+import { prepareAuralisSourceLineage } from "./lib/mudPreventionDiagnostic";
 
 // Disabled by default: internal opt-in diagnostic computation only, no report/scoring data.
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
@@ -1338,7 +1339,10 @@ export default function App() {
     // A newer analysis invalidates any previous optional diagnostic worker.
     cancelAuralisDiagnostic();
     const diagnosticGeneration = auralisDiagnosticGenerationRef.current;
-    let auralisEvidencePromise: Promise<ReturnType<typeof prepareAuralisEngineeringEvidence>> | null = null;
+    let auralisEvidencePromise: Promise<{
+      engineering:ReturnType<typeof prepareAuralisEngineeringEvidence>;
+      sourceLineage:ReturnType<typeof prepareAuralisSourceLineage>;
+    } | null> | null = null;
     let auralisEncodedIdentity: Promise<AuralisEncodedSourceIdentity> | undefined;
     setLoading(true);
     setLoadingStatus("Summoning studio-grade mixing engineer...");
@@ -1394,7 +1398,8 @@ export default function App() {
         auralisEvidencePromise = analyzeEngineeringDiagnosticsInWorker(audioBuffer, controller.signal, undefined, undefined, true, auralisEncodedIdentity)
           .then(result => controller.signal.aborted ||
             diagnosticGeneration !== auralisDiagnosticGenerationRef.current
-              ? null : prepareAuralisEngineeringEvidence(result))
+              ? null : {engineering:prepareAuralisEngineeringEvidence(result),
+                sourceLineage:prepareAuralisSourceLineage(result)})
           .catch(() => null);
       }
       await applyRealKeyDetection(audioBuffer, preAnalysisLiveMetrics, a2PilotEnabled);
@@ -1455,7 +1460,10 @@ export default function App() {
         const auralisEvidence = await auralisEvidencePromise;
         if (auralisEvidence &&
             diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
-          (overriddenCritique as any).auralisEngineering = auralisEvidence;
+          if(auralisEvidence.engineering)
+            (overriddenCritique as any).auralisEngineering = auralisEvidence.engineering;
+          if(auralisEvidence.sourceLineage)
+            (overriddenCritique as any).auralisSourceLineage = auralisEvidence.sourceLineage;
         }
       }
       if (liveMetrics) {

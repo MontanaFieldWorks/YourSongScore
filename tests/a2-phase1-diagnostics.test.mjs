@@ -4949,7 +4949,7 @@ test("Stage 3D-2L-1 optional Worker identity verifies independently received PCM
     assert.deepEqual(good.identity?.decodedChannelSha256,good.identity?.workerChannelSha256);
     assert.equal(tone.byteLength,4096*4,"original decoded PCM remains intact");
     assert.equal(requests[0].captureIdentity,true);
-    const noHashReport=JSON.stringify((await import("../src/lib/mudPreventionDiagnostic.ts")).prepareAuralisEngineeringEvidence(good));
+    const noHashReport=JSON.stringify((await import("../src/lib/mudPreventionDiagnostic.ts")).prepareAuralisSourceLineage(good));
     assert.ok(!noHashReport.includes(encoded.encodedSha256),"public adapter must redact source SHA-256");
     assert.ok(!noHashReport.includes(good.identity.decodedChannelSha256[0]),"PCM SHA-256 must stay private");
     assert.ok(noHashReport.includes("DECODED_RATE_DIFFERENT"));
@@ -4996,4 +4996,38 @@ test("Stage 3D-2L-1 fail-closed hashing, cancellation, timeout and budget",async
     assert.equal(posted,0);
     assert.equal(terminated,3);
   }finally{globalThis.Worker=before;}
+});
+
+test("Stage 3D-2L-1 standalone lineage adapter rejects unverifiable claims and never exports hashes", async()=>{
+  const {prepareAuralisSourceLineage}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const sha="a".repeat(64);
+  const evidence={status:"AVAILABLE",evidence:{scoringImpact:"NONE",sourceProvenance:{
+    sampleRate:48000,channelCount:1,inputSampleCount:4096}},
+    identity:{status:"VERIFIED",encodedSha256:sha,encodedBytes:50,sourceFormat:"UNVERIFIED",
+      sourceRateStatus:"UNVERIFIED",sourceSampleRate:null,decodedSampleRate:48000,
+      workerSampleRate:48000,decodedChannels:1,workerChannels:1,decodedSamples:4096,
+      workerSamples:4096,decodedChannelSha256:["b".repeat(64)],workerChannelSha256:["b".repeat(64)],
+      rateRelationship:"SOURCE_RATE_UNVERIFIED"}};
+  const adapted=prepareAuralisSourceLineage(evidence);
+  assert.equal(adapted.status,"VERIFIED");
+  assert.equal(adapted.sourceSampleRate,null);
+  assert.equal(adapted.sourceRateStatus,"UNVERIFIED");
+  assert.equal(adapted.scoringImpact,"NONE");
+  assert.ok(!JSON.stringify(adapted).includes(sha));
+  for(const corrupt of [
+    x=>x.identity.workerChannelSha256[0]="c".repeat(64),
+    x=>x.identity.workerSamples++,
+    x=>x.identity.rateRelationship="SAME_RATE",
+    x=>x.identity.encodedSha256="BAD",
+    x=>x.identity.sourceRateStatus="VERIFIED_WAV_HEADER",
+    x=>x.evidence.scoringImpact="SCORE",
+  ]){
+    const x=structuredClone(evidence);corrupt(x);
+    assert.equal(prepareAuralisSourceLineage(x),null);
+  }
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const report=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  assert.match(app,/auralisSourceLineage = auralisEvidence.sourceLineage/);
+  assert.match(report,/const lineage=\(critique as any\)\.auralisSourceLineage/);
+  assert.doesNotMatch(report,/lineage\.encodedSha256|lineage\.workerChannelSha256|lineage\.decodedChannelSha256/);
 });

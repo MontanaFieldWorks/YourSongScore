@@ -1815,9 +1815,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         section: "Auralis Stage 3D-1", field: "Scoring adapter",
         value: "DISABLED_PENDING_STAGE_3D_2 — zero adjustments; Gemini, weights and existing guardrails unchanged",
       });
-      // Public workbook contains only verified identity STATUS and dimensions,
-      // never encoded/PCM digests, original bytes, or channel data.
-      const lineage=(critique as any).auralisEngineering?.sourceLineage;
+    }
+    // Public workbook contains only verified identity STATUS and dimensions,
+    // never encoded/PCM digests, original bytes, or channel data.
+    {
+      const lineage=(critique as any).auralisSourceLineage;
       if(lineage?.status==="VERIFIED" && lineage?.pcmIdentityStatus==="VERIFIED"){
         for(const [field,value] of [
           ["Encoded identity SHA-256","CAPTURED_PRIVATE"],
