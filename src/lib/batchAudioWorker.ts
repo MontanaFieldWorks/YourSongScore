@@ -1,4 +1,5 @@
 import type { LiveAudioMetrics } from "../types";
+import type { AuralisEncodedSourceIdentity } from "./liveAudioAnalyzer";
 
 /**
  * Runs the existing synchronous PCM analyzer inside a dedicated worker for the temporary
@@ -261,8 +262,17 @@ export function analyzeEngineeringDiagnosticsInWorker(
   maxInputBytes = 128 * 1024 * 1024,
   timeoutMs = 30000,
   includeReferenceMeters = false,
+  encodedIdentity?: Promise<AuralisEncodedSourceIdentity>,
 ): Promise<
-  | {status:"AVAILABLE"; evidence: ReturnType<typeof import("./liveAudioAnalyzer").assembleStage2c1EngineeringEvidence>; spectralProfile?:import("./liveAudioAnalyzer").Stage2j1SpectralProfile; referenceMeters?:import("./liveAudioAnalyzer").Stage2kMeterSummary}
+  | {status:"AVAILABLE"; identity?: {
+      status:"VERIFIED";encodedSha256:string;decodedChannelSha256:string[];
+      workerChannelSha256:string[];encodedBytes:number;
+      sourceFormat:AuralisEncodedSourceIdentity["format"];
+      sourceSampleRate:number|null;sourceRateStatus:AuralisEncodedSourceIdentity["sourceRateStatus"];
+      decodedSampleRate:number;workerSampleRate:number;
+      decodedChannels:number;workerChannels:number;decodedSamples:number;workerSamples:number;
+      rateRelationship:"SAME_RATE"|"DECODED_RATE_DIFFERENT"|"SOURCE_RATE_UNVERIFIED";
+    }; evidence: ReturnType<typeof import("./liveAudioAnalyzer").assembleStage2c1EngineeringEvidence>; spectralProfile?:import("./liveAudioAnalyzer").Stage2j1SpectralProfile; referenceMeters?:import("./liveAudioAnalyzer").Stage2kMeterSummary}
   | {status:"UNAVAILABLE"|"CANCELLED"; reason:string}
 > {
   if(signal?.aborted)return Promise.resolve({status:"CANCELLED",reason:"ABORTED"});
@@ -276,6 +286,16 @@ export function analyzeEngineeringDiagnosticsInWorker(
     let worker:Worker|undefined;
     let timeout:ReturnType<typeof setTimeout>|undefined;
     let settled=false;
+    let verifiedDecodedHashes:string[]|null=null;
+    let verifiedSource:AuralisEncodedSourceIdentity|null=null;
+    const hex=(hash:ArrayBuffer)=>Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,"0")).join("");
+    // Hash decoded PCM in-place, per channel. No additional Float32Array copy.
+    const hashDecoded=async()=>{
+      if(typeof crypto==="undefined"||!crypto.subtle)throw Error("Web Crypto unavailable");
+      const digests:string[]=[];
+      for(let i=0;i<channels;i++)digests.push(hex(await crypto.subtle.digest("SHA-256",audioBuffer.getChannelData(i))));
+      return digests;
+    };
     const finish=(result:Awaited<ReturnType<typeof analyzeEngineeringDiagnosticsInWorker>>)=>{
       if(settled)return;
       settled=true;
@@ -311,6 +331,36 @@ export function analyzeEngineeringDiagnosticsInWorker(
              data.referenceMeters!==undefined){
             finish({status:"UNAVAILABLE",reason:"INVALID_WORKER_EVIDENCE"});return;
           }
+          if(encodedIdentity){
+            const received=data.pcmIdentity;
+            if(!verifiedDecodedHashes||!verifiedSource||verifiedSource.status!=="VERIFIED"||
+              !Array.isArray(received?.channelSha256)||
+              received.channelSha256.length!==channels||
+              received.channelSha256.some((h:unknown,i:number)=>typeof h!=="string"||
+                !/^[a-f0-9]{64}$/.test(h)||h!==verifiedDecodedHashes![i])||
+              received.sampleRate!==audioBuffer.sampleRate||
+              received.channels!==channels||received.samples!==audioBuffer.length){
+              finish({status:"UNAVAILABLE",reason:"PCM_IDENTITY_MISMATCH"});return;
+            }
+            const sourceRate=verifiedSource.sourceSampleRate;
+            const rateRelationship=sourceRate===null?"SOURCE_RATE_UNVERIFIED":
+              sourceRate===audioBuffer.sampleRate?"SAME_RATE":"DECODED_RATE_DIFFERENT";
+            finish({status:"AVAILABLE",evidence:data.evidence,
+              ...(data.spectralProfile===undefined?{}:{spectralProfile:data.spectralProfile}),
+              ...(data.referenceMeters===undefined?{}:{referenceMeters:data.referenceMeters}),
+              identity:{status:"VERIFIED",encodedSha256:verifiedSource.encodedSha256!,
+                encodedBytes:verifiedSource.encodedBytes,sourceFormat:verifiedSource.format,
+                sourceSampleRate:sourceRate,sourceRateStatus:verifiedSource.sourceRateStatus,
+                decodedChannelSha256:verifiedDecodedHashes,workerChannelSha256:received.channelSha256,
+                decodedSampleRate:audioBuffer.sampleRate,workerSampleRate:received.sampleRate,
+                decodedChannels:channels,workerChannels:received.channels,
+                decodedSamples:audioBuffer.length,workerSamples:received.samples,
+                rateRelationship}});return;
+          }
+          // Legacy request: a Worker must not claim opted-in hashes unrequested.
+          if(data.pcmIdentity!==undefined){
+            finish({status:"UNAVAILABLE",reason:"INVALID_WORKER_RESPONSE"});return;
+          }
           finish({status:"AVAILABLE",evidence:data.evidence,
             ...(data.spectralProfile===undefined?{}:{spectralProfile:data.spectralProfile}),
             ...(data.referenceMeters===undefined?{}:{referenceMeters:data.referenceMeters})});return;
@@ -321,12 +371,31 @@ export function analyzeEngineeringDiagnosticsInWorker(
       worker.onerror=()=>finish({status:"UNAVAILABLE",reason:"WORKER_ERROR"});
       worker.onmessageerror=()=>finish({status:"UNAVAILABLE",reason:"WORKER_MESSAGE_ERROR"});
       timeout=setTimeout(()=>finish({status:"UNAVAILABLE",reason:"TIMEOUT"}),timeoutMs);
-      const ch0=new Float32Array(audioBuffer.getChannelData(0));
-      const ch1=channels===2?new Float32Array(audioBuffer.getChannelData(1)):undefined;
-      worker.postMessage({kind:"ENGINEERING_DIAGNOSTICS",sampleRate:audioBuffer.sampleRate,
-        numChannels:channels,ch0:ch0.buffer,ch1:ch1?.buffer,
-        ...(includeReferenceMeters?{includeReferenceMeters:true as const}:{})},
-        ch1?[ch0.buffer,ch1.buffer]:[ch0.buffer]);
+      const send=async()=>{
+        if(encodedIdentity){
+          try{
+            // Timeout and abort are already armed, including during hashing.
+            const [source,decoded]=await Promise.all([encodedIdentity,hashDecoded()]);
+            if(settled||signal?.aborted)return;
+            if(source.status!=="VERIFIED"||!source.encodedSha256){
+              finish({status:"UNAVAILABLE",reason:"ENCODED_IDENTITY_UNAVAILABLE"});return;
+            }
+            verifiedSource=source;
+            verifiedDecodedHashes=decoded;
+          }catch{
+            finish({status:"UNAVAILABLE",reason:"PCM_IDENTITY_UNAVAILABLE"});return;
+          }
+        }
+        if(settled||signal?.aborted)return;
+        const ch0=new Float32Array(audioBuffer.getChannelData(0));
+        const ch1=channels===2?new Float32Array(audioBuffer.getChannelData(1)):undefined;
+        worker!.postMessage({kind:"ENGINEERING_DIAGNOSTICS",sampleRate:audioBuffer.sampleRate,
+          numChannels:channels,ch0:ch0.buffer,ch1:ch1?.buffer,
+          ...(includeReferenceMeters?{includeReferenceMeters:true as const}:{}),
+          ...(encodedIdentity?{captureIdentity:true as const}:{})},
+          ch1?[ch0.buffer,ch1.buffer]:[ch0.buffer]);
+      };
+      void send().catch(()=>finish({status:"UNAVAILABLE",reason:"WORKER_SETUP_FAILED"}));
     }catch{
       finish({status:"UNAVAILABLE",reason:"WORKER_SETUP_FAILED"});
     }

@@ -30,6 +30,7 @@
   <button id="matched" type="button">Run Stage 2G-4 matched samples (6 measured cases)</button>
   <button id="memory" type="button">Run Stage 2G-5 memory observability (6 measured cases)</button>
   <button id="allocation" type="button">Run Stage 2G-6 FFT allocation accounting and clone proxy (6 measured cases)</button>
+  <button id="identity" type="button">Run Stage 3D-2L-1 actual Worker SHA-256 identity profile (synthetic only)</button>
   <button id="capacity" type="button">Run Stage 2I-1 Worker input capacity profile (4 cases, up to 128 MiB)</button>
   <p id="pilotStatus" role="status" aria-live="polite">Local song pilot — READY — 0/4 completed. Select one file, then analyze it once.</p>
   <div><label for="pilotFile">Stage 2I-2 local song pilot (one file at a time, up to four):</label>
@@ -58,6 +59,7 @@
     <pre id="pilotComparison" aria-live="polite">Choose a reference after two files complete.</pre>
   </section>
   <pre id="result" aria-live="polite">Not run.</pre>
+  <pre id="identityResult" data-state="NOT_RUN" aria-live="polite">Stage 3D-2L-1 identity profile not run.</pre>
   <script type="module">
     import { analyzeEngineeringDiagnosticsInWorker } from "/src/lib/batchAudioWorker.ts";
     import { analyzeStage2b2Stereo } from "/src/lib/liveAudioAnalyzer.ts";
@@ -1528,10 +1530,154 @@
 
     pilotReference.addEventListener("change",renderPilotComparisons);
 
+
+    // Stage 3D-2L-1: separate, localhost-only, actual module Worker profile.
+    // Intended for synthetic PCM; absolutely no uploads, Gemini or scores.
+    async function runIdentitySyntheticProfile(){
+      const report={stage:"3D-2L-1",mode:"native-browser-module-worker-opt-in",
+        status:"RUNNING",cases:[],startedAt:new Date().toISOString(),
+        memoryInterpretation:"Chromium main-window JS heap snapshots are OPTIONAL and NOT peak RAM, Worker heap, process RSS, OS memory, or a memory safety guarantee",
+        workerPeakBytes:null,processPeakBytes:null,exclusiveWorkerCpuMs:null,
+        policy:{maxPcmMiBPerMeasuredCase:24,maxDecodedInputMiB:128,
+          workerTimeoutMs:30000,noRetries:true,stopOnFirstFailure:true}};
+      const output=document.querySelector("#identityResult");
+      const show=()=>{output.textContent=JSON.stringify(report,null,2);output.dataset.state=report.status;};
+      const nativeWorker=globalThis.Worker;
+      const assertion=(value,why)=>{if(!value)throw Error(why);};
+      if(!allowedHost){report.status="FAIL";report.error="LOCALHOST_ONLY";show();return;}
+      if(typeof nativeWorker!=="function"){report.status="FAIL";report.error="NO_NATIVE_WORKER";show();return;}
+      const {captureAuralisEncodedSourceIdentity}=await import("/src/lib/liveAudioAnalyzer.ts");
+      const encoded=await captureAuralisEncodedSourceIdentity(new Uint8Array([73,68,51,3,0,0,0,0,0,0]).buffer);
+      assertion(encoded.status==="VERIFIED"&&encoded.sourceRateStatus==="UNVERIFIED",
+        "Synthetic encoded bytes must hash but have unknown source rate");
+      const ms=x=>Math.round(x*100)/100;
+      let workerStats={created:0,terminated:0,transfers:0,bytes:0},corrupt=false;
+      class ProbeWorker extends nativeWorker{
+        constructor(url,options){super(url,options);workerStats.created++;}
+        terminate(){workerStats.terminated++;return super.terminate();}
+        postMessage(data,transfer){
+          if(data?.kind==="ENGINEERING_DIAGNOSTICS"&&data.captureIdentity===true){
+            workerStats.transfers++;
+            const lens=transfer?.map(x=>x.byteLength)||[];
+            workerStats.bytes=lens.reduce((a,b)=>a+b,0);
+            assertion(lens.length===data.numChannels,"Unexpected buffer count");
+            super.postMessage(data,transfer);
+            assertion(transfer.every(x=>x.byteLength===0),"Transferred buffers not detached");
+            return;
+          }
+          return super.postMessage(data,transfer);
+        }
+        set onmessage(fn) {
+          super.onmessage=(event)=>{
+            if(corrupt&&event?.data?.pcmIdentity?.channelSha256?.length)
+              event.data.pcmIdentity.channelSha256[0]="0".repeat(64);
+            fn(event);
+          };
+        }
+        get onmessage(){return super.onmessage;}
+      }
+      const measured=[
+        {seconds:.2,rate:48000,channels:1},
+        {seconds:.2,rate:48000,channels:2},
+        {seconds:2,rate:48000,channels:1},
+        {seconds:2,rate:48000,channels:2},
+        {seconds:8,rate:48000,channels:2},
+        {seconds:15,rate:48000,channels:2},
+        {seconds:15,rate:192000,channels:2},
+      ];
+      try{
+        globalThis.Worker=ProbeWorker;
+        for(const item of measured){
+          const length=Math.round(item.seconds*item.rate);
+          const pcmBytes=length*item.channels*4;
+          assertion(pcmBytes<=24*1024*1024,"HARNESS_CASE_BUDGET_EXCEEDED");
+          const audio=new AudioBuffer({length,numberOfChannels:item.channels,sampleRate:item.rate});
+          for(let ch=0;ch<item.channels;ch++){
+            const view=audio.getChannelData(ch);
+            for(let j=0;j<view.length;j++)view[j]=0.07*Math.sin(j*.02+ch*.4);
+          }
+          const sampleBefore=audio.getChannelData(0)[17];
+          const before=jsHeapNow(),time=performance.now();
+          const w0=workerStats.created,t0=workerStats.terminated,x0=workerStats.transfers;
+          const result=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,capBytes,30000,true,Promise.resolve(encoded));
+          const elapsed=ms(performance.now()-time),after=jsHeapNow();
+          assertion(result.status==="AVAILABLE"&&result.identity?.status==="VERIFIED",
+            "Native Worker identity verification failed: "+JSON.stringify({status:result.status,reason:result.reason}));
+          assertion(result.identity.decodedChannelSha256.length===item.channels &&
+            result.identity.workerChannelSha256.every((h,i)=>h===result.identity.decodedChannelSha256[i]),
+            "Worker-received SHA-256 mismatch");
+          assertion(result.identity.rateRelationship==="SOURCE_RATE_UNVERIFIED" &&
+            result.identity.decodedSampleRate===item.rate,"Rate lineage mismatch");
+          assertion(workerStats.created===w0+1&&workerStats.terminated===t0+1&&
+            workerStats.transfers===x0+1&&workerStats.bytes===pcmBytes,
+            "Worker lifecycle, transfer count or ownership failure");
+          assertion(audio.getChannelData(0)[17]===sampleBefore,"Input AudioBuffer changed");
+          report.cases.push({kind:"verified",seconds:item.seconds,sampleRate:item.rate,
+            channels:item.channels,pcmBytes,elapsedMs:elapsed,
+            chromiumMainJSHeapBeforeBytes:before,chromiumMainJSHeapAfterBytes:after,
+            actualWorkerCreated:1,actualWorkerTerminated:1,
+            transferredPcmBytes:workerStats.bytes,verified:true});
+          show();
+        }
+        // Tamper with the actual Worker's scalar digest response, not raw PCM.
+        {
+          const audio=new AudioBuffer({length:9600,numberOfChannels:1,sampleRate:48000});
+          const start=performance.now();corrupt=true;
+          const r=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,capBytes,30000,true,Promise.resolve(encoded));
+          corrupt=false;
+          assertion(r.status==="UNAVAILABLE"&&r.reason==="PCM_IDENTITY_MISMATCH",
+            "Corrupted real Worker digest did not fail closed");
+          report.cases.push({kind:"corrupted-worker-digest",status:r.status,reason:r.reason,
+            elapsedMs:ms(performance.now()-start)});
+        }
+        // Preserve the hard 128-MiB decoded budget without allocating >128 MiB.
+        {
+          const fake={length:33554433,numberOfChannels:1,sampleRate:48000,
+            getChannelData:()=>{throw Error("Over-budget PCM was read");}};
+          const pre=workerStats.created;
+          const r=await analyzeEngineeringDiagnosticsInWorker(fake,undefined,capBytes,30000,true,Promise.resolve(encoded));
+          assertion(r.status==="UNAVAILABLE"&&r.reason==="INPUT_BUDGET_EXCEEDED"&&
+            workerStats.created===pre,"128-MiB preflight violated");
+          report.cases.push({kind:"128MiB-boundary-plus-one-sample",status:r.status,reason:r.reason,workerCreated:0});
+        }
+        // Exercise cancellation and timeout without running unbounded DSP.
+        {
+          const audio=new AudioBuffer({length:9600,numberOfChannels:1,sampleRate:48000});
+          const pendingSource=new Promise(()=>{});
+          const controller=new AbortController();
+          const cancellable=analyzeEngineeringDiagnosticsInWorker(audio,controller.signal,capBytes,30000,true,pendingSource);
+          controller.abort();
+          const cancelled=await cancellable;
+          assertion(cancelled.status==="CANCELLED"&&cancelled.reason==="ABORTED",
+            "Abort did not fail closed");
+          report.cases.push({kind:"abort-before-identity-completion",status:cancelled.status,reason:cancelled.reason});
+          const timeout=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,capBytes,5,true,pendingSource);
+          assertion(timeout.status==="UNAVAILABLE"&&timeout.reason==="TIMEOUT",
+            "Hash-stalled Worker timeout failed");
+          report.cases.push({kind:"5ms-explicit-timeout",status:timeout.status,reason:timeout.reason});
+        }
+        assertion(workerStats.created===workerStats.terminated,
+          "Worker lifecycle leak");
+        report.status="PASS";
+        report.workerLifecycle={...workerStats};
+      }catch(error){
+        report.status="FAIL";
+        report.error=String(error?.message||error);
+        report.failedCase=report.cases.length;
+      }finally{
+        corrupt=false;
+        globalThis.Worker=nativeWorker;
+        report.finishedAt=new Date().toISOString();
+        report.memoryInterpretation="Chromium main JS heap snapshots are optional and exclude reliable Worker and process peaks; PCM size is input bytes, not peak allocation. Measured wall time includes hashing, scheduling, DSP, transport and presentation.";
+        show();
+      }
+    }
+    document.querySelector("#identity").addEventListener("click",runIdentitySyntheticProfile);
     const query = new URLSearchParams(location.search);
     // allocation=1 opts into 2G-6, memory=1 into 2G-5;
     // all 2G-2 through 2G-4 URL modes are preserved.
-    if (query.get("capacity") === "1")runCapacityProfile();
+    if (query.get("identity") === "1")runIdentitySyntheticProfile();
+    else if (query.get("capacity") === "1")runCapacityProfile();
     else if (query.get("allocation") === "1")runMemoryProfile(true);
     else if (query.get("memory") === "1")runMemoryProfile(false);
     else if (query.get("matched") === "1")runProfile(true);

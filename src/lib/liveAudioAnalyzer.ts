@@ -131,12 +131,76 @@ export async function detectMusicalKey(audioBuffer: AudioBuffer): Promise<KeyDet
   }
 }
 
+
+/** Stage 3D-2L-1: no raw audio or hash values are exported by report adapters.
+ * SHA-256 is calculated on the exact encoded ArrayBuffer already used to decode.
+ * Only conservative PCM/IEEE-float RIFF/WAVE fmt headers establish an encoded rate.
+ */
+export type AuralisEncodedSourceIdentity = {
+  status:"VERIFIED"|"UNAVAILABLE";
+  encodedSha256:string|null;
+  encodedBytes:number;
+  format:"WAV_PCM"|"WAV_FLOAT"|"UNVERIFIED";
+  sourceSampleRate:number|null;
+  sourceRateStatus:"VERIFIED_WAV_HEADER"|"UNVERIFIED";
+};
+export function auralisSourceHeaderRate(bytes:ArrayBuffer): {
+  format:AuralisEncodedSourceIdentity["format"];
+  sourceSampleRate:number|null;
+  sourceRateStatus:AuralisEncodedSourceIdentity["sourceRateStatus"];
+} {
+  const unknown={format:"UNVERIFIED" as const,sourceSampleRate:null,
+    sourceRateStatus:"UNVERIFIED" as const};
+  const v=new DataView(bytes);
+  const tag=(i:number,s:string)=>i+s.length<=v.byteLength&&
+    [...s].every((ch,j)=>v.getUint8(i+j)===ch.charCodeAt(0));
+  if(v.byteLength<12||!tag(0,"RIFF")||!tag(8,"WAVE"))return unknown;
+  let offset=12;
+  while(offset+8<=v.byteLength){
+    const size=v.getUint32(offset+4,true),end=offset+8+size;
+    if(end>v.byteLength||!Number.isSafeInteger(end))return unknown;
+    if(tag(offset,"fmt ")){
+      if(size<16)return unknown;
+      const formatCode=v.getUint16(offset+8,true);
+      const channels=v.getUint16(offset+10,true);
+      const rate=v.getUint32(offset+12,true);
+      const bits=v.getUint16(offset+22,true);
+      const align=v.getUint16(offset+20,true);
+      if(![1,3].includes(formatCode)||![1,2].includes(channels)||
+         rate<8000||rate>192000||!Number.isSafeInteger(rate)||
+         (formatCode===1&&![8,16,24,32].includes(bits))||
+         (formatCode===3&&![32,64].includes(bits))||
+         align!==channels*bits/8)return unknown;
+      return {format:formatCode===1?"WAV_PCM":"WAV_FLOAT",
+        sourceSampleRate:rate,sourceRateStatus:"VERIFIED_WAV_HEADER"};
+    }
+    offset=end+(size%2);
+  }
+  return unknown;
+}
+export async function captureAuralisEncodedSourceIdentity(bytes:ArrayBuffer):
+  Promise<AuralisEncodedSourceIdentity> {
+  const header=auralisSourceHeaderRate(bytes);
+  try {
+    if(typeof crypto==="undefined"||!crypto.subtle)throw Error("missing Web Crypto");
+    const hash=await crypto.subtle.digest("SHA-256",bytes);
+    const encodedSha256=Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,"0")).join("");
+    return {status:"VERIFIED",encodedSha256,encodedBytes:bytes.byteLength,...header};
+  } catch {
+    return {status:"UNAVAILABLE",encodedSha256:null,
+      encodedBytes:bytes.byteLength,...header};
+  }
+}
 /**
  * Decodes a File or Blob into an AudioBuffer using the browser's native AudioContext.
  */
-export async function decodeAudioFile(file: File | Blob): Promise<AudioBuffer> {
+export async function decodeAudioFile(
+  file: File | Blob,
+  onEncodedIdentity?: (identity:Promise<AuralisEncodedSourceIdentity>)=>void,
+): Promise<AudioBuffer> {
   const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
   const arrayBuffer = await file.arrayBuffer();
+  if(onEncodedIdentity)onEncodedIdentity(captureAuralisEncodedSourceIdentity(arrayBuffer));
   try {
     const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
     return audioBuffer;

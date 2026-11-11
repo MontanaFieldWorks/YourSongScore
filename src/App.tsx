@@ -3,11 +3,16 @@ import jsmediatags from "jsmediatags";
 import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile, InternalBatchResult } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
+import type { AuralisEncodedSourceIdentity } from "./lib/liveAudioAnalyzer";
+import { prepareAuralisSourceLineage } from "./lib/mudPreventionDiagnostic";
 
 // Disabled by default: internal opt-in diagnostic computation only, no report/scoring data.
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
 // Stage 3D-1 collects evidence during normal file analysis; scoring remains disabled.
 const STAGE3D1_AURALIS_EVIDENCE_ENABLED = true;
+// Opt-in identity hashing is separate from existing Stage 3D-1 observations.
+// Default OFF to preserve normal analysis CPU, memory and Worker behavior.
+const STAGE3D2L1_IDENTITY_ENABLED = false;
 import { analyzeAudioBufferInWorker, analyzeEngineeringDiagnosticsInWorker } from "./lib/batchAudioWorker";
 import { computeMixBalanceScore, isMudDiagnosticCritique, markMudPreventionDiagnosticOnly, prepareAuralisEngineeringEvidence } from "./lib/mudPreventionDiagnostic";
 import { captureA2BeforeClient, captureA2AfterClient, captureA2BrowserUnavailable, captureA2SpectralAfterBrowserMix, captureA2SpectralAfterFinish } from "./lib/a2ScoringProvenance";
@@ -1337,7 +1342,11 @@ export default function App() {
     // A newer analysis invalidates any previous optional diagnostic worker.
     cancelAuralisDiagnostic();
     const diagnosticGeneration = auralisDiagnosticGenerationRef.current;
-    let auralisEvidencePromise: Promise<ReturnType<typeof prepareAuralisEngineeringEvidence>> | null = null;
+    let auralisEvidencePromise: Promise<{
+      engineering:ReturnType<typeof prepareAuralisEngineeringEvidence>;
+      sourceLineage:ReturnType<typeof prepareAuralisSourceLineage>;
+    } | null> | null = null;
+    let auralisEncodedIdentity: Promise<AuralisEncodedSourceIdentity> | undefined;
     setLoading(true);
     setLoadingStatus("Summoning studio-grade mixing engineer...");
     setErrorHeader(null);
@@ -1357,7 +1366,9 @@ export default function App() {
     // returns so this does not add a second DSP pass.
     let preAnalysisLiveMetrics: any = null;
     try {
-      const audioBuffer = await decodeAudioFile(selectedFile);
+      const audioBuffer = await decodeAudioFile(selectedFile,
+        STAGE3D2L1_IDENTITY_ENABLED && !a2PilotEnabled && STAGE3D1_AURALIS_EVIDENCE_ENABLED
+          ? identity => { auralisEncodedIdentity = identity; } : undefined);
       preAnalysisLiveMetrics = analyzeAudioBuffer(audioBuffer);
       if (STAGE2C2A_DIAGNOSTICS_ENABLED &&
           diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
@@ -1387,10 +1398,12 @@ export default function App() {
           diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
         const controller = new AbortController();
         auralisDiagnosticAbortRef.current = controller;
-        auralisEvidencePromise = analyzeEngineeringDiagnosticsInWorker(audioBuffer, controller.signal, undefined, undefined, true)
+        auralisEvidencePromise = analyzeEngineeringDiagnosticsInWorker(audioBuffer, controller.signal, undefined, undefined, true,
+          STAGE3D2L1_IDENTITY_ENABLED ? auralisEncodedIdentity : undefined)
           .then(result => controller.signal.aborted ||
             diagnosticGeneration !== auralisDiagnosticGenerationRef.current
-              ? null : prepareAuralisEngineeringEvidence(result))
+              ? null : {engineering:prepareAuralisEngineeringEvidence(result),
+                sourceLineage:prepareAuralisSourceLineage(result)})
           .catch(() => null);
       }
       await applyRealKeyDetection(audioBuffer, preAnalysisLiveMetrics, a2PilotEnabled);
@@ -1451,7 +1464,10 @@ export default function App() {
         const auralisEvidence = await auralisEvidencePromise;
         if (auralisEvidence &&
             diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
-          (overriddenCritique as any).auralisEngineering = auralisEvidence;
+          if(auralisEvidence.engineering)
+            (overriddenCritique as any).auralisEngineering = auralisEvidence.engineering;
+          if(auralisEvidence.sourceLineage)
+            (overriddenCritique as any).auralisSourceLineage = auralisEvidence.sourceLineage;
         }
       }
       if (liveMetrics) {

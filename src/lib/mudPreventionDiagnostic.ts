@@ -209,6 +209,49 @@ export function prepareAuralisEngineeringEvidence(diagnostic: unknown): {
 }
 
 
+
+/** Independent, score-inert identity status adapter. It does not depend on
+ * spectral interpretation or expose any cryptographic digest to public reports.
+ */
+export function prepareAuralisSourceLineage(diagnostic:unknown): {
+  status:"VERIFIED";scoringImpact:"NONE";sourceFormat:string;sourceRateStatus:string;
+  sourceSampleRate:number|null;decodedSampleRate:number;workerSampleRate:number;
+  decodedChannels:number;workerChannels:number;decodedSamples:number;workerSamples:number;
+  rateRelationship:string;encodedSha256Status:"CAPTURED_PRIVATE";pcmIdentityStatus:"VERIFIED";
+} | null {
+  const d=diagnostic as any,i=d?.identity,p=d?.evidence?.sourceProvenance;
+  const hash=(v:unknown)=>typeof v==="string"&&/^[a-f0-9]{64}$/.test(v);
+  if(d?.status!=="AVAILABLE"||d?.evidence?.scoringImpact!=="NONE"||
+     i?.status!=="VERIFIED"||!hash(i.encodedSha256)||
+     !Array.isArray(i.decodedChannelSha256)||
+     !Array.isArray(i.workerChannelSha256)||
+     ![1,2].includes(p?.channelCount)||
+     i.decodedChannelSha256.length!==p.channelCount||
+     i.workerChannelSha256.length!==p.channelCount||
+     !i.decodedChannelSha256.every((h:unknown,n:number)=>hash(h)&&h===i.workerChannelSha256[n])||
+     i.decodedSampleRate!==p.sampleRate||i.workerSampleRate!==p.sampleRate||
+     i.decodedChannels!==p.channelCount||i.workerChannels!==p.channelCount||
+     i.decodedSamples!==p.inputSampleCount||i.workerSamples!==p.inputSampleCount||
+     !Number.isSafeInteger(i.decodedSamples)||i.decodedSamples<1||
+     !Number.isSafeInteger(i.encodedBytes)||i.encodedBytes<1||
+     !["WAV_PCM","WAV_FLOAT","UNVERIFIED"].includes(i.sourceFormat)||
+     !["VERIFIED_WAV_HEADER","UNVERIFIED"].includes(i.sourceRateStatus)||
+     (i.sourceRateStatus==="UNVERIFIED"&&i.sourceSampleRate!==null)||
+     (i.sourceRateStatus==="VERIFIED_WAV_HEADER"&&
+      (!Number.isSafeInteger(i.sourceSampleRate)||
+       i.sourceSampleRate<8000||i.sourceSampleRate>192000))||
+     i.rateRelationship!==(i.sourceSampleRate===null?"SOURCE_RATE_UNVERIFIED":
+       i.sourceSampleRate===p.sampleRate?"SAME_RATE":"DECODED_RATE_DIFFERENT"))
+    return null;
+  return {status:"VERIFIED",scoringImpact:"NONE",sourceFormat:i.sourceFormat,
+    sourceRateStatus:i.sourceRateStatus,sourceSampleRate:i.sourceSampleRate,
+    decodedSampleRate:i.decodedSampleRate,workerSampleRate:i.workerSampleRate,
+    decodedChannels:i.decodedChannels,workerChannels:i.workerChannels,
+    decodedSamples:i.decodedSamples,workerSamples:i.workerSamples,
+    rateRelationship:i.rateRelationship,encodedSha256Status:"CAPTURED_PRIVATE",
+    pcmIdentityStatus:"VERIFIED"};
+}
+
 // Stage 3D-2A: isolated, read-only reconciliation of the EXISTING browser caps.
 // This function is deliberately not imported by App/server/report export. It
 // makes no cap proposals: Auralis spectrum ratios are descriptive and there

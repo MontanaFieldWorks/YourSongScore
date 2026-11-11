@@ -4875,3 +4875,322 @@ test("Stage 2R-2C rejects contradictory displayed rate lineage while preserving 
     scoringImpact:badScore.scoringImpact,
     observedProtection:"CONTRADICTORY_RATE_LINEAGE_UNVERIFIED"}));
 });
+
+
+import { auralisSourceHeaderRate, captureAuralisEncodedSourceIdentity } from "../src/lib/liveAudioAnalyzer.ts";
+import { createHash } from "node:crypto";
+
+const fixtureWavHeader=(rate=44100)=>{
+  const bytes=new ArrayBuffer(48),view=new DataView(bytes);
+  const word=(off,str)=>{for(let i=0;i<str.length;i++)view.setUint8(off+i,str.charCodeAt(i));};
+  word(0,"RIFF");view.setUint32(4,40,true);word(8,"WAVE");
+  word(12,"fmt ");view.setUint32(16,16,true);
+  view.setUint16(20,1,true);view.setUint16(22,1,true);
+  view.setUint32(24,rate,true);view.setUint32(28,rate*2,true);
+  view.setUint16(32,2,true);view.setUint16(34,16,true);
+  word(36,"data");view.setUint32(40,4,true);
+  return bytes;
+};
+test("Stage 3D-2L-1 encoded SHA-256 and conservative WAV source-rate checks",async()=>{
+  const wav=fixtureWavHeader(44100),original=new Uint8Array(wav.slice(0));
+  const got=await captureAuralisEncodedSourceIdentity(wav);
+  assert.equal(got.status,"VERIFIED");
+  assert.equal(got.encodedSha256,createHash("sha256").update(new Uint8Array(wav)).digest("hex"));
+  assert.equal(got.sourceRateStatus,"VERIFIED_WAV_HEADER");
+  assert.equal(got.sourceSampleRate,44100);
+  assert.equal(got.format,"WAV_PCM");
+  assert.deepEqual(new Uint8Array(wav),original,"source bytes must not be mutated");
+  const mp3=new Uint8Array([0x49,0x44,0x33,0,0,0,0,0]).buffer;
+  const other=await captureAuralisEncodedSourceIdentity(mp3);
+  assert.equal(other.status,"VERIFIED","encoded identity independent of container parsing");
+  assert.equal(other.sourceRateStatus,"UNVERIFIED","MP3 rate must never be inferred");
+  assert.equal(other.sourceSampleRate,null);
+  for(const rate of [0,1,7999,192001]){
+    assert.equal(auralisSourceHeaderRate(fixtureWavHeader(rate)).sourceRateStatus,"UNVERIFIED");
+  }
+  const bad=fixtureWavHeader(48000);
+  new DataView(bad).setUint32(16,0xffffffff,true);
+  assert.equal(auralisSourceHeaderRate(bad).sourceRateStatus,"UNVERIFIED");
+});
+
+test("Stage 3D-2L-1 optional Worker identity verifies independently received PCM and preserves legacy response",async()=>{
+  const originalWorker=globalThis.Worker;
+  const tone=Float32Array.from({length:4096},(_,i)=>0.1*Math.sin(i/100));
+  const audio={sampleRate:48000,numberOfChannels:1,length:tone.length,getChannelData:()=>tone};
+  const encoded=await captureAuralisEncodedSourceIdentity(fixtureWavHeader(44100));
+  let tamper="NONE",terminated=0,requests=[];
+  class FakeWorker{
+    terminate(){terminated++;}
+    postMessage(request,transfer){
+      requests.push({captureIdentity:request.captureIdentity,bytes:transfer[0].byteLength});
+      const data=runStage2c2aBrowserDiagnostics({
+        sampleRate:request.sampleRate,numberOfChannels:request.numChannels,
+        getChannelData:()=>new Float32Array(request.ch0),
+      },true,true);
+      const sha=createHash("sha256").update(new Uint8Array(request.ch0)).digest("hex");
+      if(request.captureIdentity){
+        data.pcmIdentity={channelSha256:[sha],sampleRate:request.sampleRate,
+          channels:request.numChannels,samples:new Float32Array(request.ch0).length};
+        if(tamper==="HASH")data.pcmIdentity.channelSha256=["0".repeat(64)];
+        if(tamper==="MISSING")delete data.pcmIdentity;
+        if(tamper==="RATE")data.pcmIdentity.sampleRate=44100;
+      }
+      this.onmessage({data:{kind:"ENGINEERING_DIAGNOSTICS",...data}});
+    }
+  }
+  globalThis.Worker=FakeWorker;
+  try{
+    const good=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,128*1024*1024,30000,true,Promise.resolve(encoded));
+    assert.equal(good.status,"AVAILABLE");
+    assert.equal(good.identity?.status,"VERIFIED");
+    assert.equal(good.identity?.encodedSha256,encoded.encodedSha256);
+    assert.equal(good.identity?.rateRelationship,"DECODED_RATE_DIFFERENT");
+    assert.equal(good.identity?.sourceRateStatus,"VERIFIED_WAV_HEADER");
+    assert.deepEqual(good.identity?.decodedChannelSha256,good.identity?.workerChannelSha256);
+    assert.equal(tone.byteLength,4096*4,"original decoded PCM remains intact");
+    assert.equal(requests[0].captureIdentity,true);
+    const noHashReport=JSON.stringify((await import("../src/lib/mudPreventionDiagnostic.ts")).prepareAuralisSourceLineage(good));
+    assert.ok(!noHashReport.includes(encoded.encodedSha256),"public adapter must redact source SHA-256");
+    assert.ok(!noHashReport.includes(good.identity.decodedChannelSha256[0]),"PCM SHA-256 must stay private");
+    assert.ok(noHashReport.includes("DECODED_RATE_DIFFERENT"));
+    for(tamper of ["HASH","MISSING","RATE"]){
+      const bad=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,128*1024*1024,30000,true,Promise.resolve(encoded));
+      assert.deepEqual(bad,{status:"UNAVAILABLE",reason:"PCM_IDENTITY_MISMATCH"});
+    }
+    tamper="NONE";
+    const legacy=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,128*1024*1024,30000,true);
+    assert.equal(legacy.status,"AVAILABLE");
+    assert.equal(legacy.identity,undefined);
+    assert.equal(requests.at(-1).captureIdentity,undefined);
+    assert.equal(terminated,5);
+  }finally{globalThis.Worker=originalWorker;}
+});
+
+test("Stage 3D-2L-1 fail-closed hashing, cancellation, timeout and budget",async()=>{
+  const before=globalThis.Worker,pcm=new Float32Array(4096);
+  const audio={sampleRate:48000,numberOfChannels:1,length:4096,getChannelData:()=>pcm};
+  let workers=0,terminated=0,posted=0;
+  class FakeWorker{
+    constructor(){workers++;}
+    terminate(){terminated++;}
+    postMessage(){posted++;}
+  }
+  globalThis.Worker=FakeWorker;
+  const source=await captureAuralisEncodedSourceIdentity(fixtureWavHeader(48000));
+  try{
+    const oversized={...audio,length:33_554_433};
+    assert.deepEqual(await analyzeEngineeringDiagnosticsInWorker(oversized,undefined,128*1024*1024,50,true,Promise.resolve(source)),
+      {status:"UNAVAILABLE",reason:"INPUT_BUDGET_EXCEEDED"});
+    assert.equal(workers,0);
+    const corrupt={...source,status:"UNAVAILABLE",encodedSha256:null};
+    const bad=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,128*1024*1024,100,true,Promise.resolve(corrupt));
+    assert.deepEqual(bad,{status:"UNAVAILABLE",reason:"ENCODED_IDENTITY_UNAVAILABLE"});
+    assert.equal(posted,0);
+    const controller=new AbortController();
+    const held=new Promise(()=>{});
+    const cancelled=analyzeEngineeringDiagnosticsInWorker(audio,controller.signal,128*1024*1024,80,true,held);
+    controller.abort();
+    assert.deepEqual(await cancelled,{status:"CANCELLED",reason:"ABORTED"});
+    const timed=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,128*1024*1024,5,true,held);
+    assert.deepEqual(timed,{status:"UNAVAILABLE",reason:"TIMEOUT"});
+    assert.equal(posted,0);
+    assert.equal(terminated,3);
+  }finally{globalThis.Worker=before;}
+});
+
+test("Stage 3D-2L-1 standalone lineage adapter rejects unverifiable claims and never exports hashes", async()=>{
+  const {prepareAuralisSourceLineage}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const sha="a".repeat(64);
+  const evidence={status:"AVAILABLE",evidence:{scoringImpact:"NONE",sourceProvenance:{
+    sampleRate:48000,channelCount:1,inputSampleCount:4096}},
+    identity:{status:"VERIFIED",encodedSha256:sha,encodedBytes:50,sourceFormat:"UNVERIFIED",
+      sourceRateStatus:"UNVERIFIED",sourceSampleRate:null,decodedSampleRate:48000,
+      workerSampleRate:48000,decodedChannels:1,workerChannels:1,decodedSamples:4096,
+      workerSamples:4096,decodedChannelSha256:["b".repeat(64)],workerChannelSha256:["b".repeat(64)],
+      rateRelationship:"SOURCE_RATE_UNVERIFIED"}};
+  const adapted=prepareAuralisSourceLineage(evidence);
+  assert.equal(adapted.status,"VERIFIED");
+  assert.equal(adapted.sourceSampleRate,null);
+  assert.equal(adapted.sourceRateStatus,"UNVERIFIED");
+  assert.equal(adapted.scoringImpact,"NONE");
+  assert.ok(!JSON.stringify(adapted).includes(sha));
+  for(const corrupt of [
+    x=>x.identity.workerChannelSha256[0]="c".repeat(64),
+    x=>x.identity.workerSamples++,
+    x=>x.identity.rateRelationship="SAME_RATE",
+    x=>x.identity.encodedSha256="BAD",
+    x=>x.identity.sourceRateStatus="VERIFIED_WAV_HEADER",
+    x=>x.evidence.scoringImpact="SCORE",
+  ]){
+    const x=structuredClone(evidence);corrupt(x);
+    assert.equal(prepareAuralisSourceLineage(x),null);
+  }
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const report=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  assert.match(app,/auralisSourceLineage = auralisEvidence.sourceLineage/);
+  assert.match(report,/const lineage=\(critique as any\)\.auralisSourceLineage/);
+  assert.doesNotMatch(report,/lineage\.encodedSha256|lineage\.workerChannelSha256|lineage\.decodedChannelSha256/);
+});
+
+test("Stage 3D-2L-1 identity capture stays default-off without affecting Stage 3D-1 observations",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  assert.match(app,/const STAGE3D1_AURALIS_EVIDENCE_ENABLED = true;/);
+  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = false;/);
+  assert.match(app,/STAGE3D2L1_IDENTITY_ENABLED \? auralisEncodedIdentity : undefined/);
+  assert.match(app,/STAGE3D2L1_IDENTITY_ENABLED && !a2PilotEnabled/);
+  const bridge=await readFile(new URL("../src/lib/batchAudioWorker.ts",import.meta.url),"utf8");
+  const worker=await readFile(new URL("../src/workers/audioAnalysisWorker.ts",import.meta.url),"utf8");
+  assert.match(bridge,/\.\.\.\(encodedIdentity\?\{captureIdentity:true as const\}:\{\}\)/);
+  assert.match(worker,/if\(event\.data\.captureIdentity===true\)/);
+});
+
+
+test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle and honest memory", {timeout:180000}, async t=>{
+  const {spawn,execFileSync}=await import("node:child_process");
+  const {mkdtempSync,rmSync,existsSync}=await import("node:fs");
+  const {tmpdir}=await import("node:os");
+  const {join,resolve}=await import("node:path");
+  const root=resolve(new URL("..",import.meta.url).pathname);
+  const chromeNames=["google-chrome","google-chrome-stable","chromium","chromium-browser"];
+  let browser=null;
+  for(const name of chromeNames){
+    try{browser=execFileSync("which",[name],{encoding:"utf8"}).trim();if(browser)break;}catch{}
+  }
+  assert.ok(browser,"Real-browser validation requires installed Chromium; do not silently skip");
+  const profile=mkdtempSync(join(tmpdir(),"yss-auralis-identity-"));
+  const port=41897;
+  let server,chrome,socket;
+  try{
+    const vite=resolve(root,"node_modules/vite/bin/vite.js");
+    assert.ok(existsSync(vite),"Existing Vite dependency is required");
+    server=spawn(process.execPath,[vite,"--host","127.0.0.1","--port",String(port),"--strictPort"],{
+      cwd:root,stdio:["ignore","pipe","pipe"],
+      env:{...process.env,NO_COLOR:"1"},
+    });
+    let viteOut="";
+    server.stdout.on("data",b=>viteOut+=String(b).slice(-3000));
+    server.stderr.on("data",b=>viteOut+=String(b).slice(-3000));
+    const url="http://127.0.0.1:"+port+"/tests/auralis-stage2g1-browser-harness.html";
+    let ready=false;
+    for(let i=0;i<50;i++){
+      if(server.exitCode!==null)break;
+      try{const r=await fetch(url,{signal:AbortSignal.timeout(800)});if(r.ok){ready=true;break;}}catch{}
+      await new Promise(r=>setTimeout(r,200));
+    }
+    assert.ok(ready,"Local Vite test server unavailable: "+viteOut.slice(-1000));
+    // CDP observes real wall-clock Worker completion. Chromium's accelerated
+    // --virtual-time-budget is not used: it can incorrectly fire the 30-second
+    // application timeout before a native Worker finishes computing.
+    const cdpPort=41898;
+    chrome=spawn(browser,[
+      "--headless=new","--no-sandbox","--disable-gpu","--disable-dev-shm-usage",
+      "--disable-background-timer-throttling","--disable-renderer-backgrounding",
+      "--enable-precise-memory-info","--remote-allow-origins=*",
+      "--remote-debugging-port="+cdpPort,"--user-data-dir="+profile,url
+    ],{cwd:root,stdio:["ignore","ignore","pipe"]});
+    let chromeErrors="";
+    chrome.stderr.on("data",b=>chromeErrors+=String(b).slice(-3000));
+    let target=null;
+    for(let i=0;i<100;i++){
+      if(chrome.exitCode!==null)break;
+      try{
+        const pages=await (await fetch("http://127.0.0.1:"+cdpPort+"/json/list",
+          {signal:AbortSignal.timeout(1000)})).json();
+        target=pages.find(x=>x.type==="page"&&x.url.startsWith(url)&&x.webSocketDebuggerUrl);
+        if(target)break;
+      }catch{}
+      await new Promise(r=>setTimeout(r,150));
+    }
+    assert.ok(target,"Chrome debugging page unavailable: "+chromeErrors.slice(-1200));
+    socket=new WebSocket(target.webSocketDebuggerUrl);
+    await new Promise((resolve,reject)=>{
+      socket.addEventListener("open",resolve,{once:true});
+      socket.addEventListener("error",reject,{once:true});
+    });
+    // One CDP connection, but no automatic Worker run on page load.
+    // Wait for the Vite module to finish initial navigation before clicking.
+    // A destroyed context *after* the click is a test failure, not a retry.
+    let commandId=0;
+    const evaluate=expression=>new Promise((resolve,reject)=>{
+      const id=++commandId;
+      const timer=setTimeout(()=>{socket.removeEventListener("message",onMessage);
+        reject(new Error("CDP evaluation timed out"));},125000);
+      const onMessage=ev=>{
+        let msg;try{msg=JSON.parse(ev.data);}catch{return;}
+        if(msg.id!==id)return;
+        clearTimeout(timer);socket.removeEventListener("message",onMessage);
+        if(msg.error||msg.result?.exceptionDetails)
+          reject(Error(JSON.stringify(msg.error||msg.result.exceptionDetails)));
+        else resolve(msg.result?.result?.value);
+      };
+      socket.addEventListener("message",onMessage);
+      socket.send(JSON.stringify({id,method:"Runtime.evaluate",params:{
+        expression,awaitPromise:true,returnByValue:true
+      }}));
+    });
+    let harnessReady=false;
+    for(let i=0;i<70;i++){
+      const state=await evaluate("JSON.stringify({ready:document.readyState,button:!!document.querySelector('#identity'),url:location.pathname})");
+      const page=JSON.parse(state);
+      if(page.ready==="complete"&&page.button&&
+         page.url==="/tests/auralis-stage2g1-browser-harness.html"){harnessReady=true;break;}
+      await new Promise(r=>setTimeout(r,150));
+    }
+    assert.ok(harnessReady,"Chromium identity harness never completed initial navigation");
+    await new Promise(r=>setTimeout(r,500));
+    // Exactly one click triggers the existing seven-case actual module Worker
+    // profile. The worker profile itself performs no retries.
+    const runState=await evaluate("new Promise(resolve=>{const node=document.querySelector('#identityResult');if(!node||node.dataset.state!=='NOT_RUN'){resolve('INVALID_INITIAL_STATE');return;}document.querySelector('#identity').click();resolve('STARTED');})");
+    assert.equal(runState,"STARTED","Identity harness must be started exactly once");
+    const outcomeText=await evaluate("new Promise(resolve=>{const check=()=>{const node=document.querySelector('#identityResult');if(node&&(node.dataset.state==='PASS'||node.dataset.state==='FAIL'))resolve(JSON.stringify({state:node.dataset.state,body:node.textContent}));else setTimeout(check,100)};check()})");
+    const browserResult=JSON.parse(outcomeText);
+    const outcome=JSON.parse(browserResult.body);
+    assert.equal(browserResult.state,"PASS","Real Chromium identity failure: "+JSON.stringify(outcome).slice(-5000));
+    assert.equal(outcome.status,"PASS");
+    const verified=outcome.cases.filter(c=>c.kind==="verified");
+    assert.equal(verified.length,7);
+    for(const c of verified){
+      assert.equal(c.verified,true);
+      assert.equal(c.transferredPcmBytes,c.pcmBytes);
+      assert.equal(c.actualWorkerCreated,1);
+      assert.equal(c.actualWorkerTerminated,1);
+      assert.ok(c.elapsedMs>0&&c.elapsedMs<30000);
+    }
+    assert.ok(outcome.cases.some(x=>x.kind==="corrupted-worker-digest"&&x.reason==="PCM_IDENTITY_MISMATCH"));
+    assert.ok(outcome.cases.some(x=>x.kind==="128MiB-boundary-plus-one-sample"&&x.reason==="INPUT_BUDGET_EXCEEDED"));
+    assert.ok(outcome.cases.some(x=>x.kind==="abort-before-identity-completion"&&x.reason==="ABORTED"));
+    assert.ok(outcome.cases.some(x=>x.kind==="5ms-explicit-timeout"&&x.reason==="TIMEOUT"));
+    assert.equal(outcome.workerLifecycle.created,outcome.workerLifecycle.terminated);
+    assert.equal(outcome.workerPeakBytes,null);
+    assert.equal(outcome.processPeakBytes,null);
+    assert.equal(outcome.exclusiveWorkerCpuMs,null);
+    const rows=verified.map(c=>({durationSeconds:c.seconds,rateHz:c.sampleRate,
+      channels:c.channels,pcmMiB:Math.round(c.pcmBytes/1048576*100)/100,
+      wallMs:c.elapsedMs,
+      mainHeapBeforeMiB:c.chromiumMainJSHeapBeforeBytes===null?null:
+        Math.round(c.chromiumMainJSHeapBeforeBytes/1048576*100)/100,
+      mainHeapAfterMiB:c.chromiumMainJSHeapAfterBytes===null?null:
+        Math.round(c.chromiumMainJSHeapAfterBytes/1048576*100)/100,
+    }));
+    console.log("[AURALIS_REAL_BROWSER_IDENTITY] "+JSON.stringify({
+      browser,measurements:rows,boundary:outcome.cases.slice(7),
+      memoryLimitations:outcome.memoryInterpretation,
+      workerPeakBytes:outcome.workerPeakBytes,processPeakBytes:outcome.processPeakBytes,
+    }));
+  }finally{
+    if(socket&&socket.readyState===WebSocket.OPEN)socket.close();
+    const stop=async child=>{
+      if(!child||child.exitCode!==null||child.signalCode!==null)return;
+      await new Promise(resolve=>{
+        let settled=false;
+        const finish=()=>{if(settled)return;settled=true;clearTimeout(timer);resolve();};
+        child.once("exit",finish);
+        child.kill("SIGTERM");
+        const timer=setTimeout(()=>{if(!settled)child.kill("SIGKILL");},3000);
+      });
+    };
+    await stop(chrome);
+    await stop(server);
+    rmSync(profile,{recursive:true,force:true,maxRetries:8,retryDelay:200});
+  }
+});

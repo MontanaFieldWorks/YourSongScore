@@ -1816,6 +1816,25 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         value: "DISABLED_PENDING_STAGE_3D_2 — zero adjustments; Gemini, weights and existing guardrails unchanged",
       });
     }
+    // Public workbook contains only verified identity STATUS and dimensions,
+    // never encoded/PCM digests, original bytes, or channel data.
+    {
+      const lineage=(critique as any).auralisSourceLineage;
+      if(lineage?.status==="VERIFIED" && lineage?.pcmIdentityStatus==="VERIFIED"){
+        for(const [field,value] of [
+          ["Encoded identity SHA-256","CAPTURED_PRIVATE"],
+          ["Original source format",lineage.sourceFormat],
+          ["Source sample-rate verification",lineage.sourceRateStatus],
+          ["Source sample rate (Hz)",lineage.sourceSampleRate ?? "UNVERIFIED"],
+          ["Decoded / Worker sample rates (Hz)",String(lineage.decodedSampleRate)+" / "+String(lineage.workerSampleRate)],
+          ["Decoded / Worker channel counts",String(lineage.decodedChannels)+" / "+String(lineage.workerChannels)],
+          ["Decoded / Worker per-channel samples",String(lineage.decodedSamples)+" / "+String(lineage.workerSamples)],
+          ["Source-to-decoded rate relationship",lineage.rateRelationship],
+          ["Decoded-to-Worker PCM SHA-256 identity","VERIFIED (digests withheld)"],
+        ] as Array<[string,string|number]>)
+          wsSourceDiagnostics.addRow({section:"Auralis Source Lineage (NOT SCORED)",field,value});
+      }
+    }
     // Source-lineage replay uses ACTUAL unchanged scorecard and summary
     // functions. Its output is report-only, never an input to scoring.
     for (const diagnostic of getStreamingReadinessLineageRows(
