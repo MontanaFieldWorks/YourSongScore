@@ -50,6 +50,105 @@ export function captureA2ServerProductionInputs(critique: any): void {
     : null;
 }
 
+
+/**
+ * Stage 3D-2K: numeric-only Spectral Match ledger for existing decisions.
+ * These snapshots never select a score, cap, applicability, or model response.
+ * Do not copy unredacted Gemini commentary to this ledger.
+ */
+export function captureA2ServerSpectralScore(critique: any, finishCeiling: number | null): void {
+  const entry = freshEntry(critique, "spectralMatch");
+  if (!entry) return;
+  const metric = critique?.subMetricsCall1?.spectralMatch;
+  if (metric?.applicable === false) {
+    entry.serverSpectralStatus = "NOT_APPLICABLE";
+    entry.serverScoreAfterFinishCap = null;
+    entry.serverFinishCapCandidate = null;
+    entry.serverFinishCapApplied = null;
+    entry.serverFinishCapReason = "NOT_APPLICABLE";
+    return;
+  }
+  const original = entry.canonicalMappedScore;
+  const after = metric?.score;
+  if (!finite(original) || !finite(after)) {
+    entry.serverSpectralStatus = "NOT_CAPTURED";
+    entry.serverScoreAfterFinishCap = null;
+    entry.serverFinishCapCandidate = null;
+    entry.serverFinishCapApplied = null;
+    entry.serverFinishCapReason = "NOT_CAPTURED";
+    return;
+  }
+  entry.serverSpectralStatus = "CAPTURED";
+  entry.serverScoreAfterFinishCap = after;
+  entry.serverFinishCapCandidate = finite(finishCeiling) ? finishCeiling : null;
+  const applied = finite(finishCeiling) && original > finishCeiling && after === finishCeiling;
+  entry.serverFinishCapApplied = applied;
+  entry.serverFinishCapReason = applied ? "PRODUCTION_FINISH_MULTI_SIGNAL_CEILING" : "NONE";
+}
+
+export function captureA2SpectralAfterBrowserMix(critique: any, spectralCap: number | null): void {
+  const entry = freshEntry(critique, "spectralMatch");
+  if (!entry) return;
+  const metric = critique?.subMetricsCall1?.spectralMatch;
+  if (metric?.applicable === false) {
+    entry.browserSpectralStatus = "NOT_APPLICABLE";
+    entry.afterSpectralCapScore = null;
+    entry.browserSpectralCapCandidate = null;
+    entry.browserSpectralCapApplied = null;
+    entry.browserSpectralCapReason = "NOT_APPLICABLE";
+    return;
+  }
+  const before = entry.preClientScore;
+  const after = metric?.score;
+  if (!finite(before) || !finite(after)) {
+    entry.browserSpectralStatus = "NOT_CAPTURED";
+    entry.afterSpectralCapScore = null;
+    entry.browserSpectralCapCandidate = null;
+    entry.browserSpectralCapApplied = null;
+    entry.browserSpectralCapReason = "NOT_CAPTURED";
+    return;
+  }
+  entry.browserSpectralStatus = "CAPTURED";
+  entry.afterSpectralCapScore = after;
+  entry.browserSpectralCapCandidate = finite(spectralCap) ? spectralCap : null;
+  const applied = finite(spectralCap) && before > spectralCap && after === spectralCap;
+  entry.browserSpectralCapApplied = applied;
+  entry.browserSpectralCapReason = applied ? "BROWSER_SPECTRAL_OUTLIER_CAP" : "NONE";
+}
+
+export function captureA2SpectralAfterFinish(critique: any, finishCeiling: number | null): void {
+  const entry = freshEntry(critique, "spectralMatch");
+  if (!entry) return;
+  const metric = critique?.subMetricsCall1?.spectralMatch;
+  if (metric?.applicable === false) {
+    entry.browserFinishStatus = "NOT_APPLICABLE";
+    entry.afterFinishCeilingScore = null;
+    entry.finalScore = null;
+    entry.browserFinishCapCandidate = null;
+    entry.browserFinishCapApplied = null;
+    entry.browserFinishCapReason = "NOT_APPLICABLE";
+    return;
+  }
+  const before = entry.afterSpectralCapScore;
+  const after = metric?.score;
+  if (entry.browserSpectralStatus !== "CAPTURED" || !finite(before) || !finite(after)) {
+    entry.browserFinishStatus = "NOT_CAPTURED";
+    entry.afterFinishCeilingScore = null;
+    entry.finalScore = null;
+    entry.browserFinishCapCandidate = null;
+    entry.browserFinishCapApplied = null;
+    entry.browserFinishCapReason = "NOT_CAPTURED";
+    return;
+  }
+  entry.browserFinishStatus = "COMPLETED";
+  entry.afterFinishCeilingScore = after;
+  entry.finalScore = after;
+  entry.browserFinishCapCandidate = finite(finishCeiling) ? finishCeiling : null;
+  const applied = finite(finishCeiling) && before > finishCeiling && after === finishCeiling;
+  entry.browserFinishCapApplied = applied;
+  entry.browserFinishCapReason = applied ? "PRODUCTION_FINISH_MULTI_SIGNAL_CEILING" : "NONE";
+}
+
 /** Mirror the server Mix Balance scorer, including Mud exclusion and N/A gates. */
 export function captureA2ServerMixInputs(critique: any): void {
   const entry = freshEntry(critique, "midrangeSpacing");
@@ -86,7 +185,7 @@ export function exactMixContribution(critique: any): {
 export function captureA2BeforeClient(critique: any): void {
   const trace = critique?.subMetricsCall1?.a2ScoringProvenance;
   if (!trace) return;
-  for (const key of ["spaceAndDensity", "midrangeSpacing"]) {
+  for (const key of ["spaceAndDensity", "midrangeSpacing", "spectralMatch"]) {
     const entry = trace[key];
     if (!entry || Object.hasOwn(entry, "preClientScore")) continue;
     const score = critique.subMetricsCall1?.[key]?.score;
@@ -96,6 +195,20 @@ export function captureA2BeforeClient(critique: any): void {
 
 export function captureA2BrowserUnavailable(critique: any): void {
   captureA2BeforeClient(critique);
+  const spectral = freshEntry(critique, "spectralMatch");
+  if (spectral) {
+    spectral.browserSpectralStatus = "BROWSER_DSP_UNAVAILABLE";
+    spectral.browserFinishStatus = "BROWSER_DSP_UNAVAILABLE";
+    spectral.afterSpectralCapScore = null;
+    spectral.afterFinishCeilingScore = null;
+    spectral.finalScore = null;
+    spectral.browserSpectralCapCandidate = null;
+    spectral.browserSpectralCapApplied = null;
+    spectral.browserSpectralCapReason = "BROWSER_DSP_UNAVAILABLE";
+    spectral.browserFinishCapCandidate = null;
+    spectral.browserFinishCapApplied = null;
+    spectral.browserFinishCapReason = "BROWSER_DSP_UNAVAILABLE";
+  }
   const trace = critique?.subMetricsCall1?.a2ScoringProvenance;
   if (!trace) return;
   for (const key of ["spaceAndDensity", "midrangeSpacing"]) {
@@ -262,6 +375,50 @@ export function getA2ScoringProvenanceRows(critique: any): A2DiagnosticRow[] {
     add(label, "Contribution interpretation",
       "Unrounded score × original integer weight / actual applicable denominator. Parent rounding, finish ceilings and penalties can change the final parent.");
   }
+
+
+  // Numeric-only existing decision snapshots; never export raw Gemini text.
+  const spectral = raw?.spectralMatch;
+  const spectralLabel = "A2 Spectral Match";
+  const spectralMetric = call1?.spectralMatch;
+  const spectralInapplicable = spectralMetric?.applicable === false;
+  const spectralValue = (value: unknown): number | string =>
+    spectralInapplicable ? "NOT_APPLICABLE" : numberOrMissing(value);
+  const capCandidate = (value: unknown, status: unknown): number | string =>
+    spectralInapplicable ? "NOT_APPLICABLE" :
+      finite(value) ? value : status === "CAPTURED" || status === "COMPLETED"
+        ? "NONE" : "NOT_CAPTURED";
+  const capApplied = (value: unknown): string =>
+    spectralInapplicable ? "NOT_APPLICABLE" :
+      value === true ? "YES" : value === false ? "NO" : "NOT_CAPTURED";
+  add(spectralLabel, "A2 capture", spectral ? "PRESENT" : "NOT_CAPTURED");
+  add(spectralLabel, "Metric applicability", !spectralMetric ? "NOT_CAPTURED" :
+    spectralInapplicable ? "false" : "true");
+  add(spectralLabel, "Canonical mapped score before server caps",
+    spectralValue(spectral?.canonicalMappedScore));
+  add(spectralLabel, "Server scoring stage", spectral?.serverSpectralStatus ?? "NOT_CAPTURED");
+  add(spectralLabel, "Server finish cap candidate",
+    capCandidate(spectral?.serverFinishCapCandidate, spectral?.serverSpectralStatus));
+  add(spectralLabel, "Server finish cap applied", capApplied(spectral?.serverFinishCapApplied));
+  add(spectralLabel, "Server cap reason", textOrMissing(spectral?.serverFinishCapReason));
+  add(spectralLabel, "Post-server score", spectralValue(spectral?.serverScoreAfterFinishCap));
+  add(spectralLabel, "Pre-client score", spectralValue(spectral?.preClientScore));
+  add(spectralLabel, "Browser spectral stage", spectral?.browserSpectralStatus ?? "NOT_CAPTURED");
+  add(spectralLabel, "Browser spectral cap candidate",
+    capCandidate(spectral?.browserSpectralCapCandidate, spectral?.browserSpectralStatus));
+  add(spectralLabel, "Browser spectral cap applied", capApplied(spectral?.browserSpectralCapApplied));
+  add(spectralLabel, "Browser spectral cap reason", textOrMissing(spectral?.browserSpectralCapReason));
+  add(spectralLabel, "Post-browser spectral cap score",
+    spectralValue(spectral?.afterSpectralCapScore));
+  add(spectralLabel, "Browser finish stage", spectral?.browserFinishStatus ?? "NOT_CAPTURED");
+  add(spectralLabel, "Browser finish cap candidate",
+    capCandidate(spectral?.browserFinishCapCandidate, spectral?.browserFinishStatus));
+  add(spectralLabel, "Browser finish cap applied", capApplied(spectral?.browserFinishCapApplied));
+  add(spectralLabel, "Browser finish cap reason", textOrMissing(spectral?.browserFinishCapReason));
+  add(spectralLabel, "Post-browser finish score",
+    spectralValue(spectral?.afterFinishCeilingScore));
+  add(spectralLabel, "Final captured score", spectralValue(spectral?.finalScore));
+  add(spectralLabel, "Current score shown in report", spectralValue(spectralMetric?.score));
 
   // Diagnostic-only weight-path disclosure. Formula values are not song
   // judgments or an inferred historical browser pass. Only frozen A2 snapshots

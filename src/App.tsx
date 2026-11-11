@@ -10,7 +10,7 @@ const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
 const STAGE3D1_AURALIS_EVIDENCE_ENABLED = true;
 import { analyzeAudioBufferInWorker, analyzeEngineeringDiagnosticsInWorker } from "./lib/batchAudioWorker";
 import { computeMixBalanceScore, isMudDiagnosticCritique, markMudPreventionDiagnosticOnly, prepareAuralisEngineeringEvidence } from "./lib/mudPreventionDiagnostic";
-import { captureA2BeforeClient, captureA2AfterClient, captureA2BrowserUnavailable } from "./lib/a2ScoringProvenance";
+import { captureA2BeforeClient, captureA2AfterClient, captureA2BrowserUnavailable, captureA2SpectralAfterBrowserMix, captureA2SpectralAfterFinish } from "./lib/a2ScoringProvenance";
 
 // Runs the new, validated essentia.js key detection and overwrites the old,
 // confirmed-unreliable chroma-based key on the given liveMetrics object in place.
@@ -711,6 +711,9 @@ export default function App() {
       appliedMixCaps.push(`Spectral Match ≤ ${spectralCap}`);
     }
 
+    // Freeze the existing spectral correction separately from the later finish ceiling.
+    captureA2SpectralAfterBrowserMix(critique, spectralCap);
+
     const mixEvidenceSummary =
       `Mix evidence: mud flux ${finite(mudFlux) ? mudFlux.toFixed(1) : "N/A"} (diagnostic only, not a score gate); midrange flatness ${finite(midrangeFlatness) ? midrangeFlatness.toFixed(3) : "N/A"}; ` +
       `bass/low-mid/core-mid/air energy ${finite(bassBandEnergy) ? bassBandEnergy : "N/A"}/${finite(lowMidBandEnergy) ? lowMidBandEnergy : "N/A"}/${finite(coreMidBandEnergy) ? coreMidBandEnergy : "N/A"}/${finite(airBandEnergy) ? airBandEnergy : "N/A"}; ` +
@@ -890,6 +893,7 @@ export default function App() {
 
     if (ceiling === null) {
       captureA2AfterClient(critique, { midrangeCap, spaceDensityCeiling: null });
+      captureA2SpectralAfterFinish(critique, null);
       return critique;
     }
 
@@ -925,6 +929,7 @@ export default function App() {
         `Objective production-finish cross-check constrains the final Mix Balance rating. ${summary}`;
     }
     captureA2AfterClient(critique, { midrangeCap, spaceDensityCeiling });
+    captureA2SpectralAfterFinish(critique, ceiling);
     return critique;
   };
 

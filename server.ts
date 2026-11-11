@@ -8,7 +8,7 @@ import { GoogleGenAI as A2PilotGoogleGenAI } from "@google/genai-a2-pilot";
 import dotenv from "dotenv";
 import { GENRE_MAP } from "./src/data/musicData";
 import { computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC_SCORING_VERSION } from "./src/lib/mudPreventionDiagnostic";
-import { captureA2ServerProductionInputs, captureA2ServerMixInputs } from "./src/lib/a2ScoringProvenance";
+import { captureA2ServerProductionInputs, captureA2ServerMixInputs, captureA2ServerSpectralScore } from "./src/lib/a2ScoringProvenance";
 import { withholdA2RawEvidence, getRestrictedA2RawEvidence } from "./src/lib/a2InternalEvidence";
 import { describeLowEndGateFactors, captureA2OriginalAssertionSnapshot } from "./src/lib/sourceVerificationDiagnostics";
 import { a2PilotReadOnlyPreflight } from "./src/lib/a2PilotReadOnlyPreflight";
@@ -380,6 +380,8 @@ function applyDeterministicProductionTierScores(call1: any): any {
       };
     }
   }
+  // Numeric-only Spectral Match lineage: never copy raw Gemini text into an audit.
+  if (call1?.spectralMatch) call1.a2ScoringProvenance.spectralMatch = {};
   for (const key of tieredMetricKeys) {
     const metric = call1?.[key];
     if (!metric) continue;
@@ -1576,6 +1578,9 @@ function reconcileParentScores(parsedCritique: any): void {
         `The spectrum contains multiple independent extreme outliers relative to the calibrated commercial-master corridor, so a top-tier spectral-match score is not supported. ${finishEvidence.summary}`;
     }
   }
+
+  // Freeze Spectral Match after server finish reconciliation, before any browser caps.
+  captureA2ServerSpectralScore(parsedCritique, finishCeiling);
 
   if (c2Ready?.artisticAnalysis) {
     // Artistic Alignment now uses its own metric-specific calibration in the analysis

@@ -5,6 +5,7 @@ import ExcelJS from "exceljs";
 import {
   captureA2BeforeClient, captureA2AfterClient, captureA2BrowserUnavailable,
   captureA2ServerProductionInputs, captureA2ServerMixInputs,
+  captureA2ServerSpectralScore, captureA2SpectralAfterBrowserMix, captureA2SpectralAfterFinish,
   exactMixContribution, getA2ScoringProvenanceRows,
   appendA2ProvenanceToSourceDiagnostics,
 } from "../src/lib/a2ScoringProvenance.ts";
@@ -795,3 +796,108 @@ test("Stage B Space/Midrange examples use valid canonical tiers and preserve the
   // Other Call 1 metrics have legacy numerical examples; this check deliberately
   // covers only the two approved rubrics. It cannot establish Gemini behavior.
 });
+
+
+const SP = "A2 Spectral Match";
+const spectralFixture = () => {
+  const c = f();
+  c.subMetricsCall1.spectralMatch = { score: 93, qualityTier: "EXCEPTIONAL", applicable: true,
+    commentary: "Safe displayed Spectral commentary" };
+  c.subMetricsCall1.a2ScoringProvenance.spectralMatch = { canonicalMappedScore: 93 };
+  return c;
+};
+
+test("Stage 3D-2K records server, browser spectral, and finish cap stages separately without scoring", () => {
+  const c = spectralFixture();
+  // Only the pre-existing scoring path changes these values; captures are inert.
+  c.subMetricsCall1.spectralMatch.score = 88;
+  const old = structuredClone(c.subMetricsCall1.spectralMatch);
+  captureA2ServerSpectralScore(c, 88);
+  captureA2BeforeClient(c);
+  c.subMetricsCall1.spectralMatch.score = 82;
+  captureA2SpectralAfterBrowserMix(c, 82);
+  c.subMetricsCall1.spectralMatch.score = 80;
+  captureA2SpectralAfterFinish(c, 80);
+  const e = c.subMetricsCall1.a2ScoringProvenance.spectralMatch;
+  assert.equal(e.canonicalMappedScore, 93);
+  assert.equal(e.serverScoreAfterFinishCap, 88);
+  assert.equal(e.preClientScore, 88);
+  assert.equal(e.afterSpectralCapScore, 82);
+  assert.equal(e.afterFinishCeilingScore, 80);
+  assert.equal(e.finalScore, 80);
+  assert.equal(e.serverFinishCapApplied, true);
+  assert.equal(e.browserSpectralCapApplied, true);
+  assert.equal(e.browserFinishCapApplied, true);
+  assert.equal(e.serverFinishCapReason, "PRODUCTION_FINISH_MULTI_SIGNAL_CEILING");
+  assert.equal(e.browserSpectralCapReason, "BROWSER_SPECTRAL_OUTLIER_CAP");
+  const rows = getA2ScoringProvenanceRows(c);
+  assert.equal(row(rows, SP, "Post-server score"), 88);
+  assert.equal(row(rows, SP, "Post-browser spectral cap score"), 82);
+  assert.equal(row(rows, SP, "Final captured score"), 80);
+  assert.equal(old.score, 88);
+  assert.equal(c.subMetricsCall1.spectralMatch.commentary, old.commentary);
+});
+
+test("Stage 3D-2K no-cap, lower-original-than-cap, and inapplicability never invent a reduction", () => {
+  const c = spectralFixture();
+  captureA2ServerSpectralScore(c, null);
+  captureA2BeforeClient(c);
+  captureA2SpectralAfterBrowserMix(c, 96);
+  captureA2SpectralAfterFinish(c, null);
+  const e = c.subMetricsCall1.a2ScoringProvenance.spectralMatch;
+  assert.equal(e.serverFinishCapApplied, false);
+  assert.equal(e.browserSpectralCapCandidate, 96);
+  assert.equal(e.browserSpectralCapApplied, false);
+  assert.equal(e.browserFinishCapApplied, false);
+  assert.equal(e.finalScore, 93);
+  const n = spectralFixture();
+  n.subMetricsCall1.spectralMatch.applicable = false;
+  captureA2ServerSpectralScore(n, 80);
+  captureA2BeforeClient(n);
+  captureA2SpectralAfterBrowserMix(n, 76);
+  captureA2SpectralAfterFinish(n, 72);
+  const rows = getA2ScoringProvenanceRows(n);
+  assert.equal(row(rows, SP, "Final captured score"), "NOT_APPLICABLE");
+  assert.equal(row(rows, SP, "Browser spectral cap applied"), "NOT_APPLICABLE");
+});
+
+test("Stage 3D-2K uncompleted browser, unavailable DSP, and legacy records fail closed", () => {
+  const c = spectralFixture();
+  captureA2ServerSpectralScore(c, null);
+  let rows = getA2ScoringProvenanceRows(c);
+  assert.equal(row(rows, SP, "Browser spectral stage"), "NOT_CAPTURED");
+  assert.equal(row(rows, SP, "Final captured score"), "NOT_CAPTURED");
+  captureA2BrowserUnavailable(c);
+  rows = getA2ScoringProvenanceRows(c);
+  assert.equal(row(rows, SP, "Browser spectral stage"), "BROWSER_DSP_UNAVAILABLE");
+  assert.equal(row(rows, SP, "Post-browser spectral cap score"), "NOT_CAPTURED");
+  assert.equal(row(rows, SP, "Final captured score"), "NOT_CAPTURED");
+  const legacy = {subMetricsCall1:{spectralMatch:{score:85}}};
+  const original = structuredClone(legacy);
+  captureA2ServerSpectralScore(legacy, 74);
+  captureA2BeforeClient(legacy);
+  captureA2SpectralAfterBrowserMix(legacy, 74);
+  captureA2SpectralAfterFinish(legacy, 74);
+  assert.deepEqual(legacy, original);
+  assert.equal(row(getA2ScoringProvenanceRows(legacy), SP, "Canonical mapped score before server caps"), "NOT_CAPTURED");
+});
+
+test("Stage 3D-2K spectral audit rows cannot disclose raw model commentary", async () => {
+  const c = spectralFixture();
+  c.subMetricsCall1.a2ScoringProvenance.spectralMatch.rawCommentary = "SECRET SPECTRAL TEXT";
+  captureA2ServerSpectralScore(c, null);
+  captureA2BeforeClient(c);
+  captureA2SpectralAfterBrowserMix(c, null);
+  captureA2SpectralAfterFinish(c, null);
+  const rows = getA2ScoringProvenanceRows(c);
+  assert.ok(!JSON.stringify(rows).includes("SECRET SPECTRAL TEXT"));
+  assert.ok(!JSON.stringify(rows).includes("rawCommentary"));
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Source Diagnostics");
+  appendA2ProvenanceToSourceDiagnostics(sheet, c);
+  const serialized = await workbook.xlsx.writeBuffer();
+  const loaded = new ExcelJS.Workbook();
+  await loaded.xlsx.load(serialized);
+  assert.ok(!JSON.stringify(loaded.getWorksheet("Source Diagnostics")?.getSheetValues()).includes("SECRET SPECTRAL TEXT"));
+});
+
