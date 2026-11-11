@@ -5346,3 +5346,31 @@ test("Stage 3D-2L-2 missing, contradictory, or legacy evidence fails closed",asy
   const source=(await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8"));
   assert.match(source,/getAuralisPenaltyInventoryRows\(critique\)/);
 });
+
+test("Stage 3D-2L-2 diagnostic capture faults cannot interrupt unchanged A2 score ledger",async()=>{
+  const mod=await import("../src/lib/a2ScoringProvenance.ts");
+  const c={
+    productionScoringVersion:"scoring-tier-v8-mud-diagnostic",
+    subMetricsCall1:{midrangeSpacing:{score:82},
+      spectralMatch:{score:88},spaceAndDensity:{score:84},
+      a2ScoringProvenance:{midrangeSpacing:{},spectralMatch:{},spaceAndDensity:{}}}
+  };
+  Object.defineProperty(c,"auralisPenaltyInventory",{
+    configurable:true,
+    get(){return undefined;},
+    set(){throw Error("synthetic audit storage failure");}
+  });
+  assert.doesNotThrow(()=>mod.captureA2BeforeClient(c));
+  assert.equal(c.subMetricsCall1.a2ScoringProvenance.midrangeSpacing.preClientScore,82);
+  assert.equal(c.subMetricsCall1.a2ScoringProvenance.spectralMatch.preClientScore,88);
+  assert.equal(c.subMetricsCall1.midrangeSpacing.score,82);
+  Object.defineProperty(c,"auralisPenaltyInventory",{
+    configurable:true,
+    get(){return {schemaVersion:mod.AURALIS_PENALTY_INVENTORY_VERSION,
+      status:"PRE_CLIENT_ONLY",before:{}};},
+    set(){throw Error("synthetic audit post-capture storage failure");}
+  });
+  assert.doesNotThrow(()=>mod.captureA2AfterClient(c,{midrangeCap:null,spaceDensityCeiling:null}));
+  assert.equal(c.subMetricsCall1.a2ScoringProvenance.midrangeSpacing.browserScoringStage,"COMPLETED");
+  assert.equal(c.subMetricsCall1.midrangeSpacing.score,82);
+});

@@ -413,12 +413,15 @@ export function getAuralisPenaltyInventoryRows(c:any):A2DiagnosticRow[] {
       "productionAfterServer":key==="mix"?"mixAfterServer":"commercialAfterServer"]);
     add(key+" final score",i.stages?.[key]?.after);
   }
-  for(const family of i.overlapFamilies??[])add("Shared evidence family",family);
+  if(Array.isArray(i.overlapFamilies)){
+    for(const family of i.overlapFamilies)add("Shared evidence family",family);
+  } else add("Shared evidence family","NOT_CAPTURED");
   return rows;
 }
 
 export function captureA2BeforeClient(critique: any): void {
-  captureAuralisPenaltyInventoryBeforeClient(critique);
+  // Optional diagnostic observer must never block the original score ledger.
+  try { captureAuralisPenaltyInventoryBeforeClient(critique); } catch { /* fail closed */ }
   const trace = critique?.subMetricsCall1?.a2ScoringProvenance;
   if (!trace) return;
   for (const key of ["spaceAndDensity", "midrangeSpacing", "spectralMatch"]) {
@@ -494,7 +497,8 @@ export function captureA2AfterClient(
       entry.postClientMixContribution = mix.contribution;
     }
   }
-  captureAuralisPenaltyInventoryAfterClient(critique);
+  // Optional diagnostic observer must never block existing client score stages.
+  try { captureAuralisPenaltyInventoryAfterClient(critique); } catch { /* fail closed */ }
 }
 
 /** The worksheet may be downloaded publicly: NEVER render raw model commentary. */
