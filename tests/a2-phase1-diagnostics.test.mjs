@@ -5217,7 +5217,7 @@ test("Auralis lean Spectral Match trial is gated and uses only the approved 79 c
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \| null = null;/);
-  assert.match(app,/selectAuralisSpectralTrialCap\(/);
+  assert.match(app,/assessAuralisSpectralTrialEvidence\(/);
   assert.match(app,/Math\.min\(spectralCap, auralisTrialCap\)/);
   assert.match(app,/if \(auralisEvidencePromise\)[\s\S]*?applyProductionFinishGuardrail\(overriddenCritique, liveMetrics\)/);
   assert.ok(!/AURALIS_SPECTRAL_TRIAL_CAP\s*=\s*71/.test(await readFile(new URL("../src/lib/mudPreventionDiagnostic.ts",import.meta.url),"utf8")));
