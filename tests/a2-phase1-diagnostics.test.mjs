@@ -5194,3 +5194,183 @@ test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle a
     rmSync(profile,{recursive:true,force:true,maxRetries:8,retryDelay:200});
   }
 });
+
+
+test("Stage 3D-2L-2 numeric-only immutable inventory captures verified no-cap paths", async()=>{
+  const mod=await import("../src/lib/a2ScoringProvenance.ts");
+  const fixture={
+    productionScoringVersion:"scoring-tier-v8-mud-diagnostic",
+    productionFinishEvidence:{source:"server",ceiling:null},
+    scores:{overallProduction:90,commercialReadiness:88},
+    mixQuality:{score:80},
+    subMetricsCall1:{
+      spectralMatch:{score:90,applicable:true},
+      midrangeSpacing:{score:80,applicable:true},
+      lowEndDivision:{score:80,applicable:true},
+      sibilanceShaving:{score:80,applicable:true},
+      stereoWidth:{score:80,applicable:true},
+      dynamicVariety:{score:80,applicable:true},
+      a2ScoringProvenance:{spectralMatch:{
+        canonicalMappedScore:90,serverSpectralStatus:"CAPTURED",
+        serverScoreAfterFinishCap:90},midrangeSpacing:{},spaceAndDensity:{}},
+    },
+    subMetricsCall3:{
+      instrumentalStagingSubs:{transientPunch:{score:85,applicable:true}},
+      compositionFlowSubs:{hookPlacement:{score:90},sectionalContrast:{score:90}}
+    },
+    mixBalanceEvidence:{spectralCap:null,midrangeCap:null}
+  };
+  const critique=structuredClone(fixture);
+  mod.captureA2BeforeClient(critique);
+  const snapshot=critique.auralisPenaltyInventory.before;
+  assert.equal(Object.isFrozen(snapshot),true);
+  assert.equal(snapshot.productionAfterServer,90);
+  assert.equal(snapshot.serverFinishSource,"server");
+  critique.productionFinishEvidence={
+    source:"reconciled",ceiling:null,dynamicFinishPenalty:0,
+    brickwallFinishPenalty:0,technicalFinishPenalty:0,transientPunchCap:null
+  };
+  mod.captureA2SpectralAfterBrowserMix(critique,null);
+  mod.captureA2AfterClient(critique,{midrangeCap:null,spaceDensityCeiling:null});
+  const audit=critique.auralisPenaltyInventory;
+  assert.equal(audit.status,"VERIFIED",JSON.stringify(audit.stages));
+  assert.equal(audit.scoringImpact,"NONE");
+  assert.deepEqual(audit.adjustments,[]);
+  assert.equal(Object.isFrozen(audit),true);
+  assert.equal(Object.isFrozen(audit.stages),true);
+  assert.equal(audit.before,snapshot,"pre-client evidence must remain frozen");
+  assert.equal(audit.stages.technical.status,"VERIFIED");
+  assert.equal(audit.stages.production.status,"VERIFIED");
+  assert.equal(audit.stages.mix.status,"VERIFIED");
+  assert.equal(audit.stages.commercial.status,"VERIFIED");
+  assert.deepEqual(audit.overlapFamilies,[]);
+  const exportRows=mod.getAuralisPenaltyInventoryRows(critique);
+  assert.ok(exportRows.every(x=>typeof x.value==="string"||typeof x.value==="number"));
+  assert.ok(!JSON.stringify(exportRows).includes("rawCommentary"));
+  assert.ok(exportRows.some(x=>x.field==="Capture status"&&x.value==="VERIFIED"));
+  assert.ok(exportRows.some(x=>x.field==="Original server finish ceiling"&&x.value==="NONE"),
+    "An explicit null ceiling is NONE, not missing");
+  assert.ok(exportRows.some(x=>x.field==="Browser Spectral Match cap candidate"&&x.value==="NONE"),
+    "Unapplied explicit null cap must be preserved");
+  assert.ok(exportRows.some(x=>x.field==="Browser Spectral Match cap application"&&x.value==="NOT_APPLIED"));
+  assert.ok(exportRows.some(x=>x.field==="production server-returned score"&&x.value===90));
+  assert.ok(exportRows.some(x=>x.field==="production final score"&&x.value===90));
+  assert.equal(critique.scores.overallProduction,90,"audit cannot alter production scores");
+  assert.equal(critique.mixQuality.score,80,"audit cannot alter mix");
+});
+
+test("Stage 3D-2L-2 overlapping caps recorded without adding a new deduction",async()=>{
+  const mod=await import("../src/lib/a2ScoringProvenance.ts");
+  const c={
+    productionScoringVersion:"scoring-tier-v8-mud-diagnostic",
+    productionFinishEvidence:{source:"server",ceiling:null},
+    scores:{overallProduction:90,commercialReadiness:88},
+    mixQuality:{score:80},
+    subMetricsCall1:{
+      spectralMatch:{score:90,applicable:true},
+      midrangeSpacing:{score:80,applicable:true},
+      lowEndDivision:{score:80},sibilanceShaving:{score:80},stereoWidth:{score:80},
+      dynamicVariety:{score:80},
+      a2ScoringProvenance:{spectralMatch:{
+        canonicalMappedScore:90,serverSpectralStatus:"CAPTURED",
+        serverScoreAfterFinishCap:90},midrangeSpacing:{},spaceAndDensity:{}}
+    },
+    subMetricsCall3:{
+      instrumentalStagingSubs:{transientPunch:{score:85,applicable:true}},
+      compositionFlowSubs:{hookPlacement:{score:90},sectionalContrast:{score:90}}
+    }
+  };
+  mod.captureA2BeforeClient(c);
+  c.subMetricsCall1.spectralMatch.score=86;
+  c.subMetricsCall1.midrangeSpacing.score=76;
+  c.mixBalanceEvidence={spectralCap:86,midrangeCap:76};
+  c.mixQuality.score=79;
+  c.productionFinishEvidence={
+    source:"reconciled",ceiling:null,dynamicFinishPenalty:0,
+    brickwallFinishPenalty:0,technicalFinishPenalty:0,transientPunchCap:null
+  };
+  mod.captureA2SpectralAfterBrowserMix(c,86);
+  mod.captureA2AfterClient(c,{midrangeCap:76,spaceDensityCeiling:null});
+  const i=c.auralisPenaltyInventory;
+  assert.equal(i.status,"VERIFIED",JSON.stringify(i.stages));
+  assert.equal(i.stages.spectralBrowser.applied,true);
+  assert.equal(i.stages.midrange.applied,true);
+  assert.deepEqual(i.overlapFamilies,["MIDRANGE_SPECTRAL_SHARED"]);
+  assert.equal(c.subMetricsCall1.spectralMatch.score,86);
+  assert.equal(c.subMetricsCall1.midrangeSpacing.score,76);
+  assert.deepEqual(i.adjustments,[]);
+});
+
+test("Stage 3D-2L-2 missing, contradictory, or legacy evidence fails closed",async()=>{
+  const mod=await import("../src/lib/a2ScoringProvenance.ts");
+  const base={
+    productionScoringVersion:"scoring-tier-v8-mud-diagnostic",
+    productionFinishEvidence:{source:"server",ceiling:null},
+    scores:{overallProduction:90,commercialReadiness:88},mixQuality:{score:80},
+    subMetricsCall1:{
+      spectralMatch:{score:90},midrangeSpacing:{score:80},lowEndDivision:{score:80},
+      sibilanceShaving:{score:80},stereoWidth:{score:80},dynamicVariety:{score:80},
+      a2ScoringProvenance:{spectralMatch:{
+        canonicalMappedScore:90,serverSpectralStatus:"CAPTURED"},midrangeSpacing:{},spaceAndDensity:{}}
+    },
+    subMetricsCall3:{
+      instrumentalStagingSubs:{transientPunch:{score:85}},
+      compositionFlowSubs:{hookPlacement:{score:90},sectionalContrast:{score:90}}
+    }
+  };
+  assert.equal(mod.getAuralisPenaltyInventoryRows({})[0].value,"NOT_CAPTURED");
+  const legacy=structuredClone(base);legacy.productionScoringVersion="old";
+  mod.captureA2BeforeClient(legacy);assert.equal(legacy.auralisPenaltyInventory,undefined);
+  const missing=structuredClone(base);
+  mod.captureA2BeforeClient(missing);
+  missing.mixBalanceEvidence={spectralCap:null,midrangeCap:null};
+  missing.productionFinishEvidence={source:"reconciled",ceiling:null,
+    dynamicFinishPenalty:0,brickwallFinishPenalty:0,technicalFinishPenalty:0};
+  mod.captureA2SpectralAfterBrowserMix(missing,null);
+  mod.captureA2AfterClient(missing,{midrangeCap:null,spaceDensityCeiling:null});
+  assert.equal(missing.auralisPenaltyInventory.status,"INCOMPLETE");
+  assert.equal(missing.auralisPenaltyInventory.after.transientPunchCandidate,"NOT_CAPTURED");
+  const corrupted=structuredClone(base);
+  mod.captureA2BeforeClient(corrupted);
+  corrupted.mixBalanceEvidence={spectralCap:null,midrangeCap:null};
+  corrupted.productionFinishEvidence={source:"reconciled",ceiling:null,
+    dynamicFinishPenalty:7,brickwallFinishPenalty:12,technicalFinishPenalty:19,
+    transientPunchCap:null};
+  mod.captureA2SpectralAfterBrowserMix(corrupted,null);
+  mod.captureA2AfterClient(corrupted,{midrangeCap:null,spaceDensityCeiling:null});
+  assert.equal(corrupted.auralisPenaltyInventory.status,"CONTRADICTORY");
+  assert.equal(corrupted.auralisPenaltyInventory.stages.technical.status,"CONTRADICTORY");
+  assert.deepEqual(corrupted.auralisPenaltyInventory.overlapFamilies,["DYNAMIC_LRA_SHARED"]);
+  assert.equal(corrupted.scores.overallProduction,90);
+  assert.equal(corrupted.productionFinishEvidence.technicalFinishPenalty,19);
+  const source=(await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8"));
+  assert.match(source,/getAuralisPenaltyInventoryRows\(critique\)/);
+});
+
+test("Stage 3D-2L-2 diagnostic capture faults cannot interrupt unchanged A2 score ledger",async()=>{
+  const mod=await import("../src/lib/a2ScoringProvenance.ts");
+  const c={
+    productionScoringVersion:"scoring-tier-v8-mud-diagnostic",
+    subMetricsCall1:{midrangeSpacing:{score:82},
+      spectralMatch:{score:88},spaceAndDensity:{score:84},
+      a2ScoringProvenance:{midrangeSpacing:{},spectralMatch:{},spaceAndDensity:{}}}
+  };
+  Object.defineProperty(c,"auralisPenaltyInventory",{
+    configurable:true,
+    get(){return undefined;},
+    set(){throw Error("synthetic audit storage failure");}
+  });
+  assert.doesNotThrow(()=>mod.captureA2BeforeClient(c));
+  assert.equal(c.subMetricsCall1.a2ScoringProvenance.midrangeSpacing.preClientScore,82);
+  assert.equal(c.subMetricsCall1.a2ScoringProvenance.spectralMatch.preClientScore,88);
+  assert.equal(c.subMetricsCall1.midrangeSpacing.score,82);
+  Object.defineProperty(c,"auralisPenaltyInventory",{
+    configurable:true,
+    get(){return {schemaVersion:mod.AURALIS_PENALTY_INVENTORY_VERSION,
+      status:"PRE_CLIENT_ONLY",before:{}};},
+    set(){throw Error("synthetic audit post-capture storage failure");}
+  });
+  assert.doesNotThrow(()=>mod.captureA2AfterClient(c,{midrangeCap:null,spaceDensityCeiling:null}));
+  assert.equal(c.subMetricsCall1.a2ScoringProvenance.midrangeSpacing.browserScoringStage,"COMPLETED");
+  assert.equal(c.subMetricsCall1.midrangeSpacing.score,82);
+});

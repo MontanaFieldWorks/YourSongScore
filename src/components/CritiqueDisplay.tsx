@@ -7,7 +7,7 @@ import ExcelJS from "exceljs";
 import { getSourceVerificationRows, getStreamingReadinessLineageRows } from "../lib/sourceVerificationDiagnostics";
 import { analyzeClimaxPeakCompetition, formatClimaxPeakDiagnostic } from "../lib/climaxPeakDiagnostics";
 import { getClimaxTrajectoryEvidenceRows } from "../lib/climaxEvidenceExport";
-import { appendA2ProvenanceToSourceDiagnostics } from "../lib/a2ScoringProvenance";
+import { appendA2ProvenanceToSourceDiagnostics, getAuralisPenaltyInventoryRows } from "../lib/a2ScoringProvenance";
 import { getMudPreventionPublicCommentary } from "../lib/mudPreventionReporting";
 import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS } from "../lib/mudPreventionDiagnostic";
 import { 
@@ -1892,6 +1892,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     }
     // A2 metric score provenance is emitted on this internal worksheet only.
     // No data on this worksheet is ever consulted for public scores.
+    // Stage 3D-2L-2 numeric-only snapshots, never a scoring input.
+    for(const row of getAuralisPenaltyInventoryRows(critique))
+      wsSourceDiagnostics.addRow(row);
     appendA2ProvenanceToSourceDiagnostics(wsSourceDiagnostics, critique);
     const wsGenreDiagnostics = critique?.genrePipelineDiagnostics
       ? workbook.addWorksheet("Genre Diagnostics", { views: [{ showGridLines: false }] })
