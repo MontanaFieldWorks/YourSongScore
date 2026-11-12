@@ -18,7 +18,7 @@ const STAGE3D2L1_IDENTITY_ENABLED = false;
 const AURALIS_SPECTRAL_TRIAL_ENABLED = false;
 const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number | null = null;
 import { analyzeAudioBufferInWorker, analyzeEngineeringDiagnosticsInWorker } from "./lib/batchAudioWorker";
-import { computeMixBalanceScore, isMudDiagnosticCritique, markMudPreventionDiagnosticOnly, prepareAuralisEngineeringEvidence, selectAuralisSpectralTrialCap } from "./lib/mudPreventionDiagnostic";
+import { computeMixBalanceScore, isMudDiagnosticCritique, markMudPreventionDiagnosticOnly, prepareAuralisEngineeringEvidence, assessAuralisSpectralTrialEvidence } from "./lib/mudPreventionDiagnostic";
 import { captureA2BeforeClient, captureA2AfterClient, captureA2BrowserUnavailable, captureA2SpectralAfterBrowserMix, captureA2SpectralAfterFinish } from "./lib/a2ScoringProvenance";
 
 // Runs the new, validated essentia.js key detection and overwrites the old,
@@ -704,19 +704,22 @@ export default function App() {
     else if (mixSignals.length === 2) spectralCap = 82;
     else if (mixSignals.length === 1) spectralCap = 86;
 
-    // Auralis can only add an explicitly calibrated 79 ceiling and never raise
-    // a score. If missing/invalid/off, existing legacy caps are unchanged.
-    // Evidence is attached before the normal browser score reconciliation.
-    const auralisTrialCap = selectAuralisSpectralTrialCap(
+    // Auralis reports measured concern / inconclusive / unavailable separately
+    // from score authority. It cannot silently override Gemini or legacy DSP.
+    // The rejected universal threshold has NOT been installed: null means
+    // every valid measurement is INCONCLUSIVE for absolute quality scoring.
+    const auralisTrial = assessAuralisSpectralTrialEvidence(
       (critique as any).auralisEngineering,
       AURALIS_SPECTRAL_TRIAL_ENABLED,
       AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB,
     );
+    const legacySpectralCap = spectralCap;
+    const auralisTrialCap = auralisTrial.candidateCap;
     if (auralisTrialCap !== null) {
       spectralCap = spectralCap === null
         ? auralisTrialCap : Math.min(spectralCap, auralisTrialCap);
     }
-
+    const originalSpectralScore = call1?.spectralMatch?.score;
     const appliedMixCaps: string[] = [];
     if (midrangeCap !== null && call1?.midrangeSpacing && typeof call1.midrangeSpacing.score === "number" && call1.midrangeSpacing.score > midrangeCap) {
       call1.midrangeSpacing.score = midrangeCap;
@@ -726,25 +729,25 @@ export default function App() {
       appliedMixCaps.push(`Midrange Spacing ≤ ${midrangeCap}`);
     }
 
+    const auralisWasDecisive = auralisTrialCap !== null &&
+      (legacySpectralCap === null || legacySpectralCap > auralisTrialCap) &&
+      typeof originalSpectralScore === "number" &&
+      originalSpectralScore > auralisTrialCap;
     if (spectralCap !== null && call1?.spectralMatch && typeof call1.spectralMatch.score === "number" && call1.spectralMatch.score > spectralCap) {
       call1.spectralMatch.score = spectralCap;
-      call1.spectralMatch.commentary =
-        `The measured spectrum contains ${mixSignals.length} independent outlier signal${mixSignals.length === 1 ? "" : "s"} relative to the calibrated professional-master reference set: ${mixSignals.join("; ")}. A top-band Spectral Match score is therefore not supported.`;
+      call1.spectralMatch.commentary = auralisWasDecisive
+        ? `Auralis measured elevated 60–250 Hz energy relative to 500–20,000 Hz under the explicitly enabled provisional technical scoring rule. This is not proof of masking, a defective mix, or inappropriate artistic intent; the bounded Spectral Match ceiling is ${spectralCap}.`
+        : `The measured spectrum contains ${mixSignals.length} independent outlier signal${mixSignals.length === 1 ? "" : "s"} relative to the calibrated professional-master reference set: ${mixSignals.join("; ")}. A top-band Spectral Match score is therefore not supported.`;
       appliedMixCaps.push(`Spectral Match ≤ ${spectralCap}`);
     }
-    // Explicitly report whether the shadow-validated threshold was responsible
-    // for any change. Do not describe a measured ratio as proven masking.
-    if (auralisTrialCap !== null && spectralCap === auralisTrialCap &&
-        call1?.spectralMatch && typeof call1.spectralMatch.score === "number") {
-      (critique as any).auralisSpectralTrial = {
-        status: "CANDIDATE_CONSIDERED",
-        thresholdDb: AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB,
-        measuredDb: (critique as any).auralisEngineering.metrics.lowToUpperDb,
-        candidateCap: auralisTrialCap,
-        effectiveCap: spectralCap,
-        scoringAuthority: "DOWNWARD_ONLY_AFTER_CALIBRATION",
-      };
-    }
+    // Diagnostic status is retained even when no score cap was applied.
+    // "CANDIDATE_ONLY" identifies the policy outcome, not a score delta.
+    (critique as any).auralisSpectralTrial = {
+      ...auralisTrial,
+      effectiveCap: spectralCap,
+      appliedScoreChange: auralisWasDecisive &&
+        call1?.spectralMatch?.score === auralisTrialCap,
+    };
 
     // Freeze the existing spectral correction separately from the later finish ceiling.
     captureA2SpectralAfterBrowserMix(critique, spectralCap);

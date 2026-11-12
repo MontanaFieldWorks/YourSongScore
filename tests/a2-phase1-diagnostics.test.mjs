@@ -5222,3 +5222,84 @@ test("Auralis lean Spectral Match trial is gated and uses only the approved 79 c
   assert.match(app,/if \(auralisEvidencePromise\)[\s\S]*?applyProductionFinishGuardrail\(overriddenCritique, liveMetrics\)/);
   assert.ok(!/AURALIS_SPECTRAL_TRIAL_CAP\s*=\s*71/.test(await readFile(new URL("../src/lib/mudPreventionDiagnostic.ts",import.meta.url),"utf8")));
 });
+
+test("Stage 3D Spectral Match beta statuses fail closed, with no default score authority",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const e=ratio=>({
+    schemaVersion:m.AURALIS_ENGINEERING_ADAPTER_VERSION,
+    scoringImpact:"NONE",
+    scoringAdapter:{status:m.AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+    metrics:{lowToUpperDb:ratio}
+  });
+  const unavailable=m.assessAuralisSpectralTrialEvidence(null,false,null);
+  assert.deepEqual([unavailable.status,unavailable.candidateCap,unavailable.scoringImpact],
+    ["UNAVAILABLE",null,"NONE"]);
+  const available=m.assessAuralisSpectralTrialEvidence(e(4),false,null);
+  assert.deepEqual([available.status,available.reason,available.measuredDb,available.candidateCap],
+    ["INCONCLUSIVE","NO_APPROVED_THRESHOLD",4,null]);
+  const measured=m.assessAuralisSpectralTrialEvidence(e(4),false,2.724);
+  assert.deepEqual([measured.status,measured.candidateCap,measured.scoringImpact],
+    ["MEASURED_TECHNICAL_CONCERN",null,"NONE"]);
+  const enabled=m.assessAuralisSpectralTrialEvidence(e(4),true,2.724);
+  assert.deepEqual([enabled.status,enabled.candidateCap,enabled.scoringImpact],
+    ["MEASURED_TECHNICAL_CONCERN",79,"CANDIDATE_ONLY"]);
+  const inside=m.assessAuralisSpectralTrialEvidence(e(0),true,2.724);
+  assert.deepEqual([inside.status,inside.candidateCap],
+    ["INCONCLUSIVE",null]);
+  for(const invalid of [
+    {...e(4),scoringImpact:"APPLIED"},
+    {...e(4),metrics:{lowToUpperDb:Infinity}},
+    {...e(4),scoringAdapter:{status:"ENABLED",adjustments:[]}},
+    {...e(4),scoringAdapter:{status:m.AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[79]}}
+  ])assert.equal(m.assessAuralisSpectralTrialEvidence(invalid,true,2.724).status,
+    "UNAVAILABLE");
+  assert.equal(m.assessAuralisSpectralTrialEvidence(e(4),true,NaN).candidateCap,null);
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \| null = null;/);
+  assert.match(app,/assessAuralisSpectralTrialEvidence\(/);
+  assert.match(app,/originalSpectralScore > auralisTrialCap/);
+  assert.match(app,/legacySpectralCap > auralisTrialCap/);
+  assert.match(app,/Auralis measured elevated 60–250 Hz energy/);
+});
+
+test("Stage 3D frozen four professional ratios and eight controls preserve original one-of-two limitation",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const e=ratio=>({
+    schemaVersion:m.AURALIS_ENGINEERING_ADAPTER_VERSION,
+    scoringImpact:"NONE",
+    scoringAdapter:{status:m.AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+    metrics:{lowToUpperDb:ratio}
+  });
+  // Archived, independently calculated Stage 2I-2 ratios; no audio reanalysis.
+  // This trial corridor is a TEST COUNTEREXAMPLE, NOT an approved runtime rule.
+  const masters=[-0.876361107963617,-0.7319587694145789,
+    0.7236573102012565,-1.9777095948352446];
+  const threshold=Math.max(...masters)+2;
+  assert.ok(Math.abs(threshold-2.7236573102012565)<1e-10);
+  const controlGroups=[
+    {name:"Carry On",clean:-2.2945,gain:-2.2945,muddy:1.3561,clipped:-2.1592},
+    {name:"Just Me and You",clean:-1.2607,gain:-1.2607,muddy:2.7527,clipped:-1.093}
+  ];
+  let detectedMuddy=0,falseFlags=0;
+  for(const ratio of masters){
+    const result=m.assessAuralisSpectralTrialEvidence(e(ratio),false,threshold);
+    assert.equal(result.status,"INCONCLUSIVE");
+    assert.equal(result.candidateCap,null);
+  }
+  for(const g of controlGroups){
+    assert.equal(g.gain,g.clean,"Gain-invariant archived ratio "+g.name);
+    for(const k of ["clean","gain","clipped"]){
+      const result=m.assessAuralisSpectralTrialEvidence(e(g[k]),false,threshold);
+      if(result.status==="MEASURED_TECHNICAL_CONCERN")falseFlags++;
+      assert.equal(result.candidateCap,null);
+    }
+    const result=m.assessAuralisSpectralTrialEvidence(e(g.muddy),false,threshold);
+    if(result.status==="MEASURED_TECHNICAL_CONCERN")detectedMuddy++;
+    assert.equal(result.candidateCap,null);
+  }
+  assert.equal(detectedMuddy,1,"Frozen absolute ratio missed Carry On muddy control");
+  assert.equal(falseFlags,0,"No control false positives in this tiny known set");
+  assert.equal(m.assessAuralisSpectralTrialEvidence(e(3),false,null).status,"INCONCLUSIVE",
+    "An unapproved universal threshold cannot become a quality verdict");
+});

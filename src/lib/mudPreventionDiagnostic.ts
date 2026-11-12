@@ -253,26 +253,63 @@ export function prepareAuralisSourceLineage(diagnostic:unknown): {
 }
 
 
-// Lean Auralis Spectral Match integration trial: a single bounded, downward-only
-// candidate. This does NOT authorize a production threshold or change any score.
-// The caller must explicitly enable the trial AND supply a pre-frozen threshold.
+// Lean Stage 3D beta integration: evidence classification is descriptive even
+// when the optional score cap is disabled. A spectral ratio does NOT prove
+// muddiness, masking, quality, source identity or artistic intent.
+// The four clean references and two altered controls did NOT validate a
+// universal absolute-ratio cap. No threshold is enabled in production.
 export const AURALIS_SPECTRAL_TRIAL_CAP = 79 as const;
-export function selectAuralisSpectralTrialCap(
+export type AuralisSpectralTrialAssessment = {
+  status: "MEASURED_TECHNICAL_CONCERN" | "INCONCLUSIVE" | "UNAVAILABLE";
+  reason: "RATIO_ABOVE_PROVISIONAL_CORRIDOR" | "WITHIN_PROVISIONAL_CORRIDOR" |
+    "NO_APPROVED_THRESHOLD" | "INVALID_OR_MISSING_EVIDENCE";
+  measuredDb: number | null;
+  thresholdDb: number | null;
+  candidateCap: 79 | null;
+  scoringImpact: "NONE" | "CANDIDATE_ONLY";
+};
+export function assessAuralisSpectralTrialEvidence(
   engineering: unknown,
-  enabled: boolean,
-  frozenThresholdDb: number | null,
-): 79 | null {
-  if (!enabled || frozenThresholdDb === null ||
-      !Number.isFinite(frozenThresholdDb)) return null;
+  scoringEnabled: boolean,
+  approvedThresholdDb: number | null,
+): AuralisSpectralTrialAssessment {
   const e = engineering as any;
+  const ratio = e?.metrics?.lowToUpperDb;
   if (e?.schemaVersion !== AURALIS_ENGINEERING_ADAPTER_VERSION ||
       e?.scoringImpact !== "NONE" ||
       e?.scoringAdapter?.status !== AURALIS_ENGINEERING_SCORE_POLICY ||
       !Array.isArray(e?.scoringAdapter?.adjustments) ||
       e.scoringAdapter.adjustments.length !== 0 ||
-      !Number.isFinite(e?.metrics?.lowToUpperDb)) return null;
-  return e.metrics.lowToUpperDb > frozenThresholdDb
-    ? AURALIS_SPECTRAL_TRIAL_CAP : null;
+      typeof ratio !== "number" || !Number.isFinite(ratio)) {
+    return {status:"UNAVAILABLE",reason:"INVALID_OR_MISSING_EVIDENCE",
+      measuredDb:null,thresholdDb:null,candidateCap:null,scoringImpact:"NONE"};
+  }
+  // A measurement may be available without a justified quality threshold.
+  // In that case do not turn it into a defect, score or faux zero.
+  if (approvedThresholdDb === null || typeof approvedThresholdDb !== "number" ||
+      !Number.isFinite(approvedThresholdDb)) {
+    return {status:"INCONCLUSIVE",reason:"NO_APPROVED_THRESHOLD",
+      measuredDb:ratio,thresholdDb:null,candidateCap:null,scoringImpact:"NONE"};
+  }
+  if (ratio <= approvedThresholdDb) {
+    return {status:"INCONCLUSIVE",reason:"WITHIN_PROVISIONAL_CORRIDOR",
+      measuredDb:ratio,thresholdDb:approvedThresholdDb,
+      candidateCap:null,scoringImpact:"NONE"};
+  }
+  return {status:"MEASURED_TECHNICAL_CONCERN",
+    reason:"RATIO_ABOVE_PROVISIONAL_CORRIDOR",
+    measuredDb:ratio,thresholdDb:approvedThresholdDb,
+    candidateCap:scoringEnabled ? AURALIS_SPECTRAL_TRIAL_CAP : null,
+    scoringImpact:scoringEnabled ? "CANDIDATE_ONLY" : "NONE"};
+}
+
+// Compatibility wrapper for the existing gated prototype; this never mutates
+// the model tier or score. App.tsx applies min-caps only on explicit activation.
+export function selectAuralisSpectralTrialCap(
+  engineering: unknown, enabled: boolean, frozenThresholdDb: number | null,
+): 79 | null {
+  return assessAuralisSpectralTrialEvidence(
+    engineering,enabled,frozenThresholdDb).candidateCap;
 }
 
 // Stage 3D-2A: isolated, read-only reconciliation of the EXISTING browser caps.
