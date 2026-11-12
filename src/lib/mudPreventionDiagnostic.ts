@@ -252,6 +252,29 @@ export function prepareAuralisSourceLineage(diagnostic:unknown): {
     pcmIdentityStatus:"VERIFIED"};
 }
 
+
+// Lean Auralis Spectral Match integration trial: a single bounded, downward-only
+// candidate. This does NOT authorize a production threshold or change any score.
+// The caller must explicitly enable the trial AND supply a pre-frozen threshold.
+export const AURALIS_SPECTRAL_TRIAL_CAP = 79 as const;
+export function selectAuralisSpectralTrialCap(
+  engineering: unknown,
+  enabled: boolean,
+  frozenThresholdDb: number | null,
+): 79 | null {
+  if (!enabled || frozenThresholdDb === null ||
+      !Number.isFinite(frozenThresholdDb)) return null;
+  const e = engineering as any;
+  if (e?.schemaVersion !== AURALIS_ENGINEERING_ADAPTER_VERSION ||
+      e?.scoringImpact !== "NONE" ||
+      e?.scoringAdapter?.status !== AURALIS_ENGINEERING_SCORE_POLICY ||
+      !Array.isArray(e?.scoringAdapter?.adjustments) ||
+      e.scoringAdapter.adjustments.length !== 0 ||
+      !Number.isFinite(e?.metrics?.lowToUpperDb)) return null;
+  return e.metrics.lowToUpperDb > frozenThresholdDb
+    ? AURALIS_SPECTRAL_TRIAL_CAP : null;
+}
+
 // Stage 3D-2A: isolated, read-only reconciliation of the EXISTING browser caps.
 // This function is deliberately not imported by App/server/report export. It
 // makes no cap proposals: Auralis spectrum ratios are descriptive and there

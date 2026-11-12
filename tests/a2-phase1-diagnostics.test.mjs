@@ -5194,3 +5194,31 @@ test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle a
     rmSync(profile,{recursive:true,force:true,maxRetries:8,retryDelay:200});
   }
 });
+
+test("Auralis lean Spectral Match trial is gated and uses only the approved 79 ceiling",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const e={
+    schemaVersion:m.AURALIS_ENGINEERING_ADAPTER_VERSION,
+    scoringImpact:"NONE",
+    scoringAdapter:{status:m.AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+    metrics:{lowToUpperDb:5.25}
+  };
+  const before=structuredClone(e);
+  assert.equal(m.selectAuralisSpectralTrialCap(e,false,2.5),null);
+  assert.equal(m.selectAuralisSpectralTrialCap(e,true,null),null);
+  assert.equal(m.selectAuralisSpectralTrialCap(e,true,NaN),null);
+  assert.equal(m.selectAuralisSpectralTrialCap(e,true,5.25),null);
+  assert.equal(m.selectAuralisSpectralTrialCap(e,true,5.26),null);
+  assert.equal(m.selectAuralisSpectralTrialCap(e,true,5.24),79);
+  assert.equal(m.selectAuralisSpectralTrialCap({...e,scoringImpact:"APPLIED"},true,5.24),null);
+  assert.equal(m.selectAuralisSpectralTrialCap({...e,metrics:{lowToUpperDb:NaN}},true,5.24),null);
+  assert.equal(m.selectAuralisSpectralTrialCap({...e,scoringAdapter:{...e.scoringAdapter,adjustments:[71]}},true,5.24),null);
+  assert.deepEqual(e,before,"Selection cannot change the underlying diagnostic");
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \| null = null;/);
+  assert.match(app,/selectAuralisSpectralTrialCap\(/);
+  assert.match(app,/Math\.min\(spectralCap, auralisTrialCap\)/);
+  assert.match(app,/if \(auralisEvidencePromise\)[\s\S]*?applyProductionFinishGuardrail\(overriddenCritique, liveMetrics\)/);
+  assert.ok(!/AURALIS_SPECTRAL_TRIAL_CAP\s*=\s*71/.test(await readFile(new URL("../src/lib/mudPreventionDiagnostic.ts",import.meta.url),"utf8")));
+});
