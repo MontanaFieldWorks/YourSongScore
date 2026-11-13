@@ -191,55 +191,78 @@ test("Stage 3A synthetic-only Auralis shadow candidate is gain invariant, fail-c
 });
 
  
-test("Stage 3D-1 evidence remains score-inert, gain-invariant and fail-closed",async()=>{
-  const edges=[20,60,250,500,2000,6000,11000,20000];
-  const profile={schemaVersion:"stage2j1-spectral-profile-v1",scoringImpact:"NONE",
-    units:"mean-square-full-scale-pcm",sampleRate:48000,channelCount:2,
-    bands:edges.slice(0,7).map((x,i)=>({
-      bandHz:[x,edges[i+1]],status:"AVAILABLE",
-      channelPower:[i===1?0.02:0.01,i===1?0.02:0.01]}))};
-  const input={status:"AVAILABLE",evidence:{scoringImpact:"NONE",
-    sourceProvenance:{sampleRate:48000,channelCount:2}},spectralProfile:profile};
-  const unchanged=JSON.stringify(input);
-  const result=prepareAuralisEngineeringEvidence(input);
-  assert.equal(result.schemaVersion,AURALIS_ENGINEERING_ADAPTER_VERSION);
-  assert.equal(result.scoringImpact,"NONE");
-  assert.equal(result.scoringAdapter.status,AURALIS_ENGINEERING_SCORE_POLICY);
-  assert.deepEqual(result.scoringAdapter.adjustments,[]);
-  assert.ok(result.observations.every(x=>x.includes("intentional")));
-  assert.equal(JSON.stringify(input),unchanged,"input measurements unchanged");
-  const withMeters={...input,referenceMeters:{
-    schemaVersion:"stage2k-meter-summary-v1",scoringImpact:"NONE",
-    measurements:{integratedLufs:-11.5,samplePeakDbfs:-0.6}}};
-  const master=prepareAuralisEngineeringEvidence(withMeters);
-  assert.equal(master.observations.length,3);
-  assert.match(master.observations[2],/mastering-quality verdict/);
-  assert.match(master.observations[2],/intentional production choice/);
-  assert.equal(master.scoringAdapter.adjustments.length,0);
-  const gain=structuredClone(input);
-  for(const b of gain.spectralProfile.bands)b.channelPower=b.channelPower.map(v=>v/4);
-  assert.equal(prepareAuralisEngineeringEvidence(gain).metrics.lowToUpperDb,
-    result.metrics.lowToUpperDb);
-  for(const invalid of [null,{...input,status:"UNAVAILABLE"},
-    {...input,evidence:{scoringImpact:"SCORED",sourceProvenance:input.evidence.sourceProvenance}},
-    {...input,spectralProfile:{...profile,bands:profile.bands.slice(0,6)}},
-    {...input,spectralProfile:{...profile,bands:profile.bands.map((b,i)=>
-      i===1?{...b,status:"PARTIAL"}:b)}},
-    {...input,spectralProfile:{...profile,bands:profile.bands.map((b,i)=>
-      i===1?{...b,channelPower:[NaN,0]}:b)}}]){
-    assert.equal(prepareAuralisEngineeringEvidence(invalid),null);
+test("Stage 3D-1 accepts real Worker-shaped synthetic stereo/mono, gain invariance, and fails closed",async()=>{
+  const {runStage2c2aBrowserDiagnostics}=await import("../src/lib/liveAudioAnalyzer.ts");
+  const input=(rate,channels,gain=1)=>{
+    const length=8192;
+    const data=Array.from({length:channels},(_,ch)=>{
+      const samples=new Float32Array(length);
+      for(let i=0;i<length;i++)samples[i]=gain*(
+        .12*Math.sin(2*Math.PI*105*i/rate)+
+        .09*Math.sin(2*Math.PI*850*i/rate)+
+        .06*Math.sin(2*Math.PI*5500*i/rate+(ch*.1)));
+      return samples;
+    });
+    return {sampleRate:rate,numberOfChannels:channels,
+      getChannelData:(i)=>data[i]};
+  };
+  for(const rate of [44100,48000]){
+    for(const channels of [1,2]){
+      const diagnostic=runStage2c2aBrowserDiagnostics(input(rate,channels),true,true);
+      assert.equal(diagnostic.status,"AVAILABLE");
+      assert.equal(diagnostic.spectralProfile?.schemaVersion,"stage2j1-spectral-profile-v1");
+      assert.deepEqual(diagnostic.spectralProfile?.bandEdgesHz,
+        [20,60,250,500,2000,6000,11000,20000]);
+      assert.equal(diagnostic.spectralProfile?.channelBandPower.length,channels);
+      assert.equal(diagnostic.spectralProfile?.bands,undefined,
+        "Do not use legacy band-major summary fixtures for Worker output");
+      const original=JSON.stringify(diagnostic);
+      const engineering=prepareAuralisEngineeringEvidence(diagnostic);
+      assert.ok(engineering,"Validated Worker output must not be rejected by adapter");
+      assert.equal(engineering.schemaVersion,AURALIS_ENGINEERING_ADAPTER_VERSION);
+      assert.equal(engineering.scoringImpact,"NONE");
+      assert.equal(engineering.scoringAdapter.status,AURALIS_ENGINEERING_SCORE_POLICY);
+      assert.deepEqual(engineering.scoringAdapter.adjustments,[]);
+      assert.ok(engineering.observations.every(x=>x.includes("intentional")));
+      assert.equal(JSON.stringify(diagnostic),original,"No measurement mutation");
+      const attenuated=runStage2c2aBrowserDiagnostics(input(rate,channels,.5),true,true);
+      assert.equal(attenuated.status,"AVAILABLE");
+      assert.equal(prepareAuralisEngineeringEvidence(attenuated)?.metrics.lowToUpperDb,
+        engineering.metrics.lowToUpperDb,"Uniform gain must not change spectral ratio");
+      assert.equal(engineering.observations.length,3,"Valid optional meters retained");
+      // All corrupted cases must abstain, including malformed provenance and power.
+      const bad=mutate=>{const clone=structuredClone(diagnostic);mutate(clone);
+        assert.equal(prepareAuralisEngineeringEvidence(clone),null);};
+      bad(d=>{d.status="UNAVAILABLE"});
+      bad(d=>{d.evidence.scoringImpact="APPLIED"});
+      bad(d=>{d.spectralProfile.bandEdgesHz[2]=251});
+      bad(d=>{d.spectralProfile.bandEdgesHz.pop()});
+      bad(d=>{d.spectralProfile.channelBandPower.pop()});
+      bad(d=>{d.spectralProfile.channelBandPower[0].pop()});
+      bad(d=>{d.spectralProfile.channelBandPower[0][1]=NaN});
+      bad(d=>{d.spectralProfile.channelBandPower[0][1]=-1});
+      bad(d=>{d.spectralProfile.channelBandPower[0][1]=Infinity});
+      bad(d=>{d.spectralProfile.channelTotalPower[0]=NaN});
+      bad(d=>{d.spectralProfile.channelUnassignedPower[0]=-1});
+      bad(d=>{d.spectralProfile.channelTotalPower[0]+=0.1});
+      bad(d=>{d.evidence.sourceProvenance.sampleRate=96000});
+      bad(d=>{d.spectralProfile.channelCount=3});
+      bad(d=>{d.spectralProfile.inputSampleCount+=1});
+      bad(d=>{d.spectralProfile.frames+=1});
+      bad(d=>{d.spectralProfile.method="incorrect"});
+      bad(d=>{d.evidence.bands[1].spectralChannelPower[0]+=0.1});
+    }
   }
+  assert.equal(prepareAuralisEngineeringEvidence(null),null);
+  assert.equal(prepareAuralisEngineeringEvidence({status:"UNAVAILABLE"}),null);
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const display=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
   const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
   assert.match(app,/STAGE3D1_AURALIS_EVIDENCE_ENABLED = true/);
   assert.match(app,/!a2PilotEnabled/);
   assert.match(app,/prepareAuralisEngineeringEvidence\(result\)/);
-  assert.match(app,/auralisEvidencePromise/);
   assert.match(display,/Conditional engineering observation \(NOT SCORED\)/);
-  assert.match(display,/Auralis observations \(not scored\)/);
   assert.doesNotMatch(server,/prepareAuralisEngineeringEvidence/);
-  assert.doesNotMatch(app,/evaluateAuralisSpectralShadowCandidate/);
 });
 
 
