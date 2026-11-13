@@ -5347,7 +5347,7 @@ test("Stage 3D-3 paired +3 dB concerns require trusted lineage and independent l
   assert.equal(m.assessAuralisPairedSpectralEvidence({...e(0),scoringImpact:"APPLIED"},e(5),c).status,"UNAVAILABLE");
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
-  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \\| null = null;/);
+  assert.ok(app.includes("const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number | null = null;"));
   assert.ok(!app.includes("assessAuralisPairedSpectralEvidence("),
     "No production single-upload caller may claim trusted paired provenance");
 });
