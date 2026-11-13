@@ -305,6 +305,38 @@ export function assessAuralisSpectralTrialEvidence(
     candidateCap:null,scoringImpact:"NONE"};
 }
 
+// Beta observability: a compact, fail-closed execution record. This does not
+// assert the audio is good or provide any numerical scoring authority.
+export type AuralisExecutionRecord = {
+  status:"AVAILABLE"|"UNAVAILABLE"|"NOT_RUN";
+  reason:"VALIDATED_ENGINEERING_EVIDENCE"|"EVIDENCE_VALIDATION_FAILED"|
+    "WORKER_UNAVAILABLE"|"WORKER_FAILED"|"CANCELLED"|"NOT_STARTED";
+  scoringImpact:"NONE";
+};
+export function classifyAuralisExecution(
+  outcome:"AVAILABLE"|"UNAVAILABLE"|"FAILED"|"CANCELLED"|"NOT_RUN",
+  engineering:unknown,
+):AuralisExecutionRecord {
+  const inert=(status:AuralisExecutionRecord["status"],
+    reason:AuralisExecutionRecord["reason"]):AuralisExecutionRecord=>({
+      status,reason,scoringImpact:"NONE"
+    });
+  if(outcome==="NOT_RUN")return inert("NOT_RUN","NOT_STARTED");
+  if(outcome==="CANCELLED")return inert("UNAVAILABLE","CANCELLED");
+  if(outcome==="FAILED")return inert("UNAVAILABLE","WORKER_FAILED");
+  if(outcome==="UNAVAILABLE")return inert("UNAVAILABLE","WORKER_UNAVAILABLE");
+  const e=engineering as any;
+  if(e?.schemaVersion!==AURALIS_ENGINEERING_ADAPTER_VERSION ||
+     e?.scoringImpact!=="NONE" ||
+     e?.scoringAdapter?.status!==AURALIS_ENGINEERING_SCORE_POLICY ||
+     !Array.isArray(e?.scoringAdapter?.adjustments) ||
+     e.scoringAdapter.adjustments.length!==0 ||
+     typeof e?.metrics?.lowToUpperDb!=="number" ||
+     !Number.isFinite(e.metrics.lowToUpperDb))
+    return inert("UNAVAILABLE","EVIDENCE_VALIDATION_FAILED");
+  return inert("AVAILABLE","VALIDATED_ENGINEERING_EVIDENCE");
+}
+
 // Stage 3D-3: isolated paired-comparison eligibility, NOT wired to YSS scoring.
 // A +3 dB difference is only a descriptive technical change. No caller in the
 // production upload path supplies trusted pair provenance or defect labels.
