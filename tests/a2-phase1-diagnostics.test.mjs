@@ -2741,7 +2741,7 @@ test("Auralis 2C2B-1D lifecycle guard is isolated from scoring and A2", async ()
   assert.match(app,/STAGE2C2A_DIAGNOSTICS_ENABLED &&\s*diagnosticGeneration === auralisDiagnosticGenerationRef\.current/);
   assert.match(app,/analyzeEngineeringDiagnosticsInWorker\(audioBuffer, controller\.signal\)/);
   assert.match(app,/if \(!controller\.signal\.aborted &&[\s\S]*?auralisDiagnosticAbortRef\.current === controller &&[\s\S]*?diagnosticGeneration === auralisDiagnosticGenerationRef\.current\)/);
-  assert.match(app,/if \(diagnosticGeneration === auralisDiagnosticGenerationRef\.current\) cancelAuralisDiagnostic\(\)/);
+  assert.match(app,/if \(diagnosticGeneration === auralisDiagnosticGenerationRef\.current\) \{\s*cancelAuralisDiagnostic\(\);\s*setLoading\(false\);\s*\}/);
   assert.doesNotMatch(app,/await analyzeEngineeringDiagnosticsInWorker/);
   assert.doesNotMatch(app,/formData\.append\("auralis|formData\.append\("engineeringEvidence/);
 });
@@ -5219,7 +5219,7 @@ test("Auralis lean Spectral Match trial is gated and uses only the approved 79 c
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \| null = null;/);
   assert.match(app,/assessAuralisSpectralTrialEvidence\(/);
   assert.match(app,/Math\.min\(spectralCap, auralisTrialCap\)/);
-  assert.match(app,/if \(auralisEvidencePromise\)[\s\S]*?applyProductionFinishGuardrail\(overriddenCritique, liveMetrics\)/);
+  assert.match(app,/const auralisEvidence = auralisEvidencePromise[\s\S]*?const execution = resolveAuralisExecutionForReport\([\s\S]*?if\(execution === null\)return;[\s\S]*?applyProductionFinishGuardrail\(overriddenCritique, liveMetrics\)/);
   assert.ok(!/AURALIS_SPECTRAL_TRIAL_CAP\s*=\s*71/.test(await readFile(new URL("../src/lib/mudPreventionDiagnostic.ts",import.meta.url),"utf8")));
 });
 
