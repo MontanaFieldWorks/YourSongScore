@@ -5194,3 +5194,180 @@ test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle a
     rmSync(profile,{recursive:true,force:true,maxRetries:8,retryDelay:200});
   }
 });
+
+test("Auralis lean Spectral Match trial is gated and uses only the approved 79 ceiling",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const e={
+    schemaVersion:m.AURALIS_ENGINEERING_ADAPTER_VERSION,
+    scoringImpact:"NONE",
+    scoringAdapter:{status:m.AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+    metrics:{lowToUpperDb:5.25}
+  };
+  const before=structuredClone(e);
+  assert.equal(m.selectAuralisSpectralTrialCap(e,false,2.5),null);
+  assert.equal(m.selectAuralisSpectralTrialCap(e,true,null),null);
+  assert.equal(m.selectAuralisSpectralTrialCap(e,true,NaN),null);
+  assert.equal(m.selectAuralisSpectralTrialCap(e,true,5.25),null);
+  assert.equal(m.selectAuralisSpectralTrialCap(e,true,5.26),null);
+  assert.equal(m.selectAuralisSpectralTrialCap(e,true,5.24),null);
+  assert.equal(m.selectAuralisSpectralTrialCap({...e,scoringImpact:"APPLIED"},true,5.24),null);
+  assert.equal(m.selectAuralisSpectralTrialCap({...e,metrics:{lowToUpperDb:NaN}},true,5.24),null);
+  assert.equal(m.selectAuralisSpectralTrialCap({...e,scoringAdapter:{...e.scoringAdapter,adjustments:[71]}},true,5.24),null);
+  assert.deepEqual(e,before,"Selection cannot change the underlying diagnostic");
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \| null = null;/);
+  assert.match(app,/assessAuralisSpectralTrialEvidence\(/);
+  assert.match(app,/Math\.min\(spectralCap, auralisTrialCap\)/);
+  assert.match(app,/if \(auralisEvidencePromise\)[\s\S]*?applyProductionFinishGuardrail\(overriddenCritique, liveMetrics\)/);
+  assert.ok(!/AURALIS_SPECTRAL_TRIAL_CAP\s*=\s*71/.test(await readFile(new URL("../src/lib/mudPreventionDiagnostic.ts",import.meta.url),"utf8")));
+});
+
+test("Stage 3D Spectral Match beta statuses fail closed, with no default score authority",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const e=ratio=>({
+    schemaVersion:m.AURALIS_ENGINEERING_ADAPTER_VERSION,
+    scoringImpact:"NONE",
+    scoringAdapter:{status:m.AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+    metrics:{lowToUpperDb:ratio}
+  });
+  const unavailable=m.assessAuralisSpectralTrialEvidence(null,false,null);
+  assert.deepEqual([unavailable.status,unavailable.candidateCap,unavailable.scoringImpact],
+    ["UNAVAILABLE",null,"NONE"]);
+  const available=m.assessAuralisSpectralTrialEvidence(e(4),false,null);
+  assert.deepEqual([available.status,available.reason,available.measuredDb,available.candidateCap],
+    ["INCONCLUSIVE","NO_APPROVED_THRESHOLD",4,null]);
+  const measured=m.assessAuralisSpectralTrialEvidence(e(4),false,2.724);
+  assert.deepEqual([measured.status,measured.candidateCap,measured.scoringImpact],
+    ["MEASURED_TECHNICAL_CONCERN",null,"NONE"]);
+  const enabled=m.assessAuralisSpectralTrialEvidence(e(4),true,2.724);
+  assert.deepEqual([enabled.status,enabled.candidateCap,enabled.scoringImpact],
+    ["MEASURED_TECHNICAL_CONCERN",null,"NONE"]);
+  const inside=m.assessAuralisSpectralTrialEvidence(e(0),true,2.724);
+  assert.deepEqual([inside.status,inside.candidateCap],
+    ["INCONCLUSIVE",null]);
+  for(const invalid of [
+    {...e(4),scoringImpact:"APPLIED"},
+    {...e(4),metrics:{lowToUpperDb:Infinity}},
+    {...e(4),scoringAdapter:{status:"ENABLED",adjustments:[]}},
+    {...e(4),scoringAdapter:{status:m.AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[79]}}
+  ])assert.equal(m.assessAuralisSpectralTrialEvidence(invalid,true,2.724).status,
+    "UNAVAILABLE");
+  assert.equal(m.assessAuralisSpectralTrialEvidence(e(4),true,NaN).candidateCap,null);
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \| null = null;/);
+  assert.match(app,/assessAuralisSpectralTrialEvidence\(/);
+  assert.match(app,/originalSpectralScore > auralisTrialCap/);
+  assert.match(app,/legacySpectralCap > auralisTrialCap/);
+  assert.match(app,/Auralis measured elevated 60–250 Hz energy/);
+});
+
+test("Stage 3D frozen four professional ratios and eight controls preserve original one-of-two limitation",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const e=ratio=>({
+    schemaVersion:m.AURALIS_ENGINEERING_ADAPTER_VERSION,
+    scoringImpact:"NONE",
+    scoringAdapter:{status:m.AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+    metrics:{lowToUpperDb:ratio}
+  });
+  // Archived, independently calculated Stage 2I-2 ratios; no audio reanalysis.
+  // This trial corridor is a TEST COUNTEREXAMPLE, NOT an approved runtime rule.
+  const masters=[-0.876361107963617,-0.7319587694145789,
+    0.7236573102012565,-1.9777095948352446];
+  const threshold=Math.max(...masters)+2;
+  assert.ok(Math.abs(threshold-2.7236573102012565)<1e-10);
+  const controlGroups=[
+    {name:"Carry On",clean:-2.2945,gain:-2.2945,muddy:1.3561,clipped:-2.1592},
+    {name:"Just Me and You",clean:-1.2607,gain:-1.2607,muddy:2.7527,clipped:-1.093}
+  ];
+  let detectedMuddy=0,falseFlags=0;
+  for(const ratio of masters){
+    const result=m.assessAuralisSpectralTrialEvidence(e(ratio),false,threshold);
+    assert.equal(result.status,"INCONCLUSIVE");
+    assert.equal(result.candidateCap,null);
+  }
+  for(const g of controlGroups){
+    assert.equal(g.gain,g.clean,"Gain-invariant archived ratio "+g.name);
+    for(const k of ["clean","gain","clipped"]){
+      const result=m.assessAuralisSpectralTrialEvidence(e(g[k]),false,threshold);
+      if(result.status==="MEASURED_TECHNICAL_CONCERN")falseFlags++;
+      assert.equal(result.candidateCap,null);
+    }
+    const result=m.assessAuralisSpectralTrialEvidence(e(g.muddy),false,threshold);
+    if(result.status==="MEASURED_TECHNICAL_CONCERN")detectedMuddy++;
+    assert.equal(result.candidateCap,null);
+  }
+  assert.equal(detectedMuddy,1,"Frozen absolute ratio missed Carry On muddy control");
+  assert.equal(falseFlags,0,"No control false positives in this tiny known set");
+  assert.equal(m.assessAuralisSpectralTrialEvidence(e(3),false,null).status,"INCONCLUSIVE",
+    "An unapproved universal threshold cannot become a quality verdict");
+});
+
+
+test("Stage 3D-3 paired +3 dB concerns require trusted lineage and independent labels",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const e=ratio=>({
+    schemaVersion:m.AURALIS_ENGINEERING_ADAPTER_VERSION,scoringImpact:"NONE",
+    scoringAdapter:{status:m.AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+    metrics:{lowToUpperDb:ratio}
+  });
+  const c={trustedPairLineage:true,independentDefect:"CONFIRMED",
+    artisticIntent:"REVIEWED_NOT_INTENTIONAL",shadowPolicyAuthorized:true};
+  const carry=m.assessAuralisPairedSpectralEvidence(e(-2.2945),e(1.3561),c);
+  const just=m.assessAuralisPairedSpectralEvidence(e(-1.2607),e(2.7527),c);
+  assert.equal(carry.deltaDb,3.6506);
+  assert.equal(just.deltaDb,4.0134);
+  assert.equal(carry.candidateCap,79);
+  assert.equal(just.candidateCap,79);
+  assert.equal(carry.scoringImpact,"CANDIDATE_ONLY");
+  assert.equal(m.assessAuralisPairedSpectralEvidence(e(1),e(4),c).candidateCap,79);
+  assert.equal(m.assessAuralisPairedSpectralEvidence(e(1),e(3.999),c).candidateCap,null);
+  assert.equal(m.assessAuralisPairedSpectralEvidence(e(1),e(3.9999999),c).candidateCap,null,
+    "Display rounding must never turn a sub-3 dB change into eligibility");
+  // Finite inputs can overflow when subtracted; never treat Infinity as >=3 dB.
+  for(const [reference,candidate] of [
+    [-1e308,1e308],[1e308,-1e308],
+  ]){
+    const overflow=m.assessAuralisPairedSpectralEvidence(e(reference),e(candidate),c);
+    assert.deepEqual(
+      [overflow.status,overflow.reason,overflow.deltaDb,overflow.candidateCap,overflow.scoringImpact],
+      ["UNAVAILABLE","INVALID_OR_MISSING_EVIDENCE",null,null,"NONE"]);
+  }
+  const exact=m.assessAuralisPairedSpectralEvidence(e(1),e(4),c);
+  assert.deepEqual([exact.deltaDb,exact.candidateCap],[3,79],
+    "Exactly +3 dB may qualify in disconnected shadow mode");
+  const below=m.assessAuralisPairedSpectralEvidence(e(1),e(3.999999999999),c);
+  assert.equal(below.candidateCap,null,
+    "An unrounded delta below +3 dB must never qualify");
+  const above=m.assessAuralisPairedSpectralEvidence(e(1),e(4.000000000001),c);
+  assert.equal(above.candidateCap,79,
+    "An unrounded delta above +3 dB qualifies only with synthetic evidence approvals");
+  // The archived control cases remain score inert even under synthetic approval.
+  for(const [base,gain,clipped] of [
+    [-2.2945,-2.2945,-2.1592],[-1.2607,-1.2607,-1.093]
+  ]){
+    assert.equal(m.assessAuralisPairedSpectralEvidence(e(base),e(gain),c).candidateCap,null);
+    assert.equal(m.assessAuralisPairedSpectralEvidence(e(base),e(clipped),c).candidateCap,null);
+  }
+  for(const context of [
+    undefined,{...c,trustedPairLineage:false},
+    {...c,independentDefect:"UNKNOWN"},
+    {...c,independentDefect:"NOT_CONFIRMED"},
+    {...c,artisticIntent:"UNKNOWN"},
+    {...c,artisticIntent:"INTENTIONAL"},
+    {...c,shadowPolicyAuthorized:false}
+  ]){
+    const a=m.assessAuralisPairedSpectralEvidence(e(-2.2945),e(1.3561),context);
+    assert.equal(a.candidateCap,null);
+    assert.equal(a.scoringImpact,"NONE");
+  }
+  assert.equal(m.assessAuralisPairedSpectralEvidence(null,e(5),c).status,"UNAVAILABLE");
+  assert.equal(m.assessAuralisPairedSpectralEvidence(e(0),e(Infinity),c).candidateCap,null);
+  assert.equal(m.assessAuralisPairedSpectralEvidence({...e(0),scoringImpact:"APPLIED"},e(5),c).status,"UNAVAILABLE");
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.ok(app.includes("const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number | null = null;"));
+  assert.ok(!app.includes("assessAuralisPairedSpectralEvidence("),
+    "No production single-upload caller may claim trusted paired provenance");
+});
