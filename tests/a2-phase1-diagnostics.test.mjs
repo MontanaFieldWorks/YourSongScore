@@ -5209,7 +5209,7 @@ test("Auralis lean Spectral Match trial is gated and uses only the approved 79 c
   assert.equal(m.selectAuralisSpectralTrialCap(e,true,NaN),null);
   assert.equal(m.selectAuralisSpectralTrialCap(e,true,5.25),null);
   assert.equal(m.selectAuralisSpectralTrialCap(e,true,5.26),null);
-  assert.equal(m.selectAuralisSpectralTrialCap(e,true,5.24),79);
+  assert.equal(m.selectAuralisSpectralTrialCap(e,true,5.24),null);
   assert.equal(m.selectAuralisSpectralTrialCap({...e,scoringImpact:"APPLIED"},true,5.24),null);
   assert.equal(m.selectAuralisSpectralTrialCap({...e,metrics:{lowToUpperDb:NaN}},true,5.24),null);
   assert.equal(m.selectAuralisSpectralTrialCap({...e,scoringAdapter:{...e.scoringAdapter,adjustments:[71]}},true,5.24),null);
@@ -5242,7 +5242,7 @@ test("Stage 3D Spectral Match beta statuses fail closed, with no default score a
     ["MEASURED_TECHNICAL_CONCERN",null,"NONE"]);
   const enabled=m.assessAuralisSpectralTrialEvidence(e(4),true,2.724);
   assert.deepEqual([enabled.status,enabled.candidateCap,enabled.scoringImpact],
-    ["MEASURED_TECHNICAL_CONCERN",79,"CANDIDATE_ONLY"]);
+    ["MEASURED_TECHNICAL_CONCERN",null,"NONE"]);
   const inside=m.assessAuralisSpectralTrialEvidence(e(0),true,2.724);
   assert.deepEqual([inside.status,inside.candidateCap],
     ["INCONCLUSIVE",null]);
@@ -5302,4 +5302,52 @@ test("Stage 3D frozen four professional ratios and eight controls preserve origi
   assert.equal(falseFlags,0,"No control false positives in this tiny known set");
   assert.equal(m.assessAuralisSpectralTrialEvidence(e(3),false,null).status,"INCONCLUSIVE",
     "An unapproved universal threshold cannot become a quality verdict");
+});
+
+
+test("Stage 3D-3 paired +3 dB concerns require trusted lineage and independent labels",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const e=ratio=>({
+    schemaVersion:m.AURALIS_ENGINEERING_ADAPTER_VERSION,scoringImpact:"NONE",
+    scoringAdapter:{status:m.AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+    metrics:{lowToUpperDb:ratio}
+  });
+  const c={trustedPairLineage:true,independentDefect:"CONFIRMED",
+    artisticIntent:"REVIEWED_NOT_INTENTIONAL",shadowPolicyAuthorized:true};
+  const carry=m.assessAuralisPairedSpectralEvidence(e(-2.2945),e(1.3561),c);
+  const just=m.assessAuralisPairedSpectralEvidence(e(-1.2607),e(2.7527),c);
+  assert.equal(carry.deltaDb,3.6506);
+  assert.equal(just.deltaDb,4.0134);
+  assert.equal(carry.candidateCap,79);
+  assert.equal(just.candidateCap,79);
+  assert.equal(carry.scoringImpact,"CANDIDATE_ONLY");
+  assert.equal(m.assessAuralisPairedSpectralEvidence(e(1),e(4),c).candidateCap,79);
+  assert.equal(m.assessAuralisPairedSpectralEvidence(e(1),e(3.999),c).candidateCap,null);
+  // The archived control cases remain score inert even under synthetic approval.
+  for(const [base,gain,clipped] of [
+    [-2.2945,-2.2945,-2.1592],[-1.2607,-1.2607,-1.093]
+  ]){
+    assert.equal(m.assessAuralisPairedSpectralEvidence(e(base),e(gain),c).candidateCap,null);
+    assert.equal(m.assessAuralisPairedSpectralEvidence(e(base),e(clipped),c).candidateCap,null);
+  }
+  for(const context of [
+    undefined,{...c,trustedPairLineage:false},
+    {...c,independentDefect:"UNKNOWN"},
+    {...c,independentDefect:"NOT_CONFIRMED"},
+    {...c,artisticIntent:"UNKNOWN"},
+    {...c,artisticIntent:"INTENTIONAL"},
+    {...c,shadowPolicyAuthorized:false}
+  ]){
+    const a=m.assessAuralisPairedSpectralEvidence(e(-2.2945),e(1.3561),context);
+    assert.equal(a.candidateCap,null);
+    assert.equal(a.scoringImpact,"NONE");
+  }
+  assert.equal(m.assessAuralisPairedSpectralEvidence(null,e(5),c).status,"UNAVAILABLE");
+  assert.equal(m.assessAuralisPairedSpectralEvidence(e(0),e(Infinity),c).candidateCap,null);
+  assert.equal(m.assessAuralisPairedSpectralEvidence({...e(0),scoringImpact:"APPLIED"},e(5),c).status,"UNAVAILABLE");
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \\| null = null;/);
+  assert.ok(!app.includes("assessAuralisPairedSpectralEvidence("),
+    "No production single-upload caller may claim trusted paired provenance");
 });
