@@ -229,7 +229,14 @@ test("Stage 3D-1 accepts real Worker-shaped synthetic stereo/mono, gain invarian
       assert.equal(attenuated.status,"AVAILABLE");
       assert.equal(prepareAuralisEngineeringEvidence(attenuated)?.metrics.lowToUpperDb,
         engineering.metrics.lowToUpperDb,"Uniform gain must not change spectral ratio");
-      assert.equal(engineering.observations.length,3,"Valid optional meters retained");
+      assert.equal(engineering.observations.length,2,
+        "Short synthetic signals may have no valid integrated loudness; do not invent a mastering observation");
+      const measured=structuredClone(diagnostic);
+      measured.referenceMeters.measurements.integratedLufs=-11.5;
+      measured.referenceMeters.measurements.samplePeakDbfs=-0.6;
+      const withMeters=prepareAuralisEngineeringEvidence(measured);
+      assert.equal(withMeters?.observations.length,3,"Finite optional meters are reported");
+      assert.match(withMeters.observations[2],/mastering-quality verdict/);
       // All corrupted cases must abstain, including malformed provenance and power.
       const bad=mutate=>{const clone=structuredClone(diagnostic);mutate(clone);
         assert.equal(prepareAuralisEngineeringEvidence(clone),null);};
@@ -266,6 +273,25 @@ test("Stage 3D-1 accepts real Worker-shaped synthetic stereo/mono, gain invarian
 });
 
 
+// Adapt legacy *synthetic test envelopes* to the actual Worker spectral layout.
+// This helper is tests-only; production does not accept legacy bands[] shapes.
+function asSyntheticWorkerProfile(diagnostic){
+  const profile=diagnostic.spectralProfile;
+  const oldBands=profile.bands;
+  const channelCount=diagnostic.evidence.sourceProvenance.channelCount;
+  profile.inputSampleCount=diagnostic.evidence.sourceProvenance.inputSampleCount;
+  profile.bandEdgesHz=[20,60,250,500,2000,6000,11000,20000];
+  profile.channelBandPower=Array.from({length:channelCount},(_,ch)=>
+    oldBands.map(b=>b.channelPower[ch]));
+  profile.channelUnassignedPower=Array(channelCount).fill(0);
+  profile.channelTotalPower=profile.channelBandPower.map(bands=>
+    bands.reduce((sum,value)=>sum+value,0));
+  diagnostic.evidence.bands=oldBands.slice(0,2).map(b=>({
+    spectralChannelPower:[...b.channelPower]
+  }));
+  delete profile.bands;
+}
+
 test("Stage 3D-2A reconciles existing caps without new numeric policies or writes",async()=>{
   // Synthetic data only: no song fixture or genre-specific spectral threshold.
   const edges=[20,60,250,500,2000,6000,11000,20000];
@@ -284,6 +310,7 @@ test("Stage 3D-2A reconciles existing caps without new numeric policies or write
       representedSampleCount:8192,omittedTrailingSampleCount:0,zeroPaddedSampleCount:0,
       bands:edges.slice(0,7).map((edge,i)=>({bandHz:[edge,edges[i+1]],
         status:"AVAILABLE",channelPower:[i===1?0.02:0.01,i===1?0.02:0.01]}))}};
+  asSyntheticWorkerProfile(diagnostic);
   const critique={productionScoringVersion:MUD_DIAGNOSTIC_SCORING_VERSION,
     subMetricsCall1:{...fullMix(),spectralMatch:{score:76,applicable:true},
       midrangeSpacing:{score:72,applicable:true}},
@@ -336,7 +363,12 @@ test("Stage 3D-2A reconciles existing caps without new numeric policies or write
   assert.deepEqual(reconcileAuralisExistingMixCapsShadow(diagnostic,notApplicable)
     .metrics.midrangeSpacing,{status:"NOT_APPLICABLE",score:null,existingCap:null});
   const gain=structuredClone(diagnostic);
-  for(const b of gain.spectralProfile.bands)b.channelPower=b.channelPower.map(v=>v/4);
+  gain.spectralProfile.channelBandPower=gain.spectralProfile.channelBandPower
+    .map(bands=>bands.map(value=>value/4));
+  gain.spectralProfile.channelTotalPower=gain.spectralProfile.channelTotalPower.map(v=>v/4);
+  gain.evidence.bands=gain.evidence.bands.map(b=>({
+    ...b,spectralChannelPower:b.spectralChannelPower.map(v=>v/4)
+  }));
   assert.equal(reconcileAuralisExistingMixCapsShadow(gain,critique).lowToUpperDb,
     result.lowToUpperDb,"power-ratio is gain invariant");
 
@@ -349,10 +381,10 @@ test("Stage 3D-2A reconciles existing caps without new numeric policies or write
     [{...diagnostic,evidence:{...diagnostic.evidence,
       sourceProvenance:{...provenance,fftSize:2048}}},critique],
     [{...diagnostic,spectralProfile:{...diagnostic.spectralProfile,
-      bands:diagnostic.spectralProfile.bands.slice(0,6)}},critique],
+      channelBandPower:diagnostic.spectralProfile.channelBandPower.slice(0,1)}},critique],
     [{...diagnostic,spectralProfile:{...diagnostic.spectralProfile,
-      bands:diagnostic.spectralProfile.bands.map((b,i)=>
-        i===1?{...b,status:"UNAVAILABLE"}:b)}},critique],
+      channelBandPower:diagnostic.spectralProfile.channelBandPower.map((b,i)=>
+        i===1?b.map((v,j)=>j===1?NaN:v):b)}},critique],
     [diagnostic,{...critique,mixBalanceEvidence:null}],
     [diagnostic,{...critique,mixBalanceEvidence:{midrangeCap:72}}],
     [diagnostic,{...critique,mixBalanceEvidence:{midrangeCap:70,spectralCap:76}}],
@@ -397,6 +429,7 @@ test("Stage 3D-2C synthetic calibration gate proves lineage, cap replay, parent 
       representedSampleCount:8192,omittedTrailingSampleCount:0,zeroPaddedSampleCount:0,
       bands:edges.slice(0,7).map((edge,i)=>({bandHz:[edge,edges[i+1]],
         status:"AVAILABLE",channelPower:[i===1?0.02:0.01,i===1?0.02:0.01]}))}};
+  asSyntheticWorkerProfile(diagnostic);
   const commercialChildren={hook:88,dynamicVariety:85,sectionalContrast:90};
   const ready=(spectral)=>Math.round((88*60+85*20+spectral*10+90*10)/100);
   const critique={productionScoringVersion:MUD_DIAGNOSTIC_SCORING_VERSION,
