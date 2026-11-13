@@ -5323,6 +5323,8 @@ test("Stage 3D-3 paired +3 dB concerns require trusted lineage and independent l
   assert.equal(carry.scoringImpact,"CANDIDATE_ONLY");
   assert.equal(m.assessAuralisPairedSpectralEvidence(e(1),e(4),c).candidateCap,79);
   assert.equal(m.assessAuralisPairedSpectralEvidence(e(1),e(3.999),c).candidateCap,null);
+  assert.equal(m.assessAuralisPairedSpectralEvidence(e(1),e(3.9999999),c).candidateCap,null,
+    "Display rounding must never turn a sub-3 dB change into eligibility");
   // The archived control cases remain score inert even under synthetic approval.
   for(const [base,gain,clipped] of [
     [-2.2945,-2.2945,-2.1592],[-1.2607,-1.2607,-1.093]
