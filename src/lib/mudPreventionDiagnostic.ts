@@ -337,6 +337,18 @@ export function classifyAuralisExecution(
   return inert("AVAILABLE","VALIDATED_ENGINEERING_EVIDENCE");
 }
 
+// Only the current upload generation may publish a diagnostic report.
+// Null signals a stale request: its result must not replace a newer critique.
+export function resolveAuralisExecutionForReport(
+  workerStarted:boolean,
+  generationCurrent:boolean,
+  execution:AuralisExecutionRecord|null|undefined,
+):AuralisExecutionRecord|null {
+  if(!generationCurrent)return null;
+  if(!workerStarted)return classifyAuralisExecution("NOT_RUN",null);
+  return execution ?? classifyAuralisExecution("CANCELLED",null);
+}
+
 // Stage 3D-3: isolated paired-comparison eligibility, NOT wired to YSS scoring.
 // A +3 dB difference is only a descriptive technical change. No caller in the
 // production upload path supplies trusted pair provenance or defect labels.
