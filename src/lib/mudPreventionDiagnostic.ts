@@ -352,6 +352,10 @@ export function assessAuralisPairedSpectralEvidence(
     return result("INCONCLUSIVE","PAIR_LINEAGE_UNVERIFIED");
   const rawDelta=(candidate as any).metrics.lowToUpperDb-
     (reference as any).metrics.lowToUpperDb;
+  // Two finite ratios can overflow during subtraction. Fail closed before
+  // formatting or considering a paired difference for shadow eligibility.
+  if(!Number.isFinite(rawDelta))
+    return result("UNAVAILABLE","INVALID_OR_MISSING_EVIDENCE");
   const delta=Number(rawDelta.toFixed(6));
   if(rawDelta<3)
     return result("INCONCLUSIVE","NO_MATERIAL_PAIRED_CHANGE",delta);
