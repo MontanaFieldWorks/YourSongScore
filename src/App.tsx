@@ -18,7 +18,7 @@ const STAGE3D2L1_IDENTITY_ENABLED = false;
 const AURALIS_SPECTRAL_TRIAL_ENABLED = false;
 const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number | null = null;
 import { analyzeAudioBufferInWorker, analyzeEngineeringDiagnosticsInWorker } from "./lib/batchAudioWorker";
-import { computeMixBalanceScore, isMudDiagnosticCritique, markMudPreventionDiagnosticOnly, prepareAuralisEngineeringEvidence, assessAuralisSpectralTrialEvidence } from "./lib/mudPreventionDiagnostic";
+import { computeMixBalanceScore, isMudDiagnosticCritique, markMudPreventionDiagnosticOnly, prepareAuralisEngineeringEvidence, assessAuralisSpectralTrialEvidence, classifyAuralisExecution } from "./lib/mudPreventionDiagnostic";
 import { captureA2BeforeClient, captureA2AfterClient, captureA2BrowserUnavailable, captureA2SpectralAfterBrowserMix, captureA2SpectralAfterFinish } from "./lib/a2ScoringProvenance";
 
 // Runs the new, validated essentia.js key detection and overwrites the old,
@@ -1378,6 +1378,7 @@ export default function App() {
     let auralisEvidencePromise: Promise<{
       engineering:ReturnType<typeof prepareAuralisEngineeringEvidence>;
       sourceLineage:ReturnType<typeof prepareAuralisSourceLineage>;
+      execution:ReturnType<typeof classifyAuralisExecution>;
     } | null> | null = null;
     let auralisEncodedIdentity: Promise<AuralisEncodedSourceIdentity> | undefined;
     setLoading(true);
@@ -1433,11 +1434,20 @@ export default function App() {
         auralisDiagnosticAbortRef.current = controller;
         auralisEvidencePromise = analyzeEngineeringDiagnosticsInWorker(audioBuffer, controller.signal, undefined, undefined, true,
           STAGE3D2L1_IDENTITY_ENABLED ? auralisEncodedIdentity : undefined)
-          .then(result => controller.signal.aborted ||
-            diagnosticGeneration !== auralisDiagnosticGenerationRef.current
-              ? null : {engineering:prepareAuralisEngineeringEvidence(result),
-                sourceLineage:prepareAuralisSourceLineage(result)})
-          .catch(() => null);
+          .then(result => {
+            if(controller.signal.aborted ||
+               diagnosticGeneration !== auralisDiagnosticGenerationRef.current) return null;
+            const engineering = prepareAuralisEngineeringEvidence(result);
+            return {
+              engineering,
+              sourceLineage:prepareAuralisSourceLineage(result),
+              execution:classifyAuralisExecution(result.status, engineering),
+            };
+          })
+          .catch(() => ({
+            engineering:null,sourceLineage:null,
+            execution:classifyAuralisExecution("FAILED",null),
+          }));
       }
       await applyRealKeyDetection(audioBuffer, preAnalysisLiveMetrics, a2PilotEnabled);
       if (preAnalysisLiveMetrics?.calculatedKey) {
@@ -1493,13 +1503,18 @@ export default function App() {
       const overriddenCritique = applyGenreOverride(data.critique);
       // Attach only validated compact observations, not PCM or full frame arrays.
       // Failures and A2 pilots retain the original untouched score path.
+      // Record both success and failure; silence never masquerades as successful
+      // Auralis analysis. No diagnostic result changes Gemini or production scores.
+      (overriddenCritique as any).auralisExecution =
+        classifyAuralisExecution("NOT_RUN",null);
       if (auralisEvidencePromise) {
         const auralisEvidence = await auralisEvidencePromise;
-        if (auralisEvidence &&
-            diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
-          if(auralisEvidence.engineering)
+        if (diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
+          (overriddenCritique as any).auralisExecution =
+            auralisEvidence?.execution ?? classifyAuralisExecution("CANCELLED",null);
+          if(auralisEvidence?.engineering)
             (overriddenCritique as any).auralisEngineering = auralisEvidence.engineering;
-          if(auralisEvidence.sourceLineage)
+          if(auralisEvidence?.sourceLineage)
             (overriddenCritique as any).auralisSourceLineage = auralisEvidence.sourceLineage;
         }
       }
