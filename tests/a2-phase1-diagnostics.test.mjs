@@ -5371,3 +5371,54 @@ test("Stage 3D-3 paired +3 dB concerns require trusted lineage and independent l
   assert.ok(!app.includes("assessAuralisPairedSpectralEvidence("),
     "No production single-upload caller may claim trusted paired provenance");
 });
+
+
+test("Auralis beta execution status is explicit, fail closed and score inert",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const engineering={
+    schemaVersion:m.AURALIS_ENGINEERING_ADAPTER_VERSION,
+    scoringImpact:"NONE",
+    scoringAdapter:{status:m.AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+    metrics:{lowToUpperDb:1.42}
+  };
+  const original=structuredClone(engineering);
+  assert.deepEqual(m.classifyAuralisExecution("AVAILABLE",engineering),{
+    status:"AVAILABLE",reason:"VALIDATED_ENGINEERING_EVIDENCE",scoringImpact:"NONE"
+  });
+  for(const [outcome,reason] of [
+    ["UNAVAILABLE","WORKER_UNAVAILABLE"],
+    ["FAILED","WORKER_FAILED"],
+    ["CANCELLED","CANCELLED"],
+  ]){
+    assert.deepEqual(m.classifyAuralisExecution(outcome,engineering),{
+      status:"UNAVAILABLE",reason,scoringImpact:"NONE"
+    });
+  }
+  assert.deepEqual(m.classifyAuralisExecution("NOT_RUN",null),{
+    status:"NOT_RUN",reason:"NOT_STARTED",scoringImpact:"NONE"
+  });
+  for(const invalid of [
+    null,{...engineering,scoringImpact:"APPLIED"},
+    {...engineering,metrics:{lowToUpperDb:NaN}},
+    {...engineering,scoringAdapter:{...engineering.scoringAdapter,adjustments:[79]}},
+    {...engineering,schemaVersion:"unsupported"},
+  ]){
+    assert.deepEqual(m.classifyAuralisExecution("AVAILABLE",invalid),{
+      status:"UNAVAILABLE",reason:"EVIDENCE_VALIDATION_FAILED",scoringImpact:"NONE"
+    });
+  }
+  assert.deepEqual(engineering,original);
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const report=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  assert.match(app,/const STAGE3D1_AURALIS_EVIDENCE_ENABLED = true;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.ok(app.includes("const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number | null = null;"));
+  assert.match(app,/execution:classifyAuralisExecution\(result\.status, engineering\)/);
+  assert.match(app,/execution:classifyAuralisExecution\("FAILED",null\)/);
+  assert.match(app,/auralisExecution =\s*auralisEvidence\?\.execution/);
+  assert.match(app,/classifyAuralisExecution\("NOT_RUN",null\)/);
+  assert.match(report,/Auralis engineering \(NOT SCORED\)/);
+  assert.match(report,/Engineering Worker execution status/);
+  assert.match(report,/Auralis SonicLens \(NOT SCORED\)/);
+  assert.match(report,/execution\.scoringImpact==="NONE"/);
+});
