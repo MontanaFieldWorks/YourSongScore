@@ -335,7 +335,7 @@ export function assessAuralisPairedSpectralEvidence(
       candidateCap:eligible?AURALIS_SPECTRAL_TRIAL_CAP:null,
       scoringImpact:eligible?"CANDIDATE_ONLY":"NONE",
     });
-  const valid=(value:unknown):value is number=>{
+  const valid=(value:unknown):boolean=>{
     const e=value as any,v=e?.metrics?.lowToUpperDb;
     return e?.schemaVersion===AURALIS_ENGINEERING_ADAPTER_VERSION &&
       e?.scoringImpact==="NONE" &&
@@ -350,9 +350,10 @@ export function assessAuralisPairedSpectralEvidence(
   // must independently establish source/excerpt identity and alignment first.
   if(context?.trustedPairLineage!==true)
     return result("INCONCLUSIVE","PAIR_LINEAGE_UNVERIFIED");
-  const delta=Number(((candidate as any).metrics.lowToUpperDb-
-    (reference as any).metrics.lowToUpperDb).toFixed(6));
-  if(delta<3)
+  const rawDelta=(candidate as any).metrics.lowToUpperDb-
+    (reference as any).metrics.lowToUpperDb;
+  const delta=Number(rawDelta.toFixed(6));
+  if(rawDelta<3)
     return result("INCONCLUSIVE","NO_MATERIAL_PAIRED_CHANGE",delta);
   if(context?.artisticIntent==="INTENTIONAL")
     return result("INCONCLUSIVE","INTENTIONAL_STYLE",delta);
