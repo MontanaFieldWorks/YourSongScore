@@ -296,11 +296,74 @@ export function assessAuralisSpectralTrialEvidence(
       measuredDb:ratio,thresholdDb:approvedThresholdDb,
       candidateCap:null,scoringImpact:"NONE"};
   }
+  // Stage 3D-3: a single-track absolute ratio is NOT eligible for a
+  // 79-point penalty, even if a caller accidentally enables the old switch.
+  // The historical provisional corridor remains descriptive, not a cap gate.
   return {status:"MEASURED_TECHNICAL_CONCERN",
     reason:"RATIO_ABOVE_PROVISIONAL_CORRIDOR",
     measuredDb:ratio,thresholdDb:approvedThresholdDb,
-    candidateCap:scoringEnabled ? AURALIS_SPECTRAL_TRIAL_CAP : null,
-    scoringImpact:scoringEnabled ? "CANDIDATE_ONLY" : "NONE"};
+    candidateCap:null,scoringImpact:"NONE"};
+}
+
+// Stage 3D-3: isolated paired-comparison eligibility, NOT wired to YSS scoring.
+// A +3 dB difference is only a descriptive technical change. No caller in the
+// production upload path supplies trusted pair provenance or defect labels.
+export type AuralisPairedSpectralResult = {
+  status:"UNAVAILABLE"|"INCONCLUSIVE"|"MEASURED_TECHNICAL_CONCERN";
+  reason:"INVALID_OR_MISSING_EVIDENCE"|"PAIR_LINEAGE_UNVERIFIED"|
+    "NO_MATERIAL_PAIRED_CHANGE"|"PAIRED_CHANGE_DESCRIPTIVE_ONLY"|
+    "INDEPENDENT_DEFECT_UNCONFIRMED"|"ARTISTIC_INTENT_UNRESOLVED"|
+    "INTENTIONAL_STYLE"|"ELIGIBLE_SHADOW_ONLY";
+  deltaDb:number|null;
+  candidateCap:79|null;
+  scoringImpact:"NONE"|"CANDIDATE_ONLY";
+};
+export function assessAuralisPairedSpectralEvidence(
+  reference:unknown,
+  candidate:unknown,
+  context?:{
+    trustedPairLineage:boolean;
+    independentDefect:"CONFIRMED"|"NOT_CONFIRMED"|"UNKNOWN";
+    artisticIntent:"REVIEWED_NOT_INTENTIONAL"|"INTENTIONAL"|"UNKNOWN";
+    shadowPolicyAuthorized:boolean;
+  },
+):AuralisPairedSpectralResult {
+  const result=(status:AuralisPairedSpectralResult["status"],
+    reason:AuralisPairedSpectralResult["reason"],deltaDb:number|null=null,
+    eligible=false):AuralisPairedSpectralResult=>({
+      status,reason,deltaDb,
+      candidateCap:eligible?AURALIS_SPECTRAL_TRIAL_CAP:null,
+      scoringImpact:eligible?"CANDIDATE_ONLY":"NONE",
+    });
+  const valid=(value:unknown):value is number=>{
+    const e=value as any,v=e?.metrics?.lowToUpperDb;
+    return e?.schemaVersion===AURALIS_ENGINEERING_ADAPTER_VERSION &&
+      e?.scoringImpact==="NONE" &&
+      e?.scoringAdapter?.status===AURALIS_ENGINEERING_SCORE_POLICY &&
+      Array.isArray(e?.scoringAdapter?.adjustments) &&
+      e.scoringAdapter.adjustments.length===0 &&
+      typeof v==="number" && Number.isFinite(v);
+  };
+  if(!valid(reference)||!valid(candidate))
+    return result("UNAVAILABLE","INVALID_OR_MISSING_EVIDENCE");
+  // Caller assertion is NOT a provenance verifier. An approved paired workflow
+  // must independently establish source/excerpt identity and alignment first.
+  if(context?.trustedPairLineage!==true)
+    return result("INCONCLUSIVE","PAIR_LINEAGE_UNVERIFIED");
+  const delta=Number(((candidate as any).metrics.lowToUpperDb-
+    (reference as any).metrics.lowToUpperDb).toFixed(6));
+  if(delta<3)
+    return result("INCONCLUSIVE","NO_MATERIAL_PAIRED_CHANGE",delta);
+  if(context?.artisticIntent==="INTENTIONAL")
+    return result("INCONCLUSIVE","INTENTIONAL_STYLE",delta);
+  if(context?.artisticIntent!=="REVIEWED_NOT_INTENTIONAL")
+    return result("MEASURED_TECHNICAL_CONCERN","ARTISTIC_INTENT_UNRESOLVED",delta);
+  if(context?.independentDefect!=="CONFIRMED")
+    return result("MEASURED_TECHNICAL_CONCERN","INDEPENDENT_DEFECT_UNCONFIRMED",delta);
+  // Future policy authorization would be a separate explicit approval.
+  if(context?.shadowPolicyAuthorized!==true)
+    return result("MEASURED_TECHNICAL_CONCERN","PAIRED_CHANGE_DESCRIPTIVE_ONLY",delta);
+  return result("MEASURED_TECHNICAL_CONCERN","ELIGIBLE_SHADOW_ONLY",delta,true);
 }
 
 // Compatibility wrapper for the existing gated prototype; this never mutates
