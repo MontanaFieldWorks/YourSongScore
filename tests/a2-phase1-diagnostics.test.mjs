@@ -5325,6 +5325,24 @@ test("Stage 3D-3 paired +3 dB concerns require trusted lineage and independent l
   assert.equal(m.assessAuralisPairedSpectralEvidence(e(1),e(3.999),c).candidateCap,null);
   assert.equal(m.assessAuralisPairedSpectralEvidence(e(1),e(3.9999999),c).candidateCap,null,
     "Display rounding must never turn a sub-3 dB change into eligibility");
+  // Finite inputs can overflow when subtracted; never treat Infinity as >=3 dB.
+  for(const [reference,candidate] of [
+    [-1e308,1e308],[1e308,-1e308],
+  ]){
+    const overflow=m.assessAuralisPairedSpectralEvidence(e(reference),e(candidate),c);
+    assert.deepEqual(
+      [overflow.status,overflow.reason,overflow.deltaDb,overflow.candidateCap,overflow.scoringImpact],
+      ["UNAVAILABLE","INVALID_OR_MISSING_EVIDENCE",null,null,"NONE"]);
+  }
+  const exact=m.assessAuralisPairedSpectralEvidence(e(1),e(4),c);
+  assert.deepEqual([exact.deltaDb,exact.candidateCap],[3,79],
+    "Exactly +3 dB may qualify in disconnected shadow mode");
+  const below=m.assessAuralisPairedSpectralEvidence(e(1),e(3.999999999999),c);
+  assert.equal(below.candidateCap,null,
+    "An unrounded delta below +3 dB must never qualify");
+  const above=m.assessAuralisPairedSpectralEvidence(e(1),e(4.000000000001),c);
+  assert.equal(above.candidateCap,79,
+    "An unrounded delta above +3 dB qualifies only with synthetic evidence approvals");
   // The archived control cases remain score inert even under synthetic approval.
   for(const [base,gain,clipped] of [
     [-2.2945,-2.2945,-2.1592],[-1.2607,-1.2607,-1.093]
