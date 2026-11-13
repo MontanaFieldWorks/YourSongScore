@@ -1635,7 +1635,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ],
       callout: "This Metric secures clear frequency separations so that your low and high ends decode without clipping.",
       description: "Audits decibel levels, EQ notches, sibilance de-essing, low frequency separation, and relative placement in the stereo panning field.",
-      feedback: `${critique?.mixQuality?.stereoField ?? "Solid width."} Low frequencies: ${critique?.mixQuality?.frequencyBalance?.lowEnd ?? "Balanced"}. Midrange: ${critique?.mixQuality?.frequencyBalance?.midrange ?? "Clear"}. High-end sibilance: ${critique?.mixQuality?.frequencyBalance?.highEnd ?? "Contained"}. Frequency issues: ${critique?.mixQuality?.dominanceIssues ?? "No bloating present."} ${(critique as any)?.auralisEngineering?.scoringAdapter?.status === "DISABLED_PENDING_STAGE_3D_2" ? "Auralis observations (not scored): " + ((critique as any).auralisEngineering.observations ?? []).join(" ") : ""}`
+      feedback: `${critique?.mixQuality?.stereoField ?? "Solid width."} Low frequencies: ${critique?.mixQuality?.frequencyBalance?.lowEnd ?? "Balanced"}. Midrange: ${critique?.mixQuality?.frequencyBalance?.midrange ?? "Clear"}. High-end sibilance: ${critique?.mixQuality?.frequencyBalance?.highEnd ?? "Contained"}. Frequency issues: ${critique?.mixQuality?.dominanceIssues ?? "No bloating present."} ${(critique as any)?.auralisExecution ? "Auralis engineering (NOT SCORED): " + (critique as any).auralisExecution.status + " (" + (critique as any).auralisExecution.reason + "). " : ""}${(critique as any)?.auralisEngineering?.scoringAdapter?.status === "DISABLED_PENDING_STAGE_3D_2" ? "Auralis observations (not scored): " + ((critique as any).auralisEngineering.observations ?? []).join(" ") : ""}`
     },
     {
       id: "vocals",
@@ -1799,6 +1799,22 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       const row = wsSourceDiagnostics.addRow(diagnostic);
       row.alignment = { vertical: "top", wrapText: true };
       row.height = 32;
+    }
+    // Explicit execution status is retained even when the Worker fails,
+    // validation abstains, or the optional diagnostic was not started.
+    // Historical critiques without this record retain their legacy report.
+    {
+      const execution=(critique as any)?.auralisExecution;
+      if(execution && ["AVAILABLE","UNAVAILABLE","NOT_RUN"].includes(execution.status) &&
+         execution.scoringImpact==="NONE" && typeof execution.reason==="string"){
+        const row=wsSourceDiagnostics.addRow({
+          section:"Auralis SonicLens (NOT SCORED)",
+          field:"Engineering Worker execution status",
+          value:execution.status+" — "+execution.reason+"; scoringImpact NONE",
+        });
+        row.alignment={vertical:"top",wrapText:true};
+        row.height=32;
+      }
     }
     // Stage 3D-1: report-only engineering observations; historical critiques
     // have no such field. No scoring fields or cached category values are read.

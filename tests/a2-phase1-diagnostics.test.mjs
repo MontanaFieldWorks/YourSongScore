@@ -2741,7 +2741,7 @@ test("Auralis 2C2B-1D lifecycle guard is isolated from scoring and A2", async ()
   assert.match(app,/STAGE2C2A_DIAGNOSTICS_ENABLED &&\s*diagnosticGeneration === auralisDiagnosticGenerationRef\.current/);
   assert.match(app,/analyzeEngineeringDiagnosticsInWorker\(audioBuffer, controller\.signal\)/);
   assert.match(app,/if \(!controller\.signal\.aborted &&[\s\S]*?auralisDiagnosticAbortRef\.current === controller &&[\s\S]*?diagnosticGeneration === auralisDiagnosticGenerationRef\.current\)/);
-  assert.match(app,/if \(diagnosticGeneration === auralisDiagnosticGenerationRef\.current\) cancelAuralisDiagnostic\(\)/);
+  assert.match(app,/if \(diagnosticGeneration === auralisDiagnosticGenerationRef\.current\) \{\s*cancelAuralisDiagnostic\(\);\s*setLoading\(false\);\s*\}/);
   assert.doesNotMatch(app,/await analyzeEngineeringDiagnosticsInWorker/);
   assert.doesNotMatch(app,/formData\.append\("auralis|formData\.append\("engineeringEvidence/);
 });
@@ -5219,7 +5219,7 @@ test("Auralis lean Spectral Match trial is gated and uses only the approved 79 c
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \| null = null;/);
   assert.match(app,/assessAuralisSpectralTrialEvidence\(/);
   assert.match(app,/Math\.min\(spectralCap, auralisTrialCap\)/);
-  assert.match(app,/if \(auralisEvidencePromise\)[\s\S]*?applyProductionFinishGuardrail\(overriddenCritique, liveMetrics\)/);
+  assert.match(app,/const auralisEvidence = auralisEvidencePromise[\s\S]*?const execution = resolveAuralisExecutionForReport\([\s\S]*?if\(execution === null\)return;[\s\S]*?applyProductionFinishGuardrail\(overriddenCritique, liveMetrics\)/);
   assert.ok(!/AURALIS_SPECTRAL_TRIAL_CAP\s*=\s*71/.test(await readFile(new URL("../src/lib/mudPreventionDiagnostic.ts",import.meta.url),"utf8")));
 });
 
@@ -5370,4 +5370,94 @@ test("Stage 3D-3 paired +3 dB concerns require trusted lineage and independent l
   assert.ok(app.includes("const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number | null = null;"));
   assert.ok(!app.includes("assessAuralisPairedSpectralEvidence("),
     "No production single-upload caller may claim trusted paired provenance");
+});
+
+
+test("Auralis beta execution status is explicit, fail closed and score inert",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const engineering={
+    schemaVersion:m.AURALIS_ENGINEERING_ADAPTER_VERSION,
+    scoringImpact:"NONE",
+    scoringAdapter:{status:m.AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+    metrics:{lowToUpperDb:1.42}
+  };
+  const original=structuredClone(engineering);
+  assert.deepEqual(m.classifyAuralisExecution("AVAILABLE",engineering),{
+    status:"AVAILABLE",reason:"VALIDATED_ENGINEERING_EVIDENCE",scoringImpact:"NONE"
+  });
+  for(const [outcome,reason] of [
+    ["UNAVAILABLE","WORKER_UNAVAILABLE"],
+    ["FAILED","WORKER_FAILED"],
+    ["CANCELLED","CANCELLED"],
+  ]){
+    assert.deepEqual(m.classifyAuralisExecution(outcome,engineering),{
+      status:"UNAVAILABLE",reason,scoringImpact:"NONE"
+    });
+  }
+  assert.deepEqual(m.classifyAuralisExecution("NOT_RUN",null),{
+    status:"NOT_RUN",reason:"NOT_STARTED",scoringImpact:"NONE"
+  });
+  for(const invalid of [
+    null,{...engineering,scoringImpact:"APPLIED"},
+    {...engineering,metrics:{lowToUpperDb:NaN}},
+    {...engineering,scoringAdapter:{...engineering.scoringAdapter,adjustments:[79]}},
+    {...engineering,schemaVersion:"unsupported"},
+  ]){
+    assert.deepEqual(m.classifyAuralisExecution("AVAILABLE",invalid),{
+      status:"UNAVAILABLE",reason:"EVIDENCE_VALIDATION_FAILED",scoringImpact:"NONE"
+    });
+  }
+  assert.deepEqual(engineering,original);
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const report=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  assert.match(app,/const STAGE3D1_AURALIS_EVIDENCE_ENABLED = true;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.ok(app.includes("const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number | null = null;"));
+  assert.match(app,/execution:classifyAuralisExecution\(result\.status, engineering\)/);
+  assert.match(app,/execution:classifyAuralisExecution\("FAILED",null\)/);
+  assert.match(app,/const execution = resolveAuralisExecutionForReport\(/);
+  assert.match(app,/if\(execution === null\)return;/);
+  assert.match(app,/\(overriddenCritique as any\)\.auralisExecution = execution/);
+  assert.match(app,/resolveAuralisExecutionForReport\(/);
+  assert.match(report,/Auralis engineering \(NOT SCORED\)/);
+  assert.match(report,/Engineering Worker execution status/);
+  assert.match(report,/Auralis SonicLens \(NOT SCORED\)/);
+  assert.match(report,/execution\.scoringImpact==="NONE"/);
+});
+
+
+test("Auralis cancellation and stale generations fail closed before report publish",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const evidence={
+    schemaVersion:m.AURALIS_ENGINEERING_ADAPTER_VERSION,
+    scoringImpact:"NONE",
+    scoringAdapter:{status:m.AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+    metrics:{lowToUpperDb:1.42}
+  };
+  const available=m.classifyAuralisExecution("AVAILABLE",evidence);
+  assert.deepEqual(m.resolveAuralisExecutionForReport(false,true,null),{
+    status:"NOT_RUN",reason:"NOT_STARTED",scoringImpact:"NONE"
+  });
+  // Launched Worker missing its result is cancelled, never NOT_RUN.
+  for(const missing of [null,undefined]){
+    assert.deepEqual(m.resolveAuralisExecutionForReport(true,true,missing),{
+      status:"UNAVAILABLE",reason:"CANCELLED",scoringImpact:"NONE"
+    });
+  }
+  assert.deepEqual(m.resolveAuralisExecutionForReport(true,true,available),available);
+  // Old generation must not attach a valid or invalid diagnostic to any critique.
+  for(const started of [true,false]){
+    for(const outcome of [available,null,undefined]){
+      assert.equal(m.resolveAuralisExecutionForReport(started,false,outcome),null);
+    }
+  }
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const exit=app.indexOf("if(execution === null)return;");
+  const attach=app.indexOf("(overriddenCritique as any).auralisExecution = execution;");
+  const engineering=app.indexOf("(overriddenCritique as any).auralisEngineering = auralisEvidence.engineering;");
+  const publish=app.indexOf("setCritiqueResult({",attach);
+  assert.ok(exit>0 && attach>exit && engineering>attach && publish>engineering,
+    "Stale generation must exit before engineering attachment and critique publication");
+  assert.match(app,/if \(diagnosticGeneration === auralisDiagnosticGenerationRef\.current\) \{\s*cancelAuralisDiagnostic\(\);\s*setLoading\(false\);\s*\}/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
 });
