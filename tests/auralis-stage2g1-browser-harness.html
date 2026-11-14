@@ -33,6 +33,7 @@
   <button id="identity" type="button">Run Stage 3D-2L-1 actual Worker SHA-256 identity profile (synthetic only)</button>
   <button id="capacity" type="button">Run Stage 2I-1 Worker input capacity profile (4 cases, up to 128 MiB)</button>
   <p id="pilotStatus" role="status" aria-live="polite">Local song pilot — READY — 0/4 completed. Select one file, then analyze it once.</p>
+  <label><input id="pilotIdentityMode" type="checkbox"> Opt-in frozen four-WAV manifest plus Worker PCM SHA-256 identity (localhost only, no scoring)</label>
   <div><label for="pilotFile">Stage 2I-2 local song pilot (one file at a time, up to four):</label>
   <input id="pilotFile" type="file" accept="audio/*">
   <button id="pilot" type="button">Analyze selected song locally</button></div>
@@ -73,12 +74,22 @@
     const allocationButton = document.querySelector("#allocation");
     const capacityButton = document.querySelector("#capacity");
     const pilotButton = document.querySelector("#pilot");
+    const pilotIdentityMode = document.querySelector("#pilotIdentityMode");
     const pilotFile = document.querySelector("#pilotFile");
     const pilotStatus = document.querySelector("#pilotStatus");
     const pilotReference = document.querySelector("#pilotReference");
     const pilotComparison = document.querySelector("#pilotComparison");
     let pilotRunning = false;
     let pilotStopped = false;
+    let pilotSessionIdentityMode = null;
+    // Frozen preparation-manifest.json (source seconds 30–60). Encoded SHA-256
+    // binds each actual WAV, not independent sample alignment or defect labels.
+    const frozenIdentityFiles = Object.freeze([
+      {name:"carry-on-01-reference.wav",sha256:"7a61db814087ef280c05f7db99095f74c4deb30b954c7756ee685cd8cc9f2d61",bytes:11520056,rate:48000,frames:1440000,source:"11 Carry On.mp3",role:"REFERENCE"},
+      {name:"carry-on-03-muddy-dark.wav",sha256:"19526bc02de79cbc3690357f5e1ae720f11999e95739a7b99358900f39448799",bytes:11520056,rate:48000,frames:1440000,source:"11 Carry On.mp3",role:"MUDDY_DARK"},
+      {name:"just-me-and-you-01-reference.wav",sha256:"134308d1a9b602bd68d14f90b8e6e80db20038ee0a5ecba75b6faef966a428b8",bytes:10584056,rate:44100,frames:1323000,source:"12 Just Me and You.mp3",role:"REFERENCE"},
+      {name:"just-me-and-you-03-muddy-dark.wav",sha256:"f953ffa14f69be8ec525543aa373cb01806544863dd60f226825bafa1f8deff6",bytes:10584056,rate:44100,frames:1323000,source:"12 Just Me and You.mp3",role:"MUDDY_DARK"}
+    ]);
     const pilotReports = [];
     const pilotCompletedFiles = new Set();
     let profilingMode = false;
@@ -1424,6 +1435,15 @@
       if(!file){showPilotStatus("READY",null,"Select one local audio file first. Previous results remain below.");return;}
       if(runButton.disabled||profileButton.disabled||matchedButton.disabled||
          memoryButton.disabled||allocationButton.disabled||capacityButton.disabled)return;
+      const identityMode=pilotIdentityMode.checked;
+      if(pilotSessionIdentityMode!==null&&pilotSessionIdentityMode!==identityMode){
+        showPilotStatus("MODE LOCKED",file.name,"Do not change identity mode mid-session; no audio decoded.");return;
+      }
+      const frozen=identityMode?frozenIdentityFiles[pilotReports.length]:null;
+      if(identityMode&&(!frozen||file.name!==frozen.name||file.size!==frozen.bytes)){
+        showPilotStatus("MANIFEST PREFLIGHT FAILED",file.name,
+          "Select only the next frozen WAV in order and expected size; no audio decoded.");return;
+      }
       const fileKey=JSON.stringify([file.name,file.size,file.lastModified??null]);
       if(pilotCompletedFiles.has(fileKey)){
         showPilotStatus("DUPLICATE BLOCKED",file.name,
@@ -1431,6 +1451,8 @@
         pilotFile.value="";return;
       }
       pilotRunning=true;
+      pilotSessionIdentityMode=identityMode;
+      pilotIdentityMode.disabled=true;
       showPilotStatus("RUNNING",file.name,"Keep this tab visible. Do not click Analyze again; wait for PASS or FAIL.");
       runButton.disabled=profileButton.disabled=matchedButton.disabled=memoryButton.disabled=
         allocationButton.disabled=capacityButton.disabled=pilotButton.disabled=pilotFile.disabled=true;
@@ -1456,7 +1478,24 @@
           sampleRateLineage:{...sourceRate,decodedRateHz:null,workerRateHz:null,
             interpretation:"Source header only; PCM analysis uses decoded rate. Equal rates do not prove identical PCM."}};
         const decodeStarted=performance.now();
-        const audio=await decodeAudioFile(file);
+        let encodedIdentityPromise;
+        const audio=await decodeAudioFile(file,identityMode
+          ? identity=>{encodedIdentityPromise=identity;}:undefined);
+        let verifiedEncoded=null;
+        if(identityMode){
+          assert(encodedIdentityPromise,"Encoded identity callback unavailable");
+          verifiedEncoded=await encodedIdentityPromise;
+          assert(verifiedEncoded?.status==="VERIFIED"&&
+            verifiedEncoded.encodedSha256===frozen.sha256&&
+            verifiedEncoded.encodedBytes===frozen.bytes&&
+            verifiedEncoded.format==="WAV_FLOAT"&&
+            verifiedEncoded.sourceRateStatus==="VERIFIED_WAV_HEADER"&&
+            verifiedEncoded.sourceSampleRate===frozen.rate,
+            "MANIFEST_SHA256_OR_WAV_HEADER_MISMATCH: Worker not started");
+          assert(audio.numberOfChannels===2&&
+            Math.abs(audio.length/audio.sampleRate-frozen.frames/frozen.rate)<1/audio.sampleRate,
+            "DECODED_EXCERPT_DURATION_MISMATCH: Worker not started");
+        }
         const decodeMs=brief(performance.now()-decodeStarted);
         const pcmBytes=audio.length*audio.numberOfChannels*Float32Array.BYTES_PER_ELEMENT;
         report.currentFile={...report.currentFile,sampleRate:audio.sampleRate,
@@ -1479,7 +1518,9 @@
         assert(globalThis.Worker===NativeWorker,"Another Worker probe is active");
         globalThis.Worker=InstrumentedWorker;
         const started=performance.now();
-        const diagnostic=await analyzeEngineeringDiagnosticsInWorker(audio,undefined,capBytes,30000,true);
+        const diagnostic=await analyzeEngineeringDiagnosticsInWorker(
+          audio,undefined,capBytes,30000,true,
+          identityMode?Promise.resolve(verifiedEncoded):undefined);
         const wallElapsedMs=brief(performance.now()-started);
         sourcePreserved(sampleProbe,fingerprint);
         const probe=createdWorkers.length===beforeWorkers+1?createdWorkers.at(-1):null;
@@ -1496,10 +1537,43 @@
           probe.transfers[0].byteLengthsBefore.reduce((a,b)=>a+b,0)===pcmBytes &&
           probe.transfers[0].byteLengthsAfter.every(n=>n===0) &&
           probe.terminateCount===1,"Stage 2I-2 Worker lifecycle or transfer check failed");
+        let identityRecord;
+        if(identityMode){
+          const i=diagnostic.identity;
+          assert(i?.status==="VERIFIED"&&i.encodedSha256===frozen.sha256&&
+            i.sourceRateStatus==="VERIFIED_WAV_HEADER"&&
+            i.sourceSampleRate===frozen.rate&&
+            i.decodedSampleRate===audio.sampleRate&&i.workerSampleRate===audio.sampleRate&&
+            i.decodedChannels===2&&i.workerChannels===2&&
+            i.decodedSamples===audio.length&&i.workerSamples===audio.length&&
+            i.decodedChannelSha256?.length===2&&i.workerChannelSha256?.length===2&&
+            i.decodedChannelSha256.every((hash,index)=>
+              /^[a-f0-9]{64}$/.test(hash)&&hash===i.workerChannelSha256[index])&&
+            i.rateRelationship===(frozen.rate===audio.sampleRate
+              ?"SAME_RATE":"DECODED_RATE_DIFFERENT"),
+            "IDENTITY_WORKER_HANDSHAKE_FAILED");
+          // No private digest or raw PCM enters the displayed report.
+          identityRecord={
+            status:"VERIFIED_THIS_RUN",scoringImpact:"NONE",
+            manifestSha256Match:true,encodedBytesMatch:true,
+            decodedWorkerChannelSha256Match:[true,true],
+            sourceSampleRate:frozen.rate,decodedSampleRate:i.decodedSampleRate,
+            workerSampleRate:i.workerSampleRate,sourceFramesFromManifest:frozen.frames,
+            decodedSamplesPerChannel:i.decodedSamples,workerSamplesPerChannel:i.workerSamples,
+            rateRelationship:i.rateRelationship,
+            sourceFromManifest:frozen.source,fixtureRole:frozen.role,
+            excerptSecondsFromManifest:[30,60],
+            pairedExcerptAlignment:"MANIFEST_DERIVED_NOT_INDEPENDENTLY_VERIFIED",
+            independentTechnicalDefect:"UNKNOWN",artisticIntent:"UNKNOWN",
+            historicalStage2NSourceIdentity:"UNVERIFIED",
+            candidateCap:null,appliedCap:null
+          };
+        }
         const summary=summarizePilotEvidence(diagnostic.evidence,diagnostic.spectralProfile,diagnostic.referenceMeters);
         pilotReports.push({...report.currentFile,status:"AVAILABLE",wallElapsedMs,
           workerTerminations:probe.terminateCount,copyTransferOwnershipVerified:true,
-          originalAudioPreserved:true,summary});
+          originalAudioPreserved:true,summary,
+          ...(identityMode?{identityRecord}:{})});
         pilotCompletedFiles.add(fileKey);
         renderPilotComparisons();
         report.completedFiles=pilotReports.length;
@@ -1524,6 +1598,7 @@
         runButton.disabled=profileButton.disabled=matchedButton.disabled=memoryButton.disabled=
           allocationButton.disabled=capacityButton.disabled=false;
         pilotButton.disabled=pilotFile.disabled=pilotStopped||pilotReports.length>=4;
+        pilotIdentityMode.disabled=pilotStopped||pilotReports.length>0;
       }
     }
     pilotButton.addEventListener("click",runLocalSongPilot);
