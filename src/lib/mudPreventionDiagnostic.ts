@@ -447,6 +447,88 @@ export function assessAuralisPairedSpectralEvidence(
   return result("MEASURED_TECHNICAL_CONCERN","ELIGIBLE_SHADOW_ONLY",delta,true);
 }
 
+// Stage 3D-3 lean-beta decision record: synthetic-only shadow replay. It is
+// deliberately disconnected from App, server and export. A test-supplied
+// lineage assertion is NOT independent provenance verification for real songs.
+// Archived Stage 2N comparisons with sourceIdentity UNVERIFIED cannot qualify.
+export const AURALIS_PAIRED_SHADOW_RECORD_VERSION =
+  "auralis-stage3d3-paired-shadow-record-v1" as const;
+export type AuralisPairedShadowDecision = {
+  schemaVersion:typeof AURALIS_PAIRED_SHADOW_RECORD_VERSION;
+  status:"UNAVAILABLE"|"INCONCLUSIVE"|"INTENTIONAL_STYLE"|"ELIGIBLE_SHADOW_ONLY";
+  reason:string;
+  deltaDb:number|null;
+  candidateCap:79|null;
+  existingFinalScore:number|null;
+  existingLegacyCap:number|null;
+  hypotheticalSpectralScore:number|null;
+  appliedCap:null;
+  appliedScoreChange:0;
+  scoringImpact:"NONE";
+  adjustments:[];
+  evidenceScope:"SYNTHETIC_ONLY_NOT_REAL_SONG_VALIDATION";
+};
+export function recordAuralisPairedSpectralShadowDecision(
+  reference:unknown,candidate:unknown,
+  context?:{
+    evidenceScope:"SYNTHETIC_VERIFIED_FIXTURE_ONLY";
+    referenceExecution:AuralisExecutionRecord;
+    candidateExecution:AuralisExecutionRecord;
+    pairLineage:{sourceIdentity:"VERIFIED_SYNTHETIC";sameSource:true;alignedExcerpt:true};
+    independentDefect:"CONFIRMED"|"NOT_CONFIRMED"|"UNKNOWN";
+    artisticIntent:"REVIEWED_NOT_INTENTIONAL"|"INTENTIONAL"|"UNKNOWN";
+    shadowPolicyAuthorized:boolean;
+    existingFinalScore:number;
+    existingLegacyCap:number|null;
+  },
+):AuralisPairedShadowDecision {
+  const record=(status:AuralisPairedShadowDecision["status"],reason:string,
+    deltaDb:number|null=null,cap:79|null=null,
+    finalScore:number|null=null,legacyCap:number|null=null):AuralisPairedShadowDecision=>({
+      schemaVersion:AURALIS_PAIRED_SHADOW_RECORD_VERSION,status,reason,deltaDb,
+      candidateCap:cap,existingFinalScore:finalScore,
+      existingLegacyCap:legacyCap,
+      hypotheticalSpectralScore:cap===null||finalScore===null?null:
+        Math.min(finalScore,cap,legacyCap??100),
+      appliedCap:null,appliedScoreChange:0,scoringImpact:"NONE",adjustments:[],
+      evidenceScope:"SYNTHETIC_ONLY_NOT_REAL_SONG_VALIDATION",
+    });
+  // Do not grant evidence authority from a bare trustedPairLineage boolean.
+  // No current production workflow supplies independently audited same-source
+  // aligned pairing or independent listening/intent labels.
+  const validated=(e:AuralisExecutionRecord|undefined)=>
+    e?.status==="AVAILABLE"&&e.reason==="VALIDATED_ENGINEERING_EVIDENCE"&&
+    e.scoringImpact==="NONE";
+  if(!validated(context?.referenceExecution)||
+     !validated(context?.candidateExecution))
+    return record("UNAVAILABLE","MISSING_VALIDATED_WORKER_EVIDENCE");
+  if(context?.evidenceScope!=="SYNTHETIC_VERIFIED_FIXTURE_ONLY"||
+     context.pairLineage?.sourceIdentity!=="VERIFIED_SYNTHETIC"||
+     context.pairLineage.sameSource!==true||
+     context.pairLineage.alignedExcerpt!==true)
+    return record("INCONCLUSIVE","PAIR_LINEAGE_UNVERIFIED");
+  const finalScore=context.existingFinalScore,legacyCap=context.existingLegacyCap;
+  const finiteScore=(v:unknown):v is number=>
+    typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=100;
+  if(!finiteScore(finalScore)||
+     (legacyCap!==null&&!finiteScore(legacyCap))||
+     (legacyCap!==null&&finalScore>legacyCap))
+    return record("INCONCLUSIVE","UNVERIFIED_EXISTING_SCORE_LINEAGE");
+  const paired=assessAuralisPairedSpectralEvidence(reference,candidate,{
+    trustedPairLineage:true,
+    independentDefect:context.independentDefect,
+    artisticIntent:context.artisticIntent,
+    shadowPolicyAuthorized:context.shadowPolicyAuthorized,
+  });
+  if(paired.status==="UNAVAILABLE")
+    return record("UNAVAILABLE",paired.reason);
+  if(paired.reason==="INTENTIONAL_STYLE")
+    return record("INTENTIONAL_STYLE",paired.reason,paired.deltaDb);
+  if(paired.candidateCap===79&&paired.reason==="ELIGIBLE_SHADOW_ONLY")
+    return record("ELIGIBLE_SHADOW_ONLY",paired.reason,paired.deltaDb,79,finalScore,legacyCap);
+  return record("INCONCLUSIVE",paired.reason,paired.deltaDb);
+}
+
 // Compatibility wrapper for the existing gated prototype; this never mutates
 // the model tier or score. App.tsx applies min-caps only on explicit activation.
 export function selectAuralisSpectralTrialCap(
