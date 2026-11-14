@@ -4399,6 +4399,8 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
   const context={performance,Date,JSON,Float32Array,NativeWorker,InstrumentedWorker,
     globalThis:{Worker:NativeWorker},pilotRunning:false,pilotStopped:false,pilotReports:[],
     pilotCompletedFiles:new Set(),pilotStatus,
+    pilotIdentityMode:{checked:false,disabled:false},pilotSessionIdentityMode:null,
+    frozenIdentityFiles:[],
     pilotReference:{value:"",replaceChildren(){},add(){}},pilotComparison:{textContent:""},
     Option:class Option{},
     pilotFile:input,pilotButton:buttons[0],runButton:buttons[1],profileButton:buttons[2],
