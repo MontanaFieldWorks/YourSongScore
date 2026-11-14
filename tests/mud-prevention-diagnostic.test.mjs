@@ -292,6 +292,99 @@ function asSyntheticWorkerProfile(diagnostic){
   delete profile.bands;
 }
 
+test("Stage 3D-3 synthetic-only paired shadow decision distinguishes candidate from applied",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const e=ratio=>({
+    schemaVersion:m.AURALIS_ENGINEERING_ADAPTER_VERSION,scoringImpact:"NONE",
+    scoringAdapter:{status:m.AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+    metrics:{lowToUpperDb:ratio}
+  });
+  const trusted=e=>m.classifyAuralisExecution("AVAILABLE",e);
+  const reference=e(-2.2945),candidate=e(1.3561);
+  const ctx={
+    evidenceScope:"SYNTHETIC_VERIFIED_FIXTURE_ONLY",
+    referenceExecution:trusted(reference),candidateExecution:trusted(candidate),
+    pairLineage:{sourceIdentity:"VERIFIED_SYNTHETIC",sameSource:true,alignedExcerpt:true},
+    independentDefect:"CONFIRMED",artisticIntent:"REVIEWED_NOT_INTENTIONAL",
+    shadowPolicyAuthorized:true,existingFinalScore:88,existingLegacyCap:null
+  };
+  const frozen=JSON.stringify({reference,candidate,ctx});
+  const eligible=m.recordAuralisPairedSpectralShadowDecision(reference,candidate,ctx);
+  assert.deepEqual([eligible.status,eligible.reason,eligible.deltaDb,
+    eligible.candidateCap,eligible.hypotheticalSpectralScore,
+    eligible.appliedCap,eligible.appliedScoreChange,eligible.scoringImpact],
+    ["ELIGIBLE_SHADOW_ONLY","ELIGIBLE_SHADOW_ONLY",3.6506,79,79,null,0,"NONE"]);
+  assert.deepEqual(eligible.adjustments,[]);
+  assert.equal(eligible.existingFinalScore,88);
+  assert.equal(ctx.existingFinalScore,88,"No score was mutated");
+  assert.equal(JSON.stringify({reference,candidate,ctx}),frozen,"No input mutation");
+  const just=m.recordAuralisPairedSpectralShadowDecision(e(-1.2607),e(2.7527),{
+    ...ctx,referenceExecution:trusted(e(-1.2607)),candidateExecution:trusted(e(2.7527)),
+    existingFinalScore:76,existingLegacyCap:76
+  });
+  assert.deepEqual([just.status,just.candidateCap,just.hypotheticalSpectralScore,
+    just.appliedCap,just.appliedScoreChange],
+    ["ELIGIBLE_SHADOW_ONLY",79,76,null,0],
+    "Existing legacy caps cannot be overridden or counted twice");
+  const clipped=m.recordAuralisPairedSpectralShadowDecision(
+    reference,e(-2.1592),{...ctx,candidateExecution:trusted(e(-2.1592))});
+  assert.equal(clipped.status,"INCONCLUSIVE");
+  assert.equal(clipped.reason,"NO_MATERIAL_PAIRED_CHANGE");
+  for(const ratio of [-.876361107963617,-.7319587694145789,
+    .7236573102012565,-1.9777095948352446]){
+    const master=e(ratio);
+    const x=m.recordAuralisPairedSpectralShadowDecision(master,master,{
+      ...ctx,referenceExecution:trusted(master),candidateExecution:trusted(master)});
+    assert.equal(x.candidateCap,null,"Frozen professional controls cannot be penalized");
+  }
+  const absent=m.recordAuralisPairedSpectralShadowDecision(reference,candidate);
+  assert.deepEqual([absent.status,absent.candidateCap],["UNAVAILABLE",null]);
+  const rejected=[
+    [{...ctx,evidenceScope:"ARCHIVED_UNVERIFIED"}, "PAIR_LINEAGE_UNVERIFIED"],
+    [{...ctx,pairLineage:{...ctx.pairLineage,sourceIdentity:"UNVERIFIED"}},
+      "PAIR_LINEAGE_UNVERIFIED"],
+    [{...ctx,pairLineage:{...ctx.pairLineage,alignedExcerpt:false}},
+      "PAIR_LINEAGE_UNVERIFIED"],
+    [{...ctx,pairLineage:{...ctx.pairLineage,sameSource:false}},
+      "PAIR_LINEAGE_UNVERIFIED"],
+    [{...ctx,independentDefect:"UNKNOWN"},"INDEPENDENT_DEFECT_UNCONFIRMED"],
+    [{...ctx,independentDefect:"NOT_CONFIRMED"},"INDEPENDENT_DEFECT_UNCONFIRMED"],
+    [{...ctx,artisticIntent:"UNKNOWN"},"ARTISTIC_INTENT_UNRESOLVED"],
+    [{...ctx,shadowPolicyAuthorized:false},"PAIRED_CHANGE_DESCRIPTIVE_ONLY"],
+    [{...ctx,existingFinalScore:101},"UNVERIFIED_EXISTING_SCORE_LINEAGE"],
+    [{...ctx,existingFinalScore:88,existingLegacyCap:76},
+      "UNVERIFIED_EXISTING_SCORE_LINEAGE"],
+    [{...ctx,referenceExecution:{...ctx.referenceExecution,status:"UNAVAILABLE"}},
+      "MISSING_VALIDATED_WORKER_EVIDENCE"],
+  ];
+  for(const [context,reason] of rejected){
+    const x=m.recordAuralisPairedSpectralShadowDecision(reference,candidate,context);
+    assert.equal(x.reason,reason);
+    assert.equal(x.candidateCap,null);
+    assert.equal(x.appliedCap,null);
+    assert.equal(x.appliedScoreChange,0);
+    assert.deepEqual(x.adjustments,[]);
+  }
+  const intentional=m.recordAuralisPairedSpectralShadowDecision(reference,candidate,
+    {...ctx,artisticIntent:"INTENTIONAL"});
+  assert.deepEqual([intentional.status,intentional.reason,intentional.candidateCap],
+    ["INTENTIONAL_STYLE","INTENTIONAL_STYLE",null]);
+  for(const corrupt of [null,e(Infinity),{...reference,scoringImpact:"SCORED"},
+    {...reference,scoringAdapter:{status:"ENABLED",adjustments:[]}}]){
+    const x=m.recordAuralisPairedSpectralShadowDecision(corrupt,candidate,ctx);
+    assert.equal(x.status,"UNAVAILABLE");
+    assert.equal(x.candidateCap,null);
+  }
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  const display=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  for(const code of [app,server,display])
+    assert.doesNotMatch(code,/recordAuralisPairedSpectralShadowDecision/,
+      "Shadow record must remain disconnected from production and export");
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \| null = null/);
+});
+
 test("Stage 3D-2A reconciles existing caps without new numeric policies or writes",async()=>{
   // Synthetic data only: no song fixture or genre-specific spectral threshold.
   const edges=[20,60,250,500,2000,6000,11000,20000];
