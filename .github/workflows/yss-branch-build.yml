@@ -21,4 +21,4 @@ jobs:
         continue-on-error: true
       - name: Run regression tests
         run: |
-          if ls tests/*.test.mjs >/dev/null 2>&1; then node --test tests/*.test.mjs; fi
+          if ls tests/*.test.mjs >/dev/null 2>&1; then node --test --test-concurrency=1 tests/*.test.mjs; fi

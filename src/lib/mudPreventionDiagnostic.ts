@@ -167,19 +167,51 @@ export function prepareAuralisEngineeringEvidence(diagnostic: unknown): {
      p?.sampleRate !== profile.sampleRate ||
      p?.channelCount !== profile.channelCount ||
      ![1,2].includes(p?.channelCount) ||
-     !Array.isArray(profile?.bands) || profile.bands.length !== 7 ||
-     profile?.window !== undefined && profile.window !== "periodic-hann")
+     p?.window !== "periodic-hann" ||
+     profile?.method !== "stage2a-hann-fft-power-v1" ||
+     p?.fftSize !== 4096 || p?.hopSize !== 2048 ||
+     profile?.fftSize !== p.fftSize || profile?.hopSize !== p.hopSize ||
+     profile?.inputSampleCount !== p.inputSampleCount ||
+     profile?.representedSampleCount !== p.representedSampleCount ||
+     profile?.omittedTrailingSampleCount !== p.omittedTrailingSampleCount ||
+     profile?.zeroPaddedSampleCount !== p.zeroPaddedSampleCount ||
+     profile?.frames !== (p.inputSampleCount < 4096 ? 1 :
+       1 + Math.floor((p.inputSampleCount - 4096) / 2048)))
     return null;
+  // Use the actual Stage2j1SpectralProfile Worker contract: channel-major
+  // seven-band power, not the legacy summary's band-major bands[] objects.
   const edges = [20,60,250,500,2000,6000,11000,20000];
-  const power: number[] = [];
-  for(let i=0;i<7;i++){
-    const band = profile.bands[i];
-    if(band?.status !== "AVAILABLE" || band?.bandHz?.[0] !== edges[i] ||
-       band?.bandHz?.[1] !== edges[i+1] ||
-       !Array.isArray(band.channelPower) || band.channelPower.length !== p.channelCount ||
-       band.channelPower.some((v: unknown) => typeof v !== "number" || !Number.isFinite(v) || v < 0))
+  const validPower = (value:unknown):value is number =>
+    typeof value === "number" && Number.isFinite(value) && value >= 0;
+  if(!Array.isArray(profile.bandEdgesHz) ||
+     profile.bandEdgesHz.length !== edges.length ||
+     profile.bandEdgesHz.some((edge:unknown,i:number)=>edge !== edges[i]) ||
+     !Array.isArray(profile.channelBandPower) ||
+     profile.channelBandPower.length !== p.channelCount ||
+     !Array.isArray(profile.channelUnassignedPower) ||
+     profile.channelUnassignedPower.length !== p.channelCount ||
+     !Array.isArray(profile.channelTotalPower) ||
+     profile.channelTotalPower.length !== p.channelCount ||
+     !Array.isArray(d.evidence?.bands) || d.evidence.bands.length !== 2)
+    return null;
+  const power = Array<number>(7).fill(0);
+  for(let ch=0;ch<p.channelCount;ch++){
+    const bands = profile.channelBandPower[ch];
+    const unassigned = profile.channelUnassignedPower[ch];
+    const total = profile.channelTotalPower[ch];
+    if(!Array.isArray(bands) || bands.length !== 7 ||
+       !bands.every(validPower) || !validPower(unassigned) ||
+       !validPower(total) ||
+       !Number.isFinite(bands.reduce((sum:number,v:number)=>sum+v,unassigned)) ||
+       Math.abs(bands.reduce((sum:number,v:number)=>sum+v,unassigned)-total) >
+         1e-8*Math.max(1,total) ||
+       bands[0] !== d.evidence.bands[0]?.spectralChannelPower?.[ch] ||
+       bands[1] !== d.evidence.bands[1]?.spectralChannelPower?.[ch])
       return null;
-    power.push(band.channelPower.reduce((a: number,b: number)=>a+b,0)/p.channelCount);
+    for(let i=0;i<7;i++){
+      if(edges[i]>=profile.sampleRate/2 && bands[i]!==0)return null;
+      power[i] += bands[i]/p.channelCount;
+    }
   }
   const upper = power[3]+power[4]+power[5]+power[6];
   if(power[1] <= 1e-12 || upper <= 1e-12)return null;
