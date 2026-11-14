@@ -4399,6 +4399,8 @@ test("Stage 2I-2 local song pilot bounds decoded PCM and emits only compact diag
   const context={performance,Date,JSON,Float32Array,NativeWorker,InstrumentedWorker,
     globalThis:{Worker:NativeWorker},pilotRunning:false,pilotStopped:false,pilotReports:[],
     pilotCompletedFiles:new Set(),pilotStatus,
+    pilotIdentityMode:{checked:false,disabled:false},pilotSessionIdentityMode:null,
+    frozenIdentityFiles:[],
     pilotReference:{value:"",replaceChildren(){},add(){}},pilotComparison:{textContent:""},
     Option:class Option{},
     pilotFile:input,pilotButton:buttons[0],runButton:buttons[1],profileButton:buttons[2],
@@ -5045,6 +5047,41 @@ test("Stage 3D-2L-1 identity capture stays default-off without affecting Stage 3
 });
 
 
+test("Stage 3D-2L frozen real-file identity mode is opt-in, manifest-bound and score inert",async()=>{
+  const h=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  assert.match(h,/id="pilotIdentityMode" type="checkbox"/);
+  assert.match(h,/pilotSessionIdentityMode!==null&&pilotSessionIdentityMode!==identityMode/);
+  assert.match(h,/pilotReports\.length>=4/);
+  assert.match(h,/file\.name!==frozen\.name\|\|file\.size!==frozen\.bytes/);
+  assert.match(h,/verifiedEncoded\.encodedSha256===frozen\.sha256/);
+  assert.match(h,/verifiedEncoded\.sourceSampleRate===frozen\.rate/);
+  assert.match(h,/identityMode\?Promise\.resolve\(verifiedEncoded\):undefined/);
+  assert.match(h,/i\.decodedChannelSha256\.every\(\(hash,index\)=>/);
+  assert.match(h,/hash===i\.workerChannelSha256\[index\]/);
+  assert.match(h,/rateRelationship:i\.rateRelationship/);
+  assert.match(h,/pairedExcerptAlignment:"MANIFEST_DERIVED_NOT_INDEPENDENTLY_VERIFIED"/);
+  assert.match(h,/historicalStage2NSourceIdentity:"UNVERIFIED"/);
+  assert.match(h,/independentTechnicalDefect:"UNKNOWN",artisticIntent:"UNKNOWN"/);
+  assert.match(h,/candidateCap:null,appliedCap:null/);
+  assert.match(h,/maxEncodedMiB:24,maxDecodedPcmMiB:128/);
+  assert.match(h,/workerTimeoutMs:30000,sequential:true,stopOnFirstFailure:true,/);
+  const frozen=[
+    ["carry-on-01-reference.wav","7a61db814087ef280c05f7db99095f74c4deb30b954c7756ee685cd8cc9f2d61",48000,1440000],
+    ["carry-on-03-muddy-dark.wav","19526bc02de79cbc3690357f5e1ae720f11999e95739a7b99358900f39448799",48000,1440000],
+    ["just-me-and-you-01-reference.wav","134308d1a9b602bd68d14f90b8e6e80db20038ee0a5ecba75b6faef966a428b8",44100,1323000],
+    ["just-me-and-you-03-muddy-dark.wav","f953ffa14f69be8ec525543aa373cb01806544863dd60f226825bafa1f8deff6",44100,1323000],
+  ];
+  for(const [name,sha,rate,frames] of frozen){
+    assert.ok(h.includes('name:"'+name+'",sha256:"'+sha+'"'));
+    assert.ok(h.includes("rate:"+rate+",frames:"+frames));
+    assert.match(sha,/^[a-f0-9]{64}$/);
+  }
+  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \| null = null;/);
+});
+
 test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle and honest memory", {timeout:180000}, async t=>{
   const {spawn,execFileSync}=await import("node:child_process");
   const {mkdtempSync,rmSync,existsSync}=await import("node:fs");
@@ -5164,6 +5201,42 @@ test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle a
     assert.equal(outcome.workerPeakBytes,null);
     assert.equal(outcome.processPeakBytes,null);
     assert.equal(outcome.exclusiveWorkerCpuMs,null);
+    // Real harness opt-in: a generated synthetic WAV carrying a frozen file
+    // name and exact byte length must be REJECTED on encoded SHA-256 mismatch,
+    // before the diagnostic Worker can be launched. No user audio is opened.
+    const syntheticRejection=await evaluate(`(async()=>{
+      const input=document.querySelector('#pilotFile');
+      const box=document.querySelector('#pilotIdentityMode');
+      if(!input||!box||box.checked||box.disabled)throw Error("Identity opt-in not initially ready");
+      box.checked=true;
+      const size=11520056;
+      const wav=new ArrayBuffer(size),v=new DataView(wav);
+      const tag=(at,str)=>{for(let i=0;i<str.length;i++)v.setUint8(at+i,str.charCodeAt(i));};
+      tag(0,'RIFF');v.setUint32(4,size-8,true);tag(8,'WAVE');
+      tag(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,3,true);
+      v.setUint16(22,2,true);v.setUint32(24,48000,true);
+      v.setUint32(28,384000,true);v.setUint16(32,8,true);v.setUint16(34,32,true);
+      tag(36,'fact');v.setUint32(40,4,true);v.setUint32(44,1440000,true);
+      tag(48,'data');v.setUint32(52,11520000,true);
+      const file=new File([wav],'carry-on-01-reference.wav',{type:'audio/wav'});
+      const transfer=new DataTransfer();transfer.items.add(file);input.files=transfer.files;
+      document.querySelector('#pilot').click();
+      const limit=Date.now()+12000;
+      while(Date.now()<limit){
+        const report=JSON.parse(document.querySelector('#result').textContent);
+        if(report.status==='FAIL')return {error:report.error,completedFiles:report.completedFiles,
+          hasHash:JSON.stringify(report).includes('decodedChannelSha256'),
+          state:document.querySelector('#pilotStatus').textContent};
+        await new Promise(r=>setTimeout(r,100));
+      }
+      throw Error("Synthetic bad-hash fixture did not stop");
+    })()`);
+    const rejection=syntheticRejection;
+    assert.match(rejection.error,/MANIFEST_SHA256_OR_WAV_HEADER_MISMATCH/);
+    assert.equal(rejection.completedFiles,0);
+    assert.equal(rejection.hasHash,false);
+    assert.match(rejection.state,/FAIL — STOPPED/);
+
     const rows=verified.map(c=>({durationSeconds:c.seconds,rateHz:c.sampleRate,
       channels:c.channels,pcmMiB:Math.round(c.pcmBytes/1048576*100)/100,
       wallMs:c.elapsedMs,
