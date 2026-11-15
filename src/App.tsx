@@ -4,7 +4,7 @@ import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile, InternalBatchResult } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
 import type { AuralisEncodedSourceIdentity } from "./lib/liveAudioAnalyzer";
-import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow } from "./lib/mudPreventionDiagnostic";
+import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow, resolveAuralisReviewedRealShadowContext, planAuralisReviewed79ScoreIntegration } from "./lib/mudPreventionDiagnostic";
 
 // Disabled by default: internal opt-in diagnostic computation only, no report/scoring data.
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
@@ -17,6 +17,8 @@ const STAGE3D2L1_IDENTITY_ENABLED = false;
 // reference distribution to set an explicit threshold before score authority.
 const AURALIS_SPECTRAL_TRIAL_ENABLED = false;
 const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number | null = null;
+// Stage 3F-5 integrates trusted review in shadow only: no executor installed.
+const AURALIS_REVIEWED_79_SCORING_ENABLED = false;
 import { analyzeAudioBufferInWorker, analyzeEngineeringDiagnosticsInWorker } from "./lib/batchAudioWorker";
 import { computeMixBalanceScore, isMudDiagnosticCritique, markMudPreventionDiagnosticOnly, prepareAuralisEngineeringEvidence, assessAuralisSpectralTrialEvidence, classifyAuralisExecution, resolveAuralisExecutionForReport } from "./lib/mudPreventionDiagnostic";
 import { captureA2BeforeClient, captureA2AfterClient, captureA2BrowserUnavailable, captureA2SpectralAfterBrowserMix, captureA2SpectralAfterFinish } from "./lib/a2ScoringProvenance";
@@ -1534,12 +1536,25 @@ export default function App() {
       // corrections and A2 snapshots. Never change a score, cap or model tier.
       (overriddenCritique as any).auralisBetaScoringAudit =
         buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore);
-      // Stage 3F-1/3F-3: shadow observation only. No synthetic policy or
-      // independently verified real-recording review is supplied here.
-      // Never grant scoring authority from an ordinary upload or reviewer flag.
-      (overriddenCritique as any).auralisStage3F1SpectralShadow =
-        evaluateAuralisStage3F1SpectralShadow(
-          overriddenCritique, (overriddenCritique as any).auralisBetaScoringAudit);
+      // Stage 3F-5: the server may return an operator-owned, exact-upload
+      // review policy. Reconcile it with private per-upload encoded identity
+      // and the validated Worker PCM chain. Do not store hashes, reviewer IDs
+      // or the server approval record in critique/report/locker output.
+      const encodedIdentity = auralisEncodedIdentity
+        ? await auralisEncodedIdentity : null;
+      const reviewedContext = resolveAuralisReviewedRealShadowContext(
+        data.auralisReviewedRecordingPolicy, encodedIdentity,
+        (overriddenCritique as any).auralisBetaScoringAudit);
+      const reviewedShadow = evaluateAuralisStage3F1SpectralShadow(
+        overriddenCritique,(overriddenCritique as any).auralisBetaScoringAudit,
+        reviewedContext ?? undefined);
+      (overriddenCritique as any).auralisStage3F1SpectralShadow = reviewedShadow;
+      // A downstream-safe projection, NOT a score mutation. A separate
+      // authorization and scoring-order implementation is required to activate.
+      (overriddenCritique as any).auralisStage3F5IntegrationPlan =
+        planAuralisReviewed79ScoreIntegration(
+          overriddenCritique,(overriddenCritique as any).auralisBetaScoringAudit,
+          reviewedShadow,AURALIS_REVIEWED_79_SCORING_ENABLED);
 
       if (overriddenCritique.liveMetrics) {
         renderAnalysisImages(overriddenCritique.liveMetrics);
