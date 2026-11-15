@@ -4,7 +4,7 @@ import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile, InternalBatchResult } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
 import type { AuralisEncodedSourceIdentity } from "./lib/liveAudioAnalyzer";
-import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow, resolveAuralisReviewedRealShadowContext, planAuralisReviewed79ScoreIntegration } from "./lib/mudPreventionDiagnostic";
+import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow, resolveAuralisReviewedRealShadowContext, planAuralisReviewed79ScoreIntegration, executeAuralisReviewed79Score } from "./lib/mudPreventionDiagnostic";
 
 // Disabled by default: internal opt-in diagnostic computation only, no report/scoring data.
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
@@ -1555,6 +1555,15 @@ export default function App() {
         planAuralisReviewed79ScoreIntegration(
           overriddenCritique,(overriddenCritique as any).auralisBetaScoringAudit,
           reviewedShadow,AURALIS_REVIEWED_79_SCORING_ENABLED);
+      // Stage 3F-6: one final-score executor call, AFTER the trusted review
+      // audit and BEFORE the report/Locker consume the critique. The hardcoded
+      // false switch means this currently records DISABLED with no mutation.
+      // A2 canonical and pre-Auralis snapshots remain historical evidence.
+      (overriddenCritique as any).auralisStage3F6Execution =
+        executeAuralisReviewed79Score(
+          overriddenCritique,(overriddenCritique as any).auralisBetaScoringAudit,
+          reviewedShadow,(overriddenCritique as any).auralisStage3F5IntegrationPlan,
+          AURALIS_REVIEWED_79_SCORING_ENABLED);
 
       if (overriddenCritique.liveMetrics) {
         renderAnalysisImages(overriddenCritique.liveMetrics);
