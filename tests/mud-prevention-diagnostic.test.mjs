@@ -1014,8 +1014,9 @@ test("Stage 3F-1 duplicate old caps and absent effects always abstain from new c
   assert.equal(x.appliedScoreChange,0);
   assert.deepEqual(x.adjustments,[]);
   const absent=fixture(93,null,[]);
-  assert.equal(evaluateAuralisStage3F1SpectralShadow(absent.c,absent.audit,synthetic).status,
-    "SYNTHETIC_HYPOTHETICAL_ONLY");
+  const noCorroboration=evaluateAuralisStage3F1SpectralShadow(absent.c,absent.audit,synthetic);
+  assert.deepEqual([noCorroboration.status,noCorroboration.reason,noCorroboration.candidateCap],
+    ["EVIDENCE_ONLY","NO_INDEPENDENT_DSP_CORROBORATION",null]);
   const historical={...audit,sourceIdentity:"UNVERIFIED",scoreLineage:"UNVERIFIED"};
   assert.equal(evaluateAuralisStage3F1SpectralShadow(c,historical,synthetic).status,"ABSTAIN");
 });
@@ -1032,5 +1033,8 @@ test("Stage 3F-1 app remains score-inert and carries no real-world activation po
     app.indexOf("setCritiqueResult({"));
   assert.doesNotMatch(app,/SYNTHETIC_VERIFIED_FIXTURE_ONLY/);
   assert.doesNotMatch(server,/evaluateAuralisStage3F1SpectralShadow/);
-  assert.doesNotMatch(lib,/function evaluateAuralisStage3F1SpectralShadow[\\s\\S]*?metric\.score\\s*=/);
+  const gateSource=lib.slice(lib.indexOf("export function evaluateAuralisStage3F1SpectralShadow("),
+    lib.indexOf("// Compatibility wrapper for the existing gated prototype;"));
+  assert.doesNotMatch(gateSource,/metric\\.score\\s*=/);
+  assert.doesNotMatch(gateSource,/scoringImpact:.*"CANDIDATE_ONLY"/);
 });
