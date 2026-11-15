@@ -1519,6 +1519,10 @@ export default function App() {
         (overriddenCritique as any).auralisEngineering = auralisEvidence.engineering;
       if(auralisEvidence?.sourceLineage)
         (overriddenCritique as any).auralisSourceLineage = auralisEvidence.sourceLineage;
+      // Capture the post-server, pre-browser Gemini-derived numeric score.
+      // This is not necessarily the uncapped canonical Gemini tier.
+      const serverReturnedSpectralScore =
+        overriddenCritique.subMetricsCall1?.spectralMatch?.score;
       if (liveMetrics) {
         overriddenCritique.liveMetrics = liveMetrics;
         applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
@@ -1529,7 +1533,7 @@ export default function App() {
       // Stage 3E: freeze observations only AFTER the existing browser score
       // corrections and A2 snapshots. Never change a score, cap or model tier.
       (overriddenCritique as any).auralisBetaScoringAudit =
-        buildAuralisBetaScoringAudit(overriddenCritique);
+        buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore);
 
       if (overriddenCritique.liveMetrics) {
         renderAnalysisImages(overriddenCritique.liveMetrics);
