@@ -1185,3 +1185,101 @@ test("Stage 3F-5 upload trust boundary is server controlled and activation OFF",
   assert.ok(app.indexOf("planAuralisReviewed79ScoreIntegration(")<
     app.indexOf("setCritiqueResult({"));
 });
+
+test("Stage 3F-6 executor is OFF by default and never rewrites historical A2 evidence",async()=>{
+  const {executeAuralisReviewed79Score,planAuralisReviewed79ScoreIntegration,
+    AURALIS_REVIEWED_79_EXECUTION_VERSION}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const fixture=()=>{
+    const c={
+      subMetricsCall1:{spectralMatch:{score:82,applicable:true,commentary:"Gemini's artistic analysis."},
+        dynamicVariety:{score:88}},
+      subMetricsCall3:{compositionFlowSubs:{hookPlacement:{score:90},
+        sectionalContrast:{score:88}}},
+      mixBalanceEvidence:{spectralCap:82,signals:["signal one","signal two"]},
+      scores:{commercialReadiness:89,overallProduction:93},
+      a2ScoringProvenance:{spectralMatch:{canonicalMappedScore:93}},
+    };
+    const a={scoreLineage:"A2_RECONCILED",scoringImpact:"NONE",adjustments:[],
+      appliedCap:null,appliedScoreChange:0,
+      geminiMappedSpectralScore:93,serverReturnedSpectralScore:93,
+      observedFinalSpectralScore:82,observedCommercialReadiness:89,legacyDspCap:82};
+    const shadow={status:"REAL_REVIEW_HYPOTHETICAL_ONLY",
+      reason:"REVIEWED_REAL_SHADOW_NOT_ACTIVATION",scoringImpact:"NONE",
+      adjustments:[],appliedCap:null,appliedScoreChange:0,candidateCap:79,
+      existingFinalScore:82,existingLegacyCap:82,
+      hypotheticalSpectralScore:79,hypotheticalCommercialReadiness:88,
+      hypotheticalReadinessDelta:-1};
+    c.auralisBetaScoringAudit=a;
+    c.auralisStage3F1SpectralShadow=shadow;
+    const plan=planAuralisReviewed79ScoreIntegration(c,a,shadow,false);
+    assert.equal(plan.status,"PROJECTION_ONLY");
+    return {c,a,shadow,plan};
+  };
+  const {c,a,shadow,plan}=fixture();
+  const before=structuredClone({c,a,shadow,plan});
+  const disabled=executeAuralisReviewed79Score(c,a,shadow,plan,false);
+  assert.deepEqual({c,a,shadow,plan},before);
+  assert.deepEqual([disabled.status,disabled.reason,disabled.scoringImpact,
+    disabled.appliedScoreChange,disabled.appliedCap],["DISABLED","ACTIVATION_OFF","NONE",0,null]);
+  const applied=executeAuralisReviewed79Score(c,a,shadow,plan,true);
+  assert.equal(applied.version,AURALIS_REVIEWED_79_EXECUTION_VERSION);
+  assert.deepEqual([applied.status,applied.scoringImpact,applied.appliedCap,
+    applied.appliedScoreChange,applied.beforeSpectralScore,applied.afterSpectralScore,
+    applied.beforeCommercialReadiness,applied.afterCommercialReadiness,
+    applied.preAuralisScoreLineage],
+    ["APPLIED","DOWNWARD_ONLY",79,-3,82,79,89,88,"A2_RECONCILED"]);
+  assert.equal(c.subMetricsCall1.spectralMatch.score,79);
+  assert.match(c.subMetricsCall1.spectralMatch.commentary,/Gemini's artistic analysis\./);
+  assert.match(c.subMetricsCall1.spectralMatch.commentary,/operator-reviewed/);
+  assert.equal(c.scores.commercialReadiness,88);
+  assert.equal(c.scores.overallProduction,93);
+  assert.equal(c.mixBalanceEvidence.spectralCap,82);
+  assert.deepEqual(a,before.a,"A2 audit must describe the original pre-Auralis result");
+  assert.deepEqual(shadow,before.shadow,"shadow must stay a pre-Auralis hypothesis");
+  assert.deepEqual(c.a2ScoringProvenance,before.c.a2ScoringProvenance);
+  assert.deepEqual(c.auralisStage3F6Execution,applied,"separate overlay tracks the applied change");
+  const repeat=executeAuralisReviewed79Score(c,a,shadow,plan,true);
+  assert.equal(repeat.status,"ABSTAIN");
+  assert.equal(repeat.appliedScoreChange,0,"must not double apply");
+  assert.equal(c.subMetricsCall1.spectralMatch.score,79);
+  assert.equal(c.scores.commercialReadiness,88);
+
+  for(const tamper of [
+    ({c,a})=>{a.scoreLineage="UNVERIFIED";},
+    ({c})=>{c.scores.commercialReadiness=90;},
+    ({c})=>{c.mixBalanceEvidence.spectralCap=76;},
+    ({c})=>{c.subMetricsCall1.dynamicVariety.score=87;},
+    ({c})=>{c.subMetricsCall1.spectralMatch.score=76;},
+    ({shadow})=>{shadow.candidateCap=null;},
+    ({plan})=>{plan.hypotheticalCommercialReadiness=90;},
+    ({c})=>{c.auralisStage3F6Execution={status:"FORGED"};},
+    ({c})=>{c.auralisStage3F1SpectralShadow={status:"FORGED"};},
+    ({c})=>{c.auralisBetaScoringAudit={scoreLineage:"FORGED"};},
+  ]){
+    const f=fixture();tamper(f);
+    const original=structuredClone(f.c);
+    const denied=executeAuralisReviewed79Score(f.c,f.a,f.shadow,f.plan,true);
+    assert.deepEqual([denied.status,denied.scoringImpact,denied.appliedCap,
+      denied.appliedScoreChange],["ABSTAIN","NONE",null,0]);
+    assert.deepEqual(f.c,original,"invalid trial must leave all score data unchanged");
+  }
+});
+
+test("Stage 3F-6 live execution remains disabled and appears after audit before reporting",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const lib=await readFile(new URL("../src/lib/mudPreventionDiagnostic.ts",import.meta.url),"utf8");
+  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \\| null = null;/);
+  const audit=app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)");
+  const shadow=app.indexOf("evaluateAuralisStage3F1SpectralShadow(");
+  const executor=app.indexOf("executeAuralisReviewed79Score(");
+  const output=app.indexOf("setCritiqueResult({");
+  assert.ok(audit>=0 && audit<shadow && shadow<executor && executor<output);
+  assert.match(app,/reviewedShadow,AURALIS_REVIEWED_79_SCORING_ENABLED\)/);
+  const source=lib.slice(lib.indexOf("export function executeAuralisReviewed79Score("),
+    lib.indexOf("// Stage 3F-1/3F-3: current-upload evidence audit"));
+  assert.match(source,/if\(scoringEnabled!==true\)return result\("DISABLED","ACTIVATION_OFF"\)/);
+  assert.doesNotMatch(source,/fetch\(|api\/|process\.env|GEMINI_API_KEY/);
+});
