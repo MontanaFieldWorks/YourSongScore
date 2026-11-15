@@ -639,6 +639,99 @@ export function buildAuralisBetaScoringAudit(critique: unknown, serverReturnedSp
   };
 }
 
+// Stage 3F-5: a lean-beta operator-controlled reviewed-recording policy.
+// A review is trusted ONLY when loaded by the server from private configuration,
+// never from upload fields, model commentary, an Excel report or browser input.
+// This is not a generic review workflow or a scoring activation token.
+export const AURALIS_REVIEW_POLICY_VERSION = "auralis-reviewed-sha256-v1" as const;
+export type AuralisOperatorReview = {
+  version:typeof AURALIS_REVIEW_POLICY_VERSION;
+  sourceSha256:string;
+  reviewerId:string;
+  independentDefect:"CONFIRMED_REVIEWED_REAL";
+  artisticIntent:"REVIEWED_NOT_INTENTIONAL_REAL";
+};
+export function validateAuralisOperatorReviewPolicy(
+  configured:unknown, uploadedSha256:unknown,
+):AuralisOperatorReview|null {
+  const v=configured as any;
+  const sha=(s:unknown):s is string=>
+    typeof s==="string"&&/^[a-f0-9]{64}$/.test(s);
+  if(!sha(uploadedSha256)||v===null||typeof v!=="object"||
+     Array.isArray(v)||v.version!==AURALIS_REVIEW_POLICY_VERSION||
+     !sha(v.sourceSha256)||v.sourceSha256!==uploadedSha256||
+     typeof v.reviewerId!=="string"||!/^[-a-zA-Z0-9_.]{3,64}$/.test(v.reviewerId)||
+     v.independentDefect!=="CONFIRMED_REVIEWED_REAL"||
+     v.artisticIntent!=="REVIEWED_NOT_INTENTIONAL_REAL"||
+     Object.keys(v).sort().join(",")!==
+       "artisticIntent,independentDefect,reviewerId,sourceSha256,version")
+    return null;
+  return {version:AURALIS_REVIEW_POLICY_VERSION,sourceSha256:v.sourceSha256,
+    reviewerId:v.reviewerId,independentDefect:"CONFIRMED_REVIEWED_REAL",
+    artisticIntent:"REVIEWED_NOT_INTENTIONAL_REAL"};
+}
+// This checks a trusted server-issued decision against the *current* local
+// source digest and Worker PCM chain. It never accepts a browser review flag.
+// Current identity collection remains OFF until separately authorized.
+export function resolveAuralisReviewedRealShadowContext(
+  serverReview:unknown,
+  encodedIdentity:unknown,
+  audit:unknown,
+):{
+  evidenceScope:"REVIEWED_REAL_RECORDING_SHADOW_ONLY";
+  sourceIdentity:"CURRENT_UPLOAD_PCM_VERIFIED";
+  sameSourceAligned:false;
+  independentDefect:"CONFIRMED_REVIEWED_REAL";
+  artisticIntent:"REVIEWED_NOT_INTENTIONAL_REAL";
+  reviewEvidence:"EXTERNAL_REVIEW_RECORD_ASSERTED";
+}|null {
+  const e=encodedIdentity as any,a=audit as any;
+  if(e?.status!=="VERIFIED"||
+     typeof e.encodedSha256!=="string"||
+     a?.sourceIdentity!=="CURRENT_UPLOAD_PCM_VERIFIED"||
+     !validateAuralisOperatorReviewPolicy(serverReview,e.encodedSha256))
+    return null;
+  return {evidenceScope:"REVIEWED_REAL_RECORDING_SHADOW_ONLY",
+    sourceIdentity:"CURRENT_UPLOAD_PCM_VERIFIED",sameSourceAligned:false,
+    independentDefect:"CONFIRMED_REVIEWED_REAL",
+    artisticIntent:"REVIEWED_NOT_INTENTIONAL_REAL",
+    reviewEvidence:"EXTERNAL_REVIEW_RECORD_ASSERTED"};
+}
+// A scoring-order-safe, read-only projection. Stage 3F-5 does not install an
+// executor: actual scoring activation must separately reconcile the existing
+// A2 final snapshot, parent score, reports and downstream scores.
+export function planAuralisReviewed79ScoreIntegration(
+  critique:unknown, audit:unknown, shadow:unknown, scoringEnabled:boolean,
+){
+  const c=critique as any,a=audit as any,s=shadow as any;
+  const inert=(status:string,reason:string)=>({
+    status,reason,scoringImpact:"NONE" as const,adjustments:[] as [],
+    appliedCap:null,appliedScoreChange:0,
+    hypotheticalSpectralScore:null as number|null,
+    hypotheticalCommercialReadiness:null as number|null,
+  });
+  if(scoringEnabled!==false)
+    return inert("BLOCKED","ACTIVATION_NOT_IMPLEMENTED");
+  if(s?.status!=="REAL_REVIEW_HYPOTHETICAL_ONLY"||
+     s.reason!=="REVIEWED_REAL_SHADOW_NOT_ACTIVATION"||
+     s.scoringImpact!=="NONE"||s.appliedCap!==null||
+     s.appliedScoreChange!==0||!Array.isArray(s.adjustments)||
+     s.adjustments.length!==0||s.candidateCap!==79||
+     a?.scoreLineage!=="A2_RECONCILED"||
+     c?.subMetricsCall1?.spectralMatch?.score!==s.existingFinalScore||
+     c?.scores?.commercialReadiness!==a.observedCommercialReadiness)
+    return inert("NOT_ELIGIBLE","NO_TRUSTED_RECONCILED_SHADOW_DECISION");
+  const score=s.hypotheticalSpectralScore,parent=s.hypotheticalCommercialReadiness;
+  if(typeof score!=="number"||!Number.isFinite(score)||score!==79||
+     typeof parent!=="number"||!Number.isInteger(parent)||
+     parent<0||parent>c.scores.commercialReadiness||
+     typeof s.hypotheticalReadinessDelta!=="number"||
+     s.hypotheticalReadinessDelta!==parent-c.scores.commercialReadiness)
+    return inert("BLOCKED","INVALID_READINESS_PROJECTION");
+  return {...inert("PROJECTION_ONLY","ACTIVATION_DISABLED"),
+    hypotheticalSpectralScore:score,hypotheticalCommercialReadiness:parent};
+}
+
 // Stage 3F-1/3F-3: current-upload evidence audit and score-inert hypothetical
 // Spectral Match decision. Never treats a tonal ratio as proof of a defect,
 // or a reviewer flag as verified real-song lineage. No production score authority.
