@@ -677,7 +677,7 @@ test("Stage 3E audit records current engineering observations after scoring with
     scores:{commercialReadiness:90},
   };
   const frozen=structuredClone(c);
-  const audit=buildAuralisBetaScoringAudit(c);
+  const audit=buildAuralisBetaScoringAudit(c,93);
   assert.deepEqual(c,frozen,"the audit must not mutate any input or score");
   assert.equal(audit.schemaVersion,AURALIS_BETA_SCORING_AUDIT_VERSION);
   assert.deepEqual([audit.status,audit.reason,audit.measurementDb],
@@ -686,6 +686,8 @@ test("Stage 3E audit records current engineering observations after scoring with
   assert.equal(audit.pairedSourceAlignment,"UNVERIFIED");
   assert.equal(audit.independentDefect,"UNKNOWN");
   assert.equal(audit.artisticIntent,"UNKNOWN");
+  assert.equal(audit.serverReturnedSpectralScore,93);
+  assert.equal(audit.serverReturnedScoreStatus,"CAPTURED_POST_SERVER_CAPS");
   assert.equal(audit.geminiMappedSpectralScore,93);
   assert.equal(audit.geminiScoreStatus,"A2_CANONICAL_CAPTURED");
   assert.equal(audit.legacyDspCap,82);
@@ -721,7 +723,9 @@ test("Stage 3E audit fails closed on missing/contradictory scoring lineage and u
     mixBalanceEvidence:{spectralCap:76},
     scores:{commercialReadiness:86},
   };
-  const untraced=buildAuralisBetaScoringAudit(base);
+  const untraced=buildAuralisBetaScoringAudit(base,88);
+  assert.equal(untraced.serverReturnedSpectralScore,88);
+  assert.equal(untraced.serverReturnedScoreStatus,"CAPTURED_POST_SERVER_CAPS");
   assert.deepEqual([untraced.status,untraced.geminiMappedSpectralScore,
     untraced.legacyDspCap,untraced.legacyCapApplied,untraced.scoreLineage],
     ["INCONCLUSIVE",null,76,null,"UNVERIFIED"]);
@@ -729,6 +733,7 @@ test("Stage 3E audit fails closed on missing/contradictory scoring lineage and u
   const missing=buildAuralisBetaScoringAudit({
     ...base,mixBalanceEvidence:{midrangeCap:72},
   });
+  assert.equal(missing.serverReturnedSpectralScore,null);
   assert.equal(missing.legacyCapStatus,"NOT_CAPTURED");
   assert.equal(missing.legacyDspCap,null);
   const wrong=buildAuralisBetaScoringAudit({
@@ -762,10 +767,12 @@ test("Stage 3E integration is post-scoring and retains disabled independent cap"
   const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \\| null = null;/);
-  assert.ok(app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique)") >
+  assert.ok(app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)") >
     app.indexOf("applyProductionFinishGuardrail(overriddenCritique, liveMetrics)"));
-  assert.ok(app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique)") <
+  assert.ok(app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)") <
     app.indexOf("setCritiqueResult({"));
+  assert.ok(app.indexOf("const serverReturnedSpectralScore =") <
+    app.indexOf("applyProductionFinishGuardrail(overriddenCritique, liveMetrics)"));
   assert.doesNotMatch(server,/buildAuralisBetaScoringAudit/);
   assert.doesNotMatch(app,/recordAuralisPairedSpectralShadowDecision/);
 });
