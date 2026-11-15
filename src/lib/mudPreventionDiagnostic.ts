@@ -639,13 +639,13 @@ export function buildAuralisBetaScoringAudit(critique: unknown, serverReturnedSp
   };
 }
 
-// Stage 3F-1: current-upload evidence audit and synthetic-only hypothetical
+// Stage 3F-1/3F-3: current-upload evidence audit and score-inert hypothetical
 // Spectral Match decision. Never treats a tonal ratio as proof of a defect,
 // or a reviewer flag as verified real-song lineage. No production score authority.
 export const AURALIS_STAGE3F1_SHADOW_VERSION = "auralis-stage3f1-spectral-shadow-v1" as const;
 export type AuralisStage3F1ShadowDecision = {
   schemaVersion:typeof AURALIS_STAGE3F1_SHADOW_VERSION;
-  status:"ABSTAIN"|"EVIDENCE_ONLY"|"SYNTHETIC_HYPOTHETICAL_ONLY";
+  status:"ABSTAIN"|"EVIDENCE_ONLY"|"SYNTHETIC_HYPOTHETICAL_ONLY"|"REAL_REVIEW_HYPOTHETICAL_ONLY";
   reason:string;
   measurementDb:number|null;
   existingFinalScore:number|null;
@@ -663,11 +663,15 @@ export type AuralisStage3F1ShadowDecision = {
 export function evaluateAuralisStage3F1SpectralShadow(
   critique:unknown, audit:unknown,
   context?:{
-    evidenceScope:"SYNTHETIC_VERIFIED_FIXTURE_ONLY";
-    sourceIdentity:"VERIFIED_SYNTHETIC";
+    evidenceScope:"SYNTHETIC_VERIFIED_FIXTURE_ONLY"|"REVIEWED_REAL_RECORDING_SHADOW_ONLY";
+    sourceIdentity:"VERIFIED_SYNTHETIC"|"CURRENT_UPLOAD_PCM_VERIFIED";
     sameSourceAligned:boolean;
-    independentDefect:"CONFIRMED_SYNTHETIC"|"UNKNOWN"|"NOT_CONFIRMED";
-    artisticIntent:"REVIEWED_NOT_INTENTIONAL_SYNTHETIC"|"INTENTIONAL"|"UNKNOWN";
+    independentDefect:"CONFIRMED_SYNTHETIC"|"CONFIRMED_REVIEWED_REAL"|"UNKNOWN"|"NOT_CONFIRMED";
+    artisticIntent:"REVIEWED_NOT_INTENTIONAL_SYNTHETIC"|"REVIEWED_NOT_INTENTIONAL_REAL"|"INTENTIONAL"|"UNKNOWN";
+    // This is an input assertion, NOT a verified authorization credential.
+    // No live App caller supplies reviewEvidence; scoring remains disabled.
+    reviewEvidence?:"EXTERNAL_REVIEW_RECORD_ASSERTED";
+
   },
 ):AuralisStage3F1ShadowDecision {
   const c=critique as any,a=audit as any;
@@ -740,19 +744,52 @@ export function evaluateAuralisStage3F1SpectralShadow(
   // No independent browser signal means no independent DSP corroboration.
   if(signals.length===0)
     return result("EVIDENCE_ONLY","NO_INDEPENDENT_DSP_CORROBORATION");
-  // Historical sourceIdentity UNVERIFIED is never elevated to real-world
-  // scoring eligibility. Real current uploads get EVIDENCE_ONLY even if their
-  // per-upload PCM is verified; pair alignment and intent are distinct facts.
-  if(context?.evidenceScope!=="SYNTHETIC_VERIFIED_FIXTURE_ONLY"||
-     context.sourceIdentity!=="VERIFIED_SYNTHETIC"||
-     context.sameSourceAligned!==true)
-    return result("EVIDENCE_ONLY","NO_INDEPENDENT_VERIFIED_PAIR_POLICY");
-  if(context.artisticIntent==="INTENTIONAL")
-    return result("EVIDENCE_ONLY","INTENTIONAL_STYLE");
-  if(context.artisticIntent!=="REVIEWED_NOT_INTENTIONAL_SYNTHETIC")
-    return result("EVIDENCE_ONLY","ARTISTIC_INTENT_UNKNOWN");
-  if(context.independentDefect!=="CONFIRMED_SYNTHETIC")
-    return result("EVIDENCE_ONLY","INDEPENDENT_DEFECT_NOT_CONFIRMED");
+  // Stage 3F-3: a reviewed *current* recording may be replayed in shadow,
+  // but a review assertion is not a trusted activation credential. No live
+  // caller supplies review context, and this function never mutates scores.
+  const reviewedReal=context?.evidenceScope==="REVIEWED_REAL_RECORDING_SHADOW_ONLY";
+  if(reviewedReal){
+    const lineage=c?.auralisSourceLineage;
+    if(a.sourceIdentity!=="CURRENT_UPLOAD_PCM_VERIFIED"||
+       lineage?.status!=="VERIFIED"||lineage.pcmIdentityStatus!=="VERIFIED"||
+       lineage.scoringImpact!=="NONE"||
+       context.sourceIdentity!=="CURRENT_UPLOAD_PCM_VERIFIED")
+      return result("EVIDENCE_ONLY","REAL_UPLOAD_IDENTITY_UNVERIFIED");
+    // These six pre-existing signals cluster into three measurement families.
+    // Correlated warnings from one family do not count as separate corroboration.
+    const families=new Set<string>();
+    for(const signal of signals){
+      if(signal.startsWith("collapsed midrange spectral structure (")||
+         signal.startsWith("midrange clarity collapse ("))families.add("MIDRANGE");
+      else if(signal.startsWith("extreme bass/low-mid magnitude pair (")||
+              signal.startsWith("extreme low-mid magnitude ("))families.add("LOW_MID");
+      else if(signal.startsWith("very low relative air energy (")||
+              signal.startsWith("dark-spectrum collapse ("))families.add("AIR");
+      else return result("EVIDENCE_ONLY","UNKNOWN_DSP_SIGNAL_FAMILY");
+    }
+    if(families.size<2)
+      return result("EVIDENCE_ONLY","INSUFFICIENT_DISTINCT_DSP_FAMILIES");
+    if(context.artisticIntent==="INTENTIONAL")
+      return result("EVIDENCE_ONLY","INTENTIONAL_STYLE");
+    if(context.artisticIntent!=="REVIEWED_NOT_INTENTIONAL_REAL")
+      return result("EVIDENCE_ONLY","ARTISTIC_INTENT_UNKNOWN");
+    if(context.independentDefect!=="CONFIRMED_REVIEWED_REAL")
+      return result("EVIDENCE_ONLY","INDEPENDENT_DEFECT_NOT_CONFIRMED");
+    if(context.reviewEvidence!=="EXTERNAL_REVIEW_RECORD_ASSERTED")
+      return result("EVIDENCE_ONLY","REVIEW_RECORD_NOT_SUPPLIED");
+  }else{
+    // Historical UNVERIFIED and unreviewed current uploads never qualify.
+    if(context?.evidenceScope!=="SYNTHETIC_VERIFIED_FIXTURE_ONLY"||
+       context.sourceIdentity!=="VERIFIED_SYNTHETIC"||
+       context.sameSourceAligned!==true)
+      return result("EVIDENCE_ONLY","NO_INDEPENDENT_VERIFIED_PAIR_POLICY");
+    if(context.artisticIntent==="INTENTIONAL")
+      return result("EVIDENCE_ONLY","INTENTIONAL_STYLE");
+    if(context.artisticIntent!=="REVIEWED_NOT_INTENTIONAL_SYNTHETIC")
+      return result("EVIDENCE_ONLY","ARTISTIC_INTENT_UNKNOWN");
+    if(context.independentDefect!=="CONFIRMED_SYNTHETIC")
+      return result("EVIDENCE_ONLY","INDEPENDENT_DEFECT_NOT_CONFIRMED");
+  }
   // The 79 ceiling must never stack on top of a stricter existing DSP cap.
   // No other score fields or parent weights are changed, even in shadow mode.
   if(final<=79||rawCap!==null&&rawCap<=79)
@@ -770,8 +807,8 @@ export function evaluateAuralisStage3F1SpectralShadow(
   const projected=readiness(hypot);
   if(projected>c.scores.commercialReadiness)
     return result("ABSTAIN","INVALID_HYPOTHETICAL_PROPAGATION");
-  return result("SYNTHETIC_HYPOTHETICAL_ONLY",
-    "SYNTHETIC_REPLAY_NOT_REAL_SONG_ACTIVATION",
+  return result(reviewedReal?"REAL_REVIEW_HYPOTHETICAL_ONLY":"SYNTHETIC_HYPOTHETICAL_ONLY",
+    reviewedReal?"REVIEWED_REAL_SHADOW_NOT_ACTIVATION":"SYNTHETIC_REPLAY_NOT_REAL_SONG_ACTIVATION",
     79,hypot,projected,projected-c.scores.commercialReadiness);
 }
 
