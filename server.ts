@@ -1,13 +1,14 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import { createHash } from "node:crypto";
 import multer from "multer";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import { GoogleGenAI as A2PilotGoogleGenAI } from "@google/genai-a2-pilot";
 import dotenv from "dotenv";
 import { GENRE_MAP } from "./src/data/musicData";
-import { computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC_SCORING_VERSION } from "./src/lib/mudPreventionDiagnostic";
+import { computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC_SCORING_VERSION, validateAuralisOperatorReviewPolicy } from "./src/lib/mudPreventionDiagnostic";
 import { captureA2ServerProductionInputs, captureA2ServerMixInputs, captureA2ServerSpectralScore } from "./src/lib/a2ScoringProvenance";
 import { withholdA2RawEvidence, getRestrictedA2RawEvidence } from "./src/lib/a2InternalEvidence";
 import { describeLowEndGateFactors, captureA2OriginalAssertionSnapshot } from "./src/lib/sourceVerificationDiagnostics";
@@ -2573,7 +2574,21 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
     // Ordinary API responses and Excel reports never contain raw A2 commentary.
     await finishA2PilotIfActive();
     withholdA2RawEvidence(parsedCritique);
-    res.json({ critique: parsedCritique });
+    // Stage 3F-5: optional operator-approved single-recording policy.
+    // An HTTP caller cannot supply review approval. The only source is a
+    // private deployment environment entry, matched to the exact uploaded
+    // encoded bytes. OFF / absent / malformed config yields no authorization.
+    // The reply is a score-inert candidate, not an activation capability.
+    const auralisReviewedRecordingPolicy=(()=>{
+      if(isA2PilotRequest()||!process.env.YSS_AURALIS_REVIEW_POLICY_JSON)return null;
+      try {
+        const review=JSON.parse(process.env.YSS_AURALIS_REVIEW_POLICY_JSON);
+        const sha=createHash("sha256").update(req.file!.buffer).digest("hex");
+        return validateAuralisOperatorReviewPolicy(review,sha);
+      }catch{return null;}
+    })();
+    res.json({ critique: parsedCritique,
+      ...(auralisReviewedRecordingPolicy ? {auralisReviewedRecordingPolicy} : {}) });
   } catch (error: any) {
     const a2Context = a2PilotContext.getStore();
     if (a2Context) await a2PilotOnError(a2Context);
