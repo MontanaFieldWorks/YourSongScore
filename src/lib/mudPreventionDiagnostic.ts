@@ -733,10 +733,13 @@ export function evaluateAuralisStage3F1SpectralShadow(
   const signals=c.mixBalanceEvidence?.signals;
   const caps=[null,86,82,76,72,68];
   const expected=Array.isArray(signals)&&signals.every((s:unknown)=>
-    typeof s==="string"&&s.length>0)&&signals.length<=5 ?
-      caps[signals.length]:signals?.length>5?68:undefined;
+    typeof s==="string"&&s.length>0) ?
+      caps[Math.min(signals.length,5)] : undefined;
   if(expected===undefined||expected!==rawCap)
     return result("ABSTAIN","UNVERIFIED_LEGACY_DSP_CORROBORATION");
+  // No independent browser signal means no independent DSP corroboration.
+  if(signals.length===0)
+    return result("EVIDENCE_ONLY","NO_INDEPENDENT_DSP_CORROBORATION");
   // Historical sourceIdentity UNVERIFIED is never elevated to real-world
   // scoring eligibility. Real current uploads get EVIDENCE_ONLY even if their
   // per-upload PCM is verified; pair alignment and intent are distinct facts.
