@@ -778,7 +778,7 @@ test("Stage 3E A2 reconciliation requires exact server cap provenance and a capt
     {serverFinishCapApplied:false},{serverFinishCapApplied:null},
     {serverFinishCapReason:"NONE"},{serverFinishCapReason:"NOT_CAPTURED"},
     {serverFinishCapCandidate:79},{serverScoreAfterFinishCap:87},
-    {canonicalMappedScore:92},{preClientScore:93},
+    {canonicalMappedScore:87},{preClientScore:93},
   ];
   for(const patch of alterations){
     const broken=structuredClone(serverCapped);
