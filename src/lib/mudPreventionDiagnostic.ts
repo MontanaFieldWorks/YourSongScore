@@ -639,6 +639,139 @@ export function buildAuralisBetaScoringAudit(critique: unknown, serverReturnedSp
   };
 }
 
+// Stage 3F-1: current-upload evidence audit and synthetic-only hypothetical
+// Spectral Match decision. Never treats a tonal ratio as proof of a defect,
+// or a reviewer flag as verified real-song lineage. No production score authority.
+export const AURALIS_STAGE3F1_SHADOW_VERSION = "auralis-stage3f1-spectral-shadow-v1" as const;
+export type AuralisStage3F1ShadowDecision = {
+  schemaVersion:typeof AURALIS_STAGE3F1_SHADOW_VERSION;
+  status:"ABSTAIN"|"EVIDENCE_ONLY"|"SYNTHETIC_HYPOTHETICAL_ONLY";
+  reason:string;
+  measurementDb:number|null;
+  existingFinalScore:number|null;
+  existingLegacyCap:number|null;
+  candidateCap:79|null;
+  hypotheticalSpectralScore:number|null;
+  hypotheticalCommercialReadiness:number|null;
+  hypotheticalReadinessDelta:number|null;
+  evidenceScope:"CURRENT_UPLOAD_OBSERVATION_OR_SYNTHETIC_ONLY";
+  scoringImpact:"NONE";
+  adjustments:[];
+  appliedCap:null;
+  appliedScoreChange:0;
+};
+export function evaluateAuralisStage3F1SpectralShadow(
+  critique:unknown, audit:unknown,
+  context?:{
+    evidenceScope:"SYNTHETIC_VERIFIED_FIXTURE_ONLY";
+    sourceIdentity:"VERIFIED_SYNTHETIC";
+    sameSourceAligned:boolean;
+    independentDefect:"CONFIRMED_SYNTHETIC"|"UNKNOWN"|"NOT_CONFIRMED";
+    artisticIntent:"REVIEWED_NOT_INTENTIONAL_SYNTHETIC"|"INTENTIONAL"|"UNKNOWN";
+  },
+):AuralisStage3F1ShadowDecision {
+  const c=critique as any,a=audit as any;
+  const score=(v:unknown):v is number=>
+    typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=100;
+  const auditVersion=a?.schemaVersion===AURALIS_BETA_SCORING_AUDIT_VERSION;
+  const final=score(a?.observedFinalSpectralScore)?a.observedFinalSpectralScore:null;
+  const legacy=score(a?.legacyDspCap)?a.legacyDspCap:null;
+  const measurement=typeof a?.measurementDb==="number"&&
+    Number.isFinite(a.measurementDb)?a.measurementDb:null;
+  const result=(status:AuralisStage3F1ShadowDecision["status"],reason:string,
+    cap:79|null=null,hypothetical:number|null=null,
+    projected:number|null=null,delta:number|null=null):AuralisStage3F1ShadowDecision=>({
+    schemaVersion:AURALIS_STAGE3F1_SHADOW_VERSION,status,reason,
+    measurementDb:auditVersion?measurement:null,
+    existingFinalScore:auditVersion?final:null,
+    existingLegacyCap:auditVersion?legacy:null,
+    candidateCap:cap,hypotheticalSpectralScore:hypothetical,
+    hypotheticalCommercialReadiness:projected,
+    hypotheticalReadinessDelta:delta,
+    evidenceScope:"CURRENT_UPLOAD_OBSERVATION_OR_SYNTHETIC_ONLY",
+    scoringImpact:"NONE",adjustments:[],appliedCap:null,appliedScoreChange:0,
+  });
+  if(!auditVersion||a.scoringImpact!=="NONE"||
+    !Array.isArray(a.adjustments)||a.adjustments.length!==0||
+    a.appliedCap!==null||a.appliedScoreChange!==0||
+    a.candidateCap!==null)
+    return result("ABSTAIN","INVALID_OR_SCORE_ACTIVE_AUDIT");
+  // Distinguish valid engineering evidence from independent proof of a defect.
+  const m=assessAuralisSpectralTrialEvidence(c?.auralisEngineering,false,null);
+  if(c?.auralisExecution?.status!=="AVAILABLE"||
+     c.auralisExecution.reason!=="VALIDATED_ENGINEERING_EVIDENCE"||
+     c.auralisExecution.scoringImpact!=="NONE"||
+     a.status!=="INCONCLUSIVE"||
+     a.reason!=="MEASURED_NO_APPROVED_QUALITY_GATE"||
+     m.status!=="INCONCLUSIVE"||m.reason!=="NO_APPROVED_THRESHOLD"||
+     measurement===null||measurement!==m.measuredDb)
+    return result("ABSTAIN","UNAVAILABLE_OR_INCONSISTENT_MEASUREMENT");
+  // Full Stage 3E A2 reconciliation is necessary but not evidence of musical
+  // quality. Check current scored fields against the frozen audit rather than
+  // using untrusted historical summaries as if they were a current capture.
+  const metric=c?.subMetricsCall1?.spectralMatch;
+  const rawCap=c?.mixBalanceEvidence?.spectralCap;
+  if(a.scoreLineage!=="A2_RECONCILED"||
+     a.geminiScoreStatus!=="A2_CANONICAL_CAPTURED"||
+     a.legacyCapStatus!=="A2_RECONCILED"||
+     a.serverReturnedScoreStatus!=="CAPTURED_POST_SERVER_CAPS"||
+     !score(a.geminiMappedSpectralScore)||
+     !score(a.serverReturnedSpectralScore)||
+     final===null||!score(metric?.score)||metric?.applicable===false||
+     final!==metric.score||
+     !c?.mixBalanceEvidence||
+     !Object.prototype.hasOwnProperty.call(c.mixBalanceEvidence,"spectralCap")||
+     !(rawCap===null||score(rawCap))||
+     a.legacyDspCap!==rawCap||
+     typeof a.legacyCapApplied!=="boolean"||
+     !score(c?.scores?.commercialReadiness)||
+     a.observedCommercialReadiness!==c.scores.commercialReadiness)
+    return result("ABSTAIN","UNVERIFIED_SCORE_OR_EXISTING_CAP_LINEAGE");
+  // Existing browser DSP signals corroborate *technical anomalies*, not
+  // aesthetic intent. The count must explain the observed old cap; never
+  // treat overlapping signals as proof of independent perceptual defects.
+  const signals=c.mixBalanceEvidence?.signals;
+  const caps=[null,86,82,76,72,68];
+  const expected=Array.isArray(signals)&&signals.every((s:unknown)=>
+    typeof s==="string"&&s.length>0)&&signals.length<=5 ?
+      caps[signals.length]:signals?.length>5?68:undefined;
+  if(expected===undefined||expected!==rawCap)
+    return result("ABSTAIN","UNVERIFIED_LEGACY_DSP_CORROBORATION");
+  // Historical sourceIdentity UNVERIFIED is never elevated to real-world
+  // scoring eligibility. Real current uploads get EVIDENCE_ONLY even if their
+  // per-upload PCM is verified; pair alignment and intent are distinct facts.
+  if(context?.evidenceScope!=="SYNTHETIC_VERIFIED_FIXTURE_ONLY"||
+     context.sourceIdentity!=="VERIFIED_SYNTHETIC"||
+     context.sameSourceAligned!==true)
+    return result("EVIDENCE_ONLY","NO_INDEPENDENT_VERIFIED_PAIR_POLICY");
+  if(context.artisticIntent==="INTENTIONAL")
+    return result("EVIDENCE_ONLY","INTENTIONAL_STYLE");
+  if(context.artisticIntent!=="REVIEWED_NOT_INTENTIONAL_SYNTHETIC")
+    return result("EVIDENCE_ONLY","ARTISTIC_INTENT_UNKNOWN");
+  if(context.independentDefect!=="CONFIRMED_SYNTHETIC")
+    return result("EVIDENCE_ONLY","INDEPENDENT_DEFECT_NOT_CONFIRMED");
+  // The 79 ceiling must never stack on top of a stricter existing DSP cap.
+  // No other score fields or parent weights are changed, even in shadow mode.
+  if(final<=79||rawCap!==null&&rawCap<=79)
+    return result("EVIDENCE_ONLY","NO_ADDITIONAL_DOWNWARD_EFFECT");
+  const children=c?.subMetricsCall3?.compositionFlowSubs;
+  const hook=children?.hookPlacement,contrast=children?.sectionalContrast;
+  const dyn=c?.subMetricsCall1?.dynamicVariety;
+  if([hook,dyn,contrast].some(x=>x?.applicable===false||!score(x?.score)))
+    return result("EVIDENCE_ONLY","INCOMPLETE_READINESS_LINEAGE");
+  const readiness=(spectral:number)=>Math.round((
+    hook.score*60+dyn.score*20+spectral*10+contrast.score*10)/100);
+  if(readiness(final)!==c.scores.commercialReadiness)
+    return result("EVIDENCE_ONLY","INCONSISTENT_READINESS_PARENT");
+  const hypot=Math.min(final,79);
+  const projected=readiness(hypot);
+  if(projected>c.scores.commercialReadiness)
+    return result("ABSTAIN","INVALID_HYPOTHETICAL_PROPAGATION");
+  return result("SYNTHETIC_HYPOTHETICAL_ONLY",
+    "SYNTHETIC_REPLAY_NOT_REAL_SONG_ACTIVATION",
+    79,hypot,projected,projected-c.scores.commercialReadiness);
+}
+
 // Compatibility wrapper for the existing gated prototype; this never mutates
 // the model tier or score. App.tsx applies min-caps only on explicit activation.
 export function selectAuralisSpectralTrialCap(
