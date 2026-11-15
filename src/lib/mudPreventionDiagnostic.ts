@@ -559,14 +559,34 @@ export function buildAuralisBetaScoringAudit(critique: unknown, serverReturnedSp
     c.auralisExecution.scoringImpact === "NONE" &&
     measured.status === "INCONCLUSIVE" &&
     measured.reason === "NO_APPROVED_THRESHOLD";
+  // The A2 server ledger records the canonical mapped tier BEFORE the
+  // server finish ceiling. A recorded null cap is distinct from a missing
+  // record; never reconstruct a zero/absent penalty from silence.
+  const serverCapPresent = trace !== null && typeof trace === "object" &&
+    Object.prototype.hasOwnProperty.call(trace, "serverFinishCapCandidate");
+  const serverCap = trace?.serverFinishCapCandidate;
+  const serverCapKnown = serverCapPresent &&
+    (serverCap === null || finiteScore(serverCap));
+  const serverCapApplied = serverCapKnown && serverCap !== null &&
+    finiteScore(trace?.canonicalMappedScore) &&
+    trace.canonicalMappedScore > serverCap;
+  const serverCapReconciled = serverCapKnown &&
+    trace?.serverFinishCapApplied === serverCapApplied &&
+    trace?.serverFinishCapReason === (serverCapApplied
+      ? "PRODUCTION_FINISH_MULTI_SIGNAL_CEILING" : "NONE") &&
+    finiteScore(trace?.serverScoreAfterFinishCap) &&
+    trace.serverScoreAfterFinishCap === (serverCap === null
+      ? trace.canonicalMappedScore
+      : Math.min(trace.canonicalMappedScore, serverCap));
   // Full numeric A2 capture, when present, is checked rather than reconstructed.
-  // A score equal to a cap cannot establish whether that cap was applied.
+  // Require the actual pre-browser server snapshot; a matching trace by itself
+  // does not prove that the current server-returned score was captured.
   const completeTrace = finalScore !== null && capKnown &&
     finiteScore(trace?.canonicalMappedScore) &&
     trace?.serverSpectralStatus === "CAPTURED" &&
-    finiteScore(trace?.serverScoreAfterFinishCap) &&
+    serverScore !== null && serverCapReconciled &&
     trace?.preClientScore === trace?.serverScoreAfterFinishCap &&
-    (serverScore === null || serverScore === trace.preClientScore) &&
+    serverScore === trace.preClientScore &&
     trace?.browserSpectralStatus === "CAPTURED" &&
     trace?.browserFinishStatus === "COMPLETED" &&
     finiteScore(trace?.finalScore) && trace.finalScore === finalScore &&
