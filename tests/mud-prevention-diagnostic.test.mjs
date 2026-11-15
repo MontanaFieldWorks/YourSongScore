@@ -649,3 +649,217 @@ test("Stage 3D-2C synthetic calibration gate proves lineage, cap replay, parent 
   }
   assert.equal(AURALIS_ENGINEERING_SCORE_POLICY,"DISABLED_PENDING_STAGE_3D_2");
 });
+
+
+test("Stage 3E audit records current engineering observations after scoring without changing any score", async () => {
+  const {buildAuralisBetaScoringAudit, AURALIS_BETA_SCORING_AUDIT_VERSION} =
+    await import("../src/lib/mudPreventionDiagnostic.ts");
+  const c = {
+    auralisExecution:{status:"AVAILABLE",reason:"VALIDATED_ENGINEERING_EVIDENCE",scoringImpact:"NONE"},
+    auralisEngineering:{
+      schemaVersion:AURALIS_ENGINEERING_ADAPTER_VERSION,scoringImpact:"NONE",
+      scoringAdapter:{status:AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+      metrics:{lowToUpperDb:1.25}
+    },
+    subMetricsCall1:{
+      spectralMatch:{score:82,applicable:true},
+      a2ScoringProvenance:{spectralMatch:{
+        canonicalMappedScore:93,serverSpectralStatus:"CAPTURED",
+        serverFinishCapCandidate:null,serverFinishCapApplied:false,
+        serverFinishCapReason:"NONE",
+        serverScoreAfterFinishCap:93,preClientScore:93,
+        browserSpectralStatus:"CAPTURED",browserSpectralCapCandidate:82,
+        browserSpectralCapApplied:true,afterSpectralCapScore:82,
+        browserFinishStatus:"COMPLETED",browserFinishCapCandidate:null,
+        afterFinishCeilingScore:82,finalScore:82,
+      }}
+    },
+    productionFinishEvidence:{ceiling:null},
+    mixBalanceEvidence:{spectralCap:82},
+    scores:{commercialReadiness:90},
+  };
+  const frozen=structuredClone(c);
+  const audit=buildAuralisBetaScoringAudit(c,93);
+  assert.deepEqual(c,frozen,"the audit must not mutate any input or score");
+  assert.equal(audit.schemaVersion,AURALIS_BETA_SCORING_AUDIT_VERSION);
+  assert.deepEqual([audit.status,audit.reason,audit.measurementDb],
+    ["INCONCLUSIVE","MEASURED_NO_APPROVED_QUALITY_GATE",1.25]);
+  assert.equal(audit.sourceIdentity,"UNVERIFIED");
+  assert.equal(audit.pairedSourceAlignment,"UNVERIFIED");
+  assert.equal(audit.independentDefect,"UNKNOWN");
+  assert.equal(audit.artisticIntent,"UNKNOWN");
+  assert.equal(audit.serverReturnedSpectralScore,93);
+  assert.equal(audit.serverReturnedScoreStatus,"CAPTURED_POST_SERVER_CAPS");
+  assert.equal(audit.geminiMappedSpectralScore,93);
+  assert.equal(audit.geminiScoreStatus,"A2_CANONICAL_CAPTURED");
+  assert.equal(audit.legacyDspCap,82);
+  assert.equal(audit.legacyCapApplied,true);
+  assert.equal(audit.legacyCapStatus,"A2_RECONCILED");
+  assert.equal(audit.scoreLineage,"A2_RECONCILED");
+  assert.equal(audit.observedFinalSpectralScore,82);
+  assert.equal(audit.observedCommercialReadiness,90);
+  assert.equal(audit.candidateCap,null);
+  assert.equal(audit.appliedCap,null);
+  assert.equal(audit.appliedScoreChange,0);
+  assert.equal(audit.scoringImpact,"NONE");
+  assert.deepEqual(audit.adjustments,[]);
+  // A complete current-upload identity may be reported, but never converts
+  // unknown paired-source alignment or artistic intent into a verified claim.
+  const current=buildAuralisBetaScoringAudit({
+    ...c,auralisSourceLineage:{status:"VERIFIED",pcmIdentityStatus:"VERIFIED",scoringImpact:"NONE"}
+  });
+  assert.equal(current.sourceIdentity,"CURRENT_UPLOAD_PCM_VERIFIED");
+  assert.equal(current.pairedSourceAlignment,"UNVERIFIED");
+});
+
+test("Stage 3E A2 reconciliation requires exact server cap provenance and a captured pre-browser score", async()=>{
+  const {buildAuralisBetaScoringAudit}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const fixture=(serverCap,canonical,serverScore,final,legacyCap)=>({
+    subMetricsCall1:{
+      spectralMatch:{score:final,applicable:true},
+      a2ScoringProvenance:{spectralMatch:{
+        canonicalMappedScore:canonical,serverSpectralStatus:"CAPTURED",
+        serverFinishCapCandidate:serverCap,
+        serverFinishCapApplied:serverCap!==null && canonical>serverCap,
+        serverFinishCapReason:serverCap!==null && canonical>serverCap
+          ? "PRODUCTION_FINISH_MULTI_SIGNAL_CEILING":"NONE",
+        serverScoreAfterFinishCap:serverScore,preClientScore:serverScore,
+        browserSpectralStatus:"CAPTURED",
+        browserSpectralCapCandidate:legacyCap,
+        browserSpectralCapApplied:legacyCap!==null && serverScore>legacyCap,
+        afterSpectralCapScore:legacyCap===null?serverScore:Math.min(serverScore,legacyCap),
+        browserFinishStatus:"COMPLETED",browserFinishCapCandidate:null,
+        afterFinishCeilingScore:final,finalScore:final,
+      }},
+    },
+    productionFinishEvidence:{ceiling:null},
+    mixBalanceEvidence:{spectralCap:legacyCap},
+    scores:{commercialReadiness:88},
+  });
+  const assertions=(input,snapshot,expected)=>{
+    const before=structuredClone(input);
+    const result=buildAuralisBetaScoringAudit(input,snapshot);
+    assert.deepEqual(input,before,"Audit must never mutate scoring inputs");
+    assert.equal(result.scoreLineage,expected);
+    assert.equal(result.geminiMappedSpectralScore,
+      expected==="A2_RECONCILED"?input.subMetricsCall1.a2ScoringProvenance.spectralMatch.canonicalMappedScore:null);
+    assert.equal(result.legacyCapApplied,expected==="A2_RECONCILED"?
+      input.subMetricsCall1.a2ScoringProvenance.spectralMatch.browserSpectralCapApplied:null);
+    assert.equal(result.candidateCap,null);
+    assert.equal(result.appliedCap,null);
+    assert.equal(result.appliedScoreChange,0);
+    assert.equal(result.scoringImpact,"NONE");
+    assert.deepEqual(result.adjustments,[]);
+  };
+  const uncapped=fixture(null,93,93,82,82);
+  assertions(uncapped,93,"A2_RECONCILED");
+  const serverCapped=fixture(88,93,88,82,82);
+  assertions(serverCapped,88,"A2_RECONCILED");
+  const noBrowserCap=fixture(88,93,88,88,null);
+  assertions(noBrowserCap,88,"A2_RECONCILED");
+  // No snapshot means an archived A2 ledger cannot independently prove this upload.
+  assertions(uncapped,undefined,"UNVERIFIED");
+  assertions(uncapped,NaN,"UNVERIFIED");
+  assertions(uncapped,92,"UNVERIFIED");
+  // Known, captured ceiling but impossible output (93 instead of min(93,79)).
+  assertions(fixture(79,93,93,82,82),93,"UNVERIFIED");
+  // The server must not be credited with a larger or unrecorded cap.
+  assertions(fixture(88,93,89,82,82),89,"UNVERIFIED");
+  const fields=["serverFinishCapCandidate","serverFinishCapApplied","serverFinishCapReason",
+    "serverScoreAfterFinishCap","canonicalMappedScore","serverSpectralStatus"];
+  for(const field of fields){
+    const broken=structuredClone(serverCapped);
+    delete broken.subMetricsCall1.a2ScoringProvenance.spectralMatch[field];
+    assertions(broken,88,"UNVERIFIED");
+  }
+  const alterations=[
+    {serverFinishCapCandidate:NaN},{serverFinishCapCandidate:undefined},
+    {serverFinishCapCandidate:-1},{serverFinishCapCandidate:101},
+    {serverFinishCapApplied:false},{serverFinishCapApplied:null},
+    {serverFinishCapReason:"NONE"},{serverFinishCapReason:"NOT_CAPTURED"},
+    {serverFinishCapCandidate:79},{serverScoreAfterFinishCap:87},
+    {canonicalMappedScore:87},{preClientScore:93},
+  ];
+  for(const patch of alterations){
+    const broken=structuredClone(serverCapped);
+    Object.assign(broken.subMetricsCall1.a2ScoringProvenance.spectralMatch,patch);
+    assertions(broken,88,"UNVERIFIED");
+  }
+  // Cap presence does not imply application: an above-score cap has effect false.
+  const benign=fixture(95,93,93,82,82);
+  assertions(benign,93,"A2_RECONCILED");
+  benign.subMetricsCall1.a2ScoringProvenance.spectralMatch.serverFinishCapApplied=true;
+  assertions(benign,93,"UNVERIFIED");
+  const missingCap=structuredClone(uncapped);
+  delete missingCap.subMetricsCall1.a2ScoringProvenance.spectralMatch.serverFinishCapCandidate;
+  assertions(missingCap,93,"UNVERIFIED");
+  assert.equal(buildAuralisBetaScoringAudit(missingCap,93).legacyCapStatus,
+    "RECORDED_EFFECT_UNVERIFIED");
+});
+
+test("Stage 3E audit fails closed on missing/contradictory scoring lineage and unavailable engineering",async()=>{
+  const {buildAuralisBetaScoringAudit}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const base={
+    auralisExecution:{status:"AVAILABLE",reason:"VALIDATED_ENGINEERING_EVIDENCE",scoringImpact:"NONE"},
+    auralisEngineering:{
+      schemaVersion:AURALIS_ENGINEERING_ADAPTER_VERSION,scoringImpact:"NONE",
+      scoringAdapter:{status:AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+      metrics:{lowToUpperDb:-2}
+    },
+    subMetricsCall1:{spectralMatch:{score:76}},
+    mixBalanceEvidence:{spectralCap:76},
+    scores:{commercialReadiness:86},
+  };
+  const untraced=buildAuralisBetaScoringAudit(base,88);
+  assert.equal(untraced.serverReturnedSpectralScore,88);
+  assert.equal(untraced.serverReturnedScoreStatus,"CAPTURED_POST_SERVER_CAPS");
+  assert.deepEqual([untraced.status,untraced.geminiMappedSpectralScore,
+    untraced.legacyDspCap,untraced.legacyCapApplied,untraced.scoreLineage],
+    ["INCONCLUSIVE",null,76,null,"UNVERIFIED"]);
+  assert.equal(untraced.legacyCapStatus,"RECORDED_EFFECT_UNVERIFIED");
+  const missing=buildAuralisBetaScoringAudit({
+    ...base,mixBalanceEvidence:{midrangeCap:72},
+  });
+  assert.equal(missing.serverReturnedSpectralScore,null);
+  assert.equal(missing.legacyCapStatus,"NOT_CAPTURED");
+  assert.equal(missing.legacyDspCap,null);
+  const wrong=buildAuralisBetaScoringAudit({
+    ...base,auralisExecution:{status:"UNAVAILABLE",reason:"WORKER_FAILED",scoringImpact:"NONE"},
+  });
+  assert.deepEqual([wrong.status,wrong.measurementDb,wrong.scoringImpact],
+    ["UNAVAILABLE",null,"NONE"]);
+  const missingRun=buildAuralisBetaScoringAudit({...base,auralisExecution:undefined});
+  assert.equal(missingRun.status,"UNAVAILABLE");
+  const poisoned=buildAuralisBetaScoringAudit({
+    ...base,auralisEngineering:{...base.auralisEngineering,
+      scoringAdapter:{status:AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[{cap:79}]}}
+  });
+  assert.equal(poisoned.status,"UNAVAILABLE");
+  const wrongScore=buildAuralisBetaScoringAudit({
+    ...base,subMetricsCall1:{spectralMatch:{score:99}}
+  });
+  assert.equal(wrongScore.scoreLineage,"UNVERIFIED");
+  assert.equal(wrongScore.legacyCapApplied,null);
+  assert.equal(wrongScore.observedFinalSpectralScore,99);
+  const historical=buildAuralisBetaScoringAudit({
+    ...base,auralisSourceLineage:{status:"UNVERIFIED",pcmIdentityStatus:"UNVERIFIED"}
+  });
+  assert.equal(historical.sourceIdentity,"UNVERIFIED");
+  assert.equal(historical.pairedSourceAlignment,"UNVERIFIED");
+  assert.deepEqual(historical.adjustments,[]);
+});
+
+test("Stage 3E integration is post-scoring and retains disabled independent cap",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \\| null = null;/);
+  assert.ok(app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)") >
+    app.indexOf("applyProductionFinishGuardrail(overriddenCritique, liveMetrics)"));
+  assert.ok(app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)") <
+    app.indexOf("setCritiqueResult({"));
+  assert.ok(app.indexOf("const serverReturnedSpectralScore =") <
+    app.indexOf("applyProductionFinishGuardrail(overriddenCritique, liveMetrics)"));
+  assert.doesNotMatch(server,/buildAuralisBetaScoringAudit/);
+  assert.doesNotMatch(app,/recordAuralisPairedSpectralShadowDecision/);
+});

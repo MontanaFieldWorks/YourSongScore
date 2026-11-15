@@ -4,7 +4,7 @@ import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile, InternalBatchResult } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
 import type { AuralisEncodedSourceIdentity } from "./lib/liveAudioAnalyzer";
-import { prepareAuralisSourceLineage } from "./lib/mudPreventionDiagnostic";
+import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit } from "./lib/mudPreventionDiagnostic";
 
 // Disabled by default: internal opt-in diagnostic computation only, no report/scoring data.
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
@@ -1519,12 +1519,21 @@ export default function App() {
         (overriddenCritique as any).auralisEngineering = auralisEvidence.engineering;
       if(auralisEvidence?.sourceLineage)
         (overriddenCritique as any).auralisSourceLineage = auralisEvidence.sourceLineage;
+      // Capture the post-server, pre-browser Gemini-derived numeric score.
+      // This is not necessarily the uncapped canonical Gemini tier.
+      const serverReturnedSpectralScore =
+        overriddenCritique.subMetricsCall1?.spectralMatch?.score;
       if (liveMetrics) {
         overriddenCritique.liveMetrics = liveMetrics;
         applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
       } else {
         captureA2BrowserUnavailable(overriddenCritique);
       }
+
+      // Stage 3E: freeze observations only AFTER the existing browser score
+      // corrections and A2 snapshots. Never change a score, cap or model tier.
+      (overriddenCritique as any).auralisBetaScoringAudit =
+        buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore);
 
       if (overriddenCritique.liveMetrics) {
         renderAnalysisImages(overriddenCritique.liveMetrics);
