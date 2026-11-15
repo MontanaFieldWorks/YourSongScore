@@ -965,6 +965,62 @@ test("Stage 3F-1 synthetic shadow requires independent evidence and never mutate
   assert.deepEqual([evaluateAuralisStage3F1SpectralShadow(wrongReadiness,wrongReadinessAudit,synthetic).status,
     evaluateAuralisStage3F1SpectralShadow(wrongReadiness,wrongReadinessAudit,synthetic).reason],
     ["EVIDENCE_ONLY","INCONSISTENT_READINESS_PARENT"]);
+
+  // Stage 3F-3: the same current upload can only obtain a reviewed-real shadow
+  // hypothesis with verified per-upload PCM, independent review assertions,
+  // distinct DSP families and full lineage. Still never authorizes scoring.
+  const realC=structuredClone(c);
+  realC.auralisSourceLineage={status:"VERIFIED",pcmIdentityStatus:"VERIFIED",scoringImpact:"NONE"};
+  realC.mixBalanceEvidence.signals=[
+    "extreme low-mid magnitude (78)","very low relative air energy (0.30%)"
+  ];
+  const realAudit=buildAuralisBetaScoringAudit(realC,93);
+  assert.equal(realAudit.sourceIdentity,"CURRENT_UPLOAD_PCM_VERIFIED");
+  assert.equal(realAudit.scoreLineage,"A2_RECONCILED");
+  const review={
+    evidenceScope:"REVIEWED_REAL_RECORDING_SHADOW_ONLY",
+    sourceIdentity:"CURRENT_UPLOAD_PCM_VERIFIED",sameSourceAligned:false,
+    independentDefect:"CONFIRMED_REVIEWED_REAL",
+    artisticIntent:"REVIEWED_NOT_INTENTIONAL_REAL",
+    reviewEvidence:"EXTERNAL_REVIEW_RECORD_ASSERTED"
+  };
+  const realBefore=structuredClone({realC,realAudit});
+  const real=evaluateAuralisStage3F1SpectralShadow(realC,realAudit,review);
+  assert.deepEqual({realC,realAudit},realBefore);
+  assert.deepEqual([real.status,real.reason,real.candidateCap,
+    real.hypotheticalSpectralScore,real.hypotheticalCommercialReadiness,
+    real.appliedCap,real.appliedScoreChange,real.scoringImpact],
+    ["REAL_REVIEW_HYPOTHETICAL_ONLY","REVIEWED_REAL_SHADOW_NOT_ACTIVATION",
+      79,79,88,null,0,"NONE"]);
+  assert.deepEqual(real.adjustments,[]);
+  for(const [context,expected] of [
+    [undefined,"NO_INDEPENDENT_VERIFIED_PAIR_POLICY"],
+    [{...review,sourceIdentity:"VERIFIED_SYNTHETIC"},"REAL_UPLOAD_IDENTITY_UNVERIFIED"],
+    [{...review,artisticIntent:"UNKNOWN"},"ARTISTIC_INTENT_UNKNOWN"],
+    [{...review,artisticIntent:"INTENTIONAL"},"INTENTIONAL_STYLE"],
+    [{...review,independentDefect:"UNKNOWN"},"INDEPENDENT_DEFECT_NOT_CONFIRMED"],
+    [{...review,reviewEvidence:undefined},"REVIEW_RECORD_NOT_SUPPLIED"],
+  ]){
+    const d=evaluateAuralisStage3F1SpectralShadow(realC,realAudit,context);
+    assert.deepEqual([d.status,d.reason,d.appliedCap,d.appliedScoreChange],
+      ["EVIDENCE_ONLY",expected,null,0]);
+  }
+  const identityMissing=structuredClone(realC);
+  delete identityMissing.auralisSourceLineage;
+  const unverifiedAudit=buildAuralisBetaScoringAudit(identityMissing,93);
+  assert.equal(evaluateAuralisStage3F1SpectralShadow(
+    identityMissing,unverifiedAudit,review).reason,"REAL_UPLOAD_IDENTITY_UNVERIFIED");
+  const singleFamily=structuredClone(realC);
+  singleFamily.mixBalanceEvidence.signals=[
+    "extreme bass/low-mid magnitude pair (90/78)","extreme low-mid magnitude (78)"
+  ];
+  assert.equal(evaluateAuralisStage3F1SpectralShadow(
+    singleFamily,realAudit,review).reason,"INSUFFICIENT_DISTINCT_DSP_FAMILIES");
+  const foreignSignal=structuredClone(realC);
+  foreignSignal.mixBalanceEvidence.signals=["unknown signal","very low relative air energy (0.30%)"];
+  assert.equal(evaluateAuralisStage3F1SpectralShadow(
+    foreignSignal,realAudit,review).reason,"UNKNOWN_DSP_SIGNAL_FAMILY");
+
 });
 
 test("Stage 3F-1 duplicate old caps and absent effects always abstain from new correction",async()=>{

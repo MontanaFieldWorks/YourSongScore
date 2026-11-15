@@ -1534,8 +1534,9 @@ export default function App() {
       // corrections and A2 snapshots. Never change a score, cap or model tier.
       (overriddenCritique as any).auralisBetaScoringAudit =
         buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore);
-      // Stage 3F-1: shadow observation only. No synthetic authorization
-      // context is supplied for a real upload; this cannot activate the cap.
+      // Stage 3F-1/3F-3: shadow observation only. No synthetic policy or
+      // independently verified real-recording review is supplied here.
+      // Never grant scoring authority from an ordinary upload or reviewer flag.
       (overriddenCritique as any).auralisStage3F1SpectralShadow =
         evaluateAuralisStage3F1SpectralShadow(
           overriddenCritique, (overriddenCritique as any).auralisBetaScoringAudit);
