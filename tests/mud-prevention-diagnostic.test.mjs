@@ -863,3 +863,178 @@ test("Stage 3E integration is post-scoring and retains disabled independent cap"
   assert.doesNotMatch(server,/buildAuralisBetaScoringAudit/);
   assert.doesNotMatch(app,/recordAuralisPairedSpectralShadowDecision/);
 });
+
+
+test("Stage 3F-1 synthetic shadow requires independent evidence and never mutates scores",async()=>{
+  const {buildAuralisBetaScoringAudit,evaluateAuralisStage3F1SpectralShadow,
+    AURALIS_STAGE3F1_SHADOW_VERSION}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const fixture=()=>{
+    const c={
+      auralisExecution:{status:"AVAILABLE",reason:"VALIDATED_ENGINEERING_EVIDENCE",scoringImpact:"NONE"},
+      auralisEngineering:{
+        schemaVersion:AURALIS_ENGINEERING_ADAPTER_VERSION,scoringImpact:"NONE",
+        scoringAdapter:{status:AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+        metrics:{lowToUpperDb:1.25}
+      },
+      subMetricsCall1:{
+        spectralMatch:{score:82,applicable:true},
+        dynamicVariety:{score:88},
+        a2ScoringProvenance:{spectralMatch:{
+          canonicalMappedScore:93,serverSpectralStatus:"CAPTURED",
+          serverFinishCapCandidate:null,serverFinishCapApplied:false,
+          serverFinishCapReason:"NONE",
+          serverScoreAfterFinishCap:93,preClientScore:93,
+          browserSpectralStatus:"CAPTURED",browserSpectralCapCandidate:82,
+          browserSpectralCapApplied:true,afterSpectralCapScore:82,
+          browserFinishStatus:"COMPLETED",browserFinishCapCandidate:null,
+          afterFinishCeilingScore:82,finalScore:82,
+        }},
+      },
+      mixBalanceEvidence:{spectralCap:82,signals:["low-mid contrast anomaly","air rolloff anomaly"]},
+      productionFinishEvidence:{ceiling:null},
+      subMetricsCall3:{compositionFlowSubs:{
+        hookPlacement:{score:90},sectionalContrast:{score:88}
+      }},
+      scores:{commercialReadiness:89},
+    };
+    return {c,audit:buildAuralisBetaScoringAudit(c,93)};
+  };
+  const synthetic={
+    evidenceScope:"SYNTHETIC_VERIFIED_FIXTURE_ONLY",
+    sourceIdentity:"VERIFIED_SYNTHETIC",sameSourceAligned:true,
+    independentDefect:"CONFIRMED_SYNTHETIC",
+    artisticIntent:"REVIEWED_NOT_INTENTIONAL_SYNTHETIC"
+  };
+  const {c,audit}=fixture();
+  assert.equal(audit.scoreLineage,"A2_RECONCILED");
+  const before=structuredClone({c,audit});
+  const shadow=evaluateAuralisStage3F1SpectralShadow(c,audit,synthetic);
+  assert.deepEqual({c,audit},before);
+  assert.equal(shadow.schemaVersion,AURALIS_STAGE3F1_SHADOW_VERSION);
+  assert.equal(shadow.status,"SYNTHETIC_HYPOTHETICAL_ONLY");
+  assert.equal(shadow.reason,"SYNTHETIC_REPLAY_NOT_REAL_SONG_ACTIVATION");
+  assert.deepEqual([shadow.existingFinalScore,shadow.existingLegacyCap,shadow.candidateCap,
+    shadow.hypotheticalSpectralScore,shadow.hypotheticalCommercialReadiness,
+    shadow.hypotheticalReadinessDelta],[82,82,79,79,88,-1]);
+  assert.deepEqual([shadow.scoringImpact,shadow.appliedCap,shadow.appliedScoreChange],
+    ["NONE",null,0]);
+  assert.deepEqual(shadow.adjustments,[]);
+  const current=evaluateAuralisStage3F1SpectralShadow(c,audit);
+  assert.deepEqual([current.status,current.reason,current.candidateCap,current.appliedCap],
+    ["EVIDENCE_ONLY","NO_INDEPENDENT_VERIFIED_PAIR_POLICY",null,null]);
+  // A current-upload PCM fingerprint cannot substitute for independently
+  // verified same-source pairing or an artistic-intent decision.
+  const currentAudit={...audit,sourceIdentity:"CURRENT_UPLOAD_PCM_VERIFIED"};
+  assert.equal(evaluateAuralisStage3F1SpectralShadow(c,currentAudit).status,"EVIDENCE_ONLY");
+
+  const trials=[
+    [{...synthetic,evidenceScope:"REAL_SONG"}, "NO_INDEPENDENT_VERIFIED_PAIR_POLICY"],
+    [{...synthetic,sourceIdentity:"UNVERIFIED"},"NO_INDEPENDENT_VERIFIED_PAIR_POLICY"],
+    [{...synthetic,sameSourceAligned:false},"NO_INDEPENDENT_VERIFIED_PAIR_POLICY"],
+    [{...synthetic,artisticIntent:"UNKNOWN"},"ARTISTIC_INTENT_UNKNOWN"],
+    [{...synthetic,artisticIntent:"INTENTIONAL"},"INTENTIONAL_STYLE"],
+    [{...synthetic,independentDefect:"UNKNOWN"},"INDEPENDENT_DEFECT_NOT_CONFIRMED"],
+    [{...synthetic,independentDefect:"NOT_CONFIRMED"},"INDEPENDENT_DEFECT_NOT_CONFIRMED"],
+  ];
+  for(const [policy,reason] of trials){
+    const d=evaluateAuralisStage3F1SpectralShadow(c,audit,policy);
+    assert.equal(d.status,"EVIDENCE_ONLY");
+    assert.equal(d.reason,reason);
+    assert.equal(d.candidateCap,null);
+    assert.deepEqual(d.adjustments,[]);
+  }
+  const unavailable={...c,auralisExecution:{status:"UNAVAILABLE",reason:"WORKER_FAILED",scoringImpact:"NONE"}};
+  assert.equal(evaluateAuralisStage3F1SpectralShadow(unavailable,audit,synthetic).status,"ABSTAIN");
+  assert.equal(evaluateAuralisStage3F1SpectralShadow(c,{...audit,measurementDb:999},synthetic).status,"ABSTAIN");
+  assert.equal(evaluateAuralisStage3F1SpectralShadow(c,{...audit,scoreLineage:"UNVERIFIED"},synthetic).status,"ABSTAIN");
+  assert.equal(evaluateAuralisStage3F1SpectralShadow(c,{...audit,appliedCap:79},synthetic).status,"ABSTAIN");
+  assert.equal(evaluateAuralisStage3F1SpectralShadow(c,{...audit,adjustments:[{cap:79}]},synthetic).status,"ABSTAIN");
+  assert.equal(evaluateAuralisStage3F1SpectralShadow(c,{...audit,observedFinalSpectralScore:95},synthetic).status,"ABSTAIN");
+  assert.equal(evaluateAuralisStage3F1SpectralShadow(c,{...audit,serverReturnedScoreStatus:"NOT_CAPTURED"},synthetic).status,"ABSTAIN");
+  assert.equal(evaluateAuralisStage3F1SpectralShadow(c,{...audit,geminiMappedSpectralScore:null},synthetic).status,"ABSTAIN");
+  assert.equal(evaluateAuralisStage3F1SpectralShadow(c,{...audit,legacyDspCap:86},synthetic).status,"ABSTAIN");
+  assert.equal(evaluateAuralisStage3F1SpectralShadow(c,{...audit,observedCommercialReadiness:90},synthetic).status,"ABSTAIN");
+  // A proposed quality correction must not be based on one band ratio
+  // or a mislabeled/noisy legacy-DSP signal inventory.
+  const missingSignals={...c,mixBalanceEvidence:{...c.mixBalanceEvidence,signals:[]}};
+  assert.equal(evaluateAuralisStage3F1SpectralShadow(missingSignals,audit,synthetic).status,"ABSTAIN");
+  const mismatchedSignals={...c,mixBalanceEvidence:{...c.mixBalanceEvidence,signals:["one"]}};
+  assert.equal(evaluateAuralisStage3F1SpectralShadow(mismatchedSignals,audit,synthetic).status,"ABSTAIN");
+  const wrongReadiness={...c,scores:{commercialReadiness:90}};
+  const wrongReadinessAudit={...audit,observedCommercialReadiness:90};
+  assert.deepEqual([evaluateAuralisStage3F1SpectralShadow(wrongReadiness,wrongReadinessAudit,synthetic).status,
+    evaluateAuralisStage3F1SpectralShadow(wrongReadiness,wrongReadinessAudit,synthetic).reason],
+    ["EVIDENCE_ONLY","INCONSISTENT_READINESS_PARENT"]);
+});
+
+test("Stage 3F-1 duplicate old caps and absent effects always abstain from new correction",async()=>{
+  const {buildAuralisBetaScoringAudit,evaluateAuralisStage3F1SpectralShadow}=
+    await import("../src/lib/mudPreventionDiagnostic.ts");
+  const synthetic={
+    evidenceScope:"SYNTHETIC_VERIFIED_FIXTURE_ONLY",
+    sourceIdentity:"VERIFIED_SYNTHETIC",sameSourceAligned:true,
+    independentDefect:"CONFIRMED_SYNTHETIC",
+    artisticIntent:"REVIEWED_NOT_INTENTIONAL_SYNTHETIC"
+  };
+  const fixture=(final,cap,signals)=>{
+    const c={
+      auralisExecution:{status:"AVAILABLE",reason:"VALIDATED_ENGINEERING_EVIDENCE",scoringImpact:"NONE"},
+      auralisEngineering:{schemaVersion:AURALIS_ENGINEERING_ADAPTER_VERSION,scoringImpact:"NONE",
+        scoringAdapter:{status:AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+        metrics:{lowToUpperDb:0}},
+      subMetricsCall1:{spectralMatch:{score:final,applicable:true},dynamicVariety:{score:88},
+        a2ScoringProvenance:{spectralMatch:{
+          canonicalMappedScore:93,serverSpectralStatus:"CAPTURED",
+          serverFinishCapCandidate:null,serverFinishCapApplied:false,serverFinishCapReason:"NONE",
+          serverScoreAfterFinishCap:93,preClientScore:93,browserSpectralStatus:"CAPTURED",
+          browserSpectralCapCandidate:cap,browserSpectralCapApplied:cap!==null&&93>cap,
+          afterSpectralCapScore:final,browserFinishStatus:"COMPLETED",
+          browserFinishCapCandidate:null,afterFinishCeilingScore:final,finalScore:final,
+        }}},
+      productionFinishEvidence:{ceiling:null},
+      mixBalanceEvidence:{spectralCap:cap,signals},
+      subMetricsCall3:{compositionFlowSubs:{hookPlacement:{score:90},sectionalContrast:{score:88}}},
+      scores:{commercialReadiness:Math.round((90*60+88*20+final*10+88*10)/100)}
+    };
+    return {c,audit:buildAuralisBetaScoringAudit(c,93)};
+  };
+  // An existing 3/4/5-signal cap is stricter than 79 and always wins.
+  for(const [cap,n] of [[76,3],[72,4],[68,5]]){
+    const {c,audit}=fixture(cap,cap,Array(n).fill("technical-signal"));
+    const x=evaluateAuralisStage3F1SpectralShadow(c,audit,synthetic);
+    assert.deepEqual([x.status,x.reason,x.candidateCap,x.appliedCap,x.scoringImpact],
+      ["EVIDENCE_ONLY","NO_ADDITIONAL_DOWNWARD_EFFECT",null,null,"NONE"]);
+  }
+  // One-signal gate at 86: shadow can be downward-only when the synthetic
+  // defect and intent assertions are supplied; no audio or model call needed.
+  const {c,audit}=fixture(86,86,["technical-signal"]);
+  const x=evaluateAuralisStage3F1SpectralShadow(c,audit,synthetic);
+  assert.equal(x.status,"SYNTHETIC_HYPOTHETICAL_ONLY");
+  assert.equal(x.hypotheticalSpectralScore,79);
+  assert.equal(x.appliedScoreChange,0);
+  assert.deepEqual(x.adjustments,[]);
+  const absent=fixture(93,null,[]);
+  const noCorroboration=evaluateAuralisStage3F1SpectralShadow(absent.c,absent.audit,synthetic);
+  assert.deepEqual([noCorroboration.status,noCorroboration.reason,noCorroboration.candidateCap],
+    ["EVIDENCE_ONLY","NO_INDEPENDENT_DSP_CORROBORATION",null]);
+  const historical={...audit,sourceIdentity:"UNVERIFIED",scoreLineage:"UNVERIFIED"};
+  assert.equal(evaluateAuralisStage3F1SpectralShadow(c,historical,synthetic).status,"ABSTAIN");
+});
+
+test("Stage 3F-1 app remains score-inert and carries no real-world activation policy",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  const lib=await readFile(new URL("../src/lib/mudPreventionDiagnostic.ts",import.meta.url),"utf8");
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \\| null = null;/);
+  assert.ok(app.indexOf("evaluateAuralisStage3F1SpectralShadow(")>
+    app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)"));
+  assert.ok(app.indexOf("evaluateAuralisStage3F1SpectralShadow(")<
+    app.indexOf("setCritiqueResult({"));
+  assert.doesNotMatch(app,/SYNTHETIC_VERIFIED_FIXTURE_ONLY/);
+  assert.doesNotMatch(server,/evaluateAuralisStage3F1SpectralShadow/);
+  const gateSource=lib.slice(lib.indexOf("export function evaluateAuralisStage3F1SpectralShadow("),
+    lib.indexOf("// Compatibility wrapper for the existing gated prototype;"));
+  assert.doesNotMatch(gateSource,/metric\\.score\\s*=/);
+  assert.doesNotMatch(gateSource,/scoringImpact:.*"CANDIDATE_ONLY"/);
+});

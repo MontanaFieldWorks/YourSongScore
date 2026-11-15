@@ -4,7 +4,7 @@ import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile, InternalBatchResult } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
 import type { AuralisEncodedSourceIdentity } from "./lib/liveAudioAnalyzer";
-import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit } from "./lib/mudPreventionDiagnostic";
+import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow } from "./lib/mudPreventionDiagnostic";
 
 // Disabled by default: internal opt-in diagnostic computation only, no report/scoring data.
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
@@ -1534,6 +1534,11 @@ export default function App() {
       // corrections and A2 snapshots. Never change a score, cap or model tier.
       (overriddenCritique as any).auralisBetaScoringAudit =
         buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore);
+      // Stage 3F-1: shadow observation only. No synthetic authorization
+      // context is supplied for a real upload; this cannot activate the cap.
+      (overriddenCritique as any).auralisStage3F1SpectralShadow =
+        evaluateAuralisStage3F1SpectralShadow(
+          overriddenCritique, (overriddenCritique as any).auralisBetaScoringAudit);
 
       if (overriddenCritique.liveMetrics) {
         renderAnalysisImages(overriddenCritique.liveMetrics);
