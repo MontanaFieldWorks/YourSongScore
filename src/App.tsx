@@ -4,7 +4,7 @@ import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile, InternalBatchResult } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
 import type { AuralisEncodedSourceIdentity } from "./lib/liveAudioAnalyzer";
-import { prepareAuralisSourceLineage } from "./lib/mudPreventionDiagnostic";
+import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit } from "./lib/mudPreventionDiagnostic";
 
 // Disabled by default: internal opt-in diagnostic computation only, no report/scoring data.
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
@@ -1525,6 +1525,11 @@ export default function App() {
       } else {
         captureA2BrowserUnavailable(overriddenCritique);
       }
+
+      // Stage 3E: freeze observations only AFTER the existing browser score
+      // corrections and A2 snapshots. Never change a score, cap or model tier.
+      (overriddenCritique as any).auralisBetaScoringAudit =
+        buildAuralisBetaScoringAudit(overriddenCritique);
 
       if (overriddenCritique.liveMetrics) {
         renderAnalysisImages(overriddenCritique.liveMetrics);
