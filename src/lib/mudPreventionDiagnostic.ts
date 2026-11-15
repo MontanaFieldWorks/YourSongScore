@@ -533,7 +533,7 @@ export function recordAuralisPairedSpectralShadowDecision(
 // An available FFT ratio is not a defect judgment, trusted song-pair lineage,
 // or authorization to apply a 79-point cap. Archived UNVERIFIED remains UNVERIFIED.
 export const AURALIS_BETA_SCORING_AUDIT_VERSION = "auralis-stage3e-score-audit-v1" as const;
-export function buildAuralisBetaScoringAudit(critique: unknown) {
+export function buildAuralisBetaScoringAudit(critique: unknown, serverReturnedSpectralScore?: unknown) {
   const c = critique as any;
   const finiteScore = (v: unknown): v is number =>
     typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 100;
@@ -547,6 +547,11 @@ export function buildAuralisBetaScoringAudit(critique: unknown) {
   const capKnown = capPresent && (rawCap === null || finiteScore(rawCap));
   const finalScore = spectral?.applicable === false || !finiteScore(spectral?.score)
     ? null : spectral.score as number;
+  // Captured BEFORE browser corrections by the caller. This server-returned
+  // value may already include a server finish ceiling: it is not the raw
+  // Gemini-mapped tier unless a complete A2 canonical trace proves that.
+  const serverScore = finiteScore(serverReturnedSpectralScore) &&
+    spectral?.applicable !== false ? serverReturnedSpectralScore : null;
   const measured = assessAuralisSpectralTrialEvidence(
     c?.auralisEngineering, false, null);
   const available = c?.auralisExecution?.status === "AVAILABLE" &&
@@ -561,6 +566,7 @@ export function buildAuralisBetaScoringAudit(critique: unknown) {
     trace?.serverSpectralStatus === "CAPTURED" &&
     finiteScore(trace?.serverScoreAfterFinishCap) &&
     trace?.preClientScore === trace?.serverScoreAfterFinishCap &&
+    (serverScore === null || serverScore === trace.preClientScore) &&
     trace?.browserSpectralStatus === "CAPTURED" &&
     trace?.browserFinishStatus === "COMPLETED" &&
     finiteScore(trace?.finalScore) && trace.finalScore === finalScore &&
@@ -593,6 +599,9 @@ export function buildAuralisBetaScoringAudit(critique: unknown) {
     pairedSourceAlignment: "UNVERIFIED" as const,
     independentDefect: "UNKNOWN" as const,
     artisticIntent: "UNKNOWN" as const,
+    serverReturnedSpectralScore: serverScore,
+    serverReturnedScoreStatus: serverScore === null ? "NOT_CAPTURED" as const :
+      "CAPTURED_POST_SERVER_CAPS" as const,
     geminiMappedSpectralScore: completeTrace ? trace.canonicalMappedScore as number : null,
     geminiScoreStatus: completeTrace ? "A2_CANONICAL_CAPTURED" as const :
       "NOT_CAPTURED" as const,
