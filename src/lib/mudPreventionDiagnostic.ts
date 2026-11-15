@@ -529,6 +529,87 @@ export function recordAuralisPairedSpectralShadowDecision(
   return record("INCONCLUSIVE",paired.reason,paired.deltaDb);
 }
 
+// Stage 3E: score-inert, post-scoring observation for the current critique only.
+// An available FFT ratio is not a defect judgment, trusted song-pair lineage,
+// or authorization to apply a 79-point cap. Archived UNVERIFIED remains UNVERIFIED.
+export const AURALIS_BETA_SCORING_AUDIT_VERSION = "auralis-stage3e-score-audit-v1" as const;
+export function buildAuralisBetaScoringAudit(critique: unknown) {
+  const c = critique as any;
+  const finiteScore = (v: unknown): v is number =>
+    typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 100;
+  const spectral = c?.subMetricsCall1?.spectralMatch;
+  const trace = c?.subMetricsCall1?.a2ScoringProvenance?.spectralMatch;
+  const finish = c?.productionFinishEvidence;
+  const rawCap = c?.mixBalanceEvidence?.spectralCap;
+  const capPresent = c?.mixBalanceEvidence !== null &&
+    typeof c?.mixBalanceEvidence === "object" &&
+    Object.prototype.hasOwnProperty.call(c.mixBalanceEvidence, "spectralCap");
+  const capKnown = capPresent && (rawCap === null || finiteScore(rawCap));
+  const finalScore = spectral?.applicable === false || !finiteScore(spectral?.score)
+    ? null : spectral.score as number;
+  const measured = assessAuralisSpectralTrialEvidence(
+    c?.auralisEngineering, false, null);
+  const available = c?.auralisExecution?.status === "AVAILABLE" &&
+    c.auralisExecution.reason === "VALIDATED_ENGINEERING_EVIDENCE" &&
+    c.auralisExecution.scoringImpact === "NONE" &&
+    measured.status === "INCONCLUSIVE" &&
+    measured.reason === "NO_APPROVED_THRESHOLD";
+  // Full numeric A2 capture, when present, is checked rather than reconstructed.
+  // A score equal to a cap cannot establish whether that cap was applied.
+  const completeTrace = finalScore !== null && capKnown &&
+    finiteScore(trace?.canonicalMappedScore) &&
+    trace?.serverSpectralStatus === "CAPTURED" &&
+    finiteScore(trace?.serverScoreAfterFinishCap) &&
+    trace?.preClientScore === trace?.serverScoreAfterFinishCap &&
+    trace?.browserSpectralStatus === "CAPTURED" &&
+    trace?.browserFinishStatus === "COMPLETED" &&
+    finiteScore(trace?.finalScore) && trace.finalScore === finalScore &&
+    trace?.afterFinishCeilingScore === finalScore &&
+    (rawCap === null ? trace.browserSpectralCapCandidate === null :
+      trace.browserSpectralCapCandidate === rawCap) &&
+    (rawCap === null ?
+      trace.afterSpectralCapScore === trace.preClientScore &&
+      trace.browserSpectralCapApplied === false :
+      trace.afterSpectralCapScore === Math.min(trace.preClientScore,rawCap) &&
+      trace.browserSpectralCapApplied === (trace.preClientScore > rawCap)) &&
+    (finish?.ceiling === null || finiteScore(finish?.ceiling)) &&
+    Object.prototype.hasOwnProperty.call(finish ?? {}, "ceiling") &&
+    (finish.ceiling === null ? trace.browserFinishCapCandidate === null :
+      trace.browserFinishCapCandidate === finish.ceiling) &&
+    trace.finalScore === (finish.ceiling === null ?
+      trace.afterSpectralCapScore :
+      Math.min(trace.afterSpectralCapScore, finish.ceiling));
+  const sourceVerified = c?.auralisSourceLineage?.status === "VERIFIED" &&
+    c.auralisSourceLineage.pcmIdentityStatus === "VERIFIED" &&
+    c.auralisSourceLineage.scoringImpact === "NONE";
+  return {
+    schemaVersion: AURALIS_BETA_SCORING_AUDIT_VERSION,
+    status: available ? "INCONCLUSIVE" as const : "UNAVAILABLE" as const,
+    reason: available ? "MEASURED_NO_APPROVED_QUALITY_GATE" as const :
+      "NO_VALIDATED_ENGINEERING_OBSERVATION" as const,
+    measurementDb: available ? measured.measuredDb : null,
+    sourceIdentity: sourceVerified ? "CURRENT_UPLOAD_PCM_VERIFIED" as const :
+      "UNVERIFIED" as const,
+    pairedSourceAlignment: "UNVERIFIED" as const,
+    independentDefect: "UNKNOWN" as const,
+    artisticIntent: "UNKNOWN" as const,
+    geminiMappedSpectralScore: completeTrace ? trace.canonicalMappedScore as number : null,
+    geminiScoreStatus: completeTrace ? "A2_CANONICAL_CAPTURED" as const :
+      "NOT_CAPTURED" as const,
+    legacyDspCap: capKnown ? rawCap as number | null : null,
+    legacyCapStatus: !capKnown ? "NOT_CAPTURED" as const :
+      completeTrace ? "A2_RECONCILED" as const :
+      "RECORDED_EFFECT_UNVERIFIED" as const,
+    legacyCapApplied: completeTrace ? trace.browserSpectralCapApplied as boolean : null,
+    observedFinalSpectralScore: finalScore,
+    observedCommercialReadiness: finiteScore(c?.scores?.commercialReadiness) ?
+      c.scores.commercialReadiness as number : null,
+    scoreLineage: completeTrace ? "A2_RECONCILED" as const : "UNVERIFIED" as const,
+    candidateCap: null, appliedCap: null, appliedScoreChange: 0,
+    scoringImpact: "NONE" as const, adjustments: [] as [],
+  };
+}
+
 // Compatibility wrapper for the existing gated prototype; this never mutates
 // the model tier or score. App.tsx applies min-caps only on explicit activation.
 export function selectAuralisSpectralTrialCap(
