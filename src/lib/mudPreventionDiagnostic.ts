@@ -732,6 +732,111 @@ export function planAuralisReviewed79ScoreIntegration(
     hypotheticalSpectralScore:score,hypotheticalCommercialReadiness:parent};
 }
 
+// Stage 3F-6: narrowly scoped final-score executor. The App integration
+// permanently supplies false until separate activation approval. Historical
+// Gemini/server/browser provenance is immutable; this records a NEW post-Auralis
+// overlay rather than rewriting the pre-Auralis A2 snapshots.
+export const AURALIS_REVIEWED_79_EXECUTION_VERSION =
+  "auralis-stage3f6-reviewed79-execution-v1" as const;
+export type AuralisReviewed79Execution = {
+  version:typeof AURALIS_REVIEWED_79_EXECUTION_VERSION;
+  status:"DISABLED"|"ABSTAIN"|"APPLIED";
+  reason:string;
+  scoringImpact:"NONE"|"DOWNWARD_ONLY";
+  appliedCap:79|null;
+  appliedScoreChange:number;
+  beforeSpectralScore:number|null;
+  afterSpectralScore:number|null;
+  beforeCommercialReadiness:number|null;
+  afterCommercialReadiness:number|null;
+  preAuralisScoreLineage:"A2_RECONCILED"|null;
+};
+export function executeAuralisReviewed79Score(
+  critique:unknown,audit:unknown,shadow:unknown,plan:unknown,
+  scoringEnabled:boolean,
+):AuralisReviewed79Execution {
+  const c=critique as any,a=audit as any,s=shadow as any,p=plan as any;
+  const finiteScore=(v:unknown):v is number=>
+    typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=100;
+  const result=(status:AuralisReviewed79Execution["status"],reason:string,
+    before:number|null=null,after:number|null=null,
+    parentBefore:number|null=null,parentAfter:number|null=null):
+    AuralisReviewed79Execution=>({
+      version:AURALIS_REVIEWED_79_EXECUTION_VERSION,status,reason,
+      scoringImpact:status==="APPLIED"?"DOWNWARD_ONLY":"NONE",
+      appliedCap:status==="APPLIED"?79:null,
+      appliedScoreChange:status==="APPLIED"&&before!==null&&after!==null?
+        after-before:0,
+      beforeSpectralScore:before,afterSpectralScore:after,
+      beforeCommercialReadiness:parentBefore,
+      afterCommercialReadiness:parentAfter,
+      preAuralisScoreLineage:status==="APPLIED"?"A2_RECONCILED":null,
+    });
+  // Disabled means absolutely no score, commentary or provenance mutation.
+  if(scoringEnabled!==true)return result("DISABLED","ACTIVATION_OFF");
+  const metric=c?.subMetricsCall1?.spectralMatch;
+  const dyn=c?.subMetricsCall1?.dynamicVariety;
+  const hook=c?.subMetricsCall3?.compositionFlowSubs?.hookPlacement;
+  const contrast=c?.subMetricsCall3?.compositionFlowSubs?.sectionalContrast;
+  const old=metric?.score,readiness=c?.scores?.commercialReadiness;
+  const legacy=c?.mixBalanceEvidence?.spectralCap;
+  // The Stage 3F-5 planner cannot be made to apply a score. Recompute its
+  // read-only proposal using the disabled policy; accept no supplied shortcut.
+  const fresh=planAuralisReviewed79ScoreIntegration(c,a,s,false);
+  if(c?.auralisStage3F6Execution!==undefined||
+     a!==c?.auralisBetaScoringAudit||
+     c?.auralisStage3F1SpectralShadow!==s||
+     !p||p.status!=="PROJECTION_ONLY"||
+     fresh.status!=="PROJECTION_ONLY"||
+     p.reason!==fresh.reason||
+     p.scoringImpact!=="NONE"||
+     p.appliedCap!==null||p.appliedScoreChange!==0||
+     !Array.isArray(p.adjustments)||p.adjustments.length!==0||
+     p.hypotheticalSpectralScore!==fresh.hypotheticalSpectralScore||
+     p.hypotheticalCommercialReadiness!==fresh.hypotheticalCommercialReadiness||
+     a?.scoreLineage!=="A2_RECONCILED"||
+     a?.scoringImpact!=="NONE"||
+     !Array.isArray(a.adjustments)||a.adjustments.length!==0||
+     a.appliedCap!==null||a.appliedScoreChange!==0||
+     !finiteScore(a.geminiMappedSpectralScore)||
+     !finiteScore(a.serverReturnedSpectralScore)||
+     a.observedFinalSpectralScore!==old||
+     a.observedCommercialReadiness!==readiness||
+     a.legacyDspCap!==legacy||
+     !(legacy===null||finiteScore(legacy))||
+     legacy!==null&&legacy<=79||
+     !finiteScore(old)||old<=79||
+     !finiteScore(readiness)||
+     [dyn,hook,contrast].some(x=>x?.applicable===false||
+       !finiteScore(x?.score))||
+     metric?.applicable===false||
+     s?.candidateCap!==79||
+     s?.existingFinalScore!==old||
+     s?.existingLegacyCap!==legacy||
+     s?.hypotheticalSpectralScore!==79||
+     s?.hypotheticalCommercialReadiness!==fresh.hypotheticalCommercialReadiness)
+    return result("ABSTAIN","INCOMPLETE_OR_STALE_RECONCILED_AUTHORIZATION");
+  const compute=(spectral:number)=>Math.round(
+    (hook.score*60+dyn.score*20+spectral*10+contrast.score*10)/100);
+  const nextScore=Math.min(old,79),nextParent=compute(nextScore);
+  if(compute(old)!==readiness||
+     nextScore!==fresh.hypotheticalSpectralScore||
+     nextParent!==fresh.hypotheticalCommercialReadiness||
+     nextParent>readiness)
+    return result("ABSTAIN","INCONSISTENT_DOWNSTREAM_SCORE");
+  // All checks complete; one narrow commit point. Preserve legacy DSP and
+  // canonical A2 traces so the separate post-Auralis record is auditable.
+  const execution=result("APPLIED","REVIEWED_TECHNICAL_CAP",
+    old,nextScore,readiness,nextParent);
+  metric.score=nextScore;
+  c.scores.commercialReadiness=nextParent;
+  metric.commentary=typeof metric.commentary==="string"?
+    metric.commentary+" Auralis: a separately operator-reviewed, independently corroborated technical issue constrained this Spectral Match result to 79.":
+    "Auralis: an operator-reviewed, independently corroborated technical issue constrained Spectral Match to 79.";
+  c.auralisStage3F6Execution=execution;
+  return execution;
+}
+
 // Stage 3F-1/3F-3: current-upload evidence audit and score-inert hypothetical
 // Spectral Match decision. Never treats a tonal ratio as proof of a defect,
 // or a reviewer flag as verified real-song lineage. No production score authority.
