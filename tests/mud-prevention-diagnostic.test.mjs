@@ -1094,3 +1094,94 @@ test("Stage 3F-1 app remains score-inert and carries no real-world activation po
   assert.doesNotMatch(gateSource,/metric\\.score\\s*=/);
   assert.doesNotMatch(gateSource,/scoringImpact:.*"CANDIDATE_ONLY"/);
 });
+
+test("Stage 3F-5 server-only operator review requires exact SHA and bounded policy",async()=>{
+  const {AURALIS_REVIEW_POLICY_VERSION,validateAuralisOperatorReviewPolicy,
+    resolveAuralisReviewedRealShadowContext}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const sha="a".repeat(64),other="b".repeat(64);
+  const review={version:AURALIS_REVIEW_POLICY_VERSION,sourceSha256:sha,
+    reviewerId:"approved.engineer_1",
+    independentDefect:"CONFIRMED_REVIEWED_REAL",
+    artisticIntent:"REVIEWED_NOT_INTENTIONAL_REAL"};
+  assert.deepEqual(validateAuralisOperatorReviewPolicy(review,sha),review);
+  for(const invalid of [
+    {...review,sourceSha256:other},
+    {...review,sourceSha256:sha.toUpperCase()},
+    {...review,reviewerId:""},
+    {...review,reviewerId:"a b"},
+    {...review,reviewerId:"../escape"},
+    {...review,version:"unreviewed"},
+    {...review,independentDefect:"UNKNOWN"},
+    {...review,artisticIntent:"INTENTIONAL"},
+    {...review,additionalApproval:true},
+    null,{},'reviewed',[],
+  ])assert.equal(validateAuralisOperatorReviewPolicy(invalid,sha),null);
+  assert.equal(validateAuralisOperatorReviewPolicy(review,other),null);
+  assert.equal(validateAuralisOperatorReviewPolicy(review,null),null);
+  const identity={status:"VERIFIED",encodedSha256:sha};
+  const audit={sourceIdentity:"CURRENT_UPLOAD_PCM_VERIFIED"};
+  const context=resolveAuralisReviewedRealShadowContext(review,identity,audit);
+  assert.deepEqual(context,{
+    evidenceScope:"REVIEWED_REAL_RECORDING_SHADOW_ONLY",
+    sourceIdentity:"CURRENT_UPLOAD_PCM_VERIFIED",sameSourceAligned:false,
+    independentDefect:"CONFIRMED_REVIEWED_REAL",
+    artisticIntent:"REVIEWED_NOT_INTENTIONAL_REAL",
+    reviewEvidence:"EXTERNAL_REVIEW_RECORD_ASSERTED"
+  });
+  for(const args of [
+    [review,{...identity,encodedSha256:other},audit],
+    [review,{...identity,status:"UNAVAILABLE"},audit],
+    [review,identity,{sourceIdentity:"UNVERIFIED"}],
+    [review,identity,{sourceIdentity:"HISTORICAL_UNVERIFIED"}],
+    [null,identity,audit],
+  ])assert.equal(resolveAuralisReviewedRealShadowContext(...args),null);
+});
+
+test("Stage 3F-5 always leaves the score executor unavailable and preserves snapshots",async()=>{
+  const {planAuralisReviewed79ScoreIntegration}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const critique={subMetricsCall1:{spectralMatch:{score:82}},scores:{commercialReadiness:89}};
+  const audit={scoreLineage:"A2_RECONCILED",observedCommercialReadiness:89};
+  const shadow={status:"REAL_REVIEW_HYPOTHETICAL_ONLY",
+    reason:"REVIEWED_REAL_SHADOW_NOT_ACTIVATION",scoringImpact:"NONE",
+    adjustments:[],appliedCap:null,appliedScoreChange:0,
+    candidateCap:79,existingFinalScore:82,hypotheticalSpectralScore:79,
+    hypotheticalCommercialReadiness:88,hypotheticalReadinessDelta:-1};
+  const before=structuredClone({critique,audit,shadow});
+  const preview=planAuralisReviewed79ScoreIntegration(critique,audit,shadow,false);
+  assert.deepEqual({critique,audit,shadow},before);
+  assert.deepEqual([preview.status,preview.scoringImpact,preview.appliedCap,
+    preview.appliedScoreChange,preview.hypotheticalSpectralScore,
+    preview.hypotheticalCommercialReadiness],
+    ["PROJECTION_ONLY","NONE",null,0,79,88]);
+  assert.deepEqual(preview.adjustments,[]);
+  for(const [a,b,c,enabled] of [
+    [critique,audit,shadow,true],
+    [critique,audit,{...shadow,candidateCap:null},false],
+    [critique,audit,{...shadow,adjustments:[79]},false],
+    [critique,{...audit,scoreLineage:"UNVERIFIED"},shadow,false],
+    [{...critique,scores:{commercialReadiness:90}},audit,shadow,false],
+    [critique,audit,{...shadow,hypotheticalReadinessDelta:-2},false],
+  ]){
+    const planned=planAuralisReviewed79ScoreIntegration(a,b,c,enabled);
+    assert.notEqual(planned.status,"PROJECTION_ONLY");
+    assert.equal(planned.scoringImpact,"NONE");
+    assert.equal(planned.appliedScoreChange,0);
+  }
+});
+
+test("Stage 3F-5 upload trust boundary is server controlled and activation OFF",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = false;/);
+  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  assert.match(app,/resolveAuralisReviewedRealShadowContext\(/);
+  assert.match(app,/planAuralisReviewed79ScoreIntegration\(/);
+  assert.match(server,/YSS_AURALIS_REVIEW_POLICY_JSON/);
+  assert.match(server,/createHash\("sha256"\)\.update\(req\.file!\.buffer\)/);
+  assert.match(server,/validateAuralisOperatorReviewPolicy\(review,sha\)/);
+  assert.doesNotMatch(server,/req\.body\.auralisReviewedRecordingPolicy/);
+  assert.ok(app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)")<
+    app.indexOf("resolveAuralisReviewedRealShadowContext("));
+  assert.ok(app.indexOf("planAuralisReviewed79ScoreIntegration(")<
+    app.indexOf("setCritiqueResult({"));
+});
