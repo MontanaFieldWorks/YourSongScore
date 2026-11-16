@@ -1345,7 +1345,8 @@ test("Stage 3F-6 live execution remains disabled and appears after audit before 
   const executor=app.indexOf("executeAuralisReviewed79Score(");
   const output=app.indexOf("setCritiqueResult({");
   assert.ok(audit>=0 && audit<shadow && shadow<executor && executor<output);
-  assert.match(app,/reviewedShadow,AURALIS_REVIEWED_79_SCORING_ENABLED\)/);
+  assert.match(app,/reviewedShadow,false\)/);
+  assert.match(app,/const reviewed79Authorized = AURALIS_REVIEWED_79_SCORING_ENABLED &&/);
   const source=lib.slice(lib.indexOf("export function executeAuralisReviewed79Score("),
     lib.indexOf("// Stage 3F-1/3F-3: current-upload evidence audit"));
   assert.match(source,/if\(scoringEnabled!==true\)return result\("DISABLED","ACTIVATION_OFF"\)/);
