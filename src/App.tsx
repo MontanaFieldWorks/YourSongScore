@@ -4,7 +4,7 @@ import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile, InternalBatchResult } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
 import type { AuralisEncodedSourceIdentity } from "./lib/liveAudioAnalyzer";
-import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow, resolveAuralisReviewedRealShadowContext, planAuralisReviewed79ScoreIntegration, executeAuralisReviewed79Score } from "./lib/mudPreventionDiagnostic";
+import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow, resolveAuralisReviewedRealShadowContext, planAuralisReviewed79ScoreIntegration, executeAuralisReviewed79Score, authorizeAuralisReviewed79Execution } from "./lib/mudPreventionDiagnostic";
 
 // Disabled by default: internal opt-in diagnostic computation only, no report/scoring data.
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
@@ -1549,12 +1549,20 @@ export default function App() {
         overriddenCritique,(overriddenCritique as any).auralisBetaScoringAudit,
         reviewedContext ?? undefined);
       (overriddenCritique as any).auralisStage3F1SpectralShadow = reviewedShadow;
-      // A downstream-safe projection, NOT a score mutation. A separate
-      // authorization and scoring-order implementation is required to activate.
+      // Stage 3F-8: the planner is ALWAYS a score-inert projection. Never
+      // turn it into a scoring switch: the executor alone decides whether to
+      // apply a strictly downward change after independent authorization.
       (overriddenCritique as any).auralisStage3F5IntegrationPlan =
         planAuralisReviewed79ScoreIntegration(
           overriddenCritique,(overriddenCritique as any).auralisBetaScoringAudit,
-          reviewedShadow,AURALIS_REVIEWED_79_SCORING_ENABLED);
+          reviewedShadow,false);
+      // The disabled default short-circuits authorization. If separately
+      // enabled in a later approved deployment, require the server-owned
+      // exact-upload review, verified Worker PCM and a recomputed real shadow.
+      const reviewed79Authorized = AURALIS_REVIEWED_79_SCORING_ENABLED &&
+        authorizeAuralisReviewed79Execution(
+          overriddenCritique,(overriddenCritique as any).auralisBetaScoringAudit,
+          reviewedShadow,data.auralisReviewedRecordingPolicy,encodedIdentity);
       // Stage 3F-6: one final-score executor call, AFTER the trusted review
       // audit and BEFORE the report/Locker consume the critique. The hardcoded
       // false switch means this currently records DISABLED with no mutation.
@@ -1563,7 +1571,7 @@ export default function App() {
         executeAuralisReviewed79Score(
           overriddenCritique,(overriddenCritique as any).auralisBetaScoringAudit,
           reviewedShadow,(overriddenCritique as any).auralisStage3F5IntegrationPlan,
-          AURALIS_REVIEWED_79_SCORING_ENABLED);
+          reviewed79Authorized);
 
       if (overriddenCritique.liveMetrics) {
         renderAnalysisImages(overriddenCritique.liveMetrics);
