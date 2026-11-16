@@ -713,7 +713,7 @@ export function isAuralisStage3F9ExactEncodedIdentity(identity:unknown):boolean 
   return i?.status==="VERIFIED" &&
     i.encodedSha256==="19526bc02de79cbc3690357f5e1ae720f11999e95739a7b99358900f39448799" &&
     i.encodedBytes===11520056 &&
-    i.format==="WAV_FLOAT" &&
+    (i.format==="WAV_PCM" || i.format==="WAV_FLOAT") &&
     i.sourceRateStatus==="VERIFIED_WAV_HEADER" &&
     i.sourceSampleRate===48000;
 }
