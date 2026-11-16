@@ -1021,6 +1021,74 @@ test("Stage 3F-1 synthetic shadow requires independent evidence and never mutate
   assert.equal(evaluateAuralisStage3F1SpectralShadow(
     foreignSignal,realAudit,review).reason,"UNKNOWN_DSP_SIGNAL_FAMILY");
 
+  // Stage 3F-8: the verified real evidence above is reused without running
+  // audio or Gemini. The physical SHA is a synthetic 64-hex test identity.
+  const {AURALIS_REVIEW_POLICY_VERSION,authorizeAuralisReviewed79Execution,
+    planAuralisReviewed79ScoreIntegration,executeAuralisReviewed79Score,
+    getAuralisReviewed79ReportRows}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const sha="a".repeat(64),otherSha="b".repeat(64);
+  const approved={version:AURALIS_REVIEW_POLICY_VERSION,sourceSha256:sha,
+    reviewerId:"engineer.reviewed",independentDefect:"CONFIRMED_REVIEWED_REAL",
+    artisticIntent:"REVIEWED_NOT_INTENTIONAL_REAL"};
+  const encoded={status:"VERIFIED",encodedSha256:sha};
+  realC.auralisBetaScoringAudit=realAudit;
+  realC.auralisStage3F1SpectralShadow=real;
+  const scoreSnapshot=structuredClone(realC);
+  assert.equal(authorizeAuralisReviewed79Execution(
+    realC,realAudit,real,approved,encoded),true);
+  for(const [policy,source] of [
+    [null,encoded],
+    [{...approved,sourceSha256:otherSha},encoded],
+    [approved,{...encoded,encodedSha256:otherSha}],
+    [{...approved,artisticIntent:"INTENTIONAL"},encoded],
+    [{...approved,independentDefect:"UNKNOWN"},encoded],
+    [approved,{...encoded,status:"UNVERIFIED"}],
+  ]){
+    assert.equal(authorizeAuralisReviewed79Execution(
+      realC,realAudit,real,policy,source),false);
+    assert.deepEqual(realC,scoreSnapshot);
+  }
+  realC.auralisStage3F1SpectralShadow={...real,candidateCap:76};
+  assert.equal(authorizeAuralisReviewed79Execution(
+    realC,realAudit,realC.auralisStage3F1SpectralShadow,approved,encoded),false);
+  realC.auralisStage3F1SpectralShadow=real;
+  const goodLineage=realC.auralisSourceLineage;
+  realC.auralisSourceLineage={...goodLineage,pcmIdentityStatus:"UNVERIFIED"};
+  assert.equal(authorizeAuralisReviewed79Execution(
+    realC,realAudit,real,approved,encoded),false);
+  realC.auralisSourceLineage=goodLineage;
+  const plan=planAuralisReviewed79ScoreIntegration(realC,realAudit,real,false);
+  assert.equal(plan.status,"PROJECTION_ONLY");
+  assert.equal(planAuralisReviewed79ScoreIntegration(
+    realC,realAudit,real,true).status,"BLOCKED");
+  const off=executeAuralisReviewed79Score(realC,realAudit,real,plan,false);
+  assert.equal(off.status,"DISABLED");
+  assert.deepEqual(realC,scoreSnapshot);
+  const preA2=structuredClone(realAudit);
+  const applied=executeAuralisReviewed79Score(realC,realAudit,real,plan,
+    authorizeAuralisReviewed79Execution(realC,realAudit,real,approved,encoded));
+  assert.deepEqual([applied.status,applied.appliedCap,applied.appliedScoreChange,
+    realC.subMetricsCall1.spectralMatch.score,realC.scores.commercialReadiness],
+    ["APPLIED",79,-3,79,88]);
+  assert.deepEqual(realAudit,preA2);
+  assert.equal(getAuralisReviewed79ReportRows(realC)[0].value,
+    "VERIFIED_POST_AURALIS_SCORE_LINEAGE");
+  assert.equal(executeAuralisReviewed79Score(realC,realAudit,real,plan,true).status,
+    "ABSTAIN","no duplicate 79 adjustment");
+  assert.equal(authorizeAuralisReviewed79Execution(
+    realC,realAudit,real,approved,encoded),false,"original shadow is now stale");
+  const stronger=structuredClone(scoreSnapshot);
+  stronger.subMetricsCall1.spectralMatch.score=76;
+  stronger.mixBalanceEvidence.spectralCap=76;
+  stronger.mixBalanceEvidence.signals.push("midrange clarity collapse (12)");
+  stronger.auralisBetaScoringAudit={...realAudit,
+    observedFinalSpectralScore:76,legacyDspCap:76};
+  const strongerAudit=stronger.auralisBetaScoringAudit;
+  stronger.auralisStage3F1SpectralShadow=real;
+  assert.equal(authorizeAuralisReviewed79Execution(
+    stronger,strongerAudit,real,approved,encoded),false);
+  assert.equal(getAuralisReviewed79ReportRows(stronger).length,0);
+
 });
 
 test("Stage 3F-1 duplicate old caps and absent effects always abstain from new correction",async()=>{
@@ -1277,7 +1345,8 @@ test("Stage 3F-6 live execution remains disabled and appears after audit before 
   const executor=app.indexOf("executeAuralisReviewed79Score(");
   const output=app.indexOf("setCritiqueResult({");
   assert.ok(audit>=0 && audit<shadow && shadow<executor && executor<output);
-  assert.match(app,/reviewedShadow,AURALIS_REVIEWED_79_SCORING_ENABLED\)/);
+  assert.match(app,/reviewedShadow,false\)/);
+  assert.match(app,/const reviewed79Authorized = AURALIS_REVIEWED_79_SCORING_ENABLED &&/);
   const source=lib.slice(lib.indexOf("export function executeAuralisReviewed79Score("),
     lib.indexOf("// Stage 3F-1/3F-3: current-upload evidence audit"));
   assert.match(source,/if\(scoringEnabled!==true\)return result\("DISABLED","ACTIVATION_OFF"\)/);
@@ -1373,4 +1442,26 @@ test("Stage 3F-7 real exporter values match scored fields and preserve A2 histor
   assert.equal(getAuralisReviewed79ReportRows(c)[0].value,"INVALID_POST_AURALIS_SCORE_LINEAGE");
   // A non-Auralis historical critique has no new lineage rows.
   assert.deepEqual(getAuralisReviewed79ReportRows({subMetricsCall1:{spectralMatch:{score:79}}}),[]);
+});
+
+test("Stage 3F-8 production activation requires reviewed real authorization while planner stays inert",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  const report=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = false;/);
+  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.match(app,/reviewedShadow,false\);/);
+  assert.match(app,/const reviewed79Authorized = AURALIS_REVIEWED_79_SCORING_ENABLED &&/);
+  assert.match(app,/authorizeAuralisReviewed79Execution\(/);
+  assert.match(app,/reviewedShadow,data\.auralisReviewedRecordingPolicy,encodedIdentity\);/);
+  assert.match(app,/reviewedShadow,\(overriddenCritique as any\)\.auralisStage3F5IntegrationPlan,\s*reviewed79Authorized\);/);
+  assert.match(server,/process\.env\.YSS_AURALIS_BETA_ARMED!=="EXACT_SHA_REVIEW_ONLY"/);
+  assert.match(server,/validateAuralisOperatorReviewPolicy\(review,sha\)/);
+  assert.match(server,/createHash\("sha256"\)\.update\(req\.file!\.buffer\)/);
+  assert.match(report,/getAuralisReviewed79ReportRows\(critique\)/);
+  assert.ok(app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)")<
+    app.indexOf("authorizeAuralisReviewed79Execution("));
+  assert.ok(app.indexOf("executeAuralisReviewed79Score(")<
+    app.indexOf("setCritiqueResult({"));
 });
