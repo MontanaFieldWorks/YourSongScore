@@ -9,7 +9,7 @@ import { analyzeClimaxPeakCompetition, formatClimaxPeakDiagnostic } from "../lib
 import { getClimaxTrajectoryEvidenceRows } from "../lib/climaxEvidenceExport";
 import { appendA2ProvenanceToSourceDiagnostics } from "../lib/a2ScoringProvenance";
 import { getMudPreventionPublicCommentary } from "../lib/mudPreventionReporting";
-import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS } from "../lib/mudPreventionDiagnostic";
+import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS, getAuralisReviewed79ReportRows } from "../lib/mudPreventionDiagnostic";
 import { 
   Play, Pause, RefreshCw, Layers, Sliders, Mic,
   Volume2, Disc, ArrowLeft, ArrowRight, CheckCircle, Flame, Sparkles, CheckSquare, Square,
@@ -1799,6 +1799,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       const row = wsSourceDiagnostics.addRow(diagnostic);
       row.alignment = { vertical: "top", wrapText: true };
       row.height = 32;
+    }
+    // Stage 3F-7: the exact final scores consumed by the visible critique
+    // are also the values reported by Excel. Keep the original pre-Auralis
+    // evidence separate; no historical A2 provenance is reinterpreted.
+    for (const diagnostic of getAuralisReviewed79ReportRows(critique)) {
+      const row = wsSourceDiagnostics.addRow(diagnostic);
+      row.alignment = { vertical: "top", wrapText: true };
+      row.height = 30;
     }
     // Explicit execution status is retained even when the Worker fails,
     // validation abstains, or the optional diagnostic was not started.
