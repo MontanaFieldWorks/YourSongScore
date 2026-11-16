@@ -1283,3 +1283,94 @@ test("Stage 3F-6 live execution remains disabled and appears after audit before 
   assert.match(source,/if\(scoringEnabled!==true\)return result\("DISABLED","ACTIVATION_OFF"\)/);
   assert.doesNotMatch(source,/fetch\(|api\/|process\.env|GEMINI_API_KEY/);
 });
+
+test("Stage 3F-7 operator shutoff defaults OFF and retains double-locked scoring", async()=>{
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const display=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  assert.match(server,/process\.env\.YSS_AURALIS_BETA_ARMED!=="EXACT_SHA_REVIEW_ONLY"/);
+  assert.match(server,/validateAuralisOperatorReviewPolicy\(review,sha\)/);
+  assert.match(server,/createHash\("sha256"\)\.update\(req\.file!\.buffer\)/);
+  assert.doesNotMatch(server,/req\.body\.auralisReviewedRecordingPolicy/);
+  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = false;/);
+  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.match(display,/getAuralisReviewed79ReportRows\(critique\)/);
+  assert.match(display,/wsSourceDiagnostics\.addRow\(diagnostic\)/);
+  assert.ok(display.indexOf("getAuralisReviewed79ReportRows(critique)")<
+    display.indexOf("appendA2ProvenanceToSourceDiagnostics(wsSourceDiagnostics, critique)"));
+  assert.match(display,/critiqueData\.subMetricsCall1\[entry\.field\]/);
+  assert.match(display,/const commercialReadinessVal = critique\?\.scores\?\.commercialReadiness/);
+});
+
+test("Stage 3F-7 real exporter values match scored fields and preserve A2 historical evidence",async()=>{
+  const {executeAuralisReviewed79Score,planAuralisReviewed79ScoreIntegration,
+    getAuralisReviewed79ReportRows}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const c={
+    subMetricsCall1:{spectralMatch:{score:82,commentary:"Gemini artistic interpretation",applicable:true},
+      dynamicVariety:{score:88}},
+    subMetricsCall3:{compositionFlowSubs:{hookPlacement:{score:90},sectionalContrast:{score:88}}},
+    mixBalanceEvidence:{spectralCap:82,signals:["extreme low-mid magnitude (78)","very low relative air energy (0.30%)"]},
+    scores:{commercialReadiness:89,overallProduction:93},
+  };
+  const audit={scoreLineage:"A2_RECONCILED",scoringImpact:"NONE",adjustments:[],
+    appliedCap:null,appliedScoreChange:0,
+    geminiMappedSpectralScore:93,serverReturnedSpectralScore:93,
+    observedFinalSpectralScore:82,observedCommercialReadiness:89,legacyDspCap:82};
+  const shadow={status:"REAL_REVIEW_HYPOTHETICAL_ONLY",
+    reason:"REVIEWED_REAL_SHADOW_NOT_ACTIVATION",scoringImpact:"NONE",
+    adjustments:[],appliedCap:null,appliedScoreChange:0,candidateCap:79,
+    existingFinalScore:82,existingLegacyCap:82,
+    hypotheticalSpectralScore:79,hypotheticalCommercialReadiness:88,
+    hypotheticalReadinessDelta:-1};
+  c.auralisBetaScoringAudit=audit;
+  c.auralisStage3F1SpectralShadow=shadow;
+  const plan=planAuralisReviewed79ScoreIntegration(c,audit,shadow,false);
+  assert.equal(plan.status,"PROJECTION_ONLY");
+  assert.deepEqual(getAuralisReviewed79ReportRows(c),[]);
+  const originalAudit=structuredClone(audit);
+  const originalShadow=structuredClone(shadow);
+  const originalScore=structuredClone(c.scores);
+  const disabled=executeAuralisReviewed79Score(c,audit,shadow,plan,false);
+  assert.equal(disabled.status,"DISABLED");
+  assert.deepEqual(c.scores,originalScore);
+  assert.deepEqual(getAuralisReviewed79ReportRows(c),[]);
+  const applied=executeAuralisReviewed79Score(c,audit,shadow,plan,true);
+  assert.equal(applied.status,"APPLIED");
+  assert.deepEqual(audit,originalAudit);
+  assert.deepEqual(shadow,originalShadow);
+  assert.deepEqual([c.subMetricsCall1.spectralMatch.score,c.scores.commercialReadiness],[79,88]);
+  const rows=getAuralisReviewed79ReportRows(c);
+  const values=Object.fromEntries(rows.map(r=>[r.field,r.value]));
+  assert.equal(values.Consistency,"VERIFIED_POST_AURALIS_SCORE_LINEAGE");
+  assert.deepEqual([
+    values["Original Gemini tier-mapped Spectral Match"],
+    values["Pre-Auralis Spectral Match"],
+    values["Final reported Spectral Match"],
+    values["Applied Spectral Match change"],
+    values["Pre-Auralis Commercial Readiness"],
+    values["Final reported Commercial Readiness"],
+    values["Independent legacy DSP cap"]
+  ],[93,82,79,-3,89,88,82]);
+  const XLS=(await import("exceljs")).default;
+  const wb=new XLS.Workbook();
+  const ws=wb.addWorksheet("Source Diagnostics");
+  ws.columns=[{header:"Metric",key:"section"},{header:"Diagnostic field",key:"field"},
+    {header:"Recorded evidence / decision",key:"value"}];
+  rows.forEach(row=>ws.addRow(row));
+  const bytes=await wb.xlsx.writeBuffer();
+  const decoded=new XLS.Workbook();
+  await decoded.xlsx.load(bytes);
+  const sheet=decoded.getWorksheet("Source Diagnostics");
+  assert.equal(sheet.getRow(2).getCell(3).value,"VERIFIED_POST_AURALIS_SCORE_LINEAGE");
+  assert.equal(sheet.getRow(5).getCell(3).value,79);
+  assert.equal(sheet.getRow(8).getCell(3).value,88);
+  // Tampering with a visible score must not create apparently valid audit rows.
+  c.scores.commercialReadiness=87;
+  assert.equal(getAuralisReviewed79ReportRows(c)[0].value,"INVALID_POST_AURALIS_SCORE_LINEAGE");
+  c.scores.commercialReadiness=88;
+  c.subMetricsCall1.spectralMatch.score=76;
+  assert.equal(getAuralisReviewed79ReportRows(c)[0].value,"INVALID_POST_AURALIS_SCORE_LINEAGE");
+  // A non-Auralis historical critique has no new lineage rows.
+  assert.deepEqual(getAuralisReviewed79ReportRows({subMetricsCall1:{spectralMatch:{score:79}}}),[]);
+});
