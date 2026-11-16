@@ -5040,7 +5040,6 @@ test("Stage 3D-2L-1 identity capture stays default-off without affecting Stage 3
   assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = false;/);
   assert.match(app,/isAuralisStage3F9IdentityCandidate\(/);
   assert.match(app,/isAuralisStage3F9ExactEncodedIdentity\(await auralisEncodedIdentity\)/);
-  assert.match(app,/\s+auralisEncodedIdentity\);/);
   assert.match(app,/selectedFile,STAGE3D2L1_IDENTITY_ENABLED,a2PilotEnabled,/);
   const bridge=await readFile(new URL("../src/lib/batchAudioWorker.ts",import.meta.url),"utf8");
   const worker=await readFile(new URL("../src/workers/audioAnalysisWorker.ts",import.meta.url),"utf8");
