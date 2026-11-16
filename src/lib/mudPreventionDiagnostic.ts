@@ -697,6 +697,26 @@ export function resolveAuralisReviewedRealShadowContext(
     artisticIntent:"REVIEWED_NOT_INTENTIONAL_REAL",
     reviewEvidence:"EXTERNAL_REVIEW_RECORD_ASSERTED"};
 }
+// Stage 3F-9: single-fixture, default-OFF identity trial preparation.
+// File name and size only select a candidate for hashing; they never
+// establish trust. An exact archived encoded SHA is required separately
+// before the Worker can receive the identity-capture option.
+export function isAuralisStage3F9IdentityCandidate(
+  file:unknown, enabled:boolean, a2Pilot:boolean, evidenceEnabled:boolean,
+):boolean {
+  const f=file as any;
+  return enabled===true && a2Pilot===false && evidenceEnabled===true &&
+    f?.name==="carry-on-03-muddy-dark.wav" && f?.size===11520056;
+}
+export function isAuralisStage3F9ExactEncodedIdentity(identity:unknown):boolean {
+  const i=identity as any;
+  return i?.status==="VERIFIED" &&
+    i.encodedSha256==="19526bc02de79cbc3690357f5e1ae720f11999e95739a7b99358900f39448799" &&
+    i.encodedBytes===11520056 &&
+    (i.format==="WAV_PCM" || i.format==="WAV_FLOAT") &&
+    i.sourceRateStatus==="VERIFIED_WAV_HEADER" &&
+    i.sourceSampleRate===48000;
+}
 // Stage 3F-8: this is the production trust boundary for a reviewed-real 79
 // trial. Never infer approval from a shadow result or a browser-supplied flag.
 // The server's exact encoded-byte review, the current decoded/Worker PCM

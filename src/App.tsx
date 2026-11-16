@@ -4,7 +4,7 @@ import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile, InternalBatchResult } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
 import type { AuralisEncodedSourceIdentity } from "./lib/liveAudioAnalyzer";
-import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow, resolveAuralisReviewedRealShadowContext, planAuralisReviewed79ScoreIntegration, executeAuralisReviewed79Score, authorizeAuralisReviewed79Execution } from "./lib/mudPreventionDiagnostic";
+import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow, resolveAuralisReviewedRealShadowContext, planAuralisReviewed79ScoreIntegration, executeAuralisReviewed79Score, authorizeAuralisReviewed79Execution, isAuralisStage3F9IdentityCandidate, isAuralisStage3F9ExactEncodedIdentity } from "./lib/mudPreventionDiagnostic";
 
 // Disabled by default: internal opt-in diagnostic computation only, no report/scoring data.
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
@@ -1402,9 +1402,17 @@ export default function App() {
     // returns so this does not add a second DSP pass.
     let preAnalysisLiveMetrics: any = null;
     try {
+      // Stage 3F-9: opt-in identity hashing is limited to the frozen,
+      // reviewed Carry On WAV; a matching name/size is NOT proof of identity.
+      const stage3f9IdentityCandidate = isAuralisStage3F9IdentityCandidate(
+        selectedFile,STAGE3D2L1_IDENTITY_ENABLED,a2PilotEnabled,
+        STAGE3D1_AURALIS_EVIDENCE_ENABLED);
       const audioBuffer = await decodeAudioFile(selectedFile,
-        STAGE3D2L1_IDENTITY_ENABLED && !a2PilotEnabled && STAGE3D1_AURALIS_EVIDENCE_ENABLED
+        stage3f9IdentityCandidate
           ? identity => { auralisEncodedIdentity = identity; } : undefined);
+      if(auralisEncodedIdentity &&
+         !isAuralisStage3F9ExactEncodedIdentity(await auralisEncodedIdentity))
+        auralisEncodedIdentity=undefined;
       preAnalysisLiveMetrics = analyzeAudioBuffer(audioBuffer);
       if (STAGE2C2A_DIAGNOSTICS_ENABLED &&
           diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
@@ -1435,7 +1443,7 @@ export default function App() {
         const controller = new AbortController();
         auralisDiagnosticAbortRef.current = controller;
         auralisEvidencePromise = analyzeEngineeringDiagnosticsInWorker(audioBuffer, controller.signal, undefined, undefined, true,
-          STAGE3D2L1_IDENTITY_ENABLED ? auralisEncodedIdentity : undefined)
+          auralisEncodedIdentity)
           .then(result => {
             if(controller.signal.aborted ||
                diagnosticGeneration !== auralisDiagnosticGenerationRef.current) return null;

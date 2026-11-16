@@ -5038,8 +5038,9 @@ test("Stage 3D-2L-1 identity capture stays default-off without affecting Stage 3
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   assert.match(app,/const STAGE3D1_AURALIS_EVIDENCE_ENABLED = true;/);
   assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = false;/);
-  assert.match(app,/STAGE3D2L1_IDENTITY_ENABLED \? auralisEncodedIdentity : undefined/);
-  assert.match(app,/STAGE3D2L1_IDENTITY_ENABLED && !a2PilotEnabled/);
+  assert.match(app,/isAuralisStage3F9IdentityCandidate\(/);
+  assert.match(app,/isAuralisStage3F9ExactEncodedIdentity\(await auralisEncodedIdentity\)/);
+  assert.match(app,/selectedFile,STAGE3D2L1_IDENTITY_ENABLED,a2PilotEnabled,/);
   const bridge=await readFile(new URL("../src/lib/batchAudioWorker.ts",import.meta.url),"utf8");
   const worker=await readFile(new URL("../src/workers/audioAnalysisWorker.ts",import.meta.url),"utf8");
   assert.match(bridge,/\.\.\.\(encodedIdentity\?\{captureIdentity:true as const\}:\{\}\)/);
@@ -5080,6 +5081,54 @@ test("Stage 3D-2L frozen real-file identity mode is opt-in, manifest-bound and s
   assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = false;/);
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \| null = null;/);
+});
+
+test("Stage 3F-9 opt-in identity trial refuses every other source and preserves score-disabled controls",async()=>{
+  const {isAuralisStage3F9IdentityCandidate,isAuralisStage3F9ExactEncodedIdentity}=
+    await import("../src/lib/mudPreventionDiagnostic.ts");
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  const ref={name:"carry-on-01-reference.wav",size:11520056};
+  const altered={name:"carry-on-03-muddy-dark.wav",size:11520056};
+  assert.equal(isAuralisStage3F9IdentityCandidate(altered,false,false,true),false);
+  assert.equal(isAuralisStage3F9IdentityCandidate(altered,true,true,true),false);
+  assert.equal(isAuralisStage3F9IdentityCandidate(altered,true,false,false),false);
+  assert.equal(isAuralisStage3F9IdentityCandidate(altered,true,false,true),true);
+  for(const file of [ref,
+    {...altered,size:11520055},
+    {...altered,name:"carry-on-03-muddy-dark.mp3"},
+    {...altered,name:"just-me-and-you-03-muddy-dark.wav"},
+    {...altered,name:"CARRY-ON-03-MUDDY-DARK.WAV"},
+    null,{},[]]){
+    assert.equal(isAuralisStage3F9IdentityCandidate(file,true,false,true),false);
+  }
+  const approved={status:"VERIFIED",
+    encodedSha256:"19526bc02de79cbc3690357f5e1ae720f11999e95739a7b99358900f39448799",
+    encodedBytes:11520056,format:"WAV_FLOAT",sourceRateStatus:"VERIFIED_WAV_HEADER",
+    sourceSampleRate:48000};
+  assert.equal(isAuralisStage3F9ExactEncodedIdentity(approved),true);
+  assert.equal(isAuralisStage3F9ExactEncodedIdentity({...approved,format:"WAV_PCM"}),true);
+  for(const invalid of [
+    {...approved,encodedSha256:"7a61db814087ef280c05f7db99095f74c4deb30b954c7756ee685cd8cc9f2d61"},
+    {...approved,encodedSha256:"19526bc02de79cbc3690357f5e1ae720f11999e95739a7b99358900f39448799".toUpperCase()},
+    {...approved,status:"UNAVAILABLE"},
+    {...approved,encodedBytes:11520055},
+    {...approved,format:"UNVERIFIED"},
+    {...approved,sourceRateStatus:"UNVERIFIED"},
+    {...approved,sourceSampleRate:44100},
+    null,{},[]
+  ])assert.equal(isAuralisStage3F9ExactEncodedIdentity(invalid),false);
+  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = false;/);
+  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.match(app,/const stage3f9IdentityCandidate = isAuralisStage3F9IdentityCandidate\(/);
+  assert.match(app,/stage3f9IdentityCandidate\s*\? identity => \{ auralisEncodedIdentity = identity; \} : undefined/);
+  assert.match(app,/!isAuralisStage3F9ExactEncodedIdentity\(await auralisEncodedIdentity\)/);
+  assert.match(app,/auralisEncodedIdentity=undefined;/);
+  assert.match(app,/analyzeEngineeringDiagnosticsInWorker\(audioBuffer, controller.signal, undefined, undefined, true,\s*auralisEncodedIdentity\)/);
+  assert.doesNotMatch(app,/formData\.append\("auralisEncodedIdentity"/);
+  assert.match(server,/process\.env\.YSS_AURALIS_BETA_ARMED!=="EXACT_SHA_REVIEW_ONLY"/);
+  assert.match(server,/validateAuralisOperatorReviewPolicy\(review,sha\)/);
 });
 
 test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle and honest memory", {timeout:180000}, async t=>{
