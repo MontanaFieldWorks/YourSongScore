@@ -2580,7 +2580,12 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
     // encoded bytes. OFF / absent / malformed config yields no authorization.
     // The reply is a score-inert candidate, not an activation capability.
     const auralisReviewedRecordingPolicy=(()=>{
-      if(isA2PilotRequest()||!process.env.YSS_AURALIS_REVIEW_POLICY_JSON)return null;
+      // A separate server-side, default-OFF shutoff for the single-file beta.
+      // Clearing this private setting stops issuing NEW review candidates.
+      // The client scoring switch and PCM identity capture remain OFF.
+      if(isA2PilotRequest()||
+         process.env.YSS_AURALIS_BETA_ARMED!=="EXACT_SHA_REVIEW_ONLY"||
+         !process.env.YSS_AURALIS_REVIEW_POLICY_JSON)return null;
       try {
         const review=JSON.parse(process.env.YSS_AURALIS_REVIEW_POLICY_JSON);
         const sha=createHash("sha256").update(req.file!.buffer).digest("hex");
