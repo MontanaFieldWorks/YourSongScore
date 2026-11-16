@@ -837,6 +837,61 @@ export function executeAuralisReviewed79Score(
   return execution;
 }
 
+// Stage 3F-7: shared report/Excel consistency check. It never supplies
+// scoring authorization, recalculates scores or rewrites the historical A2
+// record. Only an actual applied overlay produces a review row.
+export type AuralisReviewed79ReportRow = {section:string;field:string;value:string|number};
+export function getAuralisReviewed79ReportRows(critique:unknown):AuralisReviewed79ReportRow[] {
+  const c=critique as any,e=c?.auralisStage3F6Execution,a=c?.auralisBetaScoringAudit;
+  if(e?.status!=="APPLIED")return [];
+  const title="Auralis Reviewed 79";
+  const invalid=():AuralisReviewed79ReportRow[]=>[
+    {section:title,field:"Consistency",value:"INVALID_POST_AURALIS_SCORE_LINEAGE"},
+  ];
+  const score=(n:unknown):n is number=>
+    typeof n==="number"&&Number.isFinite(n)&&n>=0&&n<=100;
+  const spectral=c?.subMetricsCall1?.spectralMatch?.score;
+  const commercial=c?.scores?.commercialReadiness;
+  const hook=c?.subMetricsCall3?.compositionFlowSubs?.hookPlacement;
+  const dyn=c?.subMetricsCall1?.dynamicVariety;
+  const contrast=c?.subMetricsCall3?.compositionFlowSubs?.sectionalContrast;
+  const legacy=c?.mixBalanceEvidence?.spectralCap;
+  if(e.version!==AURALIS_REVIEWED_79_EXECUTION_VERSION||
+     e.scoringImpact!=="DOWNWARD_ONLY"||e.appliedCap!==79||
+     e.preAuralisScoreLineage!=="A2_RECONCILED"||
+     a?.scoreLineage!=="A2_RECONCILED"||
+     !score(a?.geminiMappedSpectralScore)||
+     !score(e.beforeSpectralScore)||e.beforeSpectralScore<=79||
+     e.afterSpectralScore!==79||
+     e.appliedScoreChange!==79-e.beforeSpectralScore||
+     e.beforeSpectralScore!==a.observedFinalSpectralScore||
+     e.beforeCommercialReadiness!==a.observedCommercialReadiness||
+     !score(e.beforeCommercialReadiness)||
+     !score(e.afterCommercialReadiness)||
+     spectral!==e.afterSpectralScore||commercial!==e.afterCommercialReadiness||
+     !(legacy===null||score(legacy))||legacy!==a.legacyDspCap||
+     legacy!==null&&legacy<=79||
+     ![hook?.score,dyn?.score,contrast?.score].every(score))
+    return invalid();
+  const weighted=(spec:number)=>Math.round((
+    hook.score*60+dyn.score*20+spec*10+contrast.score*10)/100);
+  if(weighted(e.beforeSpectralScore)!==e.beforeCommercialReadiness||
+     weighted(e.afterSpectralScore)!==e.afterCommercialReadiness||
+     e.afterCommercialReadiness>e.beforeCommercialReadiness)
+    return invalid();
+  return [
+    {section:title,field:"Consistency",value:"VERIFIED_POST_AURALIS_SCORE_LINEAGE"},
+    {section:title,field:"Original Gemini tier-mapped Spectral Match",value:a.geminiMappedSpectralScore},
+    {section:title,field:"Pre-Auralis Spectral Match",value:e.beforeSpectralScore},
+    {section:title,field:"Final reported Spectral Match",value:spectral},
+    {section:title,field:"Applied Spectral Match change",value:e.appliedScoreChange},
+    {section:title,field:"Pre-Auralis Commercial Readiness",value:e.beforeCommercialReadiness},
+    {section:title,field:"Final reported Commercial Readiness",value:commercial},
+    {section:title,field:"Independent legacy DSP cap",value:legacy??"NONE"},
+    {section:title,field:"Policy",value:AURALIS_REVIEWED_79_EXECUTION_VERSION},
+  ];
+}
+
 // Stage 3F-1/3F-3: current-upload evidence audit and score-inert hypothetical
 // Spectral Match decision. Never treats a tonal ratio as proof of a defect,
 // or a reviewer flag as verified real-song lineage. No production score authority.
