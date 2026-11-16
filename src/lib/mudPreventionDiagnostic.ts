@@ -697,6 +697,33 @@ export function resolveAuralisReviewedRealShadowContext(
     artisticIntent:"REVIEWED_NOT_INTENTIONAL_REAL",
     reviewEvidence:"EXTERNAL_REVIEW_RECORD_ASSERTED"};
 }
+// Stage 3F-8: this is the production trust boundary for a reviewed-real 79
+// trial. Never infer approval from a shadow result or a browser-supplied flag.
+// The server's exact encoded-byte review, the current decoded/Worker PCM
+// lineage and a freshly recomputed real-only shadow must all agree.
+export function authorizeAuralisReviewed79Execution(
+  critique:unknown, audit:unknown, shadow:unknown,
+  serverReview:unknown, encodedIdentity:unknown,
+):boolean {
+  const c=critique as any,a=audit as any,s=shadow as any;
+  if(!c||!a||!s||c.auralisBetaScoringAudit!==a||
+     c.auralisStage3F1SpectralShadow!==s||
+     a.sourceIdentity!=="CURRENT_UPLOAD_PCM_VERIFIED"||
+     c.auralisSourceLineage?.status!=="VERIFIED"||
+     c.auralisSourceLineage?.pcmIdentityStatus!=="VERIFIED"||
+     c.auralisSourceLineage?.scoringImpact!=="NONE")return false;
+  const context=resolveAuralisReviewedRealShadowContext(
+    serverReview,encodedIdentity,a);
+  if(!context)return false;
+  const independentlyComputed=evaluateAuralisStage3F1SpectralShadow(c,a,context);
+  return independentlyComputed.status==="REAL_REVIEW_HYPOTHETICAL_ONLY"&&
+     independentlyComputed.reason==="REVIEWED_REAL_SHADOW_NOT_ACTIVATION"&&
+     independentlyComputed.candidateCap===79&&
+     independentlyComputed.scoringImpact==="NONE"&&
+     independentlyComputed.appliedCap===null&&
+     independentlyComputed.appliedScoreChange===0&&
+     JSON.stringify(independentlyComputed)===JSON.stringify(s);
+}
 // A scoring-order-safe, read-only projection. Stage 3F-5 does not install an
 // executor: actual scoring activation must separately reconcile the existing
 // A2 final snapshot, parent score, reports and downstream scores.
