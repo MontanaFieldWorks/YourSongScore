@@ -10,9 +10,10 @@ import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAura
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
 // Stage 3D-1 collects evidence during normal file analysis; scoring remains disabled.
 const STAGE3D1_AURALIS_EVIDENCE_ENABLED = true;
-// Opt-in identity hashing is separate from existing Stage 3D-1 observations.
-// Default OFF to preserve normal analysis CPU, memory and Worker behavior.
-const STAGE3D2L1_IDENTITY_ENABLED = false;
+// Stage 3F-10 controlled single-fixture identity trial. The Stage 3F-9
+// filename/size + exact encoded SHA-256 gate prevents hashing or Worker PCM
+// identity capture for other uploads; scoring and server review stay OFF.
+const STAGE3D2L1_IDENTITY_ENABLED = true;
 // Stage 3D integration trial: intentionally OFF; requires independent frozen
 // reference distribution to set an explicit threshold before score authority.
 const AURALIS_SPECTRAL_TRIAL_ENABLED = false;
