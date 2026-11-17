@@ -1240,7 +1240,7 @@ test("Stage 3F-5 always leaves the score executor unavailable and preserves snap
 test("Stage 3F-5 upload trust boundary is server controlled and activation OFF",async()=>{
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
-  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = false;/);
+  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = true;/);
   assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
   assert.match(app,/resolveAuralisReviewedRealShadowContext\(/);
   assert.match(app,/planAuralisReviewed79ScoreIntegration\(/);
@@ -1337,7 +1337,7 @@ test("Stage 3F-6 live execution remains disabled and appears after audit before 
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const lib=await readFile(new URL("../src/lib/mudPreventionDiagnostic.ts",import.meta.url),"utf8");
   assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
-  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = false;/);
+  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = true;/);
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \\| null = null;/);
   const audit=app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)");
@@ -1361,7 +1361,7 @@ test("Stage 3F-7 operator shutoff defaults OFF and retains double-locked scoring
   assert.match(server,/validateAuralisOperatorReviewPolicy\(review,sha\)/);
   assert.match(server,/createHash\("sha256"\)\.update\(req\.file!\.buffer\)/);
   assert.doesNotMatch(server,/req\.body\.auralisReviewedRecordingPolicy/);
-  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = false;/);
+  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = true;/);
   assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
   assert.match(display,/getAuralisReviewed79ReportRows\(critique\)/);
@@ -1448,7 +1448,7 @@ test("Stage 3F-8 production activation requires reviewed real authorization whil
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
   const report=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
-  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = false;/);
+  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = true;/);
   assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
   assert.match(app,/reviewedShadow,false\);/);
