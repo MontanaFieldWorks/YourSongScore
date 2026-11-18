@@ -2176,6 +2176,15 @@ export default function App() {
 
     try {
       if (!queuedIsCurrent()) return;
+      // For an existing analyzed MP3, only the cached File tied to this exact
+      // track ID may be reanalyzed. Never silently fall back to a remote URL.
+      if (track.status === "analyzed" &&
+          (track.format !== "MP3" || !cachedFileForAnalysis ||
+           cachedFileForAnalysis.name !== track.name)) {
+        setErrorHeader("Cached MP3 Required For Reanalysis");
+        setErrorDetails("The saved MP3 for this exact track ID is missing or differs from the saved filename. No new analysis was started; the prior report is unchanged.");
+        return;
+      }
       if (cachedFileForAnalysis) {
         // Hash the exact MP3 which will be submitted to the server.
         // The original WAV and MP3-encoded source rate remain UNVERIFIED.
