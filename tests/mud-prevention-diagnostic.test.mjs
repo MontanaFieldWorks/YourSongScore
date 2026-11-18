@@ -1621,3 +1621,49 @@ test("Stage 3F-11 stale rejected early decode cannot reach a Gemini request",asy
   if(2===generation)submissions++;
   assert.equal(submissions,1);
 });
+
+test("Stage 3F-11 existing-MP3 reanalysis is an explicit, cached-file-only operation",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const dashboard=await readFile(new URL("../src/components/Dashboard.tsx",import.meta.url),"utf8");
+  const begin=app.indexOf("const handleAuditQueuedTrack");
+  const submit=app.indexOf("const handleStartReview",begin);
+  const queue=app.slice(begin,submit);
+  const confirm=app.slice(submit,app.indexOf("const clearCritique",submit));
+  const scoreboard=dashboard.slice(dashboard.indexOf("Audited Songs Scoreboard"));
+  assert.ok(begin>=0&&submit>begin);
+  assert.ok(queue.includes('track.status === "analyzed"')&&
+    queue.includes('cachedFileForAnalysis.name !== track.name')&&
+    queue.includes('setErrorHeader("Cached MP3 Required For Reanalysis")'),
+    "reanalyzing an analyzed track must stop when its exact cached MP3 is absent or mismatched");
+  assert.ok(queue.indexOf('cachedFileForAnalysis.name !== track.name')<
+    queue.indexOf('fetch("/api/critique-file"')&&
+    queue.indexOf('cachedFileForAnalysis.name !== track.name')<
+    queue.indexOf('fetch("/api/critique-url"'),
+    "the cached-file gate must precede both Gemini submission routes");
+  assert.ok(confirm.includes('queuedTrack.status === "analyzed"')&&
+    confirm.includes('queuedTrack.format !== "MP3"')&&
+    confirm.includes("window.confirm(")&&
+    confirm.includes("queuedTrack.id")&&
+    confirm.includes("if (!approved) return;")&&
+    confirm.indexOf("if (!approved) return;")<confirm.indexOf("handleAuditQueuedTrack(queuedTrack)"),
+    "explicit exact-track confirmation must precede starting a new analysis");
+  assert.ok(scoreboard.includes('track.format === "MP3" && onQueueForAudit')&&
+    scoreboard.includes("onClick={() => onQueueForAudit(track)}")&&
+    scoreboard.includes("Reanalyze"),
+    "the analyzed scoreboard must only queue MP3 reanalysis, not submit immediately");
+  // Synthetic decision table for the fail-closed gates.
+  const maySubmit=({status,format,cached,filename,id,confirmed})=>{
+    if(status!=="analyzed")return false;
+    if(format!=="MP3"||!cached||cached.name!==filename||!id)return false;
+    return confirmed===true;
+  };
+  const fixture={status:"analyzed",format:"MP3",id:"trk_1794909744489_i12kn",
+    filename:"carry-on-03-muddy-dark_Mastered320.mp3",
+    cached:{name:"carry-on-03-muddy-dark_Mastered320.mp3"}};
+  assert.equal(maySubmit({...fixture,confirmed:true}),true);
+  assert.equal(maySubmit({...fixture,confirmed:false}),false);
+  assert.equal(maySubmit({...fixture,cached:null,confirmed:true}),false);
+  assert.equal(maySubmit({...fixture,cached:{name:"another.mp3"},confirmed:true}),false);
+  assert.equal(maySubmit({...fixture,format:"WAV",confirmed:true}),false);
+  assert.equal(maySubmit({...fixture,id:"",confirmed:true}),false);
+});

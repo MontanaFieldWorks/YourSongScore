@@ -2176,6 +2176,15 @@ export default function App() {
 
     try {
       if (!queuedIsCurrent()) return;
+      // For an existing analyzed MP3, only the cached File tied to this exact
+      // track ID may be reanalyzed. Never silently fall back to a remote URL.
+      if (track.status === "analyzed" &&
+          (track.format !== "MP3" || !cachedFileForAnalysis ||
+           cachedFileForAnalysis.name !== track.name)) {
+        setErrorHeader("Cached MP3 Required For Reanalysis");
+        setErrorDetails("The saved MP3 for this exact track ID is missing or differs from the saved filename. No new analysis was started; the prior report is unchanged.");
+        return;
+      }
       if (cachedFileForAnalysis) {
         // Hash the exact MP3 which will be submitted to the server.
         // The original WAV and MP3-encoded source rate remain UNVERIFIED.
@@ -2515,6 +2524,18 @@ export default function App() {
 
   const handleStartReview = () => {
     if (queuedTrack) {
+      // Explicit final authorization: merely selecting Reanalyze never calls Gemini.
+      // Leave the existing saved report untouched if the operator cancels.
+      if (queuedTrack.status === "analyzed") {
+        if (queuedTrack.format !== "MP3" || !queuedTrack.id) return;
+        const approved = window.confirm(
+          `Reanalyze this existing MP3 using one new Gemini analysis?\n\n` +
+          `File: ${queuedTrack.name}\nTrack ID: ${queuedTrack.id}\n\n` +
+          "The existing report stays saved unless the new analysis succeeds. " +
+          "Cancel means no analysis will start."
+        );
+        if (!approved) return;
+      }
       handleAuditQueuedTrack(queuedTrack);
     } else if (activeSource === "upload") {
       handleSubmitFile();
@@ -3373,6 +3394,11 @@ export default function App() {
                       </div>
                       <h4 className="text-[10px] font-bold text-yellow-400 tracking-widest uppercase font-mono bg-yellow-500/10 border border-yellow-500/25 px-2.5 py-0.5 rounded-full select-none">Track Queued From Locker</h4>
                       <p className="text-xs text-white font-bold mt-3.5 max-w-md truncate tracking-tight">{queuedTrack.name}</p>
+                      {queuedTrack.status === "analyzed" && (
+                        <p className="text-[10px] text-yellow-200/90 mt-2 max-w-md text-center break-all">
+                          Reanalysis selected · Track ID: {queuedTrack.id}. The saved report is retained unless a new analysis succeeds.
+                        </p>
+                      )}
                       {/* Genre Override Selection Controls */}
                       <div className="w-full max-w-[420px] mt-4 flex flex-col gap-3 p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
                         <div className="flex items-center justify-between border-b border-white/5 pb-2">

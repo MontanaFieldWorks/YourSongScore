@@ -1640,6 +1640,16 @@ export default function Dashboard({
                           <td className="p-3 text-center font-mono text-slate-300 font-bold hidden md:table-cell">{track.metrics?.compositionalDepth}%</td>
                           <td className="p-3 text-right">
                             <div className="flex items-center justify-end gap-1.5 w-full">
+                              {track.format === "MP3" && onQueueForAudit && (
+                                <button
+                                  type="button"
+                                  onClick={() => onQueueForAudit(track)}
+                                  className="px-2.5 py-1.5 bg-yellow-500/15 hover:bg-yellow-500/25 text-yellow-300 rounded-lg border border-yellow-500/30 text-[10px] font-bold"
+                                  title="Prepare reanalysis; confirmation required before any Gemini submission"
+                                >
+                                  Reanalyze
+                                </button>
+                              )}
                               <button
                                 onClick={() => loadReport(track, "summary")}
                                 className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-all text-[10px] font-bold tracking-tight uppercase cursor-pointer hover:scale-103 select-none flex items-center justify-center gap-1 shrink-0 leading-none border border-white/10"
