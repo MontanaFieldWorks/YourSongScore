@@ -2485,7 +2485,9 @@ export default function App() {
       setErrorHeader("Studio Queue Audit Failed");
       setErrorDetails(err.message || "An unexpected error occurred while processing the queued track.");
     } finally {
-      cancelAuralisDiagnostic();
+      // A finished old request must never abort a newer request's Worker.
+      if (queuedGeneration === auralisDiagnosticGenerationRef.current)
+        cancelAuralisDiagnostic();
       setLoading(false);
     }
   };
