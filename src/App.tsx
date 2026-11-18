@@ -2233,6 +2233,9 @@ export default function App() {
     } catch (errEarly) {
       console.warn("Could not compute early liveMetrics/chromagram:", errEarly);
     }
+    // An older request may reject during async decode/key detection and
+    // skip the successful-path guards. Never let it reach Gemini submission.
+    if (!queuedIsCurrent()) return;
 
     let chordProgressionSummary: string | null = null;
     if (earlyLiveMetrics && earlyLiveMetrics.detectedChordProgressionNamed && earlyLiveMetrics.detectedChordProgressionNamed.length > 0) {
@@ -2270,6 +2273,9 @@ export default function App() {
             console.warn("IndexedDB lookup failed at submission point, will fall back to remote URL if available:", idbErr);
           }
         }
+        // IndexedDB lookup above also yields asynchronously. Recheck just
+        // before selecting either server submission route.
+        if (!queuedIsCurrent()) return;
         if (cachedFile) {
           setLoadingStatus(threeXMode ? "Multi-pass analysis starting up..." : "Gemini is listening to your transients and harmonics...");
           setLocalFileBlobUrl(URL.createObjectURL(cachedFile));
