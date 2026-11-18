@@ -2409,6 +2409,9 @@ export default function App() {
         }
       }
 
+      // Freeze the score returned by the server before browser finish caps.
+      const queuedServerReturnedSpectralScore =
+        finalCritique.subMetricsCall1?.spectralMatch?.score;
       const overriddenFinalCritique = applyGenreOverride(finalCritique);
       if (liveMetrics) {
         overriddenFinalCritique.liveMetrics = liveMetrics;
@@ -2435,7 +2438,7 @@ export default function App() {
       if (queuedEvidence?.sourceLineage)
         (overriddenFinalCritique as any).auralisSourceLineage = queuedEvidence.sourceLineage;
       (overriddenFinalCritique as any).auralisBetaScoringAudit =
-        buildAuralisBetaScoringAudit(overriddenFinalCritique, finalCritique.subMetricsCall1?.spectralMatch?.score);
+        buildAuralisBetaScoringAudit(overriddenFinalCritique, queuedServerReturnedSpectralScore);
       const queuedShadow = evaluateAuralisStage3F1SpectralShadow(
         overriddenFinalCritique,(overriddenFinalCritique as any).auralisBetaScoringAudit);
       (overriddenFinalCritique as any).auralisStage3F1SpectralShadow = queuedShadow;
