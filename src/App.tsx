@@ -2500,9 +2500,10 @@ export default function App() {
       setErrorDetails(err.message || "An unexpected error occurred while processing the queued track.");
     } finally {
       // A finished old request must never abort a newer request's Worker.
-      if (queuedGeneration === auralisDiagnosticGenerationRef.current)
+      if (queuedIsCurrent()) {
         cancelAuralisDiagnostic();
-      setLoading(false);
+        setLoading(false);
+      }
     }
   };
 
