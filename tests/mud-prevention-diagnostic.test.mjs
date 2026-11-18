@@ -1465,3 +1465,48 @@ test("Stage 3F-8 production activation requires reviewed real authorization whil
   assert.ok(app.indexOf("executeAuralisReviewed79Score(")<
     app.indexOf("setCritiqueResult({"));
 });
+
+
+test("Stage 3F-11 queued-MP3 status is inert, fail-closed and does not claim WAV identity",async()=>{
+  const {summarizeAuralisQueuedMp3Shadow}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const audit={sourceIdentity:"CURRENT_UPLOAD_PCM_VERIFIED",scoreLineage:"A2_RECONCILED"};
+  const lineage={status:"VERIFIED",pcmIdentityStatus:"VERIFIED",
+    sourceFormat:"UNVERIFIED",sourceRateStatus:"UNVERIFIED",
+    rateRelationship:"SOURCE_RATE_UNVERIFIED",
+    encodedSha256Status:"CAPTURED_PRIVATE",scoringImpact:"NONE"};
+  const shadow={status:"ABSTAIN",reason:"UNVERIFIED_SCORE_OR_EXISTING_CAP_LINEAGE",
+    scoringImpact:"NONE",adjustments:[],appliedCap:null,appliedScoreChange:0};
+  const original=structuredClone({audit,lineage,shadow});
+  const s=summarizeAuralisQueuedMp3Shadow(true,lineage,audit,shadow);
+  assert.equal(s.currentMp3PcmIdentity,"VERIFIED");
+  assert.equal(s.originalWavLineage,"UNVERIFIED");
+  assert.equal(s.encodedSourceRate,"UNVERIFIED");
+  assert.equal(s.shadowStatus,"ABSTAIN");
+  assert.equal(s.scoringImpact,"NONE");
+  assert.equal(s.appliedScoreChange,0);
+  assert.deepEqual({audit,lineage,shadow},original);
+  assert.equal(summarizeAuralisQueuedMp3Shadow(false,lineage,audit,shadow).currentMp3PcmIdentity,"UNVERIFIED");
+  assert.equal(summarizeAuralisQueuedMp3Shadow(true,{...lineage,pcmIdentityStatus:"UNVERIFIED"},audit,shadow).currentMp3PcmIdentity,"UNVERIFIED");
+  assert.equal(summarizeAuralisQueuedMp3Shadow(true,lineage,audit,
+    {...shadow,status:"REAL_REVIEW_HYPOTHETICAL_ONLY",candidateCap:79}).shadowStatus,"ABSTAIN");
+  assert.equal(summarizeAuralisQueuedMp3Shadow(true,lineage,audit,
+    {...shadow,appliedScoreChange:-6}).shadowStatus,"ABSTAIN");
+});
+
+test("Stage 3F-11 queued path uses submitted MP3 and disabled shadow executor",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const i=app.indexOf("const handleAuditQueuedTrack");
+  const q=app.slice(i,app.indexOf("const handleStartReview",i));
+  assert.match(q,/cancelAuralisDiagnostic\(\)/);
+  assert.match(q,/cachedFileForAnalysis\.name\.endsWith\("_Mastered320\.mp3"\)/);
+  assert.match(q,/queuedEvidenceFile = cachedFileForAnalysis/);
+  assert.match(q,/let cachedFile: File \| null = queuedEvidenceFile \|\| localTrackFiles/);
+  assert.match(q,/analyzeEngineeringDiagnosticsInWorker\(/);
+  assert.match(q,/prepareAuralisSourceLineage\(/);
+  assert.match(q,/buildAuralisBetaScoringAudit\(/);
+  assert.match(q,/evaluateAuralisStage3F1SpectralShadow\(/);
+  assert.match(q,/summarizeAuralisQueuedMp3Shadow\(/);
+  assert.match(q,/queuedShadow,\(overriddenFinalCritique as any\)\.auralisStage3F5IntegrationPlan,\s*false\)/);
+  assert.doesNotMatch(q,/authorizeAuralisReviewed79Execution\(/);
+  assert.doesNotMatch(q,/resolveAuralisReviewedRealShadowContext\(/);
+});
