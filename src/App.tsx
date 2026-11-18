@@ -2145,6 +2145,8 @@ export default function App() {
       execution: ReturnType<typeof classifyAuralisExecution>;
     } | null> | null = null;
     let queuedEvidenceFile: File | null = null;
+    const queuedIsCurrent = () =>
+      queuedGeneration === auralisDiagnosticGenerationRef.current;
     setLoading(true);
     setLoadingStatus("Summoning studio-grade mixing engineer...");
     setErrorHeader(null);
@@ -2173,6 +2175,7 @@ export default function App() {
     }
 
     try {
+      if (!queuedIsCurrent()) return;
       if (cachedFileForAnalysis) {
         // Hash the exact MP3 which will be submitted to the server.
         // The original WAV and MP3-encoded source rate remain UNVERIFIED.
@@ -2184,6 +2187,9 @@ export default function App() {
         const audioBuffer = await decodeAudioFile(cachedFileForAnalysis,
           queuedMp3Candidate
             ? identity => { encodedMp3Identity = identity; } : undefined);
+        // Decode is asynchronous: never register an obsolete Worker after a
+        // newer analysis has already advanced the generation.
+        if (!queuedIsCurrent()) return;
         if (queuedMp3Candidate && encodedMp3Identity) {
           queuedEvidenceFile = cachedFileForAnalysis;
           const controller = new AbortController();
@@ -2207,6 +2213,7 @@ export default function App() {
         }
         earlyLiveMetrics = analyzeAudioBuffer(audioBuffer);
         await applyRealKeyDetection(audioBuffer, earlyLiveMetrics);
+        if (!queuedIsCurrent()) return;
       } else if (track.convertedMp3Url) {
         const audioBuffer = await decodeAudioUrl(track.convertedMp3Url);
         earlyLiveMetrics = analyzeAudioBuffer(audioBuffer);
@@ -2398,9 +2405,15 @@ export default function App() {
       }
 
       let liveMetrics;
-      if (track.convertedMp3Url) {
+      // Never use a possibly stale or inaccessible remote URL for browser
+      // scores after submitting a locally verified converted MP3.
+      // If local decoding fails, existing server-provided liveMetrics remain;
+      // never substitute a different audio source.
+      if (queuedEvidenceFile || track.convertedMp3Url) {
         try {
-          const audioBuffer = await decodeAudioUrl(track.convertedMp3Url);
+          const audioBuffer = queuedEvidenceFile
+            ? await decodeAudioFile(queuedEvidenceFile)
+            : await decodeAudioUrl(track.convertedMp3Url!);
           liveMetrics = analyzeAudioBuffer(audioBuffer);
           await applyRealKeyDetection(audioBuffer, liveMetrics);
           console.log("[App] Queued Live Metrics analyzed:", liveMetrics);
@@ -2409,6 +2422,7 @@ export default function App() {
         }
       }
 
+      if (!queuedIsCurrent()) return;
       // Freeze the score returned by the server before browser finish caps.
       const queuedServerReturnedSpectralScore =
         finalCritique.subMetricsCall1?.spectralMatch?.score;
