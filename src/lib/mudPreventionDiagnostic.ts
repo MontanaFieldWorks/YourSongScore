@@ -1332,3 +1332,41 @@ export function evaluateAuralisCalibrationEvidenceGateShadow(
     note:"Synthetic replay of already-existing browser caps only. Auralis band power cannot prove masking, a production defect, or a new scoring threshold. Intentional style choices remain ungraded."
   };
 }
+
+
+// Stage 3F-11: safe summary only, never raw encoded or PCM hashes.
+// Converter provenance never proves identity of its original WAV.
+export function summarizeAuralisQueuedMp3Shadow(
+  exactConvertedMp3Submitted: boolean, lineage: unknown, audit: unknown, shadow: unknown,
+) {
+  const l = lineage as any,a = audit as any,s = shadow as any;
+  const currentMp3PcmVerified = exactConvertedMp3Submitted === true &&
+    l?.status === "VERIFIED" && l.pcmIdentityStatus === "VERIFIED" &&
+    l.sourceFormat === "UNVERIFIED" &&
+    l.sourceRateStatus === "UNVERIFIED" &&
+    l.rateRelationship === "SOURCE_RATE_UNVERIFIED" &&
+    l.encodedSha256Status === "CAPTURED_PRIVATE" &&
+    l.scoringImpact === "NONE" &&
+    a?.sourceIdentity === "CURRENT_UPLOAD_PCM_VERIFIED";
+  const safeShadow = s?.scoringImpact === "NONE" &&
+    Array.isArray(s.adjustments) && s.adjustments.length === 0 &&
+    s.appliedCap === null && s.appliedScoreChange === 0 &&
+    ["ABSTAIN","EVIDENCE_ONLY"].includes(s.status);
+  return {
+    schemaVersion: "auralis-stage3f11-queued-mp3-shadow-v1",
+    analyzedSource: exactConvertedMp3Submitted ?
+      "CONVERTED_MP3_CURRENT_BYTES" : "SOURCE_UNVERIFIED",
+    currentMp3PcmIdentity: currentMp3PcmVerified ? "VERIFIED" : "UNVERIFIED",
+    originalWavLineage: "UNVERIFIED",
+    encodedSourceRate: "UNVERIFIED",
+    scoreLineage: a?.scoreLineage === "A2_RECONCILED" ?
+      "A2_RECONCILED" : "UNVERIFIED",
+    shadowStatus: safeShadow ? s.status : "ABSTAIN",
+    shadowReason: safeShadow && typeof s.reason === "string" ?
+      s.reason : "UNAVAILABLE_OR_UNTRUSTED_SHADOW",
+    scoringImpact: "NONE",
+    adjustments: [] as [],
+    appliedCap: null,
+    appliedScoreChange: 0,
+  };
+}
