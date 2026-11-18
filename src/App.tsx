@@ -4,7 +4,7 @@ import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile, InternalBatchResult } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
 import type { AuralisEncodedSourceIdentity } from "./lib/liveAudioAnalyzer";
-import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow, resolveAuralisReviewedRealShadowContext, planAuralisReviewed79ScoreIntegration, executeAuralisReviewed79Score, authorizeAuralisReviewed79Execution, isAuralisStage3F9IdentityCandidate, isAuralisStage3F9ExactEncodedIdentity } from "./lib/mudPreventionDiagnostic";
+import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow, resolveAuralisReviewedRealShadowContext, planAuralisReviewed79ScoreIntegration, executeAuralisReviewed79Score, authorizeAuralisReviewed79Execution, isAuralisStage3F9IdentityCandidate, isAuralisStage3F9ExactEncodedIdentity, summarizeAuralisQueuedMp3Shadow } from "./lib/mudPreventionDiagnostic";
 
 // Disabled by default: internal opt-in diagnostic computation only, no report/scoring data.
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
@@ -2135,6 +2135,16 @@ export default function App() {
   };
 
   const handleAuditQueuedTrack = async (track: StoredTrack) => {
+    // A queued conversion is a new analysis generation. Older Worker results
+    // must not contaminate the saved critique.
+    cancelAuralisDiagnostic();
+    const queuedGeneration = auralisDiagnosticGenerationRef.current;
+    let queuedEvidencePromise: Promise<{
+      engineering: ReturnType<typeof prepareAuralisEngineeringEvidence>;
+      sourceLineage: ReturnType<typeof prepareAuralisSourceLineage>;
+      execution: ReturnType<typeof classifyAuralisExecution>;
+    } | null> | null = null;
+    let queuedEvidenceFile: File | null = null;
     setLoading(true);
     setLoadingStatus("Summoning studio-grade mixing engineer...");
     setErrorHeader(null);
@@ -2164,7 +2174,37 @@ export default function App() {
 
     try {
       if (cachedFileForAnalysis) {
-        const audioBuffer = await decodeAudioFile(cachedFileForAnalysis);
+        // Hash the exact MP3 which will be submitted to the server.
+        // The original WAV and MP3-encoded source rate remain UNVERIFIED.
+        const queuedMp3Candidate = STAGE3D1_AURALIS_EVIDENCE_ENABLED &&
+          !a2PilotEnabled && track.format === "MP3" &&
+          cachedFileForAnalysis.name.endsWith("_Mastered320.mp3") &&
+          cachedFileForAnalysis.size > 0;
+        let encodedMp3Identity: Promise<AuralisEncodedSourceIdentity> | undefined;
+        const audioBuffer = await decodeAudioFile(cachedFileForAnalysis,
+          queuedMp3Candidate
+            ? identity => { encodedMp3Identity = identity; } : undefined);
+        if (queuedMp3Candidate && encodedMp3Identity) {
+          queuedEvidenceFile = cachedFileForAnalysis;
+          const controller = new AbortController();
+          auralisDiagnosticAbortRef.current = controller;
+          queuedEvidencePromise = analyzeEngineeringDiagnosticsInWorker(
+            audioBuffer, controller.signal, undefined, undefined, true,
+            encodedMp3Identity
+          ).then(result => {
+            if (controller.signal.aborted ||
+                queuedGeneration !== auralisDiagnosticGenerationRef.current) return null;
+            const engineering = prepareAuralisEngineeringEvidence(result);
+            return {
+              engineering,
+              sourceLineage: prepareAuralisSourceLineage(result),
+              execution: classifyAuralisExecution(result.status, engineering),
+            };
+          }).catch(() => ({
+            engineering: null, sourceLineage: null,
+            execution: classifyAuralisExecution("FAILED", null),
+          }));
+        }
         earlyLiveMetrics = analyzeAudioBuffer(audioBuffer);
         await applyRealKeyDetection(audioBuffer, earlyLiveMetrics);
       } else if (track.convertedMp3Url) {
@@ -2212,7 +2252,7 @@ export default function App() {
 
       // Try actual calculation from server using local file or audio URL
       try {
-        let cachedFile: File | null = localTrackFiles[track.id] || null;
+        let cachedFile: File | null = queuedEvidenceFile || localTrackFiles[track.id] || null;
         if (!cachedFile) {
           try {
             cachedFile = await getLocalFile(track.id);
@@ -2379,6 +2419,40 @@ export default function App() {
         captureA2BrowserUnavailable(overriddenFinalCritique);
       }
 
+      // Reuse the existing Auralis adapters, with no trusted review context
+      // and an explicitly disabled scoring executor.
+      const queuedEvidence = queuedEvidencePromise
+        ? await queuedEvidencePromise : null;
+      const queuedExecution = resolveAuralisExecutionForReport(
+        queuedEvidencePromise !== null,
+        queuedGeneration === auralisDiagnosticGenerationRef.current,
+        queuedEvidence?.execution,
+      );
+      if (queuedExecution === null) return;
+      (overriddenFinalCritique as any).auralisExecution = queuedExecution;
+      if (queuedEvidence?.engineering)
+        (overriddenFinalCritique as any).auralisEngineering = queuedEvidence.engineering;
+      if (queuedEvidence?.sourceLineage)
+        (overriddenFinalCritique as any).auralisSourceLineage = queuedEvidence.sourceLineage;
+      (overriddenFinalCritique as any).auralisBetaScoringAudit =
+        buildAuralisBetaScoringAudit(overriddenFinalCritique, finalCritique.subMetricsCall1?.spectralMatch?.score);
+      const queuedShadow = evaluateAuralisStage3F1SpectralShadow(
+        overriddenFinalCritique,(overriddenFinalCritique as any).auralisBetaScoringAudit);
+      (overriddenFinalCritique as any).auralisStage3F1SpectralShadow = queuedShadow;
+      (overriddenFinalCritique as any).auralisStage3F5IntegrationPlan =
+        planAuralisReviewed79ScoreIntegration(
+          overriddenFinalCritique,(overriddenFinalCritique as any).auralisBetaScoringAudit,
+          queuedShadow,false);
+      (overriddenFinalCritique as any).auralisStage3F6Execution =
+        executeAuralisReviewed79Score(
+          overriddenFinalCritique,(overriddenFinalCritique as any).auralisBetaScoringAudit,
+          queuedShadow,(overriddenFinalCritique as any).auralisStage3F5IntegrationPlan,
+          false);
+      (overriddenFinalCritique as any).auralisQueuedMp3ShadowStatus =
+        summarizeAuralisQueuedMp3Shadow(
+          queuedEvidenceFile !== null,queuedEvidence?.sourceLineage,
+          (overriddenFinalCritique as any).auralisBetaScoringAudit,queuedShadow);
+
       const updatedTrack: StoredTrack = {
         ...track,
         status: "analyzed",
@@ -2408,6 +2482,7 @@ export default function App() {
       setErrorHeader("Studio Queue Audit Failed");
       setErrorDetails(err.message || "An unexpected error occurred while processing the queued track.");
     } finally {
+      cancelAuralisDiagnostic();
       setLoading(false);
     }
   };
