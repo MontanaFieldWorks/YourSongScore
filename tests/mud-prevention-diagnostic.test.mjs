@@ -1465,3 +1465,159 @@ test("Stage 3F-8 production activation requires reviewed real authorization whil
   assert.ok(app.indexOf("executeAuralisReviewed79Score(")<
     app.indexOf("setCritiqueResult({"));
 });
+
+
+test("Stage 3F-11 queued-MP3 status is inert, fail-closed and does not claim WAV identity",async()=>{
+  const {summarizeAuralisQueuedMp3Shadow}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const audit={sourceIdentity:"CURRENT_UPLOAD_PCM_VERIFIED",scoreLineage:"A2_RECONCILED"};
+  const lineage={status:"VERIFIED",pcmIdentityStatus:"VERIFIED",
+    sourceFormat:"UNVERIFIED",sourceRateStatus:"UNVERIFIED",
+    rateRelationship:"SOURCE_RATE_UNVERIFIED",
+    encodedSha256Status:"CAPTURED_PRIVATE",scoringImpact:"NONE"};
+  const shadow={status:"ABSTAIN",reason:"UNVERIFIED_SCORE_OR_EXISTING_CAP_LINEAGE",
+    scoringImpact:"NONE",adjustments:[],appliedCap:null,appliedScoreChange:0};
+  const original=structuredClone({audit,lineage,shadow});
+  const s=summarizeAuralisQueuedMp3Shadow(true,lineage,audit,shadow);
+  assert.equal(s.currentMp3PcmIdentity,"VERIFIED");
+  assert.equal(s.originalWavLineage,"UNVERIFIED");
+  assert.equal(s.converterOrigin,"UNVERIFIED");
+  assert.equal(s.analyzedSource,"CURRENT_MP3_BYTES_PCM_VERIFIED");
+  assert.equal(s.encodedSourceRate,"UNVERIFIED");
+  assert.equal(s.shadowStatus,"ABSTAIN");
+  assert.equal(s.scoringImpact,"NONE");
+  assert.equal(s.appliedScoreChange,0);
+  assert.deepEqual({audit,lineage,shadow},original);
+  assert.equal(summarizeAuralisQueuedMp3Shadow(false,lineage,audit,shadow).currentMp3PcmIdentity,"UNVERIFIED");
+  assert.equal(summarizeAuralisQueuedMp3Shadow(true,{...lineage,pcmIdentityStatus:"UNVERIFIED"},audit,shadow).currentMp3PcmIdentity,"UNVERIFIED");
+  assert.equal(summarizeAuralisQueuedMp3Shadow(true,lineage,audit,
+    {...shadow,status:"REAL_REVIEW_HYPOTHETICAL_ONLY",candidateCap:79}).shadowStatus,"ABSTAIN");
+  assert.equal(summarizeAuralisQueuedMp3Shadow(true,lineage,audit,
+    {...shadow,appliedScoreChange:-6}).shadowStatus,"ABSTAIN");
+});
+
+test("Stage 3F-11 queued path uses submitted MP3 and disabled shadow executor",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const i=app.indexOf("const handleAuditQueuedTrack");
+  const q=app.slice(i,app.indexOf("const handleStartReview",i));
+  assert.match(q,/cancelAuralisDiagnostic\(\)/);
+  assert.match(q,/cachedFileForAnalysis\.name\.endsWith\("_Mastered320\.mp3"\)/);
+  assert.match(q,/queuedEvidenceFile = cachedFileForAnalysis/);
+  assert.match(q,/let cachedFile: File \| null = queuedEvidenceFile \|\| localTrackFiles/);
+  assert.match(q,/analyzeEngineeringDiagnosticsInWorker\(/);
+  assert.match(q,/prepareAuralisSourceLineage\(/);
+  assert.match(q,/buildAuralisBetaScoringAudit\(/);
+  assert.match(q,/evaluateAuralisStage3F1SpectralShadow\(/);
+  assert.match(q,/summarizeAuralisQueuedMp3Shadow\(/);
+  assert.match(q,/queuedShadow,\(overriddenFinalCritique as any\)\.auralisStage3F5IntegrationPlan,\s*false\)/);
+  assert.doesNotMatch(q,/authorizeAuralisReviewed79Execution\(/);
+  assert.doesNotMatch(q,/resolveAuralisReviewedRealShadowContext\(/);
+});
+
+test("Stage 3F-11 stale queued decode cannot start a Worker or overwrite later analysis state",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const start=app.indexOf("const handleAuditQueuedTrack");
+  const q=app.slice(start,app.indexOf("const handleStartReview",start));
+  const decode=q.indexOf("const audioBuffer = await decodeAudioFile(cachedFileForAnalysis,");
+  const afterDecode=q.indexOf("if (!queuedIsCurrent()) return;",decode);
+  const register=q.indexOf("auralisDiagnosticAbortRef.current = controller;",decode);
+  assert.ok(decode>=0&&afterDecode>decode&&register>afterDecode,
+    "stale generation must be rejected after asynchronous decode before Worker registration");
+  const fetchStart=q.indexOf("cachedFileForAnalysis = await getLocalFile(track.id)");
+  const afterFetch=q.indexOf("if (!queuedIsCurrent()) return;",fetchStart);
+  assert.ok(fetchStart>=0&&afterFetch>fetchStart&&afterFetch<decode,
+    "an obsolete IndexedDB result cannot begin queued analysis");
+  assert.match(q,/if \(!queuedIsCurrent\(\)\) return;\s*\/\/ Freeze the score/);
+  assert.match(q,/if \(queuedIsCurrent\(\)\) \{\s*cancelAuralisDiagnostic\(\);\s*setLoading\(false\);/);
+  // Adversarial schedule: an old await resolves after a new generation begins.
+  const isCurrent=(expected,current)=>expected===current;
+  let generation=1,registered=false;
+  const pending=Promise.resolve().then(()=>{generation=2;});
+  await pending;
+  if(isCurrent(1,generation))registered=true;
+  assert.equal(registered,false);
+  assert.equal(isCurrent(2,generation),true);
+});
+
+test("Stage 3F-11 final DSP never falls back to mismatched remote URL for queued MP3",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const i=app.indexOf("const handleAuditQueuedTrack");
+  const q=app.slice(i,app.indexOf("const handleStartReview",i));
+  assert.match(q,/let cachedFile: File \| null = queuedEvidenceFile \|\| localTrackFiles\[track.id\]/);
+  const metrics=q.slice(q.indexOf("let liveMetrics;"),q.indexOf("// Freeze the score returned"));
+  assert.match(metrics,/queuedEvidenceFile\s*\? await decodeAudioFile\(queuedEvidenceFile\)\s*: await decodeAudioUrl\(track.convertedMp3Url!\)/);
+  assert.ok(metrics.indexOf("queuedEvidenceFile")<metrics.indexOf("decodeAudioUrl"),
+    "local submitted MP3 must take precedence over remote URL");
+  const select=(localFile,remoteUrl)=>localFile?"LOCAL_SUBMITTED_MP3":remoteUrl?"REMOTE_URL":"UNAVAILABLE";
+  assert.equal(select({name:"audio_Mastered320.mp3"},"blob:stale"),"LOCAL_SUBMITTED_MP3");
+  assert.equal(select({name:"audio_Mastered320.mp3"},undefined),"LOCAL_SUBMITTED_MP3");
+  assert.equal(select(null,undefined),"UNAVAILABLE");
+});
+
+test("Stage 3F-11 source summary never promotes filename-based converter claims",async()=>{
+  const {summarizeAuralisQueuedMp3Shadow}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const lineage={status:"VERIFIED",pcmIdentityStatus:"VERIFIED",
+    sourceFormat:"UNVERIFIED",sourceRateStatus:"UNVERIFIED",
+    rateRelationship:"SOURCE_RATE_UNVERIFIED",
+    encodedSha256Status:"CAPTURED_PRIVATE",scoringImpact:"NONE"};
+  const audit={sourceIdentity:"CURRENT_UPLOAD_PCM_VERIFIED",scoreLineage:"UNVERIFIED"};
+  const shadow={status:"ABSTAIN",reason:"UNVERIFIED_SCORE_OR_EXISTING_CAP_LINEAGE",
+    scoringImpact:"NONE",adjustments:[],appliedCap:null,appliedScoreChange:0};
+  for(const actual of [true,false]){
+    const x=summarizeAuralisQueuedMp3Shadow(actual,lineage,audit,shadow);
+    assert.equal(x.converterOrigin,"UNVERIFIED");
+    assert.equal(x.originalWavLineage,"UNVERIFIED");
+    assert.equal(x.scoringImpact,"NONE");
+    assert.deepEqual(x.adjustments,[]);
+  }
+  const unavailable=summarizeAuralisQueuedMp3Shadow(true,null,audit,shadow);
+  assert.equal(unavailable.analyzedSource,"SOURCE_UNVERIFIED");
+  assert.equal(unavailable.currentMp3PcmIdentity,"UNVERIFIED");
+});
+
+test("Stage 3F-11 stale rejected early decode cannot reach a Gemini request",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const start=app.indexOf("const handleAuditQueuedTrack");
+  const q=app.slice(start,app.indexOf("const handleStartReview",start));
+  const earlyCatch=q.indexOf('} catch (errEarly) {');
+  const earlyLog=q.indexOf('console.warn("Could not compute early liveMetrics/chromagram:", errEarly)',earlyCatch);
+  const postCatchGuard=q.indexOf('if (!queuedIsCurrent()) return;',earlyLog);
+  const serverTry=q.indexOf('// Try actual calculation from server',earlyLog);
+  const cachedLookup=q.indexOf('cachedFile = await getLocalFile(track.id)',serverTry);
+  const postLookupGuard=q.indexOf('if (!queuedIsCurrent()) return;',cachedLookup);
+  const filePost=q.indexOf('fetch("/api/critique-file"',cachedLookup);
+  const urlPost=q.indexOf('fetch("/api/critique-url"',cachedLookup);
+  assert.ok(earlyCatch>=0&&earlyLog>earlyCatch&&
+    postCatchGuard>earlyLog&&postCatchGuard<serverTry,
+    "failed early analysis must recheck generation before the Gemini phase");
+  assert.ok(cachedLookup>=0&&postLookupGuard>cachedLookup&&
+    postLookupGuard<filePost&&postLookupGuard<urlPost,
+    "async submission-time cache lookup cannot bypass the guard");
+  // Adversarial synthetic scheduling: the old decode rejects only after
+  // a newer request has advanced the generation. No server call may occur.
+  let generation=1,submissions=0;
+  let rejectOld;
+  const oldDecode=new Promise((_,reject)=>{rejectOld=reject;});
+  const staleRequest=(async()=>{
+    try{await oldDecode;}catch{}
+    if(1!==generation)return;
+    submissions++;
+  })();
+  generation=2;
+  rejectOld(new Error("DECODE_FAILED_AFTER_REPLACEMENT"));
+  await staleRequest;
+  assert.equal(submissions,0);
+  // Equivalent check for a late failed cache lookup at the submission boundary.
+  let resolveLookup;
+  const lookup=new Promise(resolve=>{resolveLookup=resolve;});
+  const staleCache=(async()=>{
+    await lookup;
+    if(1!==generation)return;
+    submissions++;
+  })();
+  resolveLookup(null);
+  await staleCache;
+  assert.equal(submissions,0);
+  // A current request is not blocked by the guard.
+  if(2===generation)submissions++;
+  assert.equal(submissions,1);
+});
