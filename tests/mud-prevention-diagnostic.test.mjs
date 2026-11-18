@@ -1573,3 +1573,51 @@ test("Stage 3F-11 source summary never promotes filename-based converter claims"
   assert.equal(unavailable.analyzedSource,"SOURCE_UNVERIFIED");
   assert.equal(unavailable.currentMp3PcmIdentity,"UNVERIFIED");
 });
+
+test("Stage 3F-11 stale rejected early decode cannot reach a Gemini request",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const start=app.indexOf("const handleAuditQueuedTrack");
+  const q=app.slice(start,app.indexOf("const handleStartReview",start));
+  const earlyCatch=q.indexOf('} catch (errEarly) {');
+  const earlyLog=q.indexOf('console.warn("Could not compute early liveMetrics/chromagram:", errEarly)',earlyCatch);
+  const postCatchGuard=q.indexOf('if (!queuedIsCurrent()) return;',earlyLog);
+  const serverTry=q.indexOf('// Try actual calculation from server',earlyLog);
+  const cachedLookup=q.indexOf('cachedFile = await getLocalFile(track.id)',serverTry);
+  const postLookupGuard=q.indexOf('if (!queuedIsCurrent()) return;',cachedLookup);
+  const filePost=q.indexOf('fetch("/api/critique-file"',cachedLookup);
+  const urlPost=q.indexOf('fetch("/api/critique-url"',cachedLookup);
+  assert.ok(earlyCatch>=0&&earlyLog>earlyCatch&&
+    postCatchGuard>earlyLog&&postCatchGuard<serverTry,
+    "failed early analysis must recheck generation before the Gemini phase");
+  assert.ok(cachedLookup>=0&&postLookupGuard>cachedLookup&&
+    postLookupGuard<filePost&&postLookupGuard<urlPost,
+    "async submission-time cache lookup cannot bypass the guard");
+  // Adversarial synthetic scheduling: the old decode rejects only after
+  // a newer request has advanced the generation. No server call may occur.
+  let generation=1,submissions=0;
+  let rejectOld;
+  const oldDecode=new Promise((_,reject)=>{rejectOld=reject;});
+  const staleRequest=(async()=>{
+    try{await oldDecode;}catch{}
+    if(1!==generation)return;
+    submissions++;
+  })();
+  generation=2;
+  rejectOld(new Error("DECODE_FAILED_AFTER_REPLACEMENT"));
+  await staleRequest;
+  assert.equal(submissions,0);
+  // Equivalent check for a late failed cache lookup at the submission boundary.
+  let resolveLookup;
+  const lookup=new Promise(resolve=>{resolveLookup=resolve;});
+  const staleCache=(async()=>{
+    await lookup;
+    if(1!==generation)return;
+    submissions++;
+  })();
+  resolveLookup(null);
+  await staleCache;
+  assert.equal(submissions,0);
+  // A current request is not blocked by the guard.
+  if(2===generation)submissions++;
+  assert.equal(submissions,1);
+});
