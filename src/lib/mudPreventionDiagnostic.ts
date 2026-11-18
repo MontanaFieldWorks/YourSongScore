@@ -1354,8 +1354,10 @@ export function summarizeAuralisQueuedMp3Shadow(
     ["ABSTAIN","EVIDENCE_ONLY"].includes(s.status);
   return {
     schemaVersion: "auralis-stage3f11-queued-mp3-shadow-v1",
-    analyzedSource: exactConvertedMp3Submitted ?
-      "CONVERTED_MP3_CURRENT_BYTES" : "SOURCE_UNVERIFIED",
+    // A filename and track.format are not proof of converter origin.
+    analyzedSource: currentMp3PcmVerified ?
+      "CURRENT_MP3_BYTES_PCM_VERIFIED" : "SOURCE_UNVERIFIED",
+    converterOrigin: "UNVERIFIED",
     currentMp3PcmIdentity: currentMp3PcmVerified ? "VERIFIED" : "UNVERIFIED",
     originalWavLineage: "UNVERIFIED",
     encodedSourceRate: "UNVERIFIED",
