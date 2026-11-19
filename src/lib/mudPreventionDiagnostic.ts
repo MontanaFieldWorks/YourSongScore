@@ -337,17 +337,47 @@ export function assessAuralisSpectralTrialEvidence(
     candidateCap:null,scoringImpact:"NONE"};
 }
 
+// Stage 3F-12: only fixed, non-sensitive diagnostic codes may leave the
+// Worker boundary. Never persist arbitrary exception text, hashes or filenames.
+const AURALIS_WORKER_FAILURE_CODES = [
+  "UNSUPPORTED_CHANNEL_COUNT","INPUT_BUDGET_EXCEEDED",
+  "INVALID_WORKER_RESPONSE","DIAGNOSTIC_COMPUTATION_FAILED",
+  "INVALID_WORKER_EVIDENCE","PCM_IDENTITY_MISMATCH",
+  "WORKER_ERROR","WORKER_MESSAGE_ERROR","TIMEOUT",
+  "ENCODED_IDENTITY_UNAVAILABLE","PCM_IDENTITY_UNAVAILABLE",
+  "WORKER_SETUP_FAILED",
+] as const;
+export type AuralisWorkerFailureCode =
+  typeof AURALIS_WORKER_FAILURE_CODES[number] | "UNRECOGNIZED_OR_MISSING";
+export function sanitizeAuralisWorkerFailureCode(reason:unknown):AuralisWorkerFailureCode {
+  return typeof reason==="string" &&
+    (AURALIS_WORKER_FAILURE_CODES as readonly string[]).includes(reason)
+      ? reason as AuralisWorkerFailureCode : "UNRECOGNIZED_OR_MISSING";
+}
+
+// Historical reports without this optional field are unchanged. The workbook
+// uses this validator again so a tampered saved critique cannot inject content.
+export function getAuralisWorkerFailureCodeForReport(execution:unknown):string|null {
+  const e=execution as any;
+  if(e?.status!=="UNAVAILABLE"||e.reason!=="WORKER_UNAVAILABLE"||
+     e.scoringImpact!=="NONE"||
+     !Object.prototype.hasOwnProperty.call(e,"workerFailureCode"))return null;
+  return sanitizeAuralisWorkerFailureCode(e.workerFailureCode);
+}
+
 // Beta observability: a compact, fail-closed execution record. This does not
 // assert the audio is good or provide any numerical scoring authority.
 export type AuralisExecutionRecord = {
   status:"AVAILABLE"|"UNAVAILABLE"|"NOT_RUN";
   reason:"VALIDATED_ENGINEERING_EVIDENCE"|"EVIDENCE_VALIDATION_FAILED"|
     "WORKER_UNAVAILABLE"|"WORKER_FAILED"|"CANCELLED"|"NOT_STARTED";
+  workerFailureCode?:AuralisWorkerFailureCode;
   scoringImpact:"NONE";
 };
 export function classifyAuralisExecution(
   outcome:"AVAILABLE"|"UNAVAILABLE"|"FAILED"|"CANCELLED"|"NOT_RUN",
   engineering:unknown,
+  workerFailureReason?:unknown,
 ):AuralisExecutionRecord {
   const inert=(status:AuralisExecutionRecord["status"],
     reason:AuralisExecutionRecord["reason"]):AuralisExecutionRecord=>({
@@ -356,7 +386,10 @@ export function classifyAuralisExecution(
   if(outcome==="NOT_RUN")return inert("NOT_RUN","NOT_STARTED");
   if(outcome==="CANCELLED")return inert("UNAVAILABLE","CANCELLED");
   if(outcome==="FAILED")return inert("UNAVAILABLE","WORKER_FAILED");
-  if(outcome==="UNAVAILABLE")return inert("UNAVAILABLE","WORKER_UNAVAILABLE");
+  if(outcome==="UNAVAILABLE")return {
+    ...inert("UNAVAILABLE","WORKER_UNAVAILABLE"),
+    workerFailureCode:sanitizeAuralisWorkerFailureCode(workerFailureReason),
+  };
   const e=engineering as any;
   if(e?.schemaVersion!==AURALIS_ENGINEERING_ADAPTER_VERSION ||
      e?.scoringImpact!=="NONE" ||
