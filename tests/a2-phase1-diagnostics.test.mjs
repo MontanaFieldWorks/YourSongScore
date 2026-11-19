@@ -5621,3 +5621,60 @@ test("Auralis cancellation and stale generations fail closed before report publi
   assert.match(app,/if \(diagnosticGeneration === auralisDiagnosticGenerationRef\.current\) \{\s*cancelAuralisDiagnostic\(\);\s*setLoading\(false\);\s*\}/);
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
 });
+
+
+test("Stage 3F-13 manual MP3 identity preflight is opt-in, localhost-only, bounded, and isolated",async()=>{
+  const h=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
+  assert.match(h,/<input id="mp3IdentityOptIn" type="checkbox">/);
+  assert.match(h,/<input id="mp3IdentityFile" type="file" accept="\.mp3,audio\/mpeg">/);
+  assert.match(h,/<button id="mp3IdentityRun" type="button" disabled>/);
+  assert.match(h,/<pre id="mp3IdentityResult" data-state="NOT_RUN"/);
+  const start=h.indexOf("// Stage 3F-13: separate, single-attempt local MP3");
+  const end=h.indexOf('pilotReference.addEventListener("change"',start);
+  assert.ok(start>=0&&end>start,"MP3 identity logic must remain a separate test mode");
+  const section=h.slice(start,end);
+  assert.match(section,/if\(mp3IdentityAttempted \|\| !mp3IdentityOptIn\.checked\)return;/);
+  assert.match(section,/mp3IdentityAttempted = true;/);
+  assert.match(section,/if\(!allowedHost\)reject\("LOCALHOST_ONLY"\);/);
+  assert.match(section,/if\(!file \|\| !\/\\\.mp3\$\/i\.test\(file\.name\) \|\| file\.size===0\)/);
+  assert.match(section,/file\.size>24\*1024\*1024/);
+  assert.match(section,/pcmBytes>capBytes/);
+  assert.match(section,/workerTimeoutMs:30000/);
+  assert.match(section,/window\.addEventListener\("pagehide",onPageHide/);
+  assert.match(section,/controller\?\.abort\(\)/);
+  assert.match(section,/locks\.forEach\(\(node,i\)=>\{node\.disabled=previousLocks\[i\];\}\)/);
+  assert.doesNotMatch(section,/fetch\(|\/api\/|GeminiGenerate|formData|URLSearchParams|runLocalSongPilot\(/);
+  assert.doesNotMatch(h,/query\.get\("mp3Identity"\)/,"No URL-triggered MP3 run");
+  assert.match(h,/pilotIdentityMode\.checked/,"Frozen-WAV opt-in remains intact");
+  assert.match(h,/MANIFEST_SHA256_OR_WAV_HEADER_MISMATCH/);
+});
+
+test("Stage 3F-13 local MP3 path uses production identity adapters and reports sanitized statuses only",async()=>{
+  const h=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
+  const start=h.indexOf("// Stage 3F-13: separate, single-attempt local MP3");
+  const end=h.indexOf('pilotReference.addEventListener("change"',start);
+  const section=h.slice(start,end);
+  assert.match(section,/decodeAudioFile\(file, identity => \{encodedIdentity=identity;\}\)/);
+  assert.match(section,/analyzeEngineeringDiagnosticsInWorker\(\s*audio,controller\.signal,undefined,undefined,true,encodedIdentity\)/);
+  const w=section.indexOf("const diagnostic = await analyzeEngineeringDiagnosticsInWorker(");
+  const e=section.indexOf("prepareAuralisEngineeringEvidence(diagnostic)",w);
+  const l=section.indexOf("prepareAuralisSourceLineage(diagnostic)",e);
+  const c=section.indexOf("classifyAuralisExecution(",l);
+  assert.ok(w>0&&e>w&&l>e&&c>l,"Actual identity-enabled Worker must feed the production adapters");
+  assert.match(section,/diagnostic\.status==="UNAVAILABLE" \? diagnostic\.reason : undefined/);
+  assert.match(section,/report\.execution=execution;/);
+  assert.match(section,/report\.engineeringAdapterStatus=engineering \? "AVAILABLE" : "UNAVAILABLE"/);
+  assert.match(section,/report\.sourceLineageStatus=lineage\?\.status \?\? "UNVERIFIED"/);
+  assert.match(section,/execution\.status==="AVAILABLE" && lineage\?\.status==="VERIFIED"/);
+  assert.match(section,/safePreflightCodes\.has\(error\?\.safeCode\)/);
+  assert.match(section,/"LOCAL_DIAGNOSTIC_FAILED"/);
+  assert.doesNotMatch(section,/report\.(identity|raw|digest|fileName|filename|hash)\s*=/i);
+  assert.doesNotMatch(section,/report\.error\s*=|error\.message|JSON\.stringify\(diagnostic\)|JSON\.stringify\(lineage\)/);
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const unavailable=m.classifyAuralisExecution("UNAVAILABLE",null,
+    "TIMEOUT; encodedSha256="+"a".repeat(64));
+  assert.deepEqual(unavailable,{status:"UNAVAILABLE",reason:"WORKER_UNAVAILABLE",
+    workerFailureCode:"UNRECOGNIZED_OR_MISSING",scoringImpact:"NONE"});
+  assert.equal(m.prepareAuralisSourceLineage({status:"UNAVAILABLE"}),null);
+  assert.equal(m.prepareAuralisEngineeringEvidence({status:"UNAVAILABLE"}),null);
+});
