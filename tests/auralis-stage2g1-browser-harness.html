@@ -42,7 +42,7 @@
     <label for="mp3IdentityFile">Select one local MP3:</label>
     <input id="mp3IdentityFile" type="file" accept=".mp3,audio/mpeg">
     <button id="mp3IdentityRun" type="button" disabled>Run Stage 3F-13 MP3 identity diagnostic once</button>
-    <p><small>Manual single attempt only; no songs run automatically. Uses the same encoded-source and decoded/Worker PCM identity path and evidence adapters as queued YSS MP3 analysis. 24 MiB encoded cap, 128 MiB decoded cap, 30-second Worker timeout, fail-closed; no upload, Gemini, scoring, retry, hashes or private audio in the result. Frozen four-WAV mode is independent and unchanged.</small></p>
+    <p><small>Manual single attempt only; no songs run automatically. Uses the same encoded-source and decoded/Worker PCM identity path and evidence adapters as queued YSS MP3 analysis. 24 MiB encoded cap, 128 MiB decoded cap, 30-second Worker timeout, fail-closed; no upload, Gemini, scoring, retry, hashes or private audio in the result. Frozen four-WAV mode is independent and unchanged. Reloading clears the in-page attempt guard but does not authorize a retry.</small></p>
     <pre id="mp3IdentityResult" data-state="NOT_RUN" aria-live="polite">Stage 3F-13 MP3 identity diagnostic NOT_RUN (default OFF).</pre>
   </div>
   <p><small>Stage 2G-3 is optional and must be selected explicitly. It runs one
@@ -1708,7 +1708,7 @@
           execution.status==="AVAILABLE" && lineage?.status==="VERIFIED" &&
           engineering!==null ? "PASS" : "FAIL";
         if(report.status==="FAIL"){
-          report.failureStage=phase;
+          report.failureStage=diagnostic.status==="AVAILABLE" ? "ADAPTER" : "WORKER";
           report.failureCode=diagnostic.status==="UNAVAILABLE"
             ? execution.workerFailureCode ?? "UNRECOGNIZED_OR_MISSING"
             : diagnostic.status==="CANCELLED" ? "CANCELLED"
