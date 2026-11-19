@@ -386,10 +386,10 @@ export function classifyAuralisExecution(
   if(outcome==="NOT_RUN")return inert("NOT_RUN","NOT_STARTED");
   if(outcome==="CANCELLED")return inert("UNAVAILABLE","CANCELLED");
   if(outcome==="FAILED")return inert("UNAVAILABLE","WORKER_FAILED");
-  if(outcome==="UNAVAILABLE")return {
-    ...inert("UNAVAILABLE","WORKER_UNAVAILABLE"),
-    workerFailureCode:sanitizeAuralisWorkerFailureCode(workerFailureReason),
-  };
+  if(outcome==="UNAVAILABLE")return workerFailureReason===undefined
+    ? inert("UNAVAILABLE","WORKER_UNAVAILABLE") // preserve legacy callers
+    : {...inert("UNAVAILABLE","WORKER_UNAVAILABLE"),
+       workerFailureCode:sanitizeAuralisWorkerFailureCode(workerFailureReason)};
   const e=engineering as any;
   if(e?.schemaVersion!==AURALIS_ENGINEERING_ADAPTER_VERSION ||
      e?.scoringImpact!=="NONE" ||
