@@ -1687,7 +1687,7 @@ test("Stage 3F-12 queued-MP3 Worker failure codes are retained, safe and score-i
     assert.equal(m.getAuralisWorkerFailureCodeForReport(execution),reason);
   }
   for(const dangerous of [
-    undefined,null,42,{},[], "SHA256_"+"a".repeat(64),
+    null,42,{},[], "SHA256_"+"a".repeat(64),
     '=HYPERLINK("https://example.test","private")',
     "TIMEOUT; encodedSha256="+"b".repeat(64),
     "C:\\Users\\private\\recording.mp3",
@@ -1695,9 +1695,14 @@ test("Stage 3F-12 queued-MP3 Worker failure codes are retained, safe and score-i
     const execution=m.classifyAuralisExecution("UNAVAILABLE",null,dangerous);
     assert.equal(execution.workerFailureCode,"UNRECOGNIZED_OR_MISSING");
     assert.equal(m.getAuralisWorkerFailureCodeForReport(execution),"UNRECOGNIZED_OR_MISSING");
-    assert.equal(JSON.stringify(execution).includes(String(dangerous)),false,
-      "arbitrary Worker reason must not be retained");
+    if(typeof dangerous==="string"&&dangerous.length>0)
+      assert.equal(JSON.stringify(execution).includes(dangerous),false,
+        "arbitrary Worker reason must not be retained");
   }
+  // An older two-argument caller must retain its exact legacy shape.
+  assert.deepEqual(m.classifyAuralisExecution("UNAVAILABLE",null),{
+    status:"UNAVAILABLE",reason:"WORKER_UNAVAILABLE",scoringImpact:"NONE",
+  });
   // A hostile or historical saved critique must never supply arbitrary
   // public report text, even if someone bypasses classification.
   assert.equal(m.getAuralisWorkerFailureCodeForReport({
