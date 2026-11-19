@@ -5664,6 +5664,7 @@ test("Stage 3F-13 local MP3 path uses production identity adapters and reports s
   assert.match(section,/diagnostic\.status==="UNAVAILABLE" \? diagnostic\.reason : undefined/);
   assert.match(section,/report\.execution=execution;/);
   assert.match(section,/report\.engineeringAdapterStatus=engineering \? "AVAILABLE" : "UNAVAILABLE"/);
+  assert.match(section,/report\.failureStage=diagnostic\.status==="AVAILABLE" \? "ADAPTER" : "WORKER"/);
   assert.match(section,/report\.sourceLineageStatus=lineage\?\.status \?\? "UNVERIFIED"/);
   assert.match(section,/execution\.status==="AVAILABLE" && lineage\?\.status==="VERIFIED"/);
   assert.match(section,/safePreflightCodes\.has\(error\?\.safeCode\)/);
