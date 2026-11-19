@@ -1667,3 +1667,86 @@ test("Stage 3F-11 existing-MP3 reanalysis is an explicit, cached-file-only opera
   assert.equal(maySubmit({...fixture,format:"WAV",confirmed:true}),false);
   assert.equal(maySubmit({...fixture,id:"",confirmed:true}),false);
 });
+
+test("Stage 3F-12 queued-MP3 Worker failure codes are retained, safe and score-inert",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const allowed=[
+    "UNSUPPORTED_CHANNEL_COUNT","INPUT_BUDGET_EXCEEDED",
+    "INVALID_WORKER_RESPONSE","DIAGNOSTIC_COMPUTATION_FAILED",
+    "INVALID_WORKER_EVIDENCE","PCM_IDENTITY_MISMATCH",
+    "WORKER_ERROR","WORKER_MESSAGE_ERROR","TIMEOUT",
+    "ENCODED_IDENTITY_UNAVAILABLE","PCM_IDENTITY_UNAVAILABLE",
+    "WORKER_SETUP_FAILED",
+  ];
+  for(const reason of allowed){
+    const execution=m.classifyAuralisExecution("UNAVAILABLE",null,reason);
+    assert.deepEqual(execution,{
+      status:"UNAVAILABLE",reason:"WORKER_UNAVAILABLE",
+      scoringImpact:"NONE",workerFailureCode:reason,
+    });
+    assert.equal(m.getAuralisWorkerFailureCodeForReport(execution),reason);
+  }
+  for(const dangerous of [
+    undefined,null,42,{},[], "SHA256_"+"a".repeat(64),
+    '=HYPERLINK("https://example.test","private")',
+    "TIMEOUT; encodedSha256="+"b".repeat(64),
+    "C:\\Users\\private\\recording.mp3",
+  ]){
+    const execution=m.classifyAuralisExecution("UNAVAILABLE",null,dangerous);
+    assert.equal(execution.workerFailureCode,"UNRECOGNIZED_OR_MISSING");
+    assert.equal(m.getAuralisWorkerFailureCodeForReport(execution),"UNRECOGNIZED_OR_MISSING");
+    assert.equal(JSON.stringify(execution).includes(String(dangerous)),false,
+      "arbitrary Worker reason must not be retained");
+  }
+  // A hostile or historical saved critique must never supply arbitrary
+  // public report text, even if someone bypasses classification.
+  assert.equal(m.getAuralisWorkerFailureCodeForReport({
+    status:"UNAVAILABLE",reason:"WORKER_UNAVAILABLE",scoringImpact:"NONE",
+    workerFailureCode:'=HYPERLINK("https://example.test","private")',
+  }),"UNRECOGNIZED_OR_MISSING");
+  assert.equal(m.getAuralisWorkerFailureCodeForReport({
+    status:"UNAVAILABLE",reason:"WORKER_UNAVAILABLE",scoringImpact:"NONE",
+  }),null);
+  assert.equal(m.getAuralisWorkerFailureCodeForReport({
+    status:"AVAILABLE",reason:"VALIDATED_ENGINEERING_EVIDENCE",scoringImpact:"NONE",
+    workerFailureCode:"TIMEOUT",
+  }),null);
+  assert.equal(m.getAuralisWorkerFailureCodeForReport({
+    status:"UNAVAILABLE",reason:"WORKER_UNAVAILABLE",scoringImpact:"DOWNWARD_ONLY",
+    workerFailureCode:"TIMEOUT",
+  }),null);
+  for(const outcome of ["NOT_RUN","CANCELLED","FAILED","AVAILABLE"]){
+    const record=m.classifyAuralisExecution(outcome,null,"TIMEOUT");
+    assert.equal(Object.hasOwn(record,"workerFailureCode"),false,
+      "only actual Worker UNAVAILABLE results may have a Worker failure code");
+    assert.equal(record.scoringImpact,"NONE");
+  }
+});
+
+test("Stage 3F-12 Excel reports sanitized queued-MP3 Worker reasons without score changes",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const display=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  const start=app.indexOf("const handleAuditQueuedTrack");
+  const end=app.indexOf("const handleStartReview",start);
+  const q=app.slice(start,end);
+  assert.ok(start>=0&&end>start);
+  assert.match(q,/result\.status === "UNAVAILABLE" \? result\.reason : undefined/);
+  assert.match(q,/classifyAuralisExecution\(\s*result\.status, engineering,/);
+  assert.match(q,/resolveAuralisExecutionForReport\(/);
+  assert.match(q,/queuedShadow,\(overriddenFinalCritique as any\)\.auralisStage3F5IntegrationPlan,\s*false\)/);
+  assert.doesNotMatch(q,/authorizeAuralisReviewed79Execution\(/);
+  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  assert.match(display,/getAuralisWorkerFailureCodeForReport\(execution\)/);
+  assert.match(display,/workerFailureCode "\+workerCode/);
+  assert.match(display,/Engineering Worker execution status/);
+  // Recreate the exact inert Excel value calculation with synthetic inputs.
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const raw=m.classifyAuralisExecution("UNAVAILABLE",null,"TIMEOUT");
+  const workerCode=m.getAuralisWorkerFailureCodeForReport(raw);
+  const value=raw.status+" — "+raw.reason+
+    (workerCode ? "; workerFailureCode "+workerCode : "")+
+    "; scoringImpact NONE";
+  assert.equal(value,
+    "UNAVAILABLE — WORKER_UNAVAILABLE; workerFailureCode TIMEOUT; scoringImpact NONE");
+  assert.equal(raw.scoringImpact,"NONE");
+});
