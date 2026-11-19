@@ -37,6 +37,14 @@
   <div><label for="pilotFile">Stage 2I-2 local song pilot (one file at a time, up to four):</label>
   <input id="pilotFile" type="file" accept="audio/*">
   <button id="pilot" type="button">Analyze selected song locally</button></div>
+  <div aria-label="Stage 3F-13 isolated MP3 identity diagnostic">
+    <label><input id="mp3IdentityOptIn" type="checkbox"> Enable one Stage 3F-13 MP3 identity diagnostic (default OFF, localhost only, no scoring)</label>
+    <label for="mp3IdentityFile">Select one local MP3:</label>
+    <input id="mp3IdentityFile" type="file" accept=".mp3,audio/mpeg">
+    <button id="mp3IdentityRun" type="button" disabled>Run Stage 3F-13 MP3 identity diagnostic once</button>
+    <p><small>Manual single attempt only; no songs run automatically. Uses the same encoded-source and decoded/Worker PCM identity path and evidence adapters as queued YSS MP3 analysis. 24 MiB encoded cap, 128 MiB decoded cap, 30-second Worker timeout, fail-closed; no upload, Gemini, scoring, retry, hashes or private audio in the result. Frozen four-WAV mode is independent and unchanged.</small></p>
+    <pre id="mp3IdentityResult" data-state="NOT_RUN" aria-live="polite">Stage 3F-13 MP3 identity diagnostic NOT_RUN (default OFF).</pre>
+  </div>
   <p><small>Stage 2G-3 is optional and must be selected explicitly. It runs one
   0.2s/48k stereo warm-up followed by three repeats each of 0.2s/48k stereo,
   15s/48k stereo, and 15s/192k stereo. One case at a time, no retries,
@@ -65,6 +73,7 @@
     import { analyzeEngineeringDiagnosticsInWorker } from "/src/lib/batchAudioWorker.ts";
     import { analyzeStage2b2Stereo } from "/src/lib/liveAudioAnalyzer.ts";
     import { decodeAudioFile, interpretStage2d1EngineeringEvidence, interpretStage2d3CrossMeasurementEvidence } from "/src/lib/liveAudioAnalyzer.ts";
+    import { prepareAuralisEngineeringEvidence, prepareAuralisSourceLineage, classifyAuralisExecution } from "/src/lib/mudPreventionDiagnostic.ts";
 
     const out = document.querySelector("#result");
     const runButton = document.querySelector("#run");
@@ -79,6 +88,10 @@
     const pilotStatus = document.querySelector("#pilotStatus");
     const pilotReference = document.querySelector("#pilotReference");
     const pilotComparison = document.querySelector("#pilotComparison");
+    const mp3IdentityOptIn = document.querySelector("#mp3IdentityOptIn");
+    const mp3IdentityFile = document.querySelector("#mp3IdentityFile");
+    const mp3IdentityRun = document.querySelector("#mp3IdentityRun");
+    const mp3IdentityResult = document.querySelector("#mp3IdentityResult");
     let pilotRunning = false;
     let pilotStopped = false;
     let pilotSessionIdentityMode = null;
@@ -1602,6 +1615,120 @@
       }
     }
     pilotButton.addEventListener("click",runLocalSongPilot);
+
+    // Stage 3F-13: separate, single-attempt local MP3 identity+adapter path.
+    // No automatic activation, no network, no Gemini and no scoring. The
+    // existing Stage 2I-2 and frozen four-WAV manifest modes are untouched.
+    let mp3IdentityAttempted = false;
+    mp3IdentityOptIn.addEventListener("change", () => {
+      mp3IdentityRun.disabled = mp3IdentityAttempted || !mp3IdentityOptIn.checked;
+    });
+    async function runStage3F13Mp3IdentityOnce() {
+      if(mp3IdentityAttempted || !mp3IdentityOptIn.checked)return;
+      mp3IdentityAttempted = true; // fail-closed, even on preflight failure
+      mp3IdentityRun.disabled = true;
+      mp3IdentityOptIn.disabled = true;
+      const file = mp3IdentityFile.files?.[0] ?? null;
+      mp3IdentityFile.value = "";
+      mp3IdentityFile.disabled = true;
+      const report = {
+        stage:"3F-13",mode:"LOCAL_MP3_IDENTITY_ENABLED_DIAGNOSTIC",
+        status:"RUNNING",startedAt:new Date().toISOString(),
+        policy:{defaultOff:true,localhostOnly:true,singleAttempt:true,noRetries:true,
+          maxEncodedMiB:24,maxDecodedPcmMiB:128,workerTimeoutMs:30000,
+          paidCalls:false,scoringImpact:"NONE",upload:false},
+        workerStatus:"NOT_RUN",engineeringAdapterStatus:"NOT_RUN",
+        sourceLineageStatus:"NOT_RUN",execution:null,
+      };
+      const show = () => {
+        mp3IdentityResult.textContent = JSON.stringify(report,null,2);
+        mp3IdentityResult.dataset.state = report.status;
+      };
+      const safePreflightCodes = new Set([
+        "LOCALHOST_ONLY","ANOTHER_TEST_RUNNING","MP3_FILE_REQUIRED",
+        "ENCODED_BUDGET_EXCEEDED","DECODED_BUDGET_EXCEEDED",
+        "IDENTITY_CALLBACK_MISSING"
+      ]);
+      const reject = code => { throw {safeCode:code}; };
+      const locks = [runButton,profileButton,matchedButton,memoryButton,
+        allocationButton,capacityButton,pilotButton,pilotFile,pilotIdentityMode,
+        document.querySelector("#identity")];
+      const previousLocks = locks.map(node=>node.disabled);
+      let phase = "PREFLIGHT";
+      let controller = null;
+      const onPageHide = () => controller?.abort();
+      show();
+      try {
+        if(!allowedHost)reject("LOCALHOST_ONLY");
+        if(pilotRunning || runButton.disabled || profileButton.disabled ||
+           matchedButton.disabled || memoryButton.disabled || allocationButton.disabled ||
+           capacityButton.disabled ||
+           document.querySelector("#identityResult")?.dataset.state === "RUNNING")
+          reject("ANOTHER_TEST_RUNNING");
+        if(!file || !/\.mp3$/i.test(file.name) || file.size===0)
+          reject("MP3_FILE_REQUIRED");
+        if(file.size>24*1024*1024)reject("ENCODED_BUDGET_EXCEEDED");
+        if(document.visibilityState!=="visible")reject("ANOTHER_TEST_RUNNING");
+        // Lock the other modes while the real Worker and SHA-256 are in flight.
+        locks.forEach(node=>node.disabled=true);
+        phase = "DECODE";
+        let encodedIdentity;
+        const audio = await decodeAudioFile(file, identity => {encodedIdentity=identity;});
+        if(!encodedIdentity)reject("IDENTITY_CALLBACK_MISSING");
+        const pcmBytes=audio.length*audio.numberOfChannels*Float32Array.BYTES_PER_ELEMENT;
+        if(![1,2].includes(audio.numberOfChannels) ||
+           !Number.isSafeInteger(audio.length) || audio.length<1 ||
+           !Number.isFinite(pcmBytes) || pcmBytes>capBytes)
+          reject("DECODED_BUDGET_EXCEEDED");
+        report.decodedPcmBytes=pcmBytes;
+        report.decodedSampleRate=audio.sampleRate;
+        report.channelCount=audio.numberOfChannels;
+        phase = "WORKER";
+        controller = new AbortController();
+        window.addEventListener("pagehide",onPageHide,{once:true});
+        // Exactly the queued-MP3 Worker call: encoded source SHA-256 plus
+        // independently hashed decoded PCM and actual transferred Worker PCM.
+        const diagnostic = await analyzeEngineeringDiagnosticsInWorker(
+          audio,controller.signal,undefined,undefined,true,encodedIdentity);
+        phase = "ADAPTER";
+        const engineering = prepareAuralisEngineeringEvidence(diagnostic);
+        const lineage = prepareAuralisSourceLineage(diagnostic);
+        const execution = classifyAuralisExecution(
+          diagnostic.status,engineering,
+          diagnostic.status==="UNAVAILABLE" ? diagnostic.reason : undefined);
+        report.workerStatus=diagnostic.status;
+        report.execution=execution; // only fixed codes, never raw errors or SHA-256
+        report.engineeringAdapterStatus=engineering ? "AVAILABLE" : "UNAVAILABLE";
+        report.sourceLineageStatus=lineage?.status ?? "UNVERIFIED";
+        report.pcmIdentityStatus=lineage?.pcmIdentityStatus ?? "UNVERIFIED";
+        report.encodedSourceRateStatus=lineage?.sourceRateStatus ?? "UNVERIFIED";
+        report.rateRelationship=lineage?.rateRelationship ?? "UNVERIFIED";
+        report.engineeringMetrics=engineering?.metrics ?? null;
+        report.status=diagnostic.status==="AVAILABLE" &&
+          execution.status==="AVAILABLE" && lineage?.status==="VERIFIED" &&
+          engineering!==null ? "PASS" : "FAIL";
+        if(report.status==="FAIL"){
+          report.failureStage=phase;
+          report.failureCode=diagnostic.status==="UNAVAILABLE"
+            ? execution.workerFailureCode ?? "UNRECOGNIZED_OR_MISSING"
+            : diagnostic.status==="CANCELLED" ? "CANCELLED"
+            : !engineering ? "ENGINEERING_ADAPTER_REJECTED"
+            : "SOURCE_LINEAGE_ADAPTER_REJECTED";
+        }
+      }catch(error){
+        report.status="FAIL";
+        report.failureStage=phase;
+        report.failureCode=safePreflightCodes.has(error?.safeCode)
+          ? error.safeCode : "LOCAL_DIAGNOSTIC_FAILED";
+      }finally{
+        controller?.abort(); // idempotent: Worker has already finished/terminated
+        window.removeEventListener("pagehide",onPageHide);
+        locks.forEach((node,i)=>{node.disabled=previousLocks[i];});
+        report.finishedAt=new Date().toISOString();
+        show();
+      }
+    }
+    mp3IdentityRun.addEventListener("click",runStage3F13Mp3IdentityOnce);
 
     pilotReference.addEventListener("change",renderPilotComparisons);
 
