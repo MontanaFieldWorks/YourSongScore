@@ -9,7 +9,7 @@ import { analyzeClimaxPeakCompetition, formatClimaxPeakDiagnostic } from "../lib
 import { getClimaxTrajectoryEvidenceRows } from "../lib/climaxEvidenceExport";
 import { appendA2ProvenanceToSourceDiagnostics } from "../lib/a2ScoringProvenance";
 import { getMudPreventionPublicCommentary } from "../lib/mudPreventionReporting";
-import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS, getAuralisReviewed79ReportRows } from "../lib/mudPreventionDiagnostic";
+import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS, getAuralisReviewed79ReportRows, getAuralisWorkerFailureCodeForReport } from "../lib/mudPreventionDiagnostic";
 import { 
   Play, Pause, RefreshCw, Layers, Sliders, Mic,
   Volume2, Disc, ArrowLeft, ArrowRight, CheckCircle, Flame, Sparkles, CheckSquare, Square,
@@ -1815,10 +1815,14 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       const execution=(critique as any)?.auralisExecution;
       if(execution && ["AVAILABLE","UNAVAILABLE","NOT_RUN"].includes(execution.status) &&
          execution.scoringImpact==="NONE" && typeof execution.reason==="string"){
+        // Only a fixed, sanitized code is exported; historical rows stay intact.
+        const workerCode=getAuralisWorkerFailureCodeForReport(execution);
         const row=wsSourceDiagnostics.addRow({
           section:"Auralis SonicLens (NOT SCORED)",
           field:"Engineering Worker execution status",
-          value:execution.status+" — "+execution.reason+"; scoringImpact NONE",
+          value:execution.status+" — "+execution.reason+
+            (workerCode ? "; workerFailureCode "+workerCode : "")+
+            "; scoringImpact NONE",
         });
         row.alignment={vertical:"top",wrapText:true};
         row.height=32;

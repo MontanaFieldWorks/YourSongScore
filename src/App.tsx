@@ -2213,7 +2213,10 @@ export default function App() {
             return {
               engineering,
               sourceLineage: prepareAuralisSourceLineage(result),
-              execution: classifyAuralisExecution(result.status, engineering),
+              execution: classifyAuralisExecution(
+                result.status, engineering,
+                result.status === "UNAVAILABLE" ? result.reason : undefined
+              ),
             };
           }).catch(() => ({
             engineering: null, sourceLineage: null,
