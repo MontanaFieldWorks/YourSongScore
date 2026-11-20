@@ -73,7 +73,7 @@
     import { analyzeEngineeringDiagnosticsInWorker } from "/src/lib/batchAudioWorker.ts";
     import { analyzeStage2b2Stereo } from "/src/lib/liveAudioAnalyzer.ts";
     import { decodeAudioFile, interpretStage2d1EngineeringEvidence, interpretStage2d3CrossMeasurementEvidence } from "/src/lib/liveAudioAnalyzer.ts";
-    import { prepareAuralisEngineeringEvidence, prepareAuralisSourceLineage, classifyAuralisExecution } from "/src/lib/mudPreventionDiagnostic.ts";
+    import { prepareAuralisEngineeringEvidence, prepareAuralisSourceLineage, getAuralisSourceLineageRejectionCode, classifyAuralisExecution } from "/src/lib/mudPreventionDiagnostic.ts";
 
     const out = document.querySelector("#result");
     const runButton = document.querySelector("#run");
@@ -1692,6 +1692,7 @@
           audio,controller.signal,undefined,undefined,true,encodedIdentity);
         phase = "ADAPTER";
         const engineering = prepareAuralisEngineeringEvidence(diagnostic);
+        const lineageRejection = getAuralisSourceLineageRejectionCode(diagnostic);
         const lineage = prepareAuralisSourceLineage(diagnostic);
         const execution = classifyAuralisExecution(
           diagnostic.status,engineering,
@@ -1700,6 +1701,8 @@
         report.execution=execution; // only fixed codes, never raw errors or SHA-256
         report.engineeringAdapterStatus=engineering ? "AVAILABLE" : "UNAVAILABLE";
         report.sourceLineageStatus=lineage?.status ?? "UNVERIFIED";
+        report.sourceLineageRejectionCode=diagnostic.status==="AVAILABLE"
+          ? lineageRejection ?? "NONE" : "NOT_EVALUATED";
         report.pcmIdentityStatus=lineage?.pcmIdentityStatus ?? "UNVERIFIED";
         report.encodedSourceRateStatus=lineage?.sourceRateStatus ?? "UNVERIFIED";
         report.rateRelationship=lineage?.rateRelationship ?? "UNVERIFIED";
@@ -1713,7 +1716,7 @@
             ? execution.workerFailureCode ?? "UNRECOGNIZED_OR_MISSING"
             : diagnostic.status==="CANCELLED" ? "CANCELLED"
             : !engineering ? "ENGINEERING_ADAPTER_REJECTED"
-            : "SOURCE_LINEAGE_ADAPTER_REJECTED";
+            : lineageRejection ?? "SOURCE_LINEAGE_ADAPTER_REJECTED";
         }
       }catch(error){
         report.status="FAIL";
