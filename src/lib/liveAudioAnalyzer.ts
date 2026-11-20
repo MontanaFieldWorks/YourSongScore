@@ -180,15 +180,18 @@ export function auralisSourceHeaderRate(bytes:ArrayBuffer): {
 }
 export async function captureAuralisEncodedSourceIdentity(bytes:ArrayBuffer):
   Promise<AuralisEncodedSourceIdentity> {
+  // decodeAudioData may detach this ArrayBuffer while SHA-256 is pending.
+  // Capture the byte count synchronously, BEFORE awaiting crypto.subtle.digest.
+  const encodedBytes=bytes.byteLength;
   const header=auralisSourceHeaderRate(bytes);
   try {
     if(typeof crypto==="undefined"||!crypto.subtle)throw Error("missing Web Crypto");
     const hash=await crypto.subtle.digest("SHA-256",bytes);
     const encodedSha256=Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,"0")).join("");
-    return {status:"VERIFIED",encodedSha256,encodedBytes:bytes.byteLength,...header};
+    return {status:"VERIFIED",encodedSha256,encodedBytes,...header};
   } catch {
     return {status:"UNAVAILABLE",encodedSha256:null,
-      encodedBytes:bytes.byteLength,...header};
+      encodedBytes,...header};
   }
 }
 /**
