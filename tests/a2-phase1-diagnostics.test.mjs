@@ -5666,6 +5666,9 @@ test("Stage 3F-13 local MP3 path uses production identity adapters and reports s
   assert.match(section,/report\.engineeringAdapterStatus=engineering \? "AVAILABLE" : "UNAVAILABLE"/);
   assert.match(section,/report\.failureStage=diagnostic\.status==="AVAILABLE" \? "ADAPTER" : "WORKER"/);
   assert.match(section,/report\.sourceLineageStatus=lineage\?\.status \?\? "UNVERIFIED"/);
+  assert.match(section,/getAuralisSourceLineageRejectionCode\(diagnostic\)/);
+  assert.match(section,/report\.sourceLineageRejectionCode=diagnostic\.status==="AVAILABLE"/);
+  assert.match(section,/: lineageRejection \?\? "SOURCE_LINEAGE_ADAPTER_REJECTED"/);
   assert.match(section,/execution\.status==="AVAILABLE" && lineage\?\.status==="VERIFIED"/);
   assert.match(section,/safePreflightCodes\.has\(error\?\.safeCode\)/);
   assert.match(section,/"LOCAL_DIAGNOSTIC_FAILED"/);
@@ -5717,7 +5720,9 @@ test("Stage 3F-13 detached MP3 source bytes preserve encoded length and verified
     decodedSamples:8192,workerSamples:8192,
     rateRelationship:"SOURCE_RATE_UNVERIFIED"
   }};
-  const {prepareAuralisSourceLineage}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const {prepareAuralisSourceLineage,getAuralisSourceLineageRejectionCode}=
+    await import("../src/lib/mudPreventionDiagnostic.ts");
+  assert.equal(getAuralisSourceLineageRejectionCode(result),null);
   const lineage=prepareAuralisSourceLineage(result);
   assert.equal(lineage?.status,"VERIFIED");
   assert.equal(lineage.sourceRateStatus,"UNVERIFIED");
@@ -5727,4 +5732,23 @@ test("Stage 3F-13 detached MP3 source bytes preserve encoded length and verified
   assert.equal(lineage.pcmIdentityStatus,"VERIFIED");
   assert.equal(JSON.stringify(lineage).includes(encoded.encodedSha256),false);
   for(const hash of hashes)assert.equal(JSON.stringify(lineage).includes(hash),false);
+  const malformed=patch=>({...result,identity:{...result.identity,...patch}});
+  const rejected=[
+    [malformed({encodedBytes:0}),"INVALID_ENCODED_BYTE_LENGTH"],
+    [malformed({encodedBytes:-1}),"INVALID_ENCODED_BYTE_LENGTH"],
+    [malformed({encodedSha256:"untrusted"}),"INVALID_ENCODED_IDENTITY"],
+    [malformed({workerChannelSha256:[hashes[0],"0".repeat(64)]}),"PCM_CHANNEL_HASH_MISMATCH"],
+    [malformed({decodedSamples:8191}),"PCM_DIMENSIONS_MISMATCH"],
+    [malformed({sourceSampleRate:44100}),"SOURCE_RATE_CONTRADICTION"],
+    [malformed({rateRelationship:"SAME_RATE"}),"SOURCE_RATE_CONTRADICTION"],
+    [{...result,status:"UNAVAILABLE"},"INVALID_ENGINEERING_CONTEXT"],
+  ];
+  for(const [candidate,expectedReason] of rejected){
+    assert.equal(getAuralisSourceLineageRejectionCode(candidate),expectedReason);
+    assert.equal(prepareAuralisSourceLineage(candidate),null,
+      "Fixed reason visibility must never relax rejection gates");
+    assert.equal(expectedReason.includes("sha256"),false);
+  }
+  // No contents of encoded/decoded hashes, filenames or private errors are reported.
+  assert.equal(JSON.stringify(rejected.map(([x])=>getAuralisSourceLineageRejectionCode(x))).includes(hashes[0]),false);
 });
