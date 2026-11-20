@@ -5679,3 +5679,52 @@ test("Stage 3F-13 local MP3 path uses production identity adapters and reports s
   assert.equal(m.prepareAuralisSourceLineage({status:"UNAVAILABLE"}),null);
   assert.equal(m.prepareAuralisEngineeringEvidence({status:"UNAVAILABLE"}),null);
 });
+
+
+test("Stage 3F-13 detached MP3 source bytes preserve encoded length and verified stereo lineage",async()=>{
+  // Model decodeAudioData's transfer/detachment of the exact encoded ArrayBuffer
+  // while crypto.subtle.digest is pending. No audio file, network or Worker run.
+  const encodedBytes=new Uint8Array([73,68,51,4,0,0,0,0,0,0,14,2,7,9]).buffer;
+  const originalByteLength=encodedBytes.byteLength;
+  const encodedPromise=captureAuralisEncodedSourceIdentity(encodedBytes);
+  structuredClone(encodedBytes,{transfer:[encodedBytes]});
+  assert.equal(encodedBytes.byteLength,0,"synthetic decode transfer must detach source");
+  const encoded=await encodedPromise;
+  assert.equal(encoded.status,"VERIFIED");
+  assert.equal(encoded.sourceRateStatus,"UNVERIFIED");
+  assert.equal(encoded.sourceSampleRate,null);
+  assert.equal(encoded.format,"UNVERIFIED");
+  assert.equal(encoded.encodedBytes,originalByteLength,
+    "encoded length must be captured before decode detaches the source buffer");
+  const channels=[
+    Float32Array.from({length:8192},(_,i)=>0.09*Math.sin(i*.017)),
+    Float32Array.from({length:8192},(_,i)=>0.07*Math.sin(i*.019+.2))
+  ];
+  const diagnostic=runStage2c2aBrowserDiagnostics({
+    sampleRate:48000,numberOfChannels:2,getChannelData:i=>channels[i]
+  },true,true);
+  assert.equal(diagnostic.status,"AVAILABLE");
+  const hashes=await Promise.all(channels.map(async channel=>
+    createHash("sha256").update(new Uint8Array(channel.buffer)).digest("hex")));
+  const result={...diagnostic,identity:{
+    status:"VERIFIED",encodedSha256:encoded.encodedSha256,
+    encodedBytes:encoded.encodedBytes,
+    sourceFormat:encoded.format,sourceSampleRate:encoded.sourceSampleRate,
+    sourceRateStatus:encoded.sourceRateStatus,
+    decodedChannelSha256:hashes,workerChannelSha256:[...hashes],
+    decodedSampleRate:48000,workerSampleRate:48000,
+    decodedChannels:2,workerChannels:2,
+    decodedSamples:8192,workerSamples:8192,
+    rateRelationship:"SOURCE_RATE_UNVERIFIED"
+  }};
+  const {prepareAuralisSourceLineage}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const lineage=prepareAuralisSourceLineage(result);
+  assert.equal(lineage?.status,"VERIFIED");
+  assert.equal(lineage.sourceRateStatus,"UNVERIFIED");
+  assert.equal(lineage.sourceSampleRate,null);
+  assert.equal(lineage.rateRelationship,"SOURCE_RATE_UNVERIFIED");
+  assert.equal(lineage.encodedSha256Status,"CAPTURED_PRIVATE");
+  assert.equal(lineage.pcmIdentityStatus,"VERIFIED");
+  assert.equal(JSON.stringify(lineage).includes(encoded.encodedSha256),false);
+  for(const hash of hashes)assert.equal(JSON.stringify(lineage).includes(hash),false);
+});
