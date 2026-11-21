@@ -5879,7 +5879,7 @@ test("Stage 3F-15 Auralis Beta Audit exports actual-style evidence, decision lin
 
 test("Stage 3F-15 unavailable and malicious critique content fail closed in Excel",async()=>{
   const {getAuralisBetaAuditReportRows}=await import("../src/lib/mudPreventionDiagnostic.ts");
-  const leak="=HYPERLINK(\\"https://private.example\\",\\"secret\\")";
+  const leak='=HYPERLINK("https://private.example","secret")';
   const critique={
     auralisExecution:{status:leak,reason:leak,scoringImpact:"NONE",
       workerFailureCode:leak},
