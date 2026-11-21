@@ -5122,7 +5122,7 @@ test("Stage 3F-9 opt-in identity trial refuses every other source and preserves 
   assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
   assert.match(app,/const stage3f9IdentityCandidate = isAuralisStage3F9IdentityCandidate\(/);
-  assert.match(app,/stage3f9IdentityCandidate\s*\? identity => \{ auralisEncodedIdentity = identity; \} : undefined/);
+  assert.match(app,/stage3f9IdentityCandidate \|\| stage3f14Mp3IdentityCandidate\s*\? identity => \{ auralisEncodedIdentity = identity; \} : undefined/);
   assert.match(app,/!isAuralisStage3F9ExactEncodedIdentity\(await auralisEncodedIdentity\)/);
   assert.match(app,/auralisEncodedIdentity=undefined;/);
   assert.match(app,/analyzeEngineeringDiagnosticsInWorker\(audioBuffer, controller.signal, undefined, undefined, true,\s*auralisEncodedIdentity\)/);
@@ -5751,4 +5751,26 @@ test("Stage 3F-13 detached MP3 source bytes preserve encoded length and verified
   }
   // No contents of encoded/decoded hashes, filenames or private errors are reported.
   assert.equal(JSON.stringify(rejected.map(([x])=>getAuralisSourceLineageRejectionCode(x))).includes(hashes[0]),false);
+});
+
+test("Stage 3F-14 normal MP3 identity capture stays bounded and score-inert, queued path unchanged",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const normal=app.slice(app.indexOf("const handleSubmitFile = async"),app.indexOf("const handleSubmitFile = async")+15000);
+  assert.match(normal,/const stage3f14Mp3IdentityCandidate =\s*STAGE3D1_AURALIS_EVIDENCE_ENABLED && !a2PilotEnabled &&/);
+  assert.match(normal,/\/\\.mp3\$\/i\.test\(selectedFile\.name\)/);
+  assert.match(normal,/selectedFile\.size > 0 && selectedFile\.size <= 24 \* 1024 \* 1024/);
+  assert.match(normal,/stage3f9IdentityCandidate \|\| stage3f14Mp3IdentityCandidate/);
+  assert.match(normal,/if\(stage3f9IdentityCandidate && auralisEncodedIdentity &&/);
+  assert.match(normal,/isAuralisStage3F9ExactEncodedIdentity\(await auralisEncodedIdentity\)/);
+  assert.match(normal,/prepareAuralisEngineeringEvidence\(result\)/);
+  assert.match(normal,/prepareAuralisSourceLineage\(result\)/);
+  assert.match(normal,/diagnosticGeneration !== auralisDiagnosticGenerationRef\.current\) return null/);
+  assert.match(app,/const queuedMp3Candidate = STAGE3D1_AURALIS_EVIDENCE_ENABLED &&/);
+  assert.match(app,/cachedFileForAnalysis\.name\.endsWith\("_Mastered320\.mp3"\)/);
+  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.doesNotMatch(normal,/formData\.append\("auralisEncodedIdentity"/);
+  const {prepareAuralisSourceLineage,prepareAuralisEngineeringEvidence}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  assert.equal(prepareAuralisSourceLineage({status:"UNAVAILABLE"}),null);
+  assert.equal(prepareAuralisEngineeringEvidence({status:"UNAVAILABLE"}),null);
 });
