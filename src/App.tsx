@@ -1403,15 +1403,20 @@ export default function App() {
     // returns so this does not add a second DSP pass.
     let preAnalysisLiveMetrics: any = null;
     try {
-      // Stage 3F-9: opt-in identity hashing is limited to the frozen,
-      // reviewed Carry On WAV; a matching name/size is NOT proof of identity.
+      // Stage 3F-14: capture current encoded identity for bounded MP3 uploads.
+      // Retain the original exact-WAV fixture gate. Identity enables engineering
+      // provenance only; it never authorizes scoring or server review.
       const stage3f9IdentityCandidate = isAuralisStage3F9IdentityCandidate(
         selectedFile,STAGE3D2L1_IDENTITY_ENABLED,a2PilotEnabled,
         STAGE3D1_AURALIS_EVIDENCE_ENABLED);
+      const stage3f14Mp3IdentityCandidate =
+        STAGE3D1_AURALIS_EVIDENCE_ENABLED && !a2PilotEnabled &&
+        /\\.mp3$/i.test(selectedFile.name) &&
+        selectedFile.size > 0 && selectedFile.size <= 24 * 1024 * 1024;
       const audioBuffer = await decodeAudioFile(selectedFile,
-        stage3f9IdentityCandidate
+        stage3f9IdentityCandidate || stage3f14Mp3IdentityCandidate
           ? identity => { auralisEncodedIdentity = identity; } : undefined);
-      if(auralisEncodedIdentity &&
+      if(stage3f9IdentityCandidate && auralisEncodedIdentity &&
          !isAuralisStage3F9ExactEncodedIdentity(await auralisEncodedIdentity))
         auralisEncodedIdentity=undefined;
       preAnalysisLiveMetrics = analyzeAudioBuffer(audioBuffer);
