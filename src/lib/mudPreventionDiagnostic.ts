@@ -1431,3 +1431,153 @@ export function summarizeAuralisQueuedMp3Shadow(
     appliedScoreChange: 0,
   };
 }
+
+
+// Stage 3F-15: score-inert, allowlisted public Excel audit projection.
+// All fields are copied from the CURRENT critique after normal scoring; this
+// helper never evaluates music quality, applies a cap, or mutates any score.
+// Raw metadata, reviewer identities, SHA-256s, private configuration, untrusted
+// commentary, and free-form reasons are intentionally excluded.
+export type AuralisBetaExcelRow = {section:string;field:string;value:string|number};
+export function getAuralisBetaAuditReportRows(critique:unknown):AuralisBetaExcelRow[] {
+  const c=critique as any;
+  const e=c?.auralisExecution, g=c?.auralisEngineering, l=c?.auralisSourceLineage;
+  const a=c?.auralisBetaScoringAudit, s=c?.auralisStage3F1SpectralShadow;
+  const p=c?.auralisStage3F5IntegrationPlan, x=c?.auralisStage3F6Execution;
+  const missing="NOT_CAPTURED";
+  const number=(v:unknown):number|string=>
+    typeof v==="number"&&Number.isFinite(v)?v:missing;
+  const score=(v:unknown):number|string=>
+    typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=100?v:missing;
+  const flag=(v:unknown):string=>v===true?"YES":v===false?"NO":missing;
+  // Never export arbitrary status/reason strings, even from an archived critique.
+  const code=(v:unknown,allow:readonly string[]):string=>
+    typeof v==="string"&&allow.includes(v)?v:missing;
+  const cap=(v:unknown,present:boolean):number|string=>
+    !present?missing:v===null?"NONE":score(v);
+  const count=(v:unknown):number|string=>Array.isArray(v)?v.length:missing;
+  const rows:AuralisBetaExcelRow[]=[];
+  const add=(section:string,field:string,value:string|number)=>
+    rows.push({section,field,value});
+  add("Export Policy","Scope","READ_ONLY_CURRENT_CRITIQUE; NO NEW SCORING");
+  add("Export Policy","Gemini responsibility","ARTISTIC_AND_EXISTING_TIER_ASSESSMENT");
+  add("Export Policy","Auralis responsibility","MEASURED_ENGINEERING_EVIDENCE_ONLY");
+  add("Export Policy","Quality verdict from band ratio","NOT_INFERRED");
+  add("Execution","Worker status",code(e?.status,["AVAILABLE","UNAVAILABLE","NOT_RUN"]));
+  add("Execution","Worker reason",code(e?.reason,[
+    "VALIDATED_ENGINEERING_EVIDENCE","EVIDENCE_VALIDATION_FAILED",
+    "WORKER_UNAVAILABLE","WORKER_FAILED","CANCELLED","NOT_STARTED"]));
+  add("Execution","Worker failure code",getAuralisWorkerFailureCodeForReport(e)??missing);
+  add("Execution","Scoring impact",code(e?.scoringImpact,["NONE"]));
+  add("Engineering","Adapter version",code(g?.schemaVersion,[AURALIS_ENGINEERING_ADAPTER_VERSION]));
+  add("Engineering","60-250 Hz / 500-20000 Hz (dB)",number(g?.metrics?.lowToUpperDb));
+  add("Engineering","Stereo evidence",code(g?.metrics?.stereoEvidenceStatus,["MEASURED_NOT_GRADED"]));
+  // Meter values exist only in the existing, fixed-format adapter observation.
+  // Parse numbers; never export observation text that could hide private data.
+  const meter=Array.isArray(g?.observations)
+    ? g.observations.find((v:unknown)=>typeof v==="string"&&
+        /^Measured integrated loudness -?\d+(?:\.\d+)? LUFS and sample peak -?\d+(?:\.\d+)? dBFS\. These readings are not a mastering-quality verdict\./.test(v))
+    : undefined;
+  const meterValues=typeof meter==="string"
+    ? /^Measured integrated loudness (-?\d+(?:\.\d+)?) LUFS and sample peak (-?\d+(?:\.\d+)?) dBFS\./.exec(meter)
+    : null;
+  add("Engineering","Integrated loudness (LUFS)",meterValues?number(Number(meterValues[1])):missing);
+  add("Engineering","Sample peak (dBFS)",meterValues?number(Number(meterValues[2])):missing);
+  add("Engineering","Scoring adapter policy",code(g?.scoringAdapter?.status,[AURALIS_ENGINEERING_SCORE_POLICY]));
+  add("Engineering","Scoring adjustments count",count(g?.scoringAdapter?.adjustments));
+  add("Source Lineage","Status",code(l?.status,["VERIFIED"]));
+  add("Source Lineage","PCM identity",code(l?.pcmIdentityStatus,["VERIFIED"]));
+  add("Source Lineage","Encoded SHA-256",l?.status==="VERIFIED"&&
+    l?.encodedSha256Status==="CAPTURED_PRIVATE"?"CAPTURED_PRIVATE (DIGEST WITHHELD)":missing);
+  add("Source Lineage","Original encoded format",code(l?.sourceFormat,["WAV_PCM","WAV_FLOAT","UNVERIFIED"]));
+  add("Source Lineage","Original sample-rate status",code(l?.sourceRateStatus,["VERIFIED_WAV_HEADER","UNVERIFIED"]));
+  add("Source Lineage","Original sample rate (Hz)",l?.sourceRateStatus==="UNVERIFIED"?
+    "UNVERIFIED":number(l?.sourceSampleRate));
+  add("Source Lineage","Decoded sample rate (Hz)",number(l?.decodedSampleRate));
+  add("Source Lineage","Worker sample rate (Hz)",number(l?.workerSampleRate));
+  add("Source Lineage","Decoded channels",number(l?.decodedChannels));
+  add("Source Lineage","Worker channels",number(l?.workerChannels));
+  add("Source Lineage","Decoded samples/channel",number(l?.decodedSamples));
+  add("Source Lineage","Worker samples/channel",number(l?.workerSamples));
+  add("Source Lineage","Rate relationship",code(l?.rateRelationship,[
+    "SOURCE_RATE_UNVERIFIED","SAME_RATE","DECODED_RATE_DIFFERENT"]));
+  add("Stage 3E Audit","Version",code(a?.schemaVersion,[AURALIS_BETA_SCORING_AUDIT_VERSION]));
+  add("Stage 3E Audit","Status",code(a?.status,["INCONCLUSIVE","UNAVAILABLE"]));
+  add("Stage 3E Audit","Reason",code(a?.reason,[
+    "MEASURED_NO_APPROVED_QUALITY_GATE","NO_VALIDATED_ENGINEERING_OBSERVATION"]));
+  add("Stage 3E Audit","Measurement (dB)",number(a?.measurementDb));
+  add("Stage 3E Audit","Source identity",code(a?.sourceIdentity,[
+    "CURRENT_UPLOAD_PCM_VERIFIED","UNVERIFIED"]));
+  add("Stage 3E Audit","Paired source alignment",code(a?.pairedSourceAlignment,["UNVERIFIED"]));
+  add("Stage 3E Audit","Independent defect",code(a?.independentDefect,["UNKNOWN"]));
+  add("Stage 3E Audit","Artistic intent",code(a?.artisticIntent,["UNKNOWN"]));
+  add("Stage 3E Audit","Canonical Gemini-mapped Spectral Match",score(a?.geminiMappedSpectralScore));
+  add("Stage 3E Audit","Canonical Gemini capture status",code(a?.geminiScoreStatus,[
+    "A2_CANONICAL_CAPTURED","NOT_CAPTURED"]));
+  add("Stage 3E Audit","Post-server Spectral Match",score(a?.serverReturnedSpectralScore));
+  add("Stage 3E Audit","Server score capture status",code(a?.serverReturnedScoreStatus,[
+    "CAPTURED_POST_SERVER_CAPS","NOT_CAPTURED"]));
+  add("Stage 3E Audit","Existing DSP cap",cap(a?.legacyDspCap,a?.legacyCapStatus!=="NOT_CAPTURED"&&a?.legacyCapStatus!==undefined));
+  add("Stage 3E Audit","Existing DSP cap status",code(a?.legacyCapStatus,[
+    "NOT_CAPTURED","A2_RECONCILED","RECORDED_EFFECT_UNVERIFIED"]));
+  add("Stage 3E Audit","Existing DSP cap applied",flag(a?.legacyCapApplied));
+  add("Stage 3E Audit","Observed final Spectral Match",score(a?.observedFinalSpectralScore));
+  add("Stage 3E Audit","Observed Commercial Readiness",score(a?.observedCommercialReadiness));
+  add("Stage 3E Audit","A2 score lineage",code(a?.scoreLineage,["A2_RECONCILED","UNVERIFIED"]));
+  add("Stage 3E Audit","Candidate cap",cap(a?.candidateCap,a!==undefined&&a!==null));
+  add("Stage 3E Audit","Applied cap",cap(a?.appliedCap,a!==undefined&&a!==null));
+  add("Stage 3E Audit","Applied score change",number(a?.appliedScoreChange));
+  add("Stage 3E Audit","Scoring impact",code(a?.scoringImpact,["NONE"]));
+  add("Stage 3E Audit","Adjustments count",count(a?.adjustments));
+  add("Stage 3F-1 Shadow","Version",code(s?.schemaVersion,[AURALIS_STAGE3F1_SHADOW_VERSION]));
+  add("Stage 3F-1 Shadow","Status",code(s?.status,[
+    "ABSTAIN","EVIDENCE_ONLY","SYNTHETIC_HYPOTHETICAL_ONLY","REAL_REVIEW_HYPOTHETICAL_ONLY"]));
+  add("Stage 3F-1 Shadow","Reason",code(s?.reason,[
+    "INVALID_OR_SCORE_ACTIVE_AUDIT","UNAVAILABLE_OR_INCONSISTENT_MEASUREMENT",
+    "UNVERIFIED_SCORE_OR_EXISTING_CAP_LINEAGE","UNVERIFIED_LEGACY_DSP_CORROBORATION",
+    "NO_INDEPENDENT_DSP_CORROBORATION","REAL_UPLOAD_IDENTITY_UNVERIFIED",
+    "UNKNOWN_DSP_SIGNAL_FAMILY","INSUFFICIENT_DISTINCT_DSP_FAMILIES",
+    "INTENTIONAL_STYLE","ARTISTIC_INTENT_UNKNOWN","INDEPENDENT_DEFECT_NOT_CONFIRMED",
+    "REVIEW_RECORD_NOT_SUPPLIED","NO_INDEPENDENT_VERIFIED_PAIR_POLICY",
+    "NO_ADDITIONAL_DOWNWARD_EFFECT","INCOMPLETE_READINESS_LINEAGE",
+    "INCONSISTENT_READINESS_PARENT","INVALID_HYPOTHETICAL_PROPAGATION",
+    "REVIEWED_REAL_SHADOW_NOT_ACTIVATION","SYNTHETIC_REPLAY_NOT_REAL_SONG_ACTIVATION"]));
+  add("Stage 3F-1 Shadow","Measurement (dB)",number(s?.measurementDb));
+  add("Stage 3F-1 Shadow","Existing final Spectral Match",score(s?.existingFinalScore));
+  add("Stage 3F-1 Shadow","Existing legacy DSP cap",cap(s?.existingLegacyCap,s!==undefined&&s!==null));
+  add("Stage 3F-1 Shadow","Candidate 79 cap",cap(s?.candidateCap,s!==undefined&&s!==null));
+  add("Stage 3F-1 Shadow","Hypothetical Spectral Match",score(s?.hypotheticalSpectralScore));
+  add("Stage 3F-1 Shadow","Hypothetical Commercial Readiness",score(s?.hypotheticalCommercialReadiness));
+  add("Stage 3F-1 Shadow","Hypothetical readiness delta",number(s?.hypotheticalReadinessDelta));
+  add("Stage 3F-1 Shadow","Evidence scope",code(s?.evidenceScope,["CURRENT_UPLOAD_OBSERVATION_OR_SYNTHETIC_ONLY"]));
+  add("Stage 3F-1 Shadow","Scoring impact",code(s?.scoringImpact,["NONE"]));
+  add("Stage 3F-1 Shadow","Applied cap",cap(s?.appliedCap,s!==undefined&&s!==null));
+  add("Stage 3F-1 Shadow","Applied score change",number(s?.appliedScoreChange));
+  add("Stage 3F-1 Shadow","Adjustments count",count(s?.adjustments));
+  add("Stage 3F-5 Plan","Status",code(p?.status,["BLOCKED","NOT_ELIGIBLE","PROJECTION_ONLY"]));
+  add("Stage 3F-5 Plan","Reason",code(p?.reason,[
+    "ACTIVATION_NOT_IMPLEMENTED","NO_TRUSTED_RECONCILED_SHADOW_DECISION",
+    "INVALID_READINESS_PROJECTION","ACTIVATION_DISABLED"]));
+  add("Stage 3F-5 Plan","Hypothetical Spectral Match",score(p?.hypotheticalSpectralScore));
+  add("Stage 3F-5 Plan","Hypothetical Commercial Readiness",score(p?.hypotheticalCommercialReadiness));
+  add("Stage 3F-5 Plan","Applied cap",cap(p?.appliedCap,p!==undefined&&p!==null));
+  add("Stage 3F-5 Plan","Applied score change",number(p?.appliedScoreChange));
+  add("Stage 3F-5 Plan","Scoring impact",code(p?.scoringImpact,["NONE"]));
+  add("Stage 3F-5 Plan","Adjustments count",count(p?.adjustments));
+  add("Stage 3F-6 Executor","Version",code(x?.version,[AURALIS_REVIEWED_79_EXECUTION_VERSION]));
+  add("Stage 3F-6 Executor","Status",code(x?.status,["DISABLED","ABSTAIN","APPLIED"]));
+  add("Stage 3F-6 Executor","Reason",code(x?.reason,[
+    "ACTIVATION_OFF","INCOMPLETE_OR_STALE_RECONCILED_AUTHORIZATION",
+    "INCONSISTENT_DOWNSTREAM_SCORE","REVIEWED_TECHNICAL_CAP"]));
+  add("Stage 3F-6 Executor","Pre-Auralis Spectral Match",score(x?.beforeSpectralScore));
+  add("Stage 3F-6 Executor","Post-Auralis Spectral Match",score(x?.afterSpectralScore));
+  add("Stage 3F-6 Executor","Pre-Auralis Commercial Readiness",score(x?.beforeCommercialReadiness));
+  add("Stage 3F-6 Executor","Post-Auralis Commercial Readiness",score(x?.afterCommercialReadiness));
+  add("Stage 3F-6 Executor","A2 reconciliation",code(x?.preAuralisScoreLineage,["A2_RECONCILED"]));
+  add("Stage 3F-6 Executor","Applied cap",cap(x?.appliedCap,x!==undefined&&x!==null));
+  add("Stage 3F-6 Executor","Applied score change",number(x?.appliedScoreChange));
+  add("Stage 3F-6 Executor","Scoring impact",code(x?.scoringImpact,["NONE","DOWNWARD_ONLY"]));
+  add("Current Scores","Reported Spectral Match",score(c?.subMetricsCall1?.spectralMatch?.score));
+  add("Current Scores","Reported Commercial Readiness",score(c?.scores?.commercialReadiness));
+  return rows;
+}
