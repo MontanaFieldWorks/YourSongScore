@@ -5774,3 +5774,144 @@ test("Stage 3F-14 normal MP3 identity capture stays bounded and score-inert, que
   assert.equal(prepareAuralisSourceLineage({status:"UNAVAILABLE"}),null);
   assert.equal(prepareAuralisEngineeringEvidence({status:"UNAVAILABLE"}),null);
 });
+
+
+test("Stage 3F-15 Auralis Beta Audit exports actual-style evidence, decision lineage and no score change",async()=>{
+  const {getAuralisBetaAuditReportRows}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  // Synthetic, score-inert equivalent of the previously exported Carry On
+  // statuses/numeric values. The real recording is never analyzed here.
+  const secretSha="d".repeat(64),secretReviewer="reviewer-private-753";
+  const critique={
+    auralisExecution:{status:"AVAILABLE",reason:"VALIDATED_ENGINEERING_EVIDENCE",scoringImpact:"NONE"},
+    auralisEngineering:{
+      schemaVersion:"auralis-stage3d1-evidence-v1",scoringImpact:"NONE",
+      scoringAdapter:{status:"DISABLED_PENDING_STAGE_3D_2",adjustments:[]},
+      metrics:{lowToUpperDb:1.37,stereoEvidenceStatus:"MEASURED_NOT_GRADED"},
+      observations:[
+        "Measured 60–250 Hz energy relative to 500–20,000 Hz: 1.37 dB.",
+        "Measured integrated loudness -16.6 LUFS and sample peak -5.3 dBFS. These readings are not a mastering-quality verdict. reviewerId="+secretReviewer
+      ],
+      reviewerId:secretReviewer
+    },
+    auralisSourceLineage:{
+      status:"VERIFIED",scoringImpact:"NONE",pcmIdentityStatus:"VERIFIED",
+      encodedSha256Status:"CAPTURED_PRIVATE",encodedSha256:secretSha,
+      sourceFormat:"UNVERIFIED",sourceRateStatus:"UNVERIFIED",sourceSampleRate:null,
+      decodedSampleRate:48000,workerSampleRate:48000,
+      decodedChannels:2,workerChannels:2,
+      decodedSamples:1441152,workerSamples:1441152,rateRelationship:"SOURCE_RATE_UNVERIFIED"
+    },
+    auralisBetaScoringAudit:{
+      schemaVersion:"auralis-stage3e-score-audit-v1",
+      status:"INCONCLUSIVE",reason:"MEASURED_NO_APPROVED_QUALITY_GATE",
+      measurementDb:1.37,sourceIdentity:"CURRENT_UPLOAD_PCM_VERIFIED",
+      pairedSourceAlignment:"UNVERIFIED",independentDefect:"UNKNOWN",artisticIntent:"UNKNOWN",
+      geminiMappedSpectralScore:88,geminiScoreStatus:"A2_CANONICAL_CAPTURED",
+      serverReturnedSpectralScore:88,serverReturnedScoreStatus:"CAPTURED_POST_SERVER_CAPS",
+      legacyDspCap:null,legacyCapStatus:"A2_RECONCILED",legacyCapApplied:false,
+      observedFinalSpectralScore:88,observedCommercialReadiness:88,
+      scoreLineage:"A2_RECONCILED",candidateCap:null,appliedCap:null,appliedScoreChange:0,
+      scoringImpact:"NONE",adjustments:[]
+    },
+    auralisStage3F1SpectralShadow:{
+      schemaVersion:"auralis-stage3f1-spectral-shadow-v1",
+      status:"EVIDENCE_ONLY",reason:"NO_INDEPENDENT_VERIFIED_PAIR_POLICY",
+      measurementDb:1.37,existingFinalScore:88,existingLegacyCap:null,
+      candidateCap:null,hypotheticalSpectralScore:null,hypotheticalCommercialReadiness:null,
+      hypotheticalReadinessDelta:null,evidenceScope:"CURRENT_UPLOAD_OBSERVATION_OR_SYNTHETIC_ONLY",
+      scoringImpact:"NONE",adjustments:[],appliedCap:null,appliedScoreChange:0,
+      reviewerId:secretReviewer
+    },
+    auralisStage3F5IntegrationPlan:{
+      status:"NOT_ELIGIBLE",reason:"NO_TRUSTED_RECONCILED_SHADOW_DECISION",
+      scoringImpact:"NONE",adjustments:[],appliedCap:null,appliedScoreChange:0,
+      hypotheticalSpectralScore:null,hypotheticalCommercialReadiness:null
+    },
+    auralisStage3F6Execution:{
+      version:"auralis-stage3f6-reviewed79-execution-v1",status:"DISABLED",
+      reason:"ACTIVATION_OFF",scoringImpact:"NONE",appliedCap:null,appliedScoreChange:0,
+      beforeSpectralScore:null,afterSpectralScore:null,
+      beforeCommercialReadiness:null,afterCommercialReadiness:null,
+      preAuralisScoreLineage:null
+    },
+    subMetricsCall1:{spectralMatch:{score:88}},
+    scores:{commercialReadiness:88},
+    privateReview:{sourceSha256:secretSha,reviewerId:secretReviewer}
+  };
+  const before=structuredClone(critique);
+  const rows=getAuralisBetaAuditReportRows(critique);
+  const cells=Object.fromEntries(rows.map(r=>[r.section+"/"+r.field,r.value]));
+  assert.equal(cells["Engineering/60-250 Hz / 500-20000 Hz (dB)"],1.37);
+  assert.equal(cells["Engineering/Integrated loudness (LUFS)"],-16.6);
+  assert.equal(cells["Engineering/Sample peak (dBFS)"],-5.3);
+  assert.equal(cells["Source Lineage/PCM identity"],"VERIFIED");
+  assert.equal(cells["Source Lineage/Decoded samples/channel"],1441152);
+  assert.equal(cells["Source Lineage/Original sample rate (Hz)"],"UNVERIFIED");
+  assert.equal(cells["Stage 3E Audit/Canonical Gemini-mapped Spectral Match"],88);
+  assert.equal(cells["Stage 3E Audit/A2 score lineage"],"A2_RECONCILED");
+  assert.equal(cells["Stage 3F-1 Shadow/Status"],"EVIDENCE_ONLY");
+  assert.equal(cells["Stage 3F-1 Shadow/Reason"],"NO_INDEPENDENT_VERIFIED_PAIR_POLICY");
+  assert.equal(cells["Stage 3F-1 Shadow/Candidate 79 cap"],"NONE");
+  assert.equal(cells["Stage 3F-5 Plan/Status"],"NOT_ELIGIBLE");
+  assert.equal(cells["Stage 3F-6 Executor/Status"],"DISABLED");
+  assert.equal(cells["Stage 3F-6 Executor/Scoring impact"],"NONE");
+  assert.equal(cells["Current Scores/Reported Spectral Match"],88);
+  assert.equal(cells["Current Scores/Reported Commercial Readiness"],88);
+  assert.equal(cells["Stage 3E Audit/Adjustments count"],0);
+  assert.deepEqual(critique,before,"Excel projection cannot mutate scoring or source data");
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet("Auralis Beta Audit");
+  ws.columns=[{header:"Evidence stage",key:"section"},{header:"Field",key:"field"},
+    {header:"Captured value",key:"value"}];
+  for(const row of rows)ws.addRow(row);
+  const bytes=await wb.xlsx.writeBuffer();
+  const roundtrip=new ExcelJS.Workbook();await roundtrip.xlsx.load(bytes);
+  const text=JSON.stringify(roundtrip.getWorksheet("Auralis Beta Audit").getSheetValues());
+  assert.match(text,/CURRENT_UPLOAD_PCM_VERIFIED/);
+  assert.match(text,/ACTIVATION_OFF/);
+  for(const secret of [secretSha,secretReviewer,"sourceSha256","reviewerId","privateReview"])
+    assert.equal(text.includes(secret),false,"Public workbook leaked a private value or label");
+  const source=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  assert.match(source,/workbook\.addWorksheet\("Auralis Beta Audit"/);
+  assert.match(source,/getAuralisBetaAuditReportRows\(critique\)/);
+  assert.match(source,/wsSourceDiagnostics\.addRow/,"Existing Source Diagnostics must remain");
+});
+
+test("Stage 3F-15 unavailable and malicious critique content fail closed in Excel",async()=>{
+  const {getAuralisBetaAuditReportRows}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const leak="=HYPERLINK(\\"https://private.example\\",\\"secret\\")";
+  const critique={
+    auralisExecution:{status:leak,reason:leak,scoringImpact:"NONE",
+      workerFailureCode:leak},
+    auralisEngineering:{schemaVersion:"auralis-stage3d1-evidence-v1",
+      metrics:{lowToUpperDb:NaN,stereoEvidenceStatus:leak},
+      scoringAdapter:{status:leak,adjustments:[leak]},
+      observations:[leak,"Measured integrated loudness 1 LUFS and sample peak 1 dBFS. Invalid caption. "+leak]},
+    auralisSourceLineage:{status:"UNVERIFIED",pcmIdentityStatus:leak,
+      sourceFormat:leak,sourceRateStatus:leak,encodedSha256:leak},
+    auralisBetaScoringAudit:{status:"UNAVAILABLE",reason:"NO_VALIDATED_ENGINEERING_OBSERVATION",
+      geminiMappedSpectralScore:Infinity,legacyCapStatus:"NOT_CAPTURED",
+      scoreLineage:"UNVERIFIED",scoringImpact:"NONE",adjustments:[]},
+    auralisStage3F1SpectralShadow:{status:"ABSTAIN",reason:leak,candidateCap:null,
+      scoringImpact:"NONE",adjustments:[]},
+    auralisStage3F5IntegrationPlan:{status:leak,reason:leak,scoringImpact:"NONE"},
+    auralisStage3F6Execution:{status:"DISABLED",reason:"ACTIVATION_OFF",scoringImpact:"NONE"},
+    subMetricsCall1:{spectralMatch:{score:88}},scores:{commercialReadiness:88}
+  };
+  const before=structuredClone(critique);
+  const rows=getAuralisBetaAuditReportRows(critique);
+  const cells=Object.fromEntries(rows.map(r=>[r.section+"/"+r.field,r.value]));
+  assert.equal(cells["Execution/Worker status"],"NOT_CAPTURED");
+  assert.equal(cells["Engineering/60-250 Hz / 500-20000 Hz (dB)"],"NOT_CAPTURED");
+  assert.equal(cells["Engineering/Integrated loudness (LUFS)"],"NOT_CAPTURED");
+  assert.equal(cells["Stage 3E Audit/Canonical Gemini-mapped Spectral Match"],"NOT_CAPTURED");
+  assert.equal(cells["Stage 3E Audit/Existing DSP cap"],"NOT_CAPTURED");
+  assert.equal(cells["Stage 3F-1 Shadow/Reason"],"NOT_CAPTURED");
+  assert.equal(cells["Stage 3F-6 Executor/Status"],"DISABLED");
+  assert.equal(cells["Current Scores/Reported Spectral Match"],88);
+  assert.deepEqual(critique,before);
+  const payload=JSON.stringify(rows);
+  assert.equal(payload.includes(leak),false,"Formulas, tokens and arbitrary reasons must not be exported");
+  assert.ok(rows.every(row=>typeof row.value==="number"||typeof row.value==="string"));
+  assert.ok(rows.every(row=>typeof row.value!=="number"||Number.isFinite(row.value)));
+});
