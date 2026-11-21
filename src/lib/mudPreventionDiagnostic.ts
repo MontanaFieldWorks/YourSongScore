@@ -242,6 +242,54 @@ export function prepareAuralisEngineeringEvidence(diagnostic: unknown): {
 
 
 
+/**
+ * Score-inert, fixed-code explanation of which strict source-lineage predicate
+ * rejected the evidence. Never return hashes, raw audio or untrusted values.
+ * Shared with the public lineage adapter so observability cannot relax gates.
+ */
+export type AuralisSourceLineageRejectionCode =
+  "INVALID_ENGINEERING_CONTEXT"|"INVALID_ENCODED_IDENTITY"|
+  "INVALID_ENCODED_BYTE_LENGTH"|"PCM_CHANNEL_HASH_MISMATCH"|
+  "PCM_DIMENSIONS_MISMATCH"|"SOURCE_RATE_CONTRADICTION";
+
+export function getAuralisSourceLineageRejectionCode(
+  diagnostic:unknown,
+):AuralisSourceLineageRejectionCode|null {
+  const d=diagnostic as any,i=d?.identity,p=d?.evidence?.sourceProvenance;
+  const hash=(v:unknown)=>typeof v==="string"&&/^[a-f0-9]{64}$/.test(v);
+  if(d?.status!=="AVAILABLE"||d?.evidence?.scoringImpact!=="NONE"||
+     ![1,2].includes(p?.channelCount))
+    return "INVALID_ENGINEERING_CONTEXT";
+  if(i?.status!=="VERIFIED"||!hash(i.encodedSha256)||
+     !["WAV_PCM","WAV_FLOAT","UNVERIFIED"].includes(i.sourceFormat)||
+     !["VERIFIED_WAV_HEADER","UNVERIFIED"].includes(i.sourceRateStatus))
+    return "INVALID_ENCODED_IDENTITY";
+  // Crypto may finish AFTER decodeAudioData has detached the encoded buffer.
+  // A zero recorded byte length rejects otherwise verified PCM lineage.
+  if(!Number.isSafeInteger(i.encodedBytes)||i.encodedBytes<1)
+    return "INVALID_ENCODED_BYTE_LENGTH";
+  if(!Array.isArray(i.decodedChannelSha256)||
+     !Array.isArray(i.workerChannelSha256)||
+     i.decodedChannelSha256.length!==p.channelCount||
+     i.workerChannelSha256.length!==p.channelCount||
+     !i.decodedChannelSha256.every((h:unknown,n:number)=>
+       hash(h)&&h===i.workerChannelSha256[n]))
+    return "PCM_CHANNEL_HASH_MISMATCH";
+  if(i.decodedSampleRate!==p.sampleRate||i.workerSampleRate!==p.sampleRate||
+     i.decodedChannels!==p.channelCount||i.workerChannels!==p.channelCount||
+     i.decodedSamples!==p.inputSampleCount||i.workerSamples!==p.inputSampleCount||
+     !Number.isSafeInteger(i.decodedSamples)||i.decodedSamples<1)
+    return "PCM_DIMENSIONS_MISMATCH";
+  if((i.sourceRateStatus==="UNVERIFIED"&&i.sourceSampleRate!==null)||
+     (i.sourceRateStatus==="VERIFIED_WAV_HEADER"&&
+       (!Number.isSafeInteger(i.sourceSampleRate)||
+        i.sourceSampleRate<8000||i.sourceSampleRate>192000))||
+     i.rateRelationship!==(i.sourceSampleRate===null?"SOURCE_RATE_UNVERIFIED":
+       i.sourceSampleRate===p.sampleRate?"SAME_RATE":"DECODED_RATE_DIFFERENT"))
+    return "SOURCE_RATE_CONTRADICTION";
+  return null;
+}
+
 /** Independent, score-inert identity status adapter. It does not depend on
  * spectral interpretation or expose any cryptographic digest to public reports.
  */
@@ -251,30 +299,8 @@ export function prepareAuralisSourceLineage(diagnostic:unknown): {
   decodedChannels:number;workerChannels:number;decodedSamples:number;workerSamples:number;
   rateRelationship:string;encodedSha256Status:"CAPTURED_PRIVATE";pcmIdentityStatus:"VERIFIED";
 } | null {
-  const d=diagnostic as any,i=d?.identity,p=d?.evidence?.sourceProvenance;
-  const hash=(v:unknown)=>typeof v==="string"&&/^[a-f0-9]{64}$/.test(v);
-  if(d?.status!=="AVAILABLE"||d?.evidence?.scoringImpact!=="NONE"||
-     i?.status!=="VERIFIED"||!hash(i.encodedSha256)||
-     !Array.isArray(i.decodedChannelSha256)||
-     !Array.isArray(i.workerChannelSha256)||
-     ![1,2].includes(p?.channelCount)||
-     i.decodedChannelSha256.length!==p.channelCount||
-     i.workerChannelSha256.length!==p.channelCount||
-     !i.decodedChannelSha256.every((h:unknown,n:number)=>hash(h)&&h===i.workerChannelSha256[n])||
-     i.decodedSampleRate!==p.sampleRate||i.workerSampleRate!==p.sampleRate||
-     i.decodedChannels!==p.channelCount||i.workerChannels!==p.channelCount||
-     i.decodedSamples!==p.inputSampleCount||i.workerSamples!==p.inputSampleCount||
-     !Number.isSafeInteger(i.decodedSamples)||i.decodedSamples<1||
-     !Number.isSafeInteger(i.encodedBytes)||i.encodedBytes<1||
-     !["WAV_PCM","WAV_FLOAT","UNVERIFIED"].includes(i.sourceFormat)||
-     !["VERIFIED_WAV_HEADER","UNVERIFIED"].includes(i.sourceRateStatus)||
-     (i.sourceRateStatus==="UNVERIFIED"&&i.sourceSampleRate!==null)||
-     (i.sourceRateStatus==="VERIFIED_WAV_HEADER"&&
-      (!Number.isSafeInteger(i.sourceSampleRate)||
-       i.sourceSampleRate<8000||i.sourceSampleRate>192000))||
-     i.rateRelationship!==(i.sourceSampleRate===null?"SOURCE_RATE_UNVERIFIED":
-       i.sourceSampleRate===p.sampleRate?"SAME_RATE":"DECODED_RATE_DIFFERENT"))
-    return null;
+  if(getAuralisSourceLineageRejectionCode(diagnostic)!==null)return null;
+  const d=diagnostic as any,i=d.identity;
   return {status:"VERIFIED",scoringImpact:"NONE",sourceFormat:i.sourceFormat,
     sourceRateStatus:i.sourceRateStatus,sourceSampleRate:i.sourceSampleRate,
     decodedSampleRate:i.decodedSampleRate,workerSampleRate:i.workerSampleRate,

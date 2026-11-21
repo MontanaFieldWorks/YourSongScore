@@ -5122,7 +5122,7 @@ test("Stage 3F-9 opt-in identity trial refuses every other source and preserves 
   assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
   assert.match(app,/const stage3f9IdentityCandidate = isAuralisStage3F9IdentityCandidate\(/);
-  assert.match(app,/stage3f9IdentityCandidate\s*\? identity => \{ auralisEncodedIdentity = identity; \} : undefined/);
+  assert.match(app,/stage3f9IdentityCandidate \|\| stage3f14Mp3IdentityCandidate\s*\? identity => \{ auralisEncodedIdentity = identity; \} : undefined/);
   assert.match(app,/!isAuralisStage3F9ExactEncodedIdentity\(await auralisEncodedIdentity\)/);
   assert.match(app,/auralisEncodedIdentity=undefined;/);
   assert.match(app,/analyzeEngineeringDiagnosticsInWorker\(audioBuffer, controller.signal, undefined, undefined, true,\s*auralisEncodedIdentity\)/);
@@ -5620,4 +5620,157 @@ test("Auralis cancellation and stale generations fail closed before report publi
     "Stale generation must exit before engineering attachment and critique publication");
   assert.match(app,/if \(diagnosticGeneration === auralisDiagnosticGenerationRef\.current\) \{\s*cancelAuralisDiagnostic\(\);\s*setLoading\(false\);\s*\}/);
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+});
+
+
+test("Stage 3F-13 manual MP3 identity preflight is opt-in, localhost-only, bounded, and isolated",async()=>{
+  const h=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
+  assert.match(h,/<input id="mp3IdentityOptIn" type="checkbox">/);
+  assert.match(h,/<input id="mp3IdentityFile" type="file" accept="\.mp3,audio\/mpeg">/);
+  assert.match(h,/<button id="mp3IdentityRun" type="button" disabled>/);
+  assert.match(h,/<pre id="mp3IdentityResult" data-state="NOT_RUN"/);
+  const start=h.indexOf("// Stage 3F-13: separate, single-attempt local MP3");
+  const end=h.indexOf('pilotReference.addEventListener("change"',start);
+  assert.ok(start>=0&&end>start,"MP3 identity logic must remain a separate test mode");
+  const section=h.slice(start,end);
+  assert.match(section,/if\(mp3IdentityAttempted \|\| !mp3IdentityOptIn\.checked\)return;/);
+  assert.match(section,/mp3IdentityAttempted = true;/);
+  assert.match(section,/if\(!allowedHost\)reject\("LOCALHOST_ONLY"\);/);
+  assert.match(section,/if\(!file \|\| !\/\\\.mp3\$\/i\.test\(file\.name\) \|\| file\.size===0\)/);
+  assert.match(section,/file\.size>24\*1024\*1024/);
+  assert.match(section,/pcmBytes>capBytes/);
+  assert.match(section,/workerTimeoutMs:30000/);
+  assert.match(section,/window\.addEventListener\("pagehide",onPageHide/);
+  assert.match(section,/controller\?\.abort\(\)/);
+  assert.match(section,/locks\.forEach\(\(node,i\)=>\{node\.disabled=previousLocks\[i\];\}\)/);
+  assert.doesNotMatch(section,/fetch\(|\/api\/|GeminiGenerate|formData|URLSearchParams|runLocalSongPilot\(/);
+  assert.doesNotMatch(h,/query\.get\("mp3Identity"\)/,"No URL-triggered MP3 run");
+  assert.match(h,/pilotIdentityMode\.checked/,"Frozen-WAV opt-in remains intact");
+  assert.match(h,/MANIFEST_SHA256_OR_WAV_HEADER_MISMATCH/);
+});
+
+test("Stage 3F-13 local MP3 path uses production identity adapters and reports sanitized statuses only",async()=>{
+  const h=await readFile(new URL("./auralis-stage2g1-browser-harness.html",import.meta.url),"utf8");
+  const start=h.indexOf("// Stage 3F-13: separate, single-attempt local MP3");
+  const end=h.indexOf('pilotReference.addEventListener("change"',start);
+  const section=h.slice(start,end);
+  assert.match(section,/decodeAudioFile\(file, identity => \{encodedIdentity=identity;\}\)/);
+  assert.match(section,/analyzeEngineeringDiagnosticsInWorker\(\s*audio,controller\.signal,undefined,undefined,true,encodedIdentity\)/);
+  const w=section.indexOf("const diagnostic = await analyzeEngineeringDiagnosticsInWorker(");
+  const e=section.indexOf("prepareAuralisEngineeringEvidence(diagnostic)",w);
+  const l=section.indexOf("prepareAuralisSourceLineage(diagnostic)",e);
+  const c=section.indexOf("classifyAuralisExecution(",l);
+  assert.ok(w>0&&e>w&&l>e&&c>l,"Actual identity-enabled Worker must feed the production adapters");
+  assert.match(section,/diagnostic\.status==="UNAVAILABLE" \? diagnostic\.reason : undefined/);
+  assert.match(section,/report\.execution=execution;/);
+  assert.match(section,/report\.engineeringAdapterStatus=engineering \? "AVAILABLE" : "UNAVAILABLE"/);
+  assert.match(section,/report\.failureStage=diagnostic\.status==="AVAILABLE" \? "ADAPTER" : "WORKER"/);
+  assert.match(section,/report\.sourceLineageStatus=lineage\?\.status \?\? "UNVERIFIED"/);
+  assert.match(section,/getAuralisSourceLineageRejectionCode\(diagnostic\)/);
+  assert.match(section,/report\.sourceLineageRejectionCode=diagnostic\.status==="AVAILABLE"/);
+  assert.match(section,/: lineageRejection \?\? "SOURCE_LINEAGE_ADAPTER_REJECTED"/);
+  assert.match(section,/execution\.status==="AVAILABLE" && lineage\?\.status==="VERIFIED"/);
+  assert.match(section,/safePreflightCodes\.has\(error\?\.safeCode\)/);
+  assert.match(section,/"LOCAL_DIAGNOSTIC_FAILED"/);
+  assert.doesNotMatch(section,/report\.(identity|raw|digest|fileName|filename|hash)\s*=/i);
+  assert.doesNotMatch(section,/report\.error\s*=|error\.message|JSON\.stringify\(diagnostic\)|JSON\.stringify\(lineage\)/);
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const unavailable=m.classifyAuralisExecution("UNAVAILABLE",null,
+    "TIMEOUT; encodedSha256="+"a".repeat(64));
+  assert.deepEqual(unavailable,{status:"UNAVAILABLE",reason:"WORKER_UNAVAILABLE",
+    workerFailureCode:"UNRECOGNIZED_OR_MISSING",scoringImpact:"NONE"});
+  assert.equal(m.prepareAuralisSourceLineage({status:"UNAVAILABLE"}),null);
+  assert.equal(m.prepareAuralisEngineeringEvidence({status:"UNAVAILABLE"}),null);
+});
+
+
+test("Stage 3F-13 detached MP3 source bytes preserve encoded length and verified stereo lineage",async()=>{
+  // Model decodeAudioData's transfer/detachment of the exact encoded ArrayBuffer
+  // while crypto.subtle.digest is pending. No audio file, network or Worker run.
+  const encodedBytes=new Uint8Array([73,68,51,4,0,0,0,0,0,0,14,2,7,9]).buffer;
+  const originalByteLength=encodedBytes.byteLength;
+  const encodedPromise=captureAuralisEncodedSourceIdentity(encodedBytes);
+  structuredClone(encodedBytes,{transfer:[encodedBytes]});
+  assert.equal(encodedBytes.byteLength,0,"synthetic decode transfer must detach source");
+  const encoded=await encodedPromise;
+  assert.equal(encoded.status,"VERIFIED");
+  assert.equal(encoded.sourceRateStatus,"UNVERIFIED");
+  assert.equal(encoded.sourceSampleRate,null);
+  assert.equal(encoded.format,"UNVERIFIED");
+  assert.equal(encoded.encodedBytes,originalByteLength,
+    "encoded length must be captured before decode detaches the source buffer");
+  const channels=[
+    Float32Array.from({length:8192},(_,i)=>0.09*Math.sin(i*.017)),
+    Float32Array.from({length:8192},(_,i)=>0.07*Math.sin(i*.019+.2))
+  ];
+  const diagnostic=runStage2c2aBrowserDiagnostics({
+    sampleRate:48000,numberOfChannels:2,getChannelData:i=>channels[i]
+  },true,true);
+  assert.equal(diagnostic.status,"AVAILABLE");
+  const hashes=await Promise.all(channels.map(async channel=>
+    createHash("sha256").update(new Uint8Array(channel.buffer)).digest("hex")));
+  const result={...diagnostic,identity:{
+    status:"VERIFIED",encodedSha256:encoded.encodedSha256,
+    encodedBytes:encoded.encodedBytes,
+    sourceFormat:encoded.format,sourceSampleRate:encoded.sourceSampleRate,
+    sourceRateStatus:encoded.sourceRateStatus,
+    decodedChannelSha256:hashes,workerChannelSha256:[...hashes],
+    decodedSampleRate:48000,workerSampleRate:48000,
+    decodedChannels:2,workerChannels:2,
+    decodedSamples:8192,workerSamples:8192,
+    rateRelationship:"SOURCE_RATE_UNVERIFIED"
+  }};
+  const {prepareAuralisSourceLineage,getAuralisSourceLineageRejectionCode}=
+    await import("../src/lib/mudPreventionDiagnostic.ts");
+  assert.equal(getAuralisSourceLineageRejectionCode(result),null);
+  const lineage=prepareAuralisSourceLineage(result);
+  assert.equal(lineage?.status,"VERIFIED");
+  assert.equal(lineage.sourceRateStatus,"UNVERIFIED");
+  assert.equal(lineage.sourceSampleRate,null);
+  assert.equal(lineage.rateRelationship,"SOURCE_RATE_UNVERIFIED");
+  assert.equal(lineage.encodedSha256Status,"CAPTURED_PRIVATE");
+  assert.equal(lineage.pcmIdentityStatus,"VERIFIED");
+  assert.equal(JSON.stringify(lineage).includes(encoded.encodedSha256),false);
+  for(const hash of hashes)assert.equal(JSON.stringify(lineage).includes(hash),false);
+  const malformed=patch=>({...result,identity:{...result.identity,...patch}});
+  const rejected=[
+    [malformed({encodedBytes:0}),"INVALID_ENCODED_BYTE_LENGTH"],
+    [malformed({encodedBytes:-1}),"INVALID_ENCODED_BYTE_LENGTH"],
+    [malformed({encodedSha256:"untrusted"}),"INVALID_ENCODED_IDENTITY"],
+    [malformed({workerChannelSha256:[hashes[0],"0".repeat(64)]}),"PCM_CHANNEL_HASH_MISMATCH"],
+    [malformed({decodedSamples:8191}),"PCM_DIMENSIONS_MISMATCH"],
+    [malformed({sourceSampleRate:44100}),"SOURCE_RATE_CONTRADICTION"],
+    [malformed({rateRelationship:"SAME_RATE"}),"SOURCE_RATE_CONTRADICTION"],
+    [{...result,status:"UNAVAILABLE"},"INVALID_ENGINEERING_CONTEXT"],
+  ];
+  for(const [candidate,expectedReason] of rejected){
+    assert.equal(getAuralisSourceLineageRejectionCode(candidate),expectedReason);
+    assert.equal(prepareAuralisSourceLineage(candidate),null,
+      "Fixed reason visibility must never relax rejection gates");
+    assert.equal(expectedReason.includes("sha256"),false);
+  }
+  // No contents of encoded/decoded hashes, filenames or private errors are reported.
+  assert.equal(JSON.stringify(rejected.map(([x])=>getAuralisSourceLineageRejectionCode(x))).includes(hashes[0]),false);
+});
+
+test("Stage 3F-14 normal MP3 identity capture stays bounded and score-inert, queued path unchanged",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const normal=app.slice(app.indexOf("const handleSubmitFile = async"),app.indexOf("const handleSubmitFile = async")+15000);
+  assert.match(normal,/const stage3f14Mp3IdentityCandidate =\s*STAGE3D1_AURALIS_EVIDENCE_ENABLED && !a2PilotEnabled &&/);
+  assert.match(normal,/\/\\.mp3\$\/i\.test\(selectedFile\.name\)/);
+  assert.match(normal,/selectedFile\.size > 0 && selectedFile\.size <= 24 \* 1024 \* 1024/);
+  assert.match(normal,/stage3f9IdentityCandidate \|\| stage3f14Mp3IdentityCandidate/);
+  assert.match(normal,/if\(stage3f9IdentityCandidate && auralisEncodedIdentity &&/);
+  assert.match(normal,/isAuralisStage3F9ExactEncodedIdentity\(await auralisEncodedIdentity\)/);
+  assert.match(normal,/prepareAuralisEngineeringEvidence\(result\)/);
+  assert.match(normal,/prepareAuralisSourceLineage\(result\)/);
+  assert.match(normal,/diagnosticGeneration !== auralisDiagnosticGenerationRef\.current\) return null/);
+  assert.match(app,/const queuedMp3Candidate = STAGE3D1_AURALIS_EVIDENCE_ENABLED &&/);
+  assert.match(app,/cachedFileForAnalysis\.name\.endsWith\("_Mastered320\.mp3"\)/);
+  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.doesNotMatch(normal,/formData\.append\("auralisEncodedIdentity"/);
+  const {prepareAuralisSourceLineage,prepareAuralisEngineeringEvidence}=await import("../src/lib/mudPreventionDiagnostic.ts");
+  assert.equal(prepareAuralisSourceLineage({status:"UNAVAILABLE"}),null);
+  assert.equal(prepareAuralisEngineeringEvidence({status:"UNAVAILABLE"}),null);
 });
