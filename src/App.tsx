@@ -1411,7 +1411,7 @@ export default function App() {
         STAGE3D1_AURALIS_EVIDENCE_ENABLED);
       const stage3f14Mp3IdentityCandidate =
         STAGE3D1_AURALIS_EVIDENCE_ENABLED && !a2PilotEnabled &&
-        /\\.mp3$/i.test(selectedFile.name) &&
+        /\.mp3$/i.test(selectedFile.name) &&
         selectedFile.size > 0 && selectedFile.size <= 24 * 1024 * 1024;
       const audioBuffer = await decodeAudioFile(selectedFile,
         stage3f9IdentityCandidate || stage3f14Mp3IdentityCandidate
