@@ -9,7 +9,7 @@ import { analyzeClimaxPeakCompetition, formatClimaxPeakDiagnostic } from "../lib
 import { getClimaxTrajectoryEvidenceRows } from "../lib/climaxEvidenceExport";
 import { appendA2ProvenanceToSourceDiagnostics } from "../lib/a2ScoringProvenance";
 import { getMudPreventionPublicCommentary } from "../lib/mudPreventionReporting";
-import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS, getAuralisReviewed79ReportRows, getAuralisWorkerFailureCodeForReport } from "../lib/mudPreventionDiagnostic";
+import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS, getAuralisReviewed79ReportRows, getAuralisWorkerFailureCodeForReport, getAuralisBetaAuditReportRows } from "../lib/mudPreventionDiagnostic";
 import { 
   Play, Pause, RefreshCw, Layers, Sliders, Mic,
   Volume2, Disc, ArrowLeft, ArrowRight, CheckCircle, Flame, Sparkles, CheckSquare, Square,
@@ -1795,6 +1795,39 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     wsSourceDiagnostics.getRow(1).font = { bold: true };
     wsSourceDiagnostics.getRow(1).alignment = { vertical: "middle" };
     wsSourceDiagnostics.views = [{ state: "frozen", ySplit: 1, showGridLines: false }];
+
+    // Stage 3F-15: one read-only workbook view of the existing Auralis
+    // engineering + A2/shadow/plan/executor lineage. All values are allowlisted
+    // by the existing diagnostic module; private digests/reviewers are excluded.
+    const wsAuralisBeta = workbook.addWorksheet("Auralis Beta Audit", {
+      views: [{ state: "frozen", ySplit: 1, showGridLines: false }],
+    });
+    wsAuralisBeta.columns = [
+      { header: "Evidence stage", key: "section", width: 25 },
+      { header: "Diagnostic or scoring field", key: "field", width: 42 },
+      { header: "Captured value (read-only)", key: "value", width: 47 },
+    ];
+    const betaHeader=wsAuralisBeta.getRow(1);
+    betaHeader.font={name:"Aptos",size:11,bold:true,color:{argb:"FFFFFFFF"}};
+    betaHeader.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FF17365D"}};
+    betaHeader.height=28;
+    betaHeader.alignment={vertical:"middle"};
+    let lastBetaSection="";
+    for(const entry of getAuralisBetaAuditReportRows(critique)){
+      const row=wsAuralisBeta.addRow(entry);
+      row.alignment={vertical:"top",wrapText:true};
+      row.height=31;
+      if(entry.section!==lastBetaSection){
+        row.font={name:"Aptos",size:10,bold:true,color:{argb:"FF0F3F63"}};
+        row.fill={type:"pattern",pattern:"solid",fgColor:{argb:"FFE4F0F6"}};
+        lastBetaSection=entry.section;
+      }else{
+        row.font={name:"Aptos",size:10,color:{argb:"FF334155"}};
+      }
+      if(typeof entry.value==="number")row.getCell(3).numFmt="0.######";
+    }
+    // This sheet does not participate in report scoring or in any analysis.
+
     for (const diagnostic of getSourceVerificationRows(critique)) {
       const row = wsSourceDiagnostics.addRow(diagnostic);
       row.alignment = { vertical: "top", wrapText: true };
