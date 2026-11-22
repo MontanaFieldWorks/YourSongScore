@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import jsmediatags from "jsmediatags";
 import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile, InternalBatchResult } from "./types";
-import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey } from "./lib/liveAudioAnalyzer";
+import type { SonicLensSavedMasterEqProfile } from "./types";
+import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey, measureSonicLensSavedMasterEq } from "./lib/liveAudioAnalyzer";
 import type { AuralisEncodedSourceIdentity } from "./lib/liveAudioAnalyzer";
 import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow, resolveAuralisReviewedRealShadowContext, planAuralisReviewed79ScoreIntegration, executeAuralisReviewed79Score, authorizeAuralisReviewed79Execution, isAuralisStage3F9IdentityCandidate, isAuralisStage3F9ExactEncodedIdentity, summarizeAuralisQueuedMp3Shadow } from "./lib/mudPreventionDiagnostic";
 
@@ -1402,6 +1403,8 @@ export default function App() {
     // tonal center the final report will display. Reuse these metrics after the server
     // returns so this does not add a second DSP pass.
     let preAnalysisLiveMetrics: any = null;
+    // Compact display-only observation, never sent to Gemini or scoring.
+    let savedMasterEq: SonicLensSavedMasterEqProfile | null = null;
     try {
       // Stage 3F-14: capture current encoded identity for bounded MP3 uploads.
       // Retain the original exact-WAV fixture gate. Identity enables engineering
@@ -1420,6 +1423,16 @@ export default function App() {
          !isAuralisStage3F9ExactEncodedIdentity(await auralisEncodedIdentity))
         auralisEncodedIdentity=undefined;
       preAnalysisLiveMetrics = analyzeAudioBuffer(audioBuffer);
+      if (!a2PilotEnabled) {
+        try {
+          savedMasterEq = measureSonicLensSavedMasterEq(
+            Array.from({length:audioBuffer.numberOfChannels},(_,i)=>audioBuffer.getChannelData(i)),
+            audioBuffer.sampleRate,
+          );
+        } catch (_spectrumError) {
+          savedMasterEq = null; // No display evidence never changes scoring or Gemini.
+        }
+      }
       if (STAGE2C2A_DIAGNOSTICS_ENABLED &&
           diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
         // Internal-only: never block key detection, modify scoring, or retain evidence.
@@ -1587,6 +1600,9 @@ export default function App() {
           reviewedShadow,(overriddenCritique as any).auralisStage3F5IntegrationPlan,
           reviewed79Authorized);
 
+      // Attach only AFTER all scoring/caps/A2 audit decisions and the disabled executor.
+      // Saved in Artist Locker to support a genuinely static (non-audio) report display.
+      if (savedMasterEq) overriddenCritique.auralisMasterEqProfile = savedMasterEq;
       if (overriddenCritique.liveMetrics) {
         renderAnalysisImages(overriddenCritique.liveMetrics);
       }
@@ -2428,6 +2444,7 @@ export default function App() {
       }
 
       let liveMetrics;
+      let queuedMasterEq: SonicLensSavedMasterEqProfile | null = null;
       // Never use a possibly stale or inaccessible remote URL for browser
       // scores after submitting a locally verified converted MP3.
       // If local decoding fails, existing server-provided liveMetrics remain;
@@ -2438,6 +2455,14 @@ export default function App() {
             ? await decodeAudioFile(queuedEvidenceFile)
             : await decodeAudioUrl(track.convertedMp3Url!);
           liveMetrics = analyzeAudioBuffer(audioBuffer);
+          try {
+            queuedMasterEq = measureSonicLensSavedMasterEq(
+              Array.from({length:audioBuffer.numberOfChannels},(_,i)=>audioBuffer.getChannelData(i)),
+              audioBuffer.sampleRate,
+            );
+          } catch (_spectrumError) {
+            queuedMasterEq = null;
+          }
           await applyRealKeyDetection(audioBuffer, liveMetrics);
           console.log("[App] Queued Live Metrics analyzed:", liveMetrics);
         } catch (errAnalyz) {
@@ -2493,6 +2518,8 @@ export default function App() {
           queuedEvidenceFile !== null,queuedEvidence?.sourceLineage,
           (overriddenFinalCritique as any).auralisBetaScoringAudit,queuedShadow);
 
+      // Report-only. No scoring, A2, Gemini or executor mutation.
+      if (queuedMasterEq) overriddenFinalCritique.auralisMasterEqProfile = queuedMasterEq;
       const updatedTrack: StoredTrack = {
         ...track,
         status: "analyzed",
