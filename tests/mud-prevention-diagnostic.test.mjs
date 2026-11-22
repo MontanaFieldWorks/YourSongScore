@@ -1755,3 +1755,226 @@ test("Stage 3F-12 Excel reports sanitized queued-MP3 Worker reasons without scor
     "UNAVAILABLE — WORKER_UNAVAILABLE; workerFailureCode TIMEOUT; scoringImpact NONE");
   assert.equal(raw.scoringImpact,"NONE");
 });
+
+
+test("Stage 3F-18 paired Auralis evidence can shadow a zero-warning score only with synthetic verification and A2 reconciliation",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const engineering=ratio=>({
+    schemaVersion:m.AURALIS_ENGINEERING_ADAPTER_VERSION,
+    scoringImpact:"NONE",
+    scoringAdapter:{status:m.AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+    metrics:{lowToUpperDb:ratio}
+  });
+  const make=(ratio=1.3561,legacySignals=[],legacyCap=null)=>{
+    const e=engineering(ratio);
+    const score=legacyCap===null?88:Math.min(88,legacyCap);
+    const c={
+      auralisEngineering:e,
+      auralisExecution:m.classifyAuralisExecution("AVAILABLE",e),
+      auralisSourceLineage:{
+        status:"VERIFIED",pcmIdentityStatus:"VERIFIED",scoringImpact:"NONE"
+      },
+      subMetricsCall1:{
+        spectralMatch:{score,applicable:true},
+        dynamicVariety:{score:88},
+        a2ScoringProvenance:{spectralMatch:{
+          canonicalMappedScore:88,serverSpectralStatus:"CAPTURED",
+          serverFinishCapCandidate:null,serverFinishCapApplied:false,
+          serverFinishCapReason:"NONE",serverScoreAfterFinishCap:88,
+          preClientScore:88,browserSpectralStatus:"CAPTURED",
+          browserSpectralCapCandidate:legacyCap,
+          browserSpectralCapApplied:legacyCap!==null&&88>legacyCap,
+          afterSpectralCapScore:score,browserFinishStatus:"COMPLETED",
+          browserFinishCapCandidate:null,afterFinishCeilingScore:score,
+          finalScore:score
+        }}
+      },
+      mixBalanceEvidence:{spectralCap:legacyCap,signals:legacySignals},
+      productionFinishEvidence:{ceiling:null},
+      subMetricsCall3:{compositionFlowSubs:{
+        hookPlacement:{score:90},sectionalContrast:{score:88}
+      }},
+      scores:{commercialReadiness:Math.round((90*60+88*20+score*10+88*10)/100)},
+    };
+    const a=m.buildAuralisBetaScoringAudit(c,88);
+    c.auralisBetaScoringAudit=a;
+    assert.equal(a.scoreLineage,"A2_RECONCILED");
+    return {c,a,e};
+  };
+  const r=engineering(-2.2945),{c,a,e}=make();
+  const ctx={
+    evidenceScope:"SYNTHETIC_VERIFIED_FIXTURE_ONLY",
+    referenceExecution:m.classifyAuralisExecution("AVAILABLE",r),
+    candidateExecution:c.auralisExecution,
+    pairLineage:{
+      sourceIdentity:"VERIFIED_SYNTHETIC",sameSource:true,alignedExcerpt:true,
+      sourceSha256:"a".repeat(64),referenceSha256:"b".repeat(64),
+      candidateSha256:"c".repeat(64),referenceStartSample:1440000,
+      candidateStartSample:1440000,sampleCount:1440000
+    },
+    independentDefect:"CONFIRMED",
+    artisticIntent:"REVIEWED_NOT_INTENTIONAL",
+    shadowPolicyAuthorized:true
+  };
+  const before=structuredClone({c,a,r,ctx});
+  const d=m.evaluateAuralisStage3F18PairedA2Shadow(c,a,r,ctx);
+  assert.deepEqual([d.schemaVersion,d.status,d.reason,d.pairedDeltaDb,
+    d.candidateCap,d.existingFinalScore,d.existingLegacyCap,
+    d.hypotheticalSpectralScore,d.hypotheticalCommercialReadiness,
+    d.hypotheticalReadinessDelta,d.appliedCap,d.appliedScoreChange,
+    d.scoringImpact,d.evidenceScope],[
+    m.AURALIS_STAGE3F18_PAIRED_SHADOW_VERSION,
+    "SYNTHETIC_HYPOTHETICAL_ONLY",
+    "VERIFIED_SYNTHETIC_PAIRED_REPLAY_NOT_REAL_ACTIVATION",
+    3.6506,79,88,null,79,88,-1,null,0,"NONE",
+    "SYNTHETIC_REPLAY_NO_REAL_SCORING_AUTHORITY"
+  ]);
+  assert.deepEqual(d.adjustments,[]);
+  assert.deepEqual({c,a,r,ctx},before,"No source, Gemini, cap, or score mutation");
+  assert.deepEqual([c.subMetricsCall1.spectralMatch.score,
+    c.scores.commercialReadiness,c.mixBalanceEvidence.spectralCap],[88,89,null]);
+  const old=m.evaluateAuralisStage3F1SpectralShadow(c,a);
+  assert.deepEqual([old.status,old.reason,old.candidateCap],
+    ["EVIDENCE_ONLY","NO_INDEPENDENT_DSP_CORROBORATION",null],
+    "Existing production shadow/executor remains unchanged");
+  assert.equal(m.executeAuralisReviewed79Score(c,a,old,
+    m.planAuralisReviewed79ScoreIntegration(c,a,old,false),false).status,"DISABLED");
+  assert.deepEqual({c,a,r,ctx},before);
+  // The Just Me and You archived descriptive deltas can also be replayed
+  // with SYNTHETIC identity only; this is NOT verification of its old 2N file.
+  const just=m.evaluateAuralisStage3F18PairedA2Shadow(
+    make(2.7527).c,make(2.7527).a,engineering(-1.2607),
+    {...ctx,referenceExecution:m.classifyAuralisExecution("AVAILABLE",
+      engineering(-1.2607)),candidateExecution:m.classifyAuralisExecution(
+      "AVAILABLE",engineering(2.7527))});
+  assert.equal(just.status,"ABSTAIN",
+    "A2 audit must be tied to the identical critique instance");
+  const same=make(2.7527);
+  const just2=m.evaluateAuralisStage3F18PairedA2Shadow(
+    same.c,same.a,engineering(-1.2607),{...ctx,
+      referenceExecution:m.classifyAuralisExecution("AVAILABLE",
+        engineering(-1.2607)),candidateExecution:same.c.auralisExecution});
+  assert.deepEqual([just2.status,just2.pairedDeltaDb],
+    ["SYNTHETIC_HYPOTHETICAL_ONLY",4.0134]);
+});
+
+test("Stage 3F-18 fail-closed paired shadow: real/archive untrusted, materiality, intent, stronger DSP cap, stale A2 and production isolation",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const e=ratio=>({schemaVersion:m.AURALIS_ENGINEERING_ADAPTER_VERSION,
+    scoringImpact:"NONE",scoringAdapter:{
+      status:m.AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+    metrics:{lowToUpperDb:ratio}});
+  const candidate=e(1.3561),ref=e(-2.2945);
+  const c={
+    auralisEngineering:candidate,
+    auralisExecution:m.classifyAuralisExecution("AVAILABLE",candidate),
+    auralisSourceLineage:{status:"VERIFIED",pcmIdentityStatus:"VERIFIED",scoringImpact:"NONE"},
+    subMetricsCall1:{spectralMatch:{score:88,applicable:true},dynamicVariety:{score:88},
+      a2ScoringProvenance:{spectralMatch:{
+        canonicalMappedScore:88,serverSpectralStatus:"CAPTURED",
+        serverFinishCapCandidate:null,serverFinishCapApplied:false,
+        serverFinishCapReason:"NONE",serverScoreAfterFinishCap:88,preClientScore:88,
+        browserSpectralStatus:"CAPTURED",browserSpectralCapCandidate:null,
+        browserSpectralCapApplied:false,afterSpectralCapScore:88,
+        browserFinishStatus:"COMPLETED",browserFinishCapCandidate:null,
+        afterFinishCeilingScore:88,finalScore:88
+      }}},
+    mixBalanceEvidence:{spectralCap:null,signals:[]},
+    productionFinishEvidence:{ceiling:null},
+    subMetricsCall3:{compositionFlowSubs:{
+      hookPlacement:{score:90},sectionalContrast:{score:88}}},
+    scores:{commercialReadiness:89}
+  };
+  const audit=m.buildAuralisBetaScoringAudit(c,88);
+  c.auralisBetaScoringAudit=audit;
+  const ctx={
+    evidenceScope:"SYNTHETIC_VERIFIED_FIXTURE_ONLY",
+    referenceExecution:m.classifyAuralisExecution("AVAILABLE",ref),
+    candidateExecution:c.auralisExecution,
+    pairLineage:{sourceIdentity:"VERIFIED_SYNTHETIC",
+      sameSource:true,alignedExcerpt:true,
+      sourceSha256:"a".repeat(64),referenceSha256:"b".repeat(64),
+      candidateSha256:"c".repeat(64),
+      referenceStartSample:1440000,candidateStartSample:1440000,
+      sampleCount:1440000},
+    independentDefect:"CONFIRMED",artisticIntent:"REVIEWED_NOT_INTENTIONAL",
+    shadowPolicyAuthorized:true
+  };
+  const d=(crit=c,a=audit,r=ref,p=ctx)=>
+    m.evaluateAuralisStage3F18PairedA2Shadow(crit,a,r,p);
+  assert.equal(d().status,"SYNTHETIC_HYPOTHETICAL_ONLY");
+  for(const invalid of [
+    undefined,
+    {...ctx,evidenceScope:"REVIEWED_REAL_RECORDING_SHADOW_ONLY"},
+    {...ctx,pairLineage:{...ctx.pairLineage,sourceIdentity:"UNVERIFIED"}},
+    {...ctx,pairLineage:{...ctx.pairLineage,sameSource:false}},
+    {...ctx,pairLineage:{...ctx.pairLineage,alignedExcerpt:false}},
+    {...ctx,pairLineage:{...ctx.pairLineage,
+      candidateSha256:ctx.pairLineage.referenceSha256}},
+    {...ctx,pairLineage:{...ctx.pairLineage,candidateStartSample:1440001}},
+    {...ctx,pairLineage:{...ctx.pairLineage,sourceSha256:"not-a-hash"}}
+  ]){
+    const result=d(c,audit,ref,invalid);
+    assert.equal(result.status,"EVIDENCE_ONLY");
+    assert.equal(result.candidateCap,null);
+    assert.equal(result.scoringImpact,"NONE");
+  }
+  for(const v of [
+    {...ctx,independentDefect:"UNKNOWN"},
+    {...ctx,independentDefect:"NOT_CONFIRMED"},
+    {...ctx,artisticIntent:"INTENTIONAL"},
+    {...ctx,artisticIntent:"UNKNOWN"},
+    {...ctx,shadowPolicyAuthorized:false},
+    {...ctx,referenceExecution:{...ctx.referenceExecution,status:"UNAVAILABLE"}},
+    {...ctx,candidateExecution:{...ctx.candidateExecution,status:"UNAVAILABLE"}},
+  ])assert.equal(d(c,audit,ref,v).candidateCap,null);
+  assert.equal(d(c,audit,e(1.3561)).candidateCap,null,"No paired change");
+  assert.equal(d(c,audit,e(-2.1592)).candidateCap,null,"Clipping control is not low-upper degradation");
+  assert.equal(d(c,audit,e(1.3561-2.999)).candidateCap,null,
+    "Unrounded sub-3 dB change must remain descriptive");
+  for(const changed of [
+    {...c,auralisSourceLineage:{status:"UNVERIFIED"}},
+    {...c,auralisExecution:{...c.auralisExecution,status:"UNAVAILABLE"}},
+    {...c,mixBalanceEvidence:{signals:[]}},
+    {...c,mixBalanceEvidence:{spectralCap:86,signals:[]}},
+    {...c,mixBalanceEvidence:{spectralCap:null,signals:["unknown warning"]}},
+    {...c,auralisStage3F6Execution:{status:"APPLIED",scoringImpact:"DOWNWARD_ONLY"}},
+    {...c,scores:{commercialReadiness:90}},
+  ])assert.equal(d(changed).candidateCap,null,"Never repair missing/stale scoring evidence");
+  assert.equal(d(c,{...audit,scoreLineage:"UNVERIFIED"}).candidateCap,null);
+  assert.equal(d(c,{...audit,observedFinalSpectralScore:99}).candidateCap,null);
+  assert.equal(d(c,{...audit,appliedScoreChange:-1}).candidateCap,null);
+  assert.equal(d(c,{...audit,adjustments:[79]}).candidateCap,null);
+  // Existing 3-warning cap 76 is stronger than 79: it wins, without stacking.
+  const strong=structuredClone(c);
+  strong.subMetricsCall1.spectralMatch.score=76;
+  strong.subMetricsCall1.a2ScoringProvenance.spectralMatch.browserSpectralCapCandidate=76;
+  strong.subMetricsCall1.a2ScoringProvenance.spectralMatch.browserSpectralCapApplied=true;
+  strong.subMetricsCall1.a2ScoringProvenance.spectralMatch.afterSpectralCapScore=76;
+  strong.subMetricsCall1.a2ScoringProvenance.spectralMatch.afterFinishCeilingScore=76;
+  strong.subMetricsCall1.a2ScoringProvenance.spectralMatch.finalScore=76;
+  strong.mixBalanceEvidence.spectralCap=76;
+  strong.mixBalanceEvidence.signals=[
+    "collapsed midrange spectral structure (flatness 0.44)",
+    "extreme low-mid magnitude (80)",
+    "very low relative air energy (0.40%)"
+  ];
+  strong.scores.commercialReadiness=Math.round((90*60+88*20+76*10+88*10)/100);
+  const strongAudit=m.buildAuralisBetaScoringAudit(strong,88);
+  strong.auralisBetaScoringAudit=strongAudit;
+  const cap=d(strong,strongAudit,ref);
+  assert.deepEqual([cap.status,cap.reason,cap.candidateCap],
+    ["EVIDENCE_ONLY","EXISTING_STRONGER_OR_EQUAL_CAP",null]);
+  const before=structuredClone({c,audit,ref,ctx,strong,strongAudit});
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  const report=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  for(const x of [app,server,report]){
+    assert.doesNotMatch(x,/evaluateAuralisStage3F18PairedA2Shadow/,
+      "Stage 3F-18 cannot reach production scoring or export");
+  }
+  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.ok(!app.includes("SYNTHETIC_VERIFIED_FIXTURE_ONLY"));
+  assert.deepEqual({c,audit,ref,ctx,strong,strongAudit},before);
+});
