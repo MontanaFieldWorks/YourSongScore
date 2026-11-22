@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import FFT from "fft.js";
-import { analyzeSonicLensMasterEqProfile, type SonicLensMasterEqProfile } from "../lib/liveAudioAnalyzer";
 import { 
   ArrowLeft, ArrowRight, Volume2, Sliders, Mic, CheckCircle, Square, Play, Pause, 
   Activity, Sparkles, Cpu, AlertTriangle, Check, RotateCcw, Compass, Layers, CheckSquare,
@@ -67,136 +66,6 @@ interface EngineeringStudioPageProps {
   trackInfo: any;
   localFileBlobUrl: string | null;
   onNavigateToEngineeringDetails?: () => void;
-}
-
-
-// Score-inert measured display. One mastered recording does not reveal an EQ transfer function.
-function SonicLensMasterEqPanel({blobUrl}:{blobUrl:string|null}){
-  const [profile,setProfile]=useState<SonicLensMasterEqProfile|null>(null);
-  const [state,setState]=useState<"UNAVAILABLE"|"MEASURING"|"AVAILABLE">("UNAVAILABLE");
-  useEffect(()=>{
-    let cancelled=false;
-    const controller=new AbortController();
-    if(!blobUrl?.startsWith("blob:")){
-      setProfile(null);setState("UNAVAILABLE");
-      return ()=>{cancelled=true;};
-    }
-    setProfile(null);setState("MEASURING");
-    let audioContext:AudioContext|null=null;
-    (async()=>{
-      const response=await fetch(blobUrl,{signal:controller.signal});
-      if(!response.ok)throw new Error("LOCAL_AUDIO_UNAVAILABLE");
-      const bytes=await response.arrayBuffer();
-      if(bytes.byteLength===0||bytes.byteLength>24*1024*1024)
-        throw new Error("ENCODED_AUDIO_OUT_OF_BOUNDS");
-      if(!crypto?.subtle)throw new Error("LOCAL_HASH_UNAVAILABLE");
-      const hash=await crypto.subtle.digest("SHA-256",bytes);
-      const encodedSha256=Array.from(new Uint8Array(hash),
-        b=>b.toString(16).padStart(2,"0")).join("");
-      if(cancelled)return;
-      audioContext=new AudioContext();
-      const decoded=await audioContext.decodeAudioData(bytes.slice(0));
-      if(decoded.numberOfChannels<1||decoded.numberOfChannels>2||
-         decoded.length*decoded.numberOfChannels*4>128*1024*1024)
-        throw new Error("DECODED_PCM_OUT_OF_BOUNDS");
-      const channels=Array.from({length:decoded.numberOfChannels},
-        (_,i)=>decoded.getChannelData(i));
-      const next=analyzeSonicLensMasterEqProfile(
-        channels,decoded.sampleRate,encodedSha256);
-      if(!cancelled){setProfile(next);setState("AVAILABLE");}
-    })().catch(()=>{
-      if(!cancelled){setProfile(null);setState("UNAVAILABLE");}
-    }).finally(()=>{if(audioContext)void audioContext.close().catch(()=>{});});
-    return ()=>{cancelled=true;controller.abort();};
-  },[blobUrl]);
-  const ticksHz=[20,50,100,200,500,1000,2000,5000,10000,20000];
-  const x=(hz:number)=>48+804*Math.log(hz/20)/Math.log(1000);
-  const valid=profile?.bands.map(b=>b.dbfsPerHz).filter(
-    (v):v is number=>typeof v==="number"&&Number.isFinite(v))??[];
-  const lo=valid.length?Math.floor(Math.min(...valid)/10)*10:-140;
-  const hi=valid.length?Math.ceil(Math.max(...valid)/10)*10:-30;
-  const yLo=Math.min(lo,hi-20), yHi=hi;
-  const y=(db:number)=>250-210*(db-yLo)/(yHi-yLo);
-  let line="",connected=false;
-  if(profile){
-    for(const band of profile.bands){
-      if(band.dbfsPerHz===null||!Number.isFinite(band.dbfsPerHz)){
-        connected=false;continue;
-      }
-      line+=(connected?" L":" M")+x(band.centerHz).toFixed(2)+" "+y(band.dbfsPerHz).toFixed(2);
-      connected=true;
-    }
-  }
-  return (
-    <section className="bg-[#13161C] border border-[#2563EB]/25 rounded-3xl p-6 shadow-xl flex flex-col gap-4 text-left" aria-label="Auralis SonicLens Master EQ Profile">
-      <div className="flex items-center gap-2 border-b border-white/10 pb-3">
-        <Activity className="w-5 h-5 text-blue-400"/>
-        <h3 className="font-black text-sm uppercase tracking-wider text-slate-100">
-          Auralis SonicLens Master EQ Profile
-        </h3>
-      </div>
-      <p className="text-[11px] text-slate-400">
-        Measured spectrum of the locally decoded master, not an estimate of its applied EQ.
-        No simulated frequency nodes, genre-hit templates or automatic quality verdicts.
-      </p>
-      {state==="MEASURING"&&
-        <p className="text-xs text-slate-400">Calculating bounded local FFT spectrum…</p>}
-      {state==="UNAVAILABLE"&&
-        <p className="text-xs text-amber-400">Spectrum unavailable: a bounded local audio file is required. No substitute curve is drawn.</p>}
-      {state==="AVAILABLE"&&profile&&valid.length>0&&(
-        <div className="bg-[#0A0B0E] rounded-xl border border-white/5 p-3">
-          <svg viewBox="0 0 900 300" className="w-full" role="img"
-            aria-label="Measured logarithmic 20 Hz to 20 kHz spectrum, dBFS per Hz">
-            {[0,1,2,3,4].map(i=>{
-              const value=yLo+(yHi-yLo)*i/4;
-              return <g key={i}>
-                <line x1="48" y1={y(value)} x2="852" y2={y(value)}
-                  stroke="#334155" strokeWidth=".7"/>
-                <text x="44" y={y(value)+3} textAnchor="end" fill="#94a3b8"
-                  fontSize="10">{Math.round(value)}</text>
-              </g>;
-            })}
-            {ticksHz.map(hz=><g key={hz}>
-              <line x1={x(hz)} x2={x(hz)} y1="40" y2="250"
-                stroke="#334155" strokeWidth=".6"/>
-              <text x={x(hz)} y="272" textAnchor="middle" fill="#94a3b8"
-                fontSize="10">{hz>=1000?String(hz/1000)+"k":String(hz)}</text>
-            </g>)}
-            <text x="12" y="23" fill="#94a3b8" fontSize="11">dBFS/Hz</text>
-            <text x="450" y="294" textAnchor="middle" fill="#94a3b8"
-              fontSize="11">Frequency (Hz, logarithmic)</text>
-            <path d={line} fill="none" stroke="#60a5fa"
-              strokeWidth="2.2" strokeLinejoin="round"/>
-            {profile.bands.filter(b=>b.dbfsPerHz!==null&&Number.isFinite(b.dbfsPerHz)).map((b,i)=>
-              <circle key={i} cx={x(b.centerHz)} cy={y(b.dbfsPerHz!)}
-                r="2.0" fill="#60a5fa">
-                <title>{Math.round(b.centerHz)+" Hz: "+b.dbfsPerHz!.toFixed(1)+" dBFS/Hz ("+b.bins+" FFT bins)"}</title>
-              </circle>)}
-          </svg>
-        </div>
-      )}
-      {state==="AVAILABLE"&&profile&&(
-        <div className="text-[10px] leading-relaxed text-slate-400 font-mono">
-          <p>MEASURED • PCM sample rate {profile.sampleRateHz} Hz • {profile.channels} channel(s)
-          • {profile.fftSize}-point periodic Hann • {profile.binResolutionHz.toFixed(2)} Hz/bin
-          • {profile.sampledFrames}/{profile.eligibleFrames} evenly spaced frames
-          • 96 logarithmic bands • one-sided window-power normalization</p>
-          <p>Local encoded SHA-256 prefix: {profile.encodedSha256?.slice(0,12)??"UNAVAILABLE"} (identity of this file only; no source pairing established).</p>
-          <p>Units: dBFS/Hz (spectral power density). Bandwidth and windowing may smooth narrow EQ dips;
-          sample windows are not a full-duration average. Browser resampling may change the decoded rate.</p>
-        </div>
-      )}
-      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-[11px] text-amber-200">
-        Paired frequency-difference view: UNAVAILABLE — no independently source-verified,
-        sample-aligned reference master is bound to this analysis.
-        Two filenames, two hashes, or the seven broad Auralis bands alone do not prove alignment.
-        A trusted reference/candidate pairing is required before a difference curve may be displayed.
-      </div>
-      <p className="text-[10px] text-slate-500">
-        Diagnostic-only display. The original scoring engine, Gemini roles, caps, and 79-point gate are unchanged.
-      </p>
-    </section>
-  );
 }
 
 interface HarmonicNode {
@@ -738,6 +607,47 @@ const generateHarmonicNodes = () => {
     }
   };
 
+  // Helper calculation for simulated corrected curve
+  const getSimulatedPath = () => {
+    if (!isAnalyzed) return "M 50 150 Q 250 150 450 150 T 850 150";
+
+    const basePoints = [
+      { x: 30, y: 150 },
+      { x: 120, y: 150 },
+      { x: 260, y: 150 },
+      { x: 400, y: 150 },
+      { x: 550, y: 150 },
+      { x: 700, y: 150 },
+      { x: 850, y: 150 }
+    ];
+
+    // Modify base points with offset of harmonicNodes minus corrections
+    harmonicNodes.forEach(node => {
+      const idx = basePoints.findIndex(p => Math.abs(p.x - (node.xPct / 100 * 850)) < 80);
+      if (idx !== -1) {
+        const customCorr = customCorrections[node.id] || 0;
+        const currentProblemAmt = node.dbOffset;
+        const netProblemAmt = currentProblemAmt - (customCorr * currentProblemAmt);
+        
+        // Map dbOffset to Y space (up is standard, down is cut, positive means peak problem so we render high bump, negative means trough problem)
+        const scale = 8;
+        basePoints[idx].y = 150 - (netProblemAmt * scale);
+      }
+    });
+
+    let path = `M ${basePoints[0].x} ${basePoints[0].y}`;
+    for (let i = 1; i < basePoints.length; i++) {
+      const p = basePoints[i];
+      const prev = basePoints[i - 1];
+      const cpX1 = prev.x + (p.x - prev.x) / 2;
+      const cpY1 = prev.y;
+      const cpX2 = prev.x + (p.x - prev.x) / 2;
+      const cpY2 = p.y;
+      path += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${p.x} ${p.y}`;
+    }
+    return path;
+  };
+
   const activeSelectedNode = harmonicNodes.find(n => n.id === selectedNodeId);
 
   return (
@@ -949,9 +859,313 @@ const generateHarmonicNodes = () => {
             {/* Right Stage: Interactive Viewer Panel */}
             <div className="lg:col-span-9" id="active-viewport-analyzer-container">
 
-              {/* VIEW 1: Measured SonicLens spectrum — no heuristic curve or genre blueprint */}
+              {/* VIEW 1: Harmonic Spectral Resolution */}
               {activeView === "harmonic" && (
-                <SonicLensMasterEqPanel blobUrl={localFileBlobUrl}/>
+                <div className="bg-[#13161C] border border-[#2563EB]/25 rounded-3xl p-6 shadow-xl relative overflow-hidden flex flex-col gap-4">
+                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-blue-400 animate-pulse" />
+                      <span className="font-black text-sm uppercase text-slate-200 tracking-wider">
+                        Harmonic Spectral Resolution Curve (20 - 20,000 Hz)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 font-mono text-[9px] text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Critical Problem
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Caution
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Optimized
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* At-a-glance 6-band energy strip, genre-aware targets */}
+                  <div className="grid grid-cols-3 md:grid-cols-6 gap-2.5">
+                    {(() => {
+                      const bandBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                      const BAND_IDEALS: Record<string, number[]> = {
+                        hiphop:     [65, 62, 55, 50, 48, 42],
+                        mainstream: [55, 60, 60, 55, 55, 50],
+                        indie:      [45, 50, 55, 58, 52, 45],
+                        classical:  [35, 40, 45, 48, 40, 35],
+                      };
+                      const ideals = BAND_IDEALS[bandBucket.key] ?? BAND_IDEALS.mainstream;
+                      const subBassVal = critique?.liveMetrics?.calculatedSubBassBandEnergy ?? 45;
+                      const bassCorridorVal = critique?.liveMetrics?.calculatedBassBandEnergy ?? 48;
+                      const lowMidVal = critique?.liveMetrics?.calculatedLowMidsBandEnergy ?? 55;
+                      const coreMidVal = critique?.liveMetrics?.calculatedCoreMidsBandEnergy ?? 56;
+                      const presenceVal = critique?.liveMetrics?.calculatedPresenceBandEnergy ?? 50;
+                      const airVal = critique?.liveMetrics?.calculatedAirBandEnergy ?? 46;
+                      // Descriptive comparison to the genre target only. These labels
+                      // are not standalone mix-quality verdicts; calibrated multi-signal
+                      // evidence is what is allowed to reduce Mix Balance scores.
+                      const getStatus = (v: number, ideal: number) =>
+                        v > ideal + 15 ? "Above Target" : v > ideal + 7 ? "Slightly Above" : v < ideal - 15 ? "Below Target" : v < ideal - 7 ? "Slightly Below" : "Near Target";
+                      const bands = [
+                        { band: "Sub-Bass", r: "20-64Hz", val: subBassVal, status: getStatus(subBassVal, ideals[0]), color: "from-blue-600 to-blue-400" },
+                        { band: "Bass", r: "64-250Hz", val: bassCorridorVal, status: getStatus(bassCorridorVal, ideals[1]), color: "from-indigo-600 to-indigo-400" },
+                        { band: "Low-Mids", r: "250Hz-1kHz", val: lowMidVal, status: getStatus(lowMidVal, ideals[2]), color: "from-purple-600 to-purple-400" },
+                        { band: "Core Mids", r: "1-4kHz", val: coreMidVal, status: getStatus(coreMidVal, ideals[3]), color: "from-pink-600 to-pink-400" },
+                        { band: "Presence", r: "4-8kHz", val: presenceVal, status: getStatus(presenceVal, ideals[4]), color: "from-rose-600 to-rose-400" },
+                        { band: "Air", r: "8-20kHz", val: airVal, status: getStatus(airVal, ideals[5]), color: "from-teal-600 to-teal-400" }
+                      ];
+                      return bands.map((band) => (
+                        <div key={band.band} className="bg-[#0A0B0E] border border-white/5 p-2.5 rounded-xl flex flex-col items-center justify-between min-h-[110px]">
+                          <span className="text-[9px] font-bold text-slate-200 tracking-wide text-center">{band.band}</span>
+                          <span className="text-[7px] font-mono text-slate-500 uppercase">{band.r}</span>
+                          <div className="w-3.5 h-12 bg-neutral-950 rounded-full flex flex-col justify-end p-[2px] border border-white/5 mt-1.5">
+                            <div
+                              className={`w-full rounded-full bg-gradient-to-t ${band.color} transition-all duration-300`}
+                              style={{ height: `${band.val}%` }}
+                            />
+                          </div>
+                          <span className="text-[8px] font-mono uppercase tracking-wider text-purple-400 font-bold mt-1.5">{band.status}</span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+
+                  {/* Spectral Tilt Indicator */}
+                  <div className="bg-neutral-900 border border-white/5 p-4 rounded-xl mt-1 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-left">
+                    <div className="text-left">
+                      <span className="text-[10px] font-mono text-slate-500 uppercase font-bold block mb-1">Spectral Tilt Indicator</span>
+                      <p className="text-[11.5px] text-slate-300">
+                        {(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25; const tilt = parseFloat((-2.0 - (bass * 0.08) + (high * 0.04)).toFixed(1)); return <>Your master registers a spectral tilt of <span className="text-purple-400 font-mono font-bold">{tilt}dB/oct</span>. {tilt < -5 ? "This indicates a bass-heavy, warm analog profile — common in classic rock and vintage recordings." : tilt < -3 ? "This translates to a balanced, natural spectral slope well-suited for modern streaming." : "This indicates a bright, high-energy mix — presence and air are elevated relative to the low end."}</>; })()}
+                      </p>
+                    </div>
+                    <span className="px-3.5 py-1.5 bg-[#0A0B0E] border border-purple-500/20 text-purple-400 font-mono tracking-widest text-[9.5px] rounded-lg uppercase whitespace-nowrap">
+                      {(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25; if (bass > 40) return "Bass-Heavy Tilt"; if (bass > 28 && high < 25) return "Slight Sub Bass Tilt"; if (high > 35) return "Bright High-End Tilt"; if (high > 28) return "Slight High-End Tilt"; return "Neutral Spectral Balance"; })()}
+                    </span>
+                  </div>
+
+                  {/* The SVG Canvas wrapper */}
+                  <div className="relative w-full h-[220px] bg-[#0A0B0E] rounded-2xl border border-white/5 overflow-hidden flex items-center justify-center p-2 shadow-inner">
+                    <div className="absolute inset-0 flex">
+                      {[20, 100, 250, 500, 1000, 4000, 10000, 20000].map((f) => (
+                        <div 
+                          key={f} 
+                          className="h-full border-r border-[#ffffff]/2 flex flex-col justify-end pb-1 pr-1.5 relative"
+                          style={{ width: `${100 / 8}%` }}
+                        >
+                          <span className="font-mono text-[8px] text-slate-600 block text-right">{f < 1000 ? `${f}Hz` : `${(f/1000).toFixed(0)}kHz`}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="absolute inset-x-0 inset-y-2 flex flex-col justify-between pointer-events-none pl-3 z-0">
+                      <span className="font-mono text-[8px] text-slate-700">+12 dB</span>
+                      <span className="font-mono text-[8px] text-slate-700">0 dB reference</span>
+                      <span className="font-mono text-[8px] text-slate-700">-12 dB</span>
+                    </div>
+
+                    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 850 220" preserveAspectRatio="none">
+                      <defs>
+                        <linearGradient id="curveGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#2563eb" stopOpacity="0.25" />
+                          <stop offset="100%" stopColor="#2563eb" stopOpacity="0.0" />
+                        </linearGradient>
+                      </defs>
+
+                      <path 
+                        d={`${getSimulatedPath()} L 850 220 L 30 220 Z`}
+                        fill="url(#curveGradient)"
+                        className="transition-all duration-300"
+                      />
+
+                      <path 
+                        d={getSimulatedPath()}
+                        fill="none" 
+                        stroke="#2563EB" 
+                        strokeWidth="3.5" 
+                        className="transition-all duration-300 drop-shadow-[0_0_12px_rgba(37,99,235,0.85)]"
+                      />
+
+                      {harmonicNodes.map((node) => {
+                        const isSelected = selectedNodeId === node.id;
+                        const customCorr = customCorrections[node.id] || 0;
+                        const isFixed = customCorr >= 0.85 && node.status !== "optimized";
+
+                        const cx = (node.xPct / 100) * 850;
+                        const netProblemArea = node.dbOffset - (customCorr * node.dbOffset);
+                        const cy = 110 - (netProblemArea * 8);
+
+                        let colorCode = "#ef4444";
+                        let glowCode = "rgba(239, 68, 68, 0.65)";
+                        if (isFixed || node.status === "optimized") {
+                          colorCode = "#10b981";
+                          glowCode = "rgba(16, 185, 129, 0.65)";
+                        } else if (node.status === "warning") {
+                          colorCode = "#f59e0b";
+                          glowCode = "rgba(245, 158, 11, 0.65)";
+                        }
+
+                        return (
+                          <g key={node.id} className="cursor-pointer" onClick={() => handleSelectNode(node)}>
+                            <circle 
+                              cx={cx} 
+                              cy={cy} 
+                              r={isSelected ? "15" : "7"} 
+                              fill="none" 
+                              stroke={colorCode} 
+                              strokeWidth="1.5" 
+                              className="opacity-25 animate-pulse"
+                            />
+                            <foreignObject 
+                              x={cx - (isSelected ? 12 : 9)} 
+                              y={cy - (isSelected ? 12 : 9)} 
+                              width={isSelected ? 24 : 18} 
+                              height={isSelected ? 24 : 18}
+                              className="overflow-visible"
+                            >
+                              <div 
+                                className="w-full h-full flex items-center justify-center transition-transform duration-200 hover:scale-125 group/node"
+                                style={{ filter: `drop-shadow(0px 0px 6px ${glowCode})` }}
+                              >
+                                <Lightbulb 
+                                  size={isSelected ? 20 : 15} 
+                                  color={colorCode} 
+                                  fill={colorCode}
+                                  fillOpacity={0.25}
+                                  strokeWidth={2}
+                                  className="animate-pulse"
+                                />
+                                <span className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-mono text-white bg-black/90 px-2 py-1 rounded opacity-0 group-hover/node:opacity-100 transition-opacity pointer-events-none">
+                                  Click for guidance
+                                </span>
+                              </div>
+                            </foreignObject>
+                          </g>
+                        );
+                      })}
+                    </svg>
+
+                    {harmonicNodes.map((node) => {
+                      const isThisSelected = selectedNodeId === node.id;
+                      return (
+                        <div
+                          key={`select-pill-${node.id}`}
+                          onClick={() => handleSelectNode(node)}
+                          className={`absolute font-mono text-[9px] px-2.5 py-1 rounded-xl shadow-lg cursor-pointer transition-all duration-200 ${
+                            isThisSelected
+                              ? "text-white bg-[#2563EB]/20 border border-[#2563EB] shadow-[0_0_12px_rgba(37,99,235,0.5)] scale-105"
+                              : "text-[#2563EB]/70 bg-[#0A0B0E] border border-[#2563EB]/30 hover:border-[#2563EB]/70 hover:text-[#2563EB]"
+                          }`}
+                          style={{
+                            left: `calc(${node.xPct}% - 45px)`,
+                            top: "14px"
+                          }}
+                        >
+                          SELECT: {node.frequency}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Correction Solver */}
+                  {activeSelectedNode ? (
+                    <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-5 text-left flex flex-col md:flex-row items-stretch justify-between gap-6 relative overflow-hidden transition-all duration-300">
+                      <div className="flex-1 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className="text-[10px] font-mono font-bold tracking-widest text-slate-500 uppercase">
+                              Target Frequency Zone: {activeSelectedNode.frequency} ({activeSelectedNode.band})
+                            </span>
+                            {(customCorrections[activeSelectedNode.id] || 0) >= 0.85 ? (
+                              <span className="text-[8px] bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase flex items-center gap-1 font-semibold select-none">
+                                <Check className="w-2.5 h-2.5" /> Resolved
+                              </span>
+                            ) : activeSelectedNode.status === "optimized" ? (
+                              <span className="text-[8px] bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase font-semibold">Healthy Range</span>
+                            ) : activeSelectedNode.dbOffset < 0 ? (
+                              <span className="text-[8px] bg-amber-400/15 border border-amber-500/25 text-amber-500 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase font-semibold animate-pulse">Resonance Deficit</span>
+                            ) : (
+                              <span className="text-[8px] bg-red-400/15 border border-red-500/25 text-red-500 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase font-semibold animate-pulse">Resonance Overload</span>
+                            )}
+                          </div>
+                          <h3 className="text-white font-bold text-base tracking-tight">{activeSelectedNode.problem}</h3>
+                        </div>
+
+                        <div className="mt-4 pt-3.5 border-t border-white/5 flex gap-2 items-center text-xs">
+                          <Sliders className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                          <button
+                            onClick={() => {
+                              const target = document.getElementById(`checklist-item-${activeSelectedNode.id}`);
+                              if (target) {
+                                target.scrollIntoView({ behavior: "smooth", block: "center" });
+                                target.classList.add("ring-2", "ring-cyan-400");
+                                setTimeout(() => target.classList.remove("ring-2", "ring-cyan-400"), 2000);
+                              }
+                            }}
+                            className="font-bold text-blue-400 hover:text-blue-300 uppercase underline underline-offset-2 transition-colors cursor-pointer text-left"
+                          >
+                            View Surgical DAW Guidance in Checklist →
+                          </button>
+                        </div>
+                      </div>
+
+                      {activeSelectedNode.status !== "optimized" && (
+                        <div className="md:w-[220px] bg-[#111317]/80 rounded-xl p-4 border border-white/5 flex flex-col justify-between text-center gap-4">
+                          <div>
+                            <span className="text-[10px] font-mono tracking-widest text-[#2563EB] uppercase font-bold">Acoustic EQ Solver</span>
+                            <div className="text-2xl font-black text-white mt-1.5 font-mono">
+                              {Math.round(correctionValue * 100)}%
+                            </div>
+                            <span className="text-[9px] text-slate-400 font-medium block mt-1">Simulated Attenuation Applied</span>
+                          </div>
+
+                          <div className="flex flex-col gap-2">
+                            <input 
+                              type="range"
+                              min="0"
+                              max="1.0"
+                              step="0.01"
+                              value={correctionValue}
+                              onChange={handleCorrectionChange}
+                              className="w-full h-1 bg-neutral-950 rounded-lg appearance-none cursor-pointer accent-[#2563EB]"
+                            />
+                            <div className="flex justify-between text-[8px] font-mono text-slate-500">
+                              <span>0% (Raw Intensity)</span>
+                              <span>100% (Clean EQ)</span>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              setCorrectionValue(1.0);
+                              setCustomCorrections({
+                                ...customCorrections,
+                                [activeSelectedNode.id]: 1.0
+                              });
+                            }}
+                            disabled={correctionValue >= 1.0}
+                            className="py-1.5 text-[9px] font-mono uppercase bg-blue-600/10 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-white rounded-lg transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            Autocorrect Resonance
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-6 text-center text-xs text-slate-500">
+                      Select any frequency node to view corrections.
+                    </div>
+                  )}
+                  <div className="bg-[#0b1322] border border-amber-500/10 rounded-xl p-3.5 mt-2 text-[10px] text-slate-400 leading-relaxed">
+                    <span className="font-mono font-bold text-amber-400 uppercase text-[9px] block mb-1">Analog Saturation Note:</span>
+                    {(() => {
+                      const b858 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
+                      if (critique?.liveMetrics?.calculatedLufs === undefined) return "Light vintage tape drive (+0.5dB, 30 ips) recommended to add cohesion across the high-mid transient peaks.";
+                      if (critique.liveMetrics.calculatedLufs > b858.lufsMax) return "Master is heavily saturated for this genre's target window. Ease limiter gain by 1.5dB and reduce harmonic drive to preserve transient clarity.";
+                      if (critique.liveMetrics.calculatedHighEnergy > 32) return "High-mid harmonic content is elevated. A gentle tape emulation (30 ips, +0.3dB) would smooth sibilant peaks without losing presence.";
+                      if (critique.liveMetrics.calculatedBassEnergy > 42) return "Low-end harmonic density is high. Tube saturation on the bass bus (+0.5dB even-order drive) would add warmth without muddying the mix.";
+                      return "Harmonic profile is well balanced. Light vintage tape drive (+0.5dB, 30 ips) would add cohesion across the high-mid transient peaks.";
+                    })()}
+                  </div>
+
+                </div>
               )}
 
               {/* VIEW 2: Signal & Levels */}
