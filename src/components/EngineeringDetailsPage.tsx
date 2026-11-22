@@ -118,25 +118,25 @@ export default function EngineeringDetailsPage({ onBack }: EngineeringDetailsPag
             <span>Harmonic Resolution</span>
           </h2>
           <div className="bg-[#0E1015] border border-purple-500/10 rounded-2xl p-5">
-            <h3 className="text-xs font-mono font-extrabold text-purple-400 tracking-wider uppercase mb-1">HARMONIC SPECTRAL RESOLUTION</h3>
+            <h3 className="text-xs font-mono font-extrabold text-purple-400 tracking-wider uppercase mb-1">AURALIS SONICLENS MASTER EQ PROFILE</h3>
             <p className="text-xs text-slate-300 leading-relaxed mb-4">
-              A high-resolution spectral monitoring utility that sweeps the frequency spectrum from 20 Hz to 20 kHz to map harmonic overloads. It identifies specific resonant spikes and provides parametric target points to clean up problematic frequencies in your digital audio workstation.
+              A local, measured spectral-power-density display of decoded audio, with a logarithmic 20 Hz–20 kHz axis and FFT measurement provenance. It does not recover the original mastering EQ settings, diagnose a mix defect, or infer a professional genre target.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-[#020203] border border-white/5 p-4 rounded-xl">
                 <h4 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                  <span className="text-purple-400">•</span> EQ Resonance Nodes
+                  <span className="text-purple-400">•</span> Measured Frequency Bands
                 </h4>
                 <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                  Point-by-point target frequencies where acoustic buildups or volume overloads are actively detected.
+                  96 logarithmic measured bands from an 8192-point windowed FFT. Individual bands report actual available bin coverage; numerical peaks are not automatically engineering defects.
                 </p>
               </div>
               <div className="bg-[#020203] border border-white/5 p-4 rounded-xl">
                 <h4 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                  <span className="text-purple-400">•</span> Surgical EQ Attenuation
+                  <span className="text-purple-400">•</span> Paired Difference Safeguards
                 </h4>
                 <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                  A simulated filter response that shows the frequency adjustments required to pull resonance peaks back into an optimized range.
+                  Candidate-minus-reference dB differences require a separately source-verified, sample-aligned pair. Without trusted pairing, the difference view stays unavailable; no fake EQ correction curve is drawn.
                 </p>
               </div>
               <div className="bg-[#020203] border border-white/5 p-4 rounded-xl">
@@ -288,7 +288,7 @@ export default function EngineeringDetailsPage({ onBack }: EngineeringDetailsPag
           <div className="bg-[#0E1015] border border-purple-500/10 rounded-2xl p-5">
             <h3 className="text-xs font-mono font-extrabold text-purple-400 tracking-wider uppercase mb-1">MULTI-BAND SPECTRE BALANCE ANALYSIS</h3>
             <p className="text-xs text-slate-300 leading-relaxed mb-4">
-              A six-band spectral energy sweep mapping acoustic density from sub-bass foundations up through high-frequency presence. It acts as an objective meter to verify that your frequency curve matches commercial sonic expectations.
+              A broad-band spectral energy summary from sub-bass through upper frequencies. It describes measured balance but does not certify commercial quality or a genre-specific ideal EQ curve.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="bg-[#020203] border border-white/5 p-4 rounded-xl">
@@ -304,7 +304,7 @@ export default function EngineeringDetailsPage({ onBack }: EngineeringDetailsPag
                   <span className="text-purple-400">•</span> Problem Frequency Anomalies
                 </h4>
                 <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                  Automatic detection of generic frequency defects like mud, boxiness, harshness, or sibilant buildup.
+                  Measured frequency changes can inform a technical review, but broad-band levels alone cannot prove mud, masking, harshness or sibilance.
                 </p>
               </div>
               <div className="bg-[#020203] border border-white/5 p-4 rounded-xl">
@@ -312,7 +312,7 @@ export default function EngineeringDetailsPage({ onBack }: EngineeringDetailsPag
                   <span className="text-purple-400">•</span> Low-End Management Check
                 </h4>
                 <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                  Verification that frequencies below 100 Hz are steered into mono and free of sub-frequency rumble.
+                  Low-frequency energy and stereo evidence can suggest issues worth checking; this display does not verify instrument-specific mono placement or the absence of rumble.
                 </p>
               </div>
               <div className="bg-[#020203] border border-white/5 p-4 rounded-xl">
@@ -328,7 +328,7 @@ export default function EngineeringDetailsPage({ onBack }: EngineeringDetailsPag
                   <span className="text-purple-400">•</span> Spectral Tilt Gradient
                 </h4>
                 <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                  The overall slope of your frequency distribution indicating whether your mix is darker or brighter than average.
+                  Qualitative frequency-balance context only; this panel no longer presents a heuristic bass/high-band formula as a calibrated dB-per-octave slope.
                 </p>
               </div>
             </div>
@@ -389,10 +389,10 @@ export default function EngineeringDetailsPage({ onBack }: EngineeringDetailsPag
               </div>
               <div className="bg-[#020203] border border-white/5 p-4 rounded-xl">
                 <h4 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                  <span className="text-purple-400">•</span> Spectral Curve Reference
+                  <span className="text-purple-400">•</span> Measured Spectral Comparison
                 </h4>
                 <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                  A direct overlay mapping your frequency distribution against standard models for your chosen genre.
+                  The master EQ graph shows actual measured decoded PCM. A paired difference requires independently verified common source identity and sample alignment; unsupported hit-blueprint targets are not displayed.
                 </p>
               </div>
               <div className="bg-[#020203] border border-white/5 p-4 rounded-xl">
