@@ -588,6 +588,165 @@ export function recordAuralisPairedSpectralShadowDecision(
   return record("INCONCLUSIVE",paired.reason,paired.deltaDb);
 }
 
+// Stage 3F-18: RESEARCH-ONLY paired-evidence bridge for the zero-warning case.
+// Deliberately disconnected from App, server, Excel and the existing 79 executor.
+// The synthetic replay scope cannot grant REAL source/intent review authority.
+// Archived 2N comparisons marked UNVERIFIED are NOT promoted to trusted pairing.
+// No new absolute-quality threshold is introduced; the existing Stage 3D-3
+// descriptive +3 dB paired materiality observation is reused.
+export const AURALIS_STAGE3F18_PAIRED_SHADOW_VERSION =
+  "auralis-stage3f18-paired-a2-shadow-v1" as const;
+export type AuralisStage3F18PairedContext = {
+  evidenceScope:"SYNTHETIC_VERIFIED_FIXTURE_ONLY";
+  referenceExecution:AuralisExecutionRecord;
+  candidateExecution:AuralisExecutionRecord;
+  pairLineage:{
+    sourceIdentity:"VERIFIED_SYNTHETIC";
+    sameSource:true;alignedExcerpt:true;
+    sourceSha256:string;referenceSha256:string;candidateSha256:string;
+    referenceStartSample:number;candidateStartSample:number;sampleCount:number;
+  };
+  independentDefect:"CONFIRMED"|"NOT_CONFIRMED"|"UNKNOWN";
+  artisticIntent:"REVIEWED_NOT_INTENTIONAL"|"INTENTIONAL"|"UNKNOWN";
+  shadowPolicyAuthorized:boolean;
+};
+export type AuralisStage3F18PairedShadow = {
+  schemaVersion:typeof AURALIS_STAGE3F18_PAIRED_SHADOW_VERSION;
+  status:"ABSTAIN"|"EVIDENCE_ONLY"|"SYNTHETIC_HYPOTHETICAL_ONLY";
+  reason:string;
+  pairedDeltaDb:number|null;
+  candidateCap:79|null;
+  existingFinalScore:number|null;
+  existingLegacyCap:number|null;
+  hypotheticalSpectralScore:number|null;
+  hypotheticalCommercialReadiness:number|null;
+  hypotheticalReadinessDelta:number|null;
+  evidenceScope:"SYNTHETIC_REPLAY_NO_REAL_SCORING_AUTHORITY";
+  scoringImpact:"NONE";adjustments:[];appliedCap:null;appliedScoreChange:0;
+};
+export function evaluateAuralisStage3F18PairedA2Shadow(
+  critique:unknown,audit:unknown,referenceEngineering:unknown,
+  context?:AuralisStage3F18PairedContext,
+):AuralisStage3F18PairedShadow {
+  const c=critique as any,a=audit as any,ctx=context as any;
+  const validScore=(v:unknown):v is number=>
+    typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=100;
+  const existingFinal=validScore(c?.subMetricsCall1?.spectralMatch?.score)
+    ? c.subMetricsCall1.spectralMatch.score as number:null;
+  const existingCap=validScore(c?.mixBalanceEvidence?.spectralCap)
+    ? c.mixBalanceEvidence.spectralCap as number:null;
+  const result=(status:AuralisStage3F18PairedShadow["status"],reason:string,
+    delta:number|null=null,cap:79|null=null,
+    hypothetical:number|null=null,parent:number|null=null,
+    parentDelta:number|null=null):AuralisStage3F18PairedShadow=>({
+    schemaVersion:AURALIS_STAGE3F18_PAIRED_SHADOW_VERSION,status,reason,
+    pairedDeltaDb:delta,candidateCap:cap,
+    existingFinalScore:existingFinal,existingLegacyCap:existingCap,
+    hypotheticalSpectralScore:hypothetical,
+    hypotheticalCommercialReadiness:parent,
+    hypotheticalReadinessDelta:parentDelta,
+    evidenceScope:"SYNTHETIC_REPLAY_NO_REAL_SCORING_AUTHORITY",
+    scoringImpact:"NONE",adjustments:[],appliedCap:null,appliedScoreChange:0,
+  });
+  // A supplied boolean or historical label is never independent real provenance.
+  // This helper has NO reviewed-real evidenceScope or production call site.
+  const lineage=ctx?.pairLineage;
+  const sha=(v:unknown)=>typeof v==="string"&&/^[0-9a-f]{64}$/.test(v);
+  if(ctx?.evidenceScope!=="SYNTHETIC_VERIFIED_FIXTURE_ONLY"||
+     lineage?.sourceIdentity!=="VERIFIED_SYNTHETIC"||
+     lineage.sameSource!==true||lineage.alignedExcerpt!==true||
+     !sha(lineage.sourceSha256)||!sha(lineage.referenceSha256)||
+     !sha(lineage.candidateSha256)||
+     lineage.referenceSha256===lineage.candidateSha256||
+     !Number.isSafeInteger(lineage.referenceStartSample)||
+     lineage.referenceStartSample<0||
+     lineage.referenceStartSample!==lineage.candidateStartSample||
+     !Number.isSafeInteger(lineage.sampleCount)||lineage.sampleCount<4096)
+    return result("EVIDENCE_ONLY","UNVERIFIED_OR_NON_SYNTHETIC_PAIR");
+  // Rebuild the authoritative A2 record from the CURRENT scored fields; never
+  // accept a stale score audit or a record with prior Auralis mutations.
+  if(c?.auralisBetaScoringAudit!==a||
+     a?.schemaVersion!==AURALIS_BETA_SCORING_AUDIT_VERSION||
+     a?.scoreLineage!=="A2_RECONCILED"||
+     a?.sourceIdentity!=="CURRENT_UPLOAD_PCM_VERIFIED"||
+     a?.status!=="INCONCLUSIVE"||
+     a?.scoringImpact!=="NONE"||a?.appliedCap!==null||
+     a?.appliedScoreChange!==0||!Array.isArray(a?.adjustments)||
+     a.adjustments.length!==0||
+     c?.auralisSourceLineage?.status!=="VERIFIED"||
+     c.auralisSourceLineage.pcmIdentityStatus!=="VERIFIED"||
+     c.auralisSourceLineage.scoringImpact!=="NONE"||
+     c?.auralisExecution?.status!=="AVAILABLE"||
+     c.auralisExecution.reason!=="VALIDATED_ENGINEERING_EVIDENCE"||
+     c.auralisExecution.scoringImpact!=="NONE"||
+     JSON.stringify(ctx?.candidateExecution)!==JSON.stringify(c.auralisExecution)||
+     c?.auralisStage3F6Execution?.status==="APPLIED"||
+     JSON.stringify(buildAuralisBetaScoringAudit(c,a?.serverReturnedSpectralScore))!==
+       JSON.stringify(a))
+    return result("ABSTAIN","UNRECONCILED_OR_STALE_A2_AND_PCM_IDENTITY");
+  // Keep ALL legacy DSP ceilings. A zero-warning case is valid (spectralCap
+  // is explicitly null), but a missing cap or unknown signal is NOT zero.
+  const evidence=c?.mixBalanceEvidence;
+  const signals=evidence?.signals;
+  const known=[
+    "collapsed midrange spectral structure (",
+    "extreme bass/low-mid magnitude pair (",
+    "extreme low-mid magnitude (",
+    "very low relative air energy (",
+    "midrange clarity collapse (",
+    "dark-spectrum collapse (",
+  ];
+  const caps=[null,86,82,76,72,68];
+  if(!evidence||!Object.prototype.hasOwnProperty.call(evidence,"spectralCap")||
+     !Array.isArray(signals)||signals.some((s:unknown)=>
+       typeof s!=="string"||!known.some(prefix=>s.startsWith(prefix)))||
+     !(evidence.spectralCap===null||validScore(evidence.spectralCap))||
+     evidence.spectralCap!==caps[Math.min(signals.length,5)]||
+     a.legacyDspCap!==evidence.spectralCap||
+     !validScore(existingFinal)||a.observedFinalSpectralScore!==existingFinal)
+    return result("ABSTAIN","INCONSISTENT_EXISTING_DSP_CAP");
+  if(existingFinal<=79||existingCap!==null&&existingCap<=79)
+    return result("EVIDENCE_ONLY","EXISTING_STRONGER_OR_EQUAL_CAP");
+  // Reuse the prior paired algorithm and review gates instead of treating
+  // a spectral ratio, an unreviewed fixture recipe or the legacy warnings as
+  // sufficient proof of an independently reviewed technical defect.
+  const paired=recordAuralisPairedSpectralShadowDecision(
+    referenceEngineering,c.auralisEngineering,{
+      evidenceScope:"SYNTHETIC_VERIFIED_FIXTURE_ONLY",
+      referenceExecution:ctx.referenceExecution,
+      candidateExecution:ctx.candidateExecution,
+      pairLineage:{sourceIdentity:"VERIFIED_SYNTHETIC",
+        sameSource:true,alignedExcerpt:true},
+      independentDefect:ctx.independentDefect,
+      artisticIntent:ctx.artisticIntent,
+      shadowPolicyAuthorized:ctx.shadowPolicyAuthorized,
+      existingFinalScore:existingFinal,existingLegacyCap:existingCap,
+    });
+  if(paired.status!=="ELIGIBLE_SHADOW_ONLY"||paired.candidateCap!==79)
+    return result(paired.status==="UNAVAILABLE"?"ABSTAIN":"EVIDENCE_ONLY",
+      paired.reason,paired.deltaDb);
+  const hook=c?.subMetricsCall3?.compositionFlowSubs?.hookPlacement;
+  const contrast=c?.subMetricsCall3?.compositionFlowSubs?.sectionalContrast;
+  const dynamic=c?.subMetricsCall1?.dynamicVariety;
+  if([hook,contrast,dynamic].some(v=>v?.applicable===false||
+      !validScore(v?.score))||
+     !validScore(c?.scores?.commercialReadiness)||
+     a.observedCommercialReadiness!==c.scores.commercialReadiness)
+    return result("ABSTAIN","INCOMPLETE_COMMERCIAL_READINESS_LINEAGE",paired.deltaDb);
+  const readiness=(spectral:number)=>Math.round(
+    (hook.score*60+dynamic.score*20+spectral*10+contrast.score*10)/100);
+  if(readiness(existingFinal)!==c.scores.commercialReadiness)
+    return result("ABSTAIN","INCONSISTENT_COMMERCIAL_READINESS",paired.deltaDb);
+  const hypothetical=Math.min(existingFinal,79);
+  const projected=readiness(hypothetical);
+  if(projected>c.scores.commercialReadiness)
+    return result("ABSTAIN","UPWARD_EFFECT_REJECTED",paired.deltaDb);
+  return result("SYNTHETIC_HYPOTHETICAL_ONLY",
+    "VERIFIED_SYNTHETIC_PAIRED_REPLAY_NOT_REAL_ACTIVATION",
+    paired.deltaDb,79,hypothetical,projected,
+    projected-c.scores.commercialReadiness);
+}
+
 // Stage 3E: score-inert, post-scoring observation for the current critique only.
 // An available FFT ratio is not a defect judgment, trusted song-pair lineage,
 // or authorization to apply a 79-point cap. Archived UNVERIFIED remains UNVERIFIED.
