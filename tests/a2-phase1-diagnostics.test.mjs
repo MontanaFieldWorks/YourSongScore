@@ -5915,3 +5915,110 @@ test("Stage 3F-15 unavailable and malicious critique content fail closed in Exce
   assert.ok(rows.every(row=>typeof row.value==="number"||typeof row.value==="string"));
   assert.ok(rows.every(row=>typeof row.value!=="number"||Number.isFinite(row.value)));
 });
+
+
+test("SonicLens 96-bin power density: synthetic 1.9 kHz lift and 5.2 kHz notch are measured without score mutation",async()=>{
+  const {analyzeSonicLensMasterEqProfile,compareSonicLensTrustedProfiles,
+    SONICLENS_MASTER_EQ_SCHEMA}=await import("../src/lib/liveAudioAnalyzer.ts");
+  const sampleRate=48000, n=48000;
+  const ref=new Float32Array(n),altered=new Float32Array(n);
+  const lift=Math.pow(10,3/20),notch=Math.pow(10,-2/20);
+  for(let i=0;i<n;i++){
+    const t=i/sampleRate;
+    const a=.16*Math.sin(2*Math.PI*1900*t),b=.16*Math.sin(2*Math.PI*5200*t);
+    ref[i]=a+b;altered[i]=a*lift+b*notch;
+  }
+  const snapshot=structuredClone({ref,altered});
+  const a=analyzeSonicLensMasterEqProfile([ref,ref],sampleRate,"a".repeat(64));
+  const b=analyzeSonicLensMasterEqProfile([altered,altered],sampleRate,"b".repeat(64));
+  assert.equal(a.schemaVersion,SONICLENS_MASTER_EQ_SCHEMA);
+  assert.equal(a.bands.length,96);
+  assert.deepEqual([a.status,a.scoringImpact,a.sourceIdentity,a.sampleRateHz,
+    a.channels,a.fftSize,a.hopSize,a.window,a.units],
+    ["AVAILABLE","NONE","CURRENT_LOCAL_DECODED_AUDIO_ONLY",48000,
+      2,8192,4096,"PERIODIC_HANN","dBFS_PER_HZ"]);
+  assert.equal(a.sampledFrames,a.eligibleFrames);
+  assert.ok(Math.abs(a.binResolutionHz-48000/8192)<1e-12);
+  const nearest=(hz)=>a.bands.reduce((best,band,i)=>
+    Math.abs(Math.log(band.centerHz/hz))<
+    Math.abs(Math.log(a.bands[best].centerHz/hz))?i:best,0);
+  const i19=nearest(1900),i52=nearest(5200);
+  const delta=i=>b.bands[i].dbfsPerHz-a.bands[i].dbfsPerHz;
+  assert.ok(Math.abs(delta(i19)-3)<.6,
+    "The measured mid band should track an applied +3 dB synthetic tone change");
+  assert.ok(Math.abs(delta(i52)+2)<.6,
+    "The 5.2 kHz band should track an applied -2 dB synthetic tone change");
+  assert.ok(a.bands.every((v,i)=>v.loHz===b.bands[i].loHz&&
+    v.bins===b.bands[i].bins));
+  const trust={
+    status:"SERVER_VERIFIED_SOURCE_RECONSTRUCTION",
+    sourceSha256:"c".repeat(64),referenceEncodedSha256:"a".repeat(64),
+    candidateEncodedSha256:"b".repeat(64),
+    referenceStartSample:1440000,candidateStartSample:1440000,
+    sampleCount:n,sampleRateHz:48000,channelCount:2,
+    independentSourceAlignmentVerified:true
+  };
+  // This synthetic proof exercises arithmetic only. No production trust source exists.
+  const paired=compareSonicLensTrustedProfiles(a,b,trust);
+  assert.deepEqual([paired.status,paired.reason,paired.scoringImpact,
+    paired.differencesDb.length],[
+    "AVAILABLE_DISPLAY_ONLY","VERIFIED_SAME_SOURCE_ALIGNED","NONE",96]);
+  assert.ok(Math.abs(paired.differencesDb[i19]-3)<.6);
+  assert.ok(Math.abs(paired.differencesDb[i52]+2)<.6);
+  assert.deepEqual({ref,altered},snapshot,"No PCM mutation");
+  assert.equal(a.encodedSha256,"a".repeat(64));
+});
+
+test("SonicLens fails closed on unsupported decoded inputs, untrusted pair, misalignment and no live score hookup",async()=>{
+  const {analyzeSonicLensMasterEqProfile,compareSonicLensTrustedProfiles}=
+    await import("../src/lib/liveAudioAnalyzer.ts");
+  assert.throws(()=>analyzeSonicLensMasterEqProfile([new Float32Array(8191)],48000),RangeError);
+  assert.throws(()=>analyzeSonicLensMasterEqProfile([new Float32Array(8192)],32000),RangeError);
+  assert.throws(()=>analyzeSonicLensMasterEqProfile([
+    new Float32Array(8192),new Float32Array(8193)],48000),RangeError);
+  const bad=new Float32Array(8192);bad[40]=NaN;
+  assert.throws(()=>analyzeSonicLensMasterEqProfile([bad],48000),RangeError);
+  const x=analyzeSonicLensMasterEqProfile([new Float32Array(8192)],48000,
+    "d".repeat(64));
+  const y=analyzeSonicLensMasterEqProfile([new Float32Array(8192)],48000,
+    "e".repeat(64));
+  assert.equal(x.bands.length,96);
+  assert.ok(x.bands.every(b=>b.dbfsPerHz===null),
+    "Silence must not be shown as a fabricated level");
+  const trusted={
+    status:"SERVER_VERIFIED_SOURCE_RECONSTRUCTION",
+    sourceSha256:"f".repeat(64),referenceEncodedSha256:"d".repeat(64),
+    candidateEncodedSha256:"e".repeat(64),
+    referenceStartSample:0,candidateStartSample:0,sampleCount:8192,
+    sampleRateHz:48000,channelCount:1,
+    independentSourceAlignmentVerified:true
+  };
+  for(const proof of [
+    undefined,null,{sameSource:true,alignedExcerpt:true},
+    {...trusted,status:"UNVERIFIED"},
+    {...trusted,independentSourceAlignmentVerified:false},
+    {...trusted,candidateStartSample:1},
+    {...trusted,sourceSha256:"not-a-sha"},
+    {...trusted,candidateEncodedSha256:"d".repeat(64)},
+    {...trusted,channelCount:2},
+    {...trusted,sampleCount:8193}
+  ]){
+    const r=compareSonicLensTrustedProfiles(x,y,proof);
+    assert.equal(r.status,"UNAVAILABLE");
+    assert.deepEqual(r.differencesDb,[]);
+    assert.equal(r.scoringImpact,"NONE");
+  }
+  const studio=await readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8");
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  assert.match(studio,/Auralis SonicLens Master EQ Profile/);
+  assert.match(studio,/analyzeSonicLensMasterEqProfile/);
+  assert.doesNotMatch(studio,/getSimulatedPath|BAND_IDEALS/);
+  const harmonic=studio.split("VIEW 1: Measured SonicLens")[1].split("VIEW 2: Signal")[0];
+  assert.doesNotMatch(harmonic,/simulated filter response|Hit Blueprint|Target frequency zone|Optimal Present Vocal Pocket/);
+  assert.match(harmonic,/Paired frequency-difference view: UNAVAILABLE/);
+  assert.doesNotMatch(app,/compareSonicLensTrustedProfiles|analyzeSonicLensMasterEqProfile/);
+  assert.doesNotMatch(server,/compareSonicLensTrustedProfiles|analyzeSonicLensMasterEqProfile/);
+  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+});
