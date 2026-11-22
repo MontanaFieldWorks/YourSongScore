@@ -1903,8 +1903,10 @@ test("Stage 3F-18 fail-closed paired shadow: real/archive untrusted, materiality
   const d=(crit=c,a=audit,r=ref,p=ctx)=>
     m.evaluateAuralisStage3F18PairedA2Shadow(crit,a,r,p);
   assert.equal(d().status,"SYNTHETIC_HYPOTHETICAL_ONLY");
+  assert.equal(m.evaluateAuralisStage3F18PairedA2Shadow(c,audit,ref).status,
+    "EVIDENCE_ONLY","Omitted context must fail closed");
   for(const invalid of [
-    undefined,
+    null,
     {...ctx,evidenceScope:"REVIEWED_REAL_RECORDING_SHADOW_ONLY"},
     {...ctx,pairLineage:{...ctx.pairLineage,sourceIdentity:"UNVERIFIED"}},
     {...ctx,pairLineage:{...ctx.pairLineage,sameSource:false}},
