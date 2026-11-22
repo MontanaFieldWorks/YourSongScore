@@ -6016,7 +6016,7 @@ test("SonicLens fails closed on unsupported decoded inputs, untrusted pair, misa
   assert.doesNotMatch(studio,/getSimulatedPath|BAND_IDEALS/);
   const harmonic=studio.split("VIEW 1: Measured SonicLens")[1].split("VIEW 2: Signal")[0];
   assert.doesNotMatch(harmonic,/simulated filter response|Hit Blueprint|Target frequency zone|Optimal Present Vocal Pocket/);
-  assert.match(harmonic,/Paired frequency-difference view: UNAVAILABLE/);
+  assert.match(studio,/Paired frequency-difference view: UNAVAILABLE/);
   assert.doesNotMatch(app,/compareSonicLensTrustedProfiles|analyzeSonicLensMasterEqProfile/);
   assert.doesNotMatch(server,/compareSonicLensTrustedProfiles|analyzeSonicLensMasterEqProfile/);
   assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
