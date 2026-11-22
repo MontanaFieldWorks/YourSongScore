@@ -132,6 +132,30 @@ export interface LiveAudioMetrics {
   calculatedSectionBoundaries?: number[] | null;
 }
 
+/** Display-only SonicLens power-density measurements saved with a successful report.
+ * No original mastering EQ settings, genre reference, defect decision, score or
+ * trusted source-pair lineage can be inferred from this single-master spectrum.
+ */
+export interface SonicLensSavedMasterEqProfile {
+  schemaVersion: "soniclens-saved-master-eq-v1";
+  status: "AVAILABLE";
+  scoringImpact: "NONE";
+  sourceIdentity: "LOCALLY_DECODED_PCM_AT_ANALYSIS";
+  sampleRateHz: number;
+  channels: number;
+  inputSamplesPerChannel: number;
+  fftSize: 8192;
+  hopSize: 4096;
+  eligibleFrames: number;
+  sampledFrames: number;
+  frameSelection: "EVENLY_SPACED_MAX_192";
+  binResolutionHz: number;
+  window: "PERIODIC_HANN";
+  normalization: "ONE_SIDED_PARSEVAL_WINDOW_POWER";
+  units: "dBFS_PER_HZ";
+  bands: {loHz:number;hiHz:number;centerHz:number;bins:number;dbfsPerHz:number|null}[];
+}
+
 export interface CritiqueData {
   productionScoringVersion?: string;
   vibe: VibeCritique;
@@ -158,6 +182,8 @@ export interface CritiqueData {
     };
   };
   liveMetrics?: LiveAudioMetrics;
+  /** Score-inert compact local-PCM spectral profile, captured once and saved with the critique. */
+  auralisMasterEqProfile?: SonicLensSavedMasterEqProfile;
   userValence?: number;
   userEnergy?: number;
   subMetricsCall1?: any;
