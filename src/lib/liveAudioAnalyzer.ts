@@ -1,4 +1,4 @@
-import type { LiveAudioMetrics } from "../types";
+import type { LiveAudioMetrics, SonicLensSavedMasterEqProfile } from "../types";
 import FFT from "fft.js";
 
 // Lazily-loaded essentia.js instance - loaded once per page session, reused across
@@ -3483,4 +3483,119 @@ export function interpretStage2d3CrossMeasurementEvidence(
       "No quality score, instrument identification, genre expectation, confidence probability or effect on production reports.",
     ],
   };
+}
+
+
+// Mix Balance Quality / Auralis SonicLens static-report display only.
+// Independent of the existing Auralis Worker, Gemini, all DSP scores/caps and
+// the interactive Engineering Studio. This measures the decoded audio power
+// spectrum, NOT the mastering EQ transfer curve or a professional target.
+export const SONICLENS_SAVED_EQ_VERSION = "soniclens-saved-master-eq-v1" as const;
+
+/** Pure bounded spectral measurement: 8192-point periodic Hann, 96 log bands.
+ * Every band is a one-sided Parseval-normalized power density in dBFS/Hz.
+ * Source identity is decoded PCM at analysis time ONLY; this is never
+ * evidence of a verified reference/candidate pair or engineering defect.
+ */
+export function measureSonicLensSavedMasterEq(
+  channels: Float32Array[], sampleRateHz: number,
+): SonicLensSavedMasterEqProfile {
+  const fftSize=8192 as const, hopSize=4096 as const, bandCount=96;
+  const sampleCount=channels[0]?.length??0;
+  if(channels.length<1||channels.length>2||
+    !channels.every(c=>c instanceof Float32Array&&c.length===sampleCount)||
+    sampleCount<fftSize||!Number.isFinite(sampleRateHz)||
+    sampleRateHz<40000||sampleRateHz>192000||
+    sampleCount*channels.length*4>128*1024*1024)
+    throw new RangeError("SonicLens requires bounded equal-length mono/stereo PCM >=8192 samples at >=40 kHz");
+  const eligibleFrames=1+Math.floor((sampleCount-fftSize)/hopSize);
+  const sampledFrames=Math.min(eligibleFrames,192);
+  const edges=Array.from({length:bandCount+1},(_,i)=>20*Math.pow(1000,i/bandCount));
+  const binResolutionHz=sampleRateHz/fftSize;
+  const binCounts=new Uint32Array(bandCount);
+  const binToBand=new Int16Array(fftSize/2+1).fill(-1);
+  const nyquist=sampleRateHz/2;
+  for(let k=1;k<=fftSize/2;k++){
+    const hz=k*binResolutionHz;
+    if(hz<20||hz>=20000||hz>=nyquist)continue;
+    const b=Math.min(bandCount-1,Math.floor(bandCount*Math.log(hz/20)/Math.log(1000)));
+    if(b>=0){binToBand[k]=b;binCounts[b]++;}
+  }
+  const fft=new FFT(fftSize);
+  const window=Float64Array.from({length:fftSize},(_,i)=>.5-.5*Math.cos(2*Math.PI*i/fftSize));
+  const windowPower=window.reduce((sum,value)=>sum+value*value,0);
+  const input=fft.createComplexArray(), output=fft.createComplexArray();
+  const powers=new Float64Array(bandCount);
+  for(let f=0;f<sampledFrames;f++){
+    const idx=sampledFrames===1?0:Math.floor(f*(eligibleFrames-1)/(sampledFrames-1));
+    const start=idx*hopSize;
+    for(const ch of channels){
+      for(let i=0;i<fftSize;i++){
+        const value=ch[start+i];
+        if(!Number.isFinite(value))throw new RangeError("Nonfinite SonicLens sampled PCM");
+        input[2*i]=value*window[i];
+        input[2*i+1]=0;
+      }
+      fft.transform(output,input);
+      for(let k=1;k<=fftSize/2;k++){
+        const band=binToBand[k];
+        if(band<0)continue;
+        const re=output[k*2],im=output[k*2+1];
+        powers[band]+=(k===fftSize/2?1:2)*(re*re+im*im)/(fftSize*windowPower);
+      }
+    }
+  }
+  const bands=Array.from({length:bandCount},(_,b)=>{
+    const density=binCounts[b]?
+      powers[b]/(sampledFrames*channels.length*binCounts[b]*binResolutionHz):0;
+    return {
+      loHz:edges[b],hiHz:edges[b+1],centerHz:Math.sqrt(edges[b]*edges[b+1]),
+      bins:binCounts[b],
+      dbfsPerHz:binCounts[b]&&density>0&&Number.isFinite(density)?10*Math.log10(density):null
+    };
+  });
+  return {
+    schemaVersion:SONICLENS_SAVED_EQ_VERSION,
+    status:"AVAILABLE",scoringImpact:"NONE",
+    sourceIdentity:"LOCALLY_DECODED_PCM_AT_ANALYSIS",
+    sampleRateHz,channels:channels.length,inputSamplesPerChannel:sampleCount,
+    fftSize,hopSize,eligibleFrames,sampledFrames,
+    frameSelection:"EVENLY_SPACED_MAX_192",binResolutionHz,
+    window:"PERIODIC_HANN",normalization:"ONE_SIDED_PARSEVAL_WINDOW_POWER",
+    units:"dBFS_PER_HZ",bands,
+  };
+}
+
+/** Fail closed on absent, legacy, malformed or non-measurement report objects.
+ * Never reconstruct missing spectra from the preexisting 7 broad bands.
+ */
+export function isValidSonicLensSavedMasterEq(value:unknown):value is SonicLensSavedMasterEqProfile{
+  if(!value||typeof value!=="object")return false;
+  const p=value as Partial<SonicLensSavedMasterEqProfile>;
+  const finite=(x:unknown):x is number=>typeof x==="number"&&Number.isFinite(x);
+  if(p.schemaVersion!==SONICLENS_SAVED_EQ_VERSION||
+     p.status!=="AVAILABLE"||p.scoringImpact!=="NONE"||
+     p.sourceIdentity!=="LOCALLY_DECODED_PCM_AT_ANALYSIS"||
+     p.fftSize!==8192||p.hopSize!==4096||
+     p.frameSelection!=="EVENLY_SPACED_MAX_192"||
+     p.window!=="PERIODIC_HANN"||
+     p.normalization!=="ONE_SIDED_PARSEVAL_WINDOW_POWER"||
+     p.units!=="dBFS_PER_HZ"||
+     !finite(p.sampleRateHz)||p.sampleRateHz<40000||p.sampleRateHz>192000||
+     (p.channels!==1&&p.channels!==2)||
+     !Number.isSafeInteger(p.inputSamplesPerChannel)||p.inputSamplesPerChannel!<8192||
+     !Number.isSafeInteger(p.eligibleFrames)||p.eligibleFrames!<1||
+     !Number.isSafeInteger(p.sampledFrames)||p.sampledFrames!<1||p.sampledFrames!>192||
+     p.sampledFrames!>p.eligibleFrames!||
+     !finite(p.binResolutionHz)||Math.abs(p.binResolutionHz-p.sampleRateHz/8192)>1e-8||
+     !Array.isArray(p.bands)||p.bands.length!==96)return false;
+  return p.bands.every((b,i)=>{
+    if(!b||typeof b!=="object")return false;
+    const lo=20*Math.pow(1000,i/96),hi=20*Math.pow(1000,(i+1)/96);
+    return finite(b.loHz)&&finite(b.hiHz)&&finite(b.centerHz)&&
+      Math.abs(b.loHz-lo)<1e-6&&Math.abs(b.hiHz-hi)<1e-6&&
+      Math.abs(b.centerHz-Math.sqrt(lo*hi))<1e-6&&
+      Number.isSafeInteger(b.bins)&&b.bins>=0&&b.bins<=4096&&
+      (b.dbfsPerHz===null||(finite(b.dbfsPerHz)&&b.dbfsPerHz>-600&&b.dbfsPerHz<200));
+  });
 }
