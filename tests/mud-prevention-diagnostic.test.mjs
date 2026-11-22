@@ -1931,7 +1931,14 @@ test("Stage 3F-18 fail-closed paired shadow: real/archive untrusted, materiality
     {...ctx,candidateExecution:{...ctx.candidateExecution,status:"UNAVAILABLE"}},
   ])assert.equal(d(c,audit,ref,v).candidateCap,null);
   assert.equal(d(c,audit,e(1.3561)).candidateCap,null,"No paired change");
-  assert.equal(d(c,audit,e(-2.1592)).candidateCap,null,"Clipping control is not low-upper degradation");
+  const clipped=structuredClone(c);
+  clipped.auralisEngineering=e(-2.1592);
+  clipped.auralisExecution=m.classifyAuralisExecution("AVAILABLE",clipped.auralisEngineering);
+  const clippedAudit=m.buildAuralisBetaScoringAudit(clipped,88);
+  clipped.auralisBetaScoringAudit=clippedAudit;
+  assert.equal(d(clipped,clippedAudit,ref,{...ctx,
+    candidateExecution:clipped.auralisExecution}).candidateCap,null,
+    "Reference to clipped control has no material low-to-upper rise");
   assert.equal(d(c,audit,e(1.3561-2.999)).candidateCap,null,
     "Unrounded sub-3 dB change must remain descriptive");
   for(const changed of [
