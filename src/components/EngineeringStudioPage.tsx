@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import FFT from "fft.js";
+import { SonicLensMixBalanceReport } from "./CritiqueDisplay";
 import { 
   ArrowLeft, ArrowRight, Volume2, Sliders, Mic, CheckCircle, Square, Play, Pause, 
   Activity, Sparkles, Cpu, AlertTriangle, Check, RotateCcw, Compass, Layers, CheckSquare,
@@ -1164,6 +1165,18 @@ const generateHarmonicNodes = () => {
                       return "Harmonic profile is well balanced. Light vintage tape drive (+0.5dB, 30 ips) would add cohesion across the high-mid transient peaks.";
                     })()}
                   </div>
+
+                  {/* Display-only SonicLens evidence. Original Harmonic Resolution curve,
+                      all selectable nodes, solver, guidance and checklists above stay intact.
+                      Native details keeps the graph separate from simulated EQ correction. */}
+                  <details className="group rounded-2xl border border-cyan-500/20 bg-[#0A0B0E]/70 mt-3">
+                    <summary className="cursor-pointer select-none px-4 py-3 text-xs font-mono font-bold tracking-wider text-cyan-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-400">
+                      Measured SonicLens spectrum (dBFS/Hz) — expand
+                    </summary>
+                    <div className="border-t border-white/10 px-4 pb-4">
+                      <SonicLensMixBalanceReport profile={critique?.auralisMasterEqProfile} context="studio"/>
+                    </div>
+                  </details>
 
                 </div>
               )}
