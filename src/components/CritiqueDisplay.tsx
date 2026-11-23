@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { CritiqueData, TrackInfo, LiveAudioMetrics } from "../types";
+import { isValidSonicLensSavedMasterEq } from "../lib/liveAudioAnalyzer";
 import { getSubgenreProfile, getVectorTargets, getCritiqueAndFix } from "../data/musicData";
 import { updateTrackFields } from "../firebase";
 import ExcelJS from "exceljs";
@@ -779,6 +780,98 @@ export function computeCategoryScores(critique: any) {
     overall: Math.round(overallProductionVal),
     mix: Math.round(critique?.mixQuality?.score ?? 75),
   };
+}
+
+
+// Static Mix Balance Quality report component: NEVER reads audio, makes AI calls,
+// writes scores, or exposes the Engineering Studio's independent interactive EQ.
+// A saved high-resolution PCM measurement is the only permitted curve source.
+function SonicLensMixBalanceReport({profile}:{profile:unknown}){
+  const valid=isValidSonicLensSavedMasterEq(profile)?profile:null;
+  const points=valid?.bands.filter(b=>b.dbfsPerHz!==null)??[];
+  const levels=points.map(b=>b.dbfsPerHz as number);
+  const minDb=levels.length?Math.floor(Math.min(...levels)/10)*10:-140;
+  const maxDb=levels.length?Math.ceil(Math.max(...levels)/10)*10:-30;
+  const bottom=Math.min(minDb,maxDb-20), top=maxDb;
+  const x=(hz:number)=>62+808*Math.log(hz/20)/Math.log(1000);
+  const y=(db:number)=>250-200*(db-bottom)/(top-bottom);
+  let path="",connected=false;
+  if(valid){
+    for(const band of valid.bands){
+      if(band.dbfsPerHz===null){connected=false;continue;}
+      path+=(connected?" L":" M")+x(band.centerHz).toFixed(2)+" "+y(band.dbfsPerHz).toFixed(2);
+      connected=true;
+    }
+  }
+  const ticks=[20,50,100,200,500,1000,2000,5000,10000,20000];
+  return (
+    <section aria-label="Auralis SonicLens Master EQ Profile" className="mt-6 border-t border-white/5 pt-5 flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <h4 className="text-xs font-mono uppercase tracking-widest text-blue-400 font-bold">
+          Auralis SonicLens Master EQ Profile
+        </h4>
+        <p className="text-[11px] text-slate-400">
+          Actual measured spectral power of the decoded master (20 Hz–20 kHz).
+          This is not the mastering EQ settings, a genre-hit target, or an automatic quality verdict.
+        </p>
+      </div>
+      {!valid?(
+        <div className="bg-[#0A0B0E] rounded-xl p-5 border border-amber-500/20 text-amber-300 text-xs leading-relaxed">
+          Measured spectrum unavailable for this saved report. Earlier analyses did not store
+          high-resolution SonicLens measurements. No synthetic curve, genre target, or
+          seven-band extrapolation is substituted. Existing Mix Balance scoring and
+          commentary remain available below.
+        </div>
+      ):levels.length===0?(
+        <div className="bg-[#0A0B0E] rounded-xl p-5 text-slate-400 text-xs border border-white/10">
+          No finite spectral power in sampled windows. No curve is drawn.
+        </div>
+      ):(
+        <div className="bg-[#0A0B0E] rounded-xl border border-white/10 p-3">
+          <svg viewBox="0 0 920 302" className="w-full" role="img" aria-label="Measured logarithmic frequency spectrum, decibels full scale per hertz">
+            {[0,1,2,3,4].map(i=>{
+              const d=bottom+(top-bottom)*i/4;
+              return <g key={i}>
+                <line x1="62" x2="870" y1={y(d)} y2={y(d)} stroke="#334155" strokeWidth=".75"/>
+                <text x="55" y={y(d)+3} fontSize="11" textAnchor="end" fill="#94a3b8">{d.toFixed(0)}</text>
+              </g>;
+            })}
+            {ticks.map(hz=><g key={hz}>
+              <line x1={x(hz)} x2={x(hz)} y1="40" y2="250" stroke="#334155" strokeWidth=".75"/>
+              <text x={x(hz)} y="270" fontSize="11" textAnchor="middle" fill="#94a3b8">
+                {hz>=1000?String(hz/1000)+"k":hz}
+              </text>
+            </g>)}
+            <text x="12" y="24" fontSize="11" fill="#94a3b8">dBFS/Hz</text>
+            <text x="466" y="294" textAnchor="middle" fontSize="11" fill="#94a3b8">
+              Frequency (Hz, logarithmic)
+            </text>
+            <path d={path} stroke="#60a5fa" strokeWidth="2.2" fill="none" strokeLinejoin="round"/>
+            {points.map((b,i)=><circle key={i}
+              cx={x(b.centerHz)} cy={y(b.dbfsPerHz!)} r="1.8" fill="#60a5fa">
+                <title>{Math.round(b.centerHz)+" Hz · "+b.dbfsPerHz!.toFixed(1)+" dBFS/Hz · "+b.bins+" bins"}</title>
+              </circle>)}
+          </svg>
+        </div>
+      )}
+      {valid&&(
+        <div className="font-mono text-[10px] text-slate-400 leading-relaxed">
+          Measured PCM at analysis · {valid.sampleRateHz} Hz · {valid.channels} channels ·
+          {valid.fftSize}-point periodic Hann FFT · {valid.binResolutionHz.toFixed(2)} Hz/bin ·
+          {valid.sampledFrames}/{valid.eligibleFrames} evenly spaced frames · 96 logarithmic bands ·
+          one-sided window-power normalization · dBFS/Hz.
+          Finite bins and sampled windows limit precision; browser decoding may resample.
+        </div>
+      )}
+      <div className="text-[11px] text-amber-200/90 border border-amber-500/15 rounded-lg px-3 py-2">
+        Paired EQ difference: UNAVAILABLE. No server-trusted, sample-aligned reference/candidate
+        identity is attached; a single-master spectrum cannot reveal applied EQ changes.
+      </div>
+      <p className="text-[10px] text-slate-500">
+        SonicLens display only · scoringImpact NONE · no effect on Gemini, A2, Mix Balance score or Auralis 79 cap.
+      </p>
+    </section>
+  );
 }
 
 export default function CritiqueDisplay({ critique, trackInfo, onClear, localFileBlobUrl, onViewDefinition, onOpenArConsult, onNavigateToRabbitHole, onNavigateToEngineeringStudio, onReportBuilderReady }: CritiqueDisplayProps) {
@@ -3434,75 +3527,24 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
       case "mix":
         return (
-          <div className="mt-6 border-t border-white/5 pt-5 flex flex-col gap-5">
-            <h4 className="text-xs font-mono uppercase tracking-widest text-blue-400 font-bold flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-              Comparative Spectral Blueprint Analyzer overlay
-            </h4>
-            
-            <div className="bg-[#0A0B0E] p-5 rounded-xl border border-white/10 relative overflow-hidden">
-              <span className="text-[12px] font-mono text-blue-400 uppercase tracking-wider block mb-1">
-                20Hz - 20kHz Soundstage Profile Density
-              </span>
-              <span className="text-[11px] font-semibold text-slate-500 block mb-4">
-                Solid Blue: Your Track | Dashed Teal: Target "Successful" Modern Indie Hit Blueprint
-              </span>
-              
-              <div className="h-44 w-full relative flex flex-col justify-between">
-                {/* SVG Curves */}
-                <svg className="absolute inset-0 w-full h-[150px] overflow-visible" viewBox="0 0 500 100" preserveAspectRatio="none">
-                  {/* Vertical dividers */}
-                  <line x1="50" y1="0" x2="50" y2="100" stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="2 2" />
-                  <line x1="150" y1="0" x2="150" y2="100" stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="2 2" />
-                  <line x1="300" y1="0" x2="300" y2="100" stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="2 2" />
-                  <line x1="420" y1="0" x2="420" y2="100" stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="2 2" />
-                  
-                  {/* Reference Blueprint curve (dashed teal) */}
-                  <path
-                    d="M 0,90 Q 50,20 100,50 T 200,45 T 300,60 T 400,35 T 500,80"
-                    fill="none"
-                    stroke="#14b8a6"
-                    strokeWidth="2"
-                    strokeDasharray="4 4"
-                    opacity="0.6"
-                  />
-                  
-                  {/* Your Track curve (solid glowing blue) */}
-                  <path
-                    d="M 0,94 Q 45,15 90,62 T 185,55 T 290,52 T 405,25 T 500,85"
-                    fill="none"
-                    stroke="#3b82f6"
-                    strokeWidth="3.5"
-                  />
-                  
-                  {/* Flagged Deltas of interest */}
-                  <circle cx="45" cy="15" r="4.5" fill="#ef4444" />
-                  <circle cx="405" cy="25" r="4.5" fill="#22c55e" />
-                </svg>
-                
-                {/* Spectral Delta Labels */}
-                <div className="absolute top-1 left-[55px] text-[11px] font-mono text-rose-400 bg-rose-955/50 px-2 py-0.5 border border-rose-500/20 rounded">
-                  Delta +1.8dB at 180Hz (Bass Overlap / Mud Zone)
-                </div>
-                <div className="absolute top-16 right-[100px] text-[11px] font-mono text-emerald-400 bg-emerald-955/50 px-2 py-0.5 border border-emerald-500/20 rounded">
-                  Delta -0.5dB at 4.5kHz (Optimal Present Vocal Pocket!)
-                </div>
-
-                <div className="mt-auto flex justify-between text-[11px] font-mono text-slate-500 pt-2 border-t border-white/5">
-                  <span>Sub-Bass (20-60Hz)</span>
-                  <span>Low-Mids (250Hz)</span>
-                  <span>Midrange (1kHz)</span>
-                  <span>Presence (4.5kHz)</span>
-                  <span>Brilliance (12k-20kHz)</span>
-                </div>
-              </div>
-            </div>
-
+          <div className="flex flex-col gap-4">
+            <SonicLensMixBalanceReport profile={critique.auralisMasterEqProfile}/>
             <div className="bg-[#13161C]/50 p-4 rounded-xl border border-white/5">
-              <h5 className="text-xs font-semibold text-slate-300">Why did I receive {score}/100?</h5>
-              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-                Your mid-frequency panning width is spectacular, but we diagnosed potential excess clutter in the low-mid (150Hz–180Hz) crossover zone. This causes brief phases where vocal transients match instrument harmonics. Notching this dynamic region on your master bus by 1.8dB restores competitive modern punch.
+              <h5 className="text-xs font-semibold text-slate-300">Existing A&amp;R Mix Balance feedback</h5>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Commentary from the existing analysis, not derived from SonicLens frequency measurements.
+                The existing {score}/100 metric and underlying score calculation are unchanged.
               </p>
+              {critique.mixQuality?.frequencyBalance&&(
+                <div className="text-xs text-slate-300 mt-2 flex flex-col gap-1">
+                  {critique.mixQuality.frequencyBalance.lowEnd&&<p>Low end: {critique.mixQuality.frequencyBalance.lowEnd}</p>}
+                  {critique.mixQuality.frequencyBalance.midrange&&<p>Midrange: {critique.mixQuality.frequencyBalance.midrange}</p>}
+                  {critique.mixQuality.frequencyBalance.highEnd&&<p>High end: {critique.mixQuality.frequencyBalance.highEnd}</p>}
+                </div>
+              )}
+              {critique.mixQuality?.dominanceIssues&&(
+                <p className="text-xs text-slate-300 mt-2">{critique.mixQuality.dominanceIssues}</p>
+              )}
             </div>
           </div>
         );

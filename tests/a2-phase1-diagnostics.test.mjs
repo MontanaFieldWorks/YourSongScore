@@ -5915,3 +5915,100 @@ test("Stage 3F-15 unavailable and malicious critique content fail closed in Exce
   assert.ok(rows.every(row=>typeof row.value==="number"||typeof row.value==="string"));
   assert.ok(rows.every(row=>typeof row.value!=="number"||Number.isFinite(row.value)));
 });
+
+
+test("SonicLens saved Mix Balance profile: measured 1.9k boost and 5.2k notch are separable without scoring",async()=>{
+  const {measureSonicLensSavedMasterEq,isValidSonicLensSavedMasterEq,
+    SONICLENS_SAVED_EQ_VERSION}=await import("../src/lib/liveAudioAnalyzer.ts");
+  const rate=48000,n=48000,pristine=new Float32Array(n),custom=new Float32Array(n);
+  const lift=Math.pow(10,3/20),dip=Math.pow(10,-2/20);
+  for(let i=0;i<n;i++){
+    const t=i/rate,mid=.16*Math.sin(2*Math.PI*1900*t),
+      presence=.16*Math.sin(2*Math.PI*5200*t);
+    pristine[i]=mid+presence;
+    custom[i]=mid*lift+presence*dip;
+  }
+  const beforeP=pristine.slice(),beforeC=custom.slice();
+  const a=measureSonicLensSavedMasterEq([pristine,pristine],rate);
+  const b=measureSonicLensSavedMasterEq([custom,custom],rate);
+  assert.ok(isValidSonicLensSavedMasterEq(a));
+  assert.ok(isValidSonicLensSavedMasterEq(b));
+  assert.equal(a.schemaVersion,SONICLENS_SAVED_EQ_VERSION);
+  assert.deepEqual([a.status,a.scoringImpact,a.sourceIdentity,a.units,a.fftSize,
+    a.hopSize,a.window,a.sampleRateHz,a.channels,a.bands.length],
+    ["AVAILABLE","NONE","LOCALLY_DECODED_PCM_AT_ANALYSIS","dBFS_PER_HZ",
+      8192,4096,"PERIODIC_HANN",48000,2,96]);
+  const near=hz=>a.bands.reduce((best,band,i)=>
+    Math.abs(Math.log(band.centerHz/hz))<
+    Math.abs(Math.log(a.bands[best].centerHz/hz))?i:best,0);
+  const delta=hz=>b.bands[near(hz)].dbfsPerHz-a.bands[near(hz)].dbfsPerHz;
+  assert.ok(Math.abs(delta(1900)-3)<.6,"Measured mid power density should rise by ~3 dB");
+  assert.ok(Math.abs(delta(5200)+2)<.6,"Measured 5.2k power density should fall by ~2 dB");
+  assert.equal(a.eligibleFrames,a.sampledFrames);
+  assert.ok(a.binResolutionHz>5&&a.binResolutionHz<6);
+  assert.deepEqual(pristine,beforeP,"Pristine PCM unchanged");
+  assert.deepEqual(custom,beforeC,"Modified PCM unchanged");
+  const serialized=JSON.parse(JSON.stringify(a));
+  assert.ok(isValidSonicLensSavedMasterEq(serialized),
+    "Profile must survive JSON storage and reopen without the MP3");
+  assert.ok(JSON.stringify(serialized).length<24000,"Saved measurements stay compact");
+  assert.equal(Object.hasOwn(a,"score"),false);
+  assert.equal(Object.hasOwn(a,"adjustments"),false);
+  assert.equal(Object.hasOwn(a,"referenceEncodedSha256"),false);
+});
+
+test("SonicLens Mix Balance saved report fails closed: no old 7-band fallback, malformed records rejected",async()=>{
+  const {measureSonicLensSavedMasterEq,isValidSonicLensSavedMasterEq}=await import("../src/lib/liveAudioAnalyzer.ts");
+  const zeros=new Float32Array(8192);
+  const profile=measureSonicLensSavedMasterEq([zeros],48000);
+  assert.ok(isValidSonicLensSavedMasterEq(profile));
+  assert.ok(profile.bands.every(b=>b.dbfsPerHz===null),
+    "Silent samples are null rather than a fabricated decibel curve");
+  assert.equal(isValidSonicLensSavedMasterEq(undefined),false);
+  assert.equal(isValidSonicLensSavedMasterEq({calculatedBassBandEnergy:74,
+    calculatedCoreMidsBandEnergy:46,calculatedPresenceBandEnergy:11}),false);
+  for(const invalid of [
+    {...profile,status:"UNVERIFIED"},
+    {...profile,scoringImpact:"DOWNWARD"},
+    {...profile,sourceIdentity:"HISTORICAL_UNVERIFIED"},
+    {...profile,sampleRateHz:32000},
+    {...profile,bands:profile.bands.slice(0,7)},
+    {...profile,bands:profile.bands.map((b,i)=>i===45?{...b,dbfsPerHz:NaN}:b)},
+    {...profile,bands:profile.bands.map((b,i)=>i===55?{...b,centerHz:5200}:b)},
+    {...profile,bands:profile.bands.map((b,i)=>i===12?{...b,bins:-1}:b)},
+  ])assert.equal(isValidSonicLensSavedMasterEq(invalid),false);
+  assert.throws(()=>measureSonicLensSavedMasterEq([new Float32Array(8191)],48000),RangeError);
+  assert.throws(()=>measureSonicLensSavedMasterEq([new Float32Array(8192)],22050),RangeError);
+  assert.throws(()=>measureSonicLensSavedMasterEq([
+    new Float32Array(8192),new Float32Array(8193)],48000),RangeError);
+  const bad=new Float32Array(8192);bad[100]=Number.NaN;
+  assert.throws(()=>measureSonicLensSavedMasterEq([bad],48000),RangeError);
+});
+
+test("SonicLens static relocation is confined to Mix Balance, preserves interactive Studio and scores",async()=>{
+  const [display,studio,app,server]=await Promise.all([
+    readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8"),
+    readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8"),
+    readFile(new URL("../src/App.tsx",import.meta.url),"utf8"),
+    readFile(new URL("../server.ts",import.meta.url),"utf8"),
+  ]);
+  const mix=display.split('      case "mix":\n        return (')[1]?.split('      case "flow":')[0];
+  assert.ok(mix,"Mix Balance detail block should exist");
+  assert.match(mix,/SonicLensMixBalanceReport profile=\{critique.auralisMasterEqProfile\}/);
+  assert.doesNotMatch(mix,/Comparative Spectral Blueprint|Target "Successful" Modern Indie Hit|Delta \+1\.8dB|Delta -0\.5dB|Notching this dynamic region/);
+  assert.match(display,/Me[a-z]+ed spectrum unavailable for this saved report/);
+  assert.match(display,/Paired EQ difference: UNAVAILABLE/);
+  assert.match(display,/Existing A&amp;R Mix Balance feedback/);
+  assert.match(studio,/getSimulatedPath/);
+  assert.match(studio,/Acoustic EQ Solver/);
+  assert.doesNotMatch(studio,/SonicLensMixBalanceReport|SonicLensMasterEqPanel/);
+  const direct=app.split("  const handleSubmitFile = async () => {")[1]
+    .split("  const analyzeInternalBatchFile = async (")[0];
+  assert.ok(direct.indexOf("executeAuralisReviewed79Score(")<
+    direct.indexOf("if (savedMasterEq) overriddenCritique.auralisMasterEqProfile"),
+    "Saved plot evidence only attaches after scoring");
+  assert.match(app,/measureSonicLensSavedMasterEq/);
+  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.doesNotMatch(server,/SonicLensMixBalanceReport|measureSonicLensSavedMasterEq/);
+});
