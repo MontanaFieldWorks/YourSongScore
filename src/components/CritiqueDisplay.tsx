@@ -783,10 +783,14 @@ export function computeCategoryScores(critique: any) {
 }
 
 
-// Static Mix Balance Quality report component: NEVER reads audio, makes AI calls,
-// writes scores, or exposes the Engineering Studio's independent interactive EQ.
-// A saved high-resolution PCM measurement is the only permitted curve source.
-function SonicLensMixBalanceReport({profile}:{profile:unknown}){
+// Shared score-inert saved-spectrum view for Mix Balance and Engineering Studio.
+// Never reads audio, makes AI calls, changes scores, or affects interactive EQ.
+// A validated, saved high-resolution PCM measurement is its only curve source.
+export function SonicLensMixBalanceReport({
+  profile, context = "mix",
+}:{
+  profile:unknown; context?:"mix"|"studio";
+}){
   const valid=isValidSonicLensSavedMasterEq(profile)?profile:null;
   const points=valid?.bands.filter(b=>b.dbfsPerHz!==null)??[];
   const levels=points.map(b=>b.dbfsPerHz as number);
@@ -819,8 +823,9 @@ function SonicLensMixBalanceReport({profile}:{profile:unknown}){
         <div className="bg-[#0A0B0E] rounded-xl p-5 border border-amber-500/20 text-amber-300 text-xs leading-relaxed">
           Measured spectrum unavailable for this saved report. Earlier analyses did not store
           high-resolution SonicLens measurements. No synthetic curve, genre target, or
-          seven-band extrapolation is substituted. Existing Mix Balance scoring and
-          commentary remain available below.
+          seven-band extrapolation is substituted. {context==="studio"
+            ? "The original interactive EQ Solver and recommendations remain available above."
+            : "Existing Mix Balance scoring and commentary remain available below."}
         </div>
       ):levels.length===0?(
         <div className="bg-[#0A0B0E] rounded-xl p-5 text-slate-400 text-xs border border-white/10">
@@ -863,10 +868,6 @@ function SonicLensMixBalanceReport({profile}:{profile:unknown}){
           Finite bins and sampled windows limit precision; browser decoding may resample.
         </div>
       )}
-      <div className="text-[11px] text-amber-200/90 border border-amber-500/15 rounded-lg px-3 py-2">
-        Paired EQ difference: UNAVAILABLE. No server-trusted, sample-aligned reference/candidate
-        identity is attached; a single-master spectrum cannot reveal applied EQ changes.
-      </div>
       <p className="text-[10px] text-slate-500">
         SonicLens display only · scoringImpact NONE · no effect on Gemini, A2, Mix Balance score or Auralis 79 cap.
       </p>
