@@ -660,6 +660,10 @@ const deepCleanFirestoreObject = (val: any): any => {
   if (val === null || val === undefined) {
     return undefined;
   }
+  // The validated SonicLens profile intentionally stores null for empty FFT
+  // bins. Preserve only this exact score-inert schema during normal report
+  // saves; all other values still use the historical null-stripping policy.
+  if (isValidSonicLensSavedMasterEq(val)) return val;
   if (Array.isArray(val)) {
     return val
       .map(item => deepCleanFirestoreObject(item))
