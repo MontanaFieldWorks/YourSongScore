@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import FFT from "fft.js";
 import { SonicLensMixBalanceReport } from "./CritiqueDisplay";
+import { isValidSonicLensSavedMasterEq } from "../lib/liveAudioAnalyzer";
 import { 
   ArrowLeft, ArrowRight, Volume2, Sliders, Mic, CheckCircle, Square, Play, Pause, 
   Activity, Sparkles, Cpu, AlertTriangle, Check, RotateCcw, Compass, Layers, CheckSquare,
@@ -67,6 +68,7 @@ interface EngineeringStudioPageProps {
   trackInfo: any;
   localFileBlobUrl: string | null;
   onNavigateToEngineeringDetails?: () => void;
+  onMeasureCachedSpectrum?: () => Promise<string>;
 }
 
 interface HarmonicNode {
@@ -314,11 +316,28 @@ function renderRhythmPreview(metrics: any): string | null {
   return null;
 }
 
-export default function EngineeringStudioPage({ onBack, critique, trackInfo, localFileBlobUrl, onNavigateToEngineeringDetails }: EngineeringStudioPageProps) {
+export default function EngineeringStudioPage({ onBack, critique, trackInfo, localFileBlobUrl, onNavigateToEngineeringDetails, onMeasureCachedSpectrum }: EngineeringStudioPageProps) {
   const trackName = trackInfo?.name || "Independent Demo Track";
   const artistName = trackInfo?.artist || "Independent Songwriter";
   const coverArt = trackInfo?.coverArt;
   const audioSourceUrl = localFileBlobUrl || "";
+  const [cachedSpectrumMeasuring, setCachedSpectrumMeasuring] = useState(false);
+  const [cachedSpectrumMessage, setCachedSpectrumMessage] = useState<string | null>(null);
+  const cachedSpectrumClickRef = useRef(false);
+  const handleCachedSpectrumClick = async () => {
+    if (!onMeasureCachedSpectrum || cachedSpectrumClickRef.current) return;
+    cachedSpectrumClickRef.current = true;
+    setCachedSpectrumMeasuring(true);
+    setCachedSpectrumMessage(null);
+    try {
+      setCachedSpectrumMessage(await onMeasureCachedSpectrum());
+    } catch (_error) {
+      setCachedSpectrumMessage("Unavailable: cached measurement failed. No score changed.");
+    } finally {
+      cachedSpectrumClickRef.current = false;
+      setCachedSpectrumMeasuring(false);
+    }
+  };
 
   // 1. Core State Managers
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -1174,6 +1193,23 @@ const generateHarmonicNodes = () => {
                       Measured SonicLens spectrum (dBFS/Hz) — expand
                     </summary>
                     <div className="border-t border-white/10 px-4 pb-4">
+                      {!isValidSonicLensSavedMasterEq(critique?.auralisMasterEqProfile) &&
+                        !!trackInfo?.id && !!onMeasureCachedSpectrum && (
+                        <div className="mt-4 flex flex-col items-start gap-2">
+                          <button type="button" onClick={handleCachedSpectrumClick}
+                            disabled={cachedSpectrumMeasuring}
+                            className="px-4 py-2 rounded-lg border border-cyan-500/40 bg-cyan-500/10 text-cyan-200 text-xs font-bold hover:bg-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed">
+                            {cachedSpectrumMeasuring ? "Measuring cached spectrum..." : "Measure cached spectrum"}
+                          </button>
+                          <p className="text-[10px] text-slate-400">
+                            Explicit local MP3 measurement only; no Gemini, A&amp;R reanalysis or scoring changes.
+                            Requires this report's exact browser-cached MP3.
+                          </p>
+                          {cachedSpectrumMessage && (
+                            <p role="status" className="text-[11px] text-cyan-200">{cachedSpectrumMessage}</p>
+                          )}
+                        </div>
+                      )}
                       <SonicLensMixBalanceReport profile={critique?.auralisMasterEqProfile} context="studio"/>
                     </div>
                   </details>
