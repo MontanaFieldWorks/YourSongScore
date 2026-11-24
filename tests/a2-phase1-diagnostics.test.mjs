@@ -6081,3 +6081,81 @@ test("SonicLens studio reads only JSON-persisted validated profile; malformed an
   assert.match(display,/No synthetic curve, genre target, or/);
   assert.doesNotMatch(display,/Paired EQ difference: UNAVAILABLE/);
 });
+
+
+test("SonicLens measurement-only 96-band profile keeps legitimate null bins across JSON persistence",async()=>{
+  const {measureSonicLensSavedMasterEq,isValidSonicLensSavedMasterEq}=await import("../src/lib/liveAudioAnalyzer.ts");
+  const signal=new Float32Array(32768);
+  for(let i=0;i<signal.length;i++)signal[i]=.1*Math.sin(2*Math.PI*550*i/48000);
+  const profile=measureSonicLensSavedMasterEq([signal],48000);
+  assert.equal(profile.bands.length,96);
+  assert.ok(profile.bands.some(b=>b.bins===0&&b.dbfsPerHz===null),
+    "Legitimate FFT bin gaps must be represented explicitly as null");
+  const persisted=JSON.parse(JSON.stringify(profile));
+  assert.equal(isValidSonicLensSavedMasterEq(persisted),true);
+  assert.ok(persisted.bands.some(b=>Object.hasOwn(b,"dbfsPerHz")&&b.dbfsPerHz===null));
+  const legacyScrubbed=JSON.parse(JSON.stringify(profile,(_key,value)=>value===null?undefined:value));
+  assert.equal(isValidSonicLensSavedMasterEq(legacyScrubbed),false,
+    "General null-stripping is incompatible with the validated profile schema");
+});
+
+test("SonicLens cache owner and profile-only persistence paths fail closed and preserve existing critique",async()=>{
+  const source=await readFile(new URL("../src/firebase.ts",import.meta.url),"utf8");
+  const lookup=source.split("export const getVerifiedAnalyzedMp3ForSonicLens = async (")[1]
+    ?.split("export const saveValidatedSonicLensProfileForTrack = async (")[0];
+  const save=source.split("export const saveValidatedSonicLensProfileForTrack = async (")[1]
+    ?.split("// 7. Update Track")[0];
+  assert.ok(lookup&&save,"Dedicated cache profile helpers must exist");
+  assert.match(lookup,/authInstance\?\.currentUser\?\.uid !== ownerId/);
+  assert.match(lookup,/getDocFromServer\(doc\(dbInstance, "tracks", trackId\)\)/);
+  assert.match(lookup,/track\.id === trackId && record\.userId === ownerId|record\.id === trackId && record\.userId === ownerId/);
+  assert.match(lookup,/record\.status === "analyzed" && record\.format === "MP3"/);
+  assert.match(lookup,/!!record\.critique/);
+  assert.doesNotMatch(lookup,/fetchUserTracks\(|saveUserTrack\(|convertedMp3Url|uploadConvertedAudio/);
+  assert.match(save,/isValidSonicLensSavedMasterEq\(profile\)/);
+  assert.match(save,/getVerifiedAnalyzedMp3ForSonicLens\(trackId, ownerId\)/);
+  assert.match(save,/track\.name !== expectedFileName/);
+  assert.match(save,/updateDoc\(doc\(dbInstance, "tracks", trackId\), \{\s*"critique\.auralisMasterEqProfile": profile,/);
+  assert.doesNotMatch(save,/deepCleanFirestoreObject\s*\(|setDoc\(|saveUserTrack\(/);
+  assert.match(save,/critique: \{ \.\.\.tracks\[index\]\.critique!, auralisMasterEqProfile: profile \}/);
+  assert.match(save,/window\.localStorage\.setItem\(LOCAL_TRACKS_KEY, JSON\.stringify\(tracks\)\)/);
+});
+
+test("SonicLens opt-in cached MP3 measurement never enters A&R analysis or scoring paths",async()=>{
+  const [app,studio]=await Promise.all([
+    readFile(new URL("../src/App.tsx",import.meta.url),"utf8"),
+    readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8"),
+  ]);
+  const measure=app.split("const handleMeasureCachedSpectrum = async (): Promise<string> => {")[1]
+    ?.split("  const handleStartReview = () => {")[0];
+  assert.ok(measure,"Explicit cached-only measurement handler must exist");
+  assert.match(measure,/cachedSpectrumBusyRef\.current/);
+  assert.match(measure,/getVerifiedAnalyzedMp3ForSonicLens\(trackId, ownerId\)/);
+  assert.match(measure,/await getLocalFile\(trackId\)/);
+  assert.match(measure,/cachedFile\.name !== track\.name/);
+  assert.match(measure,/cachedFile\.size > 24 \* 1024 \* 1024/);
+  assert.match(measure,/await decodeAudioFile\(cachedFile\)/);
+  assert.match(measure,/measureSonicLensSavedMasterEq\(/);
+  assert.match(measure,/isValidSonicLensSavedMasterEq\(profile\)/);
+  assert.match(measure,/await saveValidatedSonicLensProfileForTrack\(trackId, ownerId, track\.name, profile\)/);
+  assert.match(measure,/stillCurrent\(\)/);
+  assert.doesNotMatch(measure,/\b(?:handleSubmitFile|handleAuditQueuedTrack|handleStartReview|computeMixBalanceScore|executeAuralisReviewed79Score|analyzeAudioBuffer|analyzeEngineeringDiagnosticsInWorker|decodeAudioUrl|fetch)\s*\(/);
+  assert.match(app,/onMeasureCachedSpectrum=\{handleMeasureCachedSpectrum\}/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  const panel=studio.split("{/* Display-only SonicLens evidence.")[1]
+    ?.split("{/* VIEW 2: Signal & Levels */}")[0];
+  assert.ok(panel,"Original interactive solver should precede added panel");
+  assert.match(panel,/<details/);
+  assert.match(panel,/!isValidSonicLensSavedMasterEq\(critique\?\.auralisMasterEqProfile\)/);
+  assert.match(panel,/onClick=\{handleCachedSpectrumClick\}/);
+  assert.match(panel,/disabled=\{cachedSpectrumMeasuring\}/);
+  assert.match(panel,/Measure cached spectrum/);
+  assert.match(panel,/SonicLensMixBalanceReport profile=\{critique\?\.auralisMasterEqProfile\} context="studio"/);
+  assert.doesNotMatch(panel,/\b(?:decodeAudioFile|measureSonicLensSavedMasterEq|handleAuditQueuedTrack|handleSubmitFile)\s*\(/);
+  const original=studio.split("{/* VIEW 1: Harmonic Spectral Resolution */}")[1]
+    ?.split("{/* Display-only SonicLens evidence.")[0];
+  assert.ok(original);
+  for(const token of ["getSimulatedPath()","harmonicNodes.map","handleSelectNode(node)","handleCorrectionChange","Acoustic EQ Solver","Autocorrect Resonance","View Surgical DAW Guidance in Checklist","Analog Saturation Note:"])
+    assert.ok(original.includes(token),"Protected original solver element missing: "+token);
+});
