@@ -6101,6 +6101,13 @@ test("SonicLens measurement-only 96-band profile keeps legitimate null bins acro
 
 test("SonicLens cache owner and profile-only persistence paths fail closed and preserve existing critique",async()=>{
   const source=await readFile(new URL("../src/firebase.ts",import.meta.url),"utf8");
+  const sanitizer=source.split("const deepCleanFirestoreObject = (val: any): any => {")[1]
+    ?.split("// 6. Save or Update User Track")[0];
+  assert.ok(sanitizer,"Existing report serialization must still be present");
+  assert.match(sanitizer,/if \(isValidSonicLensSavedMasterEq\(val\)\) return val;/,
+    "Only validated SonicLens profiles may bypass general null sanitization");
+  assert.match(sanitizer,/if \(val === null \|\| val === undefined\)/,
+    "Historical null cleaner remains active for all unrelated fields");
   const lookup=source.split("export const getVerifiedAnalyzedMp3ForSonicLens = async (")[1]
     ?.split("export const saveValidatedSonicLensProfileForTrack = async (")[0];
   const save=source.split("export const saveValidatedSonicLensProfileForTrack = async (")[1]
