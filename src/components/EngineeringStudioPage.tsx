@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import FFT from "fft.js";
 import { SonicLensMixBalanceReport } from "./CritiqueDisplay";
-import { isValidSonicLensSavedMasterEq } from "../lib/liveAudioAnalyzer";
+import { isValidSonicLensSavedMasterEq, buildSonicLensInteractiveEqPreview } from "../lib/liveAudioAnalyzer";
 import { 
   ArrowLeft, ArrowRight, Volume2, Sliders, Mic, CheckCircle, Square, Play, Pause, 
   Activity, Sparkles, Cpu, AlertTriangle, Check, RotateCcw, Compass, Layers, CheckSquare,
@@ -70,6 +70,13 @@ interface EngineeringStudioPageProps {
   onNavigateToEngineeringDetails?: () => void;
   onMeasureCachedSpectrum?: () => Promise<string>;
 }
+
+// A node's displayed frequency identifies its position on the measured
+// spectrum; its qualitative diagnosis remains the original critique guidance.
+const harmonicFrequencyHz = (display:string):number => {
+  const match=display.match(/(\d+(?:\.\d+)?)\s*(kHz|Hz)/i);
+  return match ? Number(match[1]) * (/^khz$/i.test(match[2]) ? 1000 : 1) : NaN;
+};
 
 interface HarmonicNode {
   id: string;
@@ -669,6 +676,19 @@ const generateHarmonicNodes = () => {
   };
 
   const activeSelectedNode = harmonicNodes.find(n => n.id === selectedNodeId);
+  // Only validated saved Auralis evidence may drive the upper display. The
+  // existing node advice and sliders remain unchanged; only the plotted
+  // measured baseline and its hypothetical slider-adjusted preview differ.
+  const measuredInteractiveEq = isAnalyzed
+    ? buildSonicLensInteractiveEqPreview(
+        critique?.auralisMasterEqProfile,
+        harmonicNodes.map(node=>({
+          frequencyHz:harmonicFrequencyHz(node.frequency),
+          dbOffset:node.dbOffset,
+          completion:customCorrections[node.id] || 0,
+        })),
+      )
+    : null;
 
   return (
     <div className="flex flex-col gap-6" id="engineering-studio-page">
@@ -961,25 +981,59 @@ const generateHarmonicNodes = () => {
                     </span>
                   </div>
 
+                  {measuredInteractiveEq && (
+                    <div role="note" className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-[10px] text-slate-300 leading-relaxed">
+                      <strong className="text-blue-200">Auralis measured source (dashed)</strong>
+                      {" · "}Blue curve previews hypothetical slider changes against those exact measured bands.
+                      This is not an EQ target, a mastering transfer curve, or evidence that a node is defective.
+                      Empty FFT bands remain gaps. Existing five-node guidance is qualitative and unchanged.
+                    </div>
+                  )}
+
                   {/* The SVG Canvas wrapper */}
                   <div className="relative w-full h-[220px] bg-[#0A0B0E] rounded-2xl border border-white/5 overflow-hidden flex items-center justify-center p-2 shadow-inner">
-                    <div className="absolute inset-0 flex">
-                      {[20, 100, 250, 500, 1000, 4000, 10000, 20000].map((f) => (
-                        <div 
-                          key={f} 
-                          className="h-full border-r border-[#ffffff]/2 flex flex-col justify-end pb-1 pr-1.5 relative"
-                          style={{ width: `${100 / 8}%` }}
-                        >
-                          <span className="font-mono text-[8px] text-slate-600 block text-right">{f < 1000 ? `${f}Hz` : `${(f/1000).toFixed(0)}kHz`}</span>
-                        </div>
-                      ))}
-                    </div>
+                    {measuredInteractiveEq ? (
+                      <div className="absolute inset-0 pointer-events-none">
+                        {[20, 100, 250, 500, 1000, 4000, 10000, 20000].map(f=>(
+                          <div key={f} className="absolute inset-y-0 border-l border-white/10"
+                            style={{left:`${measuredInteractiveEq.xForFrequency(f)/850*100}%`}}>
+                            <span className="absolute bottom-1 left-1 font-mono text-[8px] text-slate-500 whitespace-nowrap">
+                              {f<1000?`${f}Hz`:`${f/1000}kHz`}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="absolute inset-0 flex">
+                        {[20, 100, 250, 500, 1000, 4000, 10000, 20000].map((f) => (
+                          <div key={f}
+                            className="h-full border-r border-[#ffffff]/2 flex flex-col justify-end pb-1 pr-1.5 relative"
+                            style={{ width: `${100 / 8}%` }}>
+                            <span className="font-mono text-[8px] text-slate-600 block text-right">
+                              {f < 1000 ? `${f}Hz` : `${(f/1000).toFixed(0)}kHz`}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-                    <div className="absolute inset-x-0 inset-y-2 flex flex-col justify-between pointer-events-none pl-3 z-0">
-                      <span className="font-mono text-[8px] text-slate-700">+12 dB</span>
-                      <span className="font-mono text-[8px] text-slate-700">0 dB reference</span>
-                      <span className="font-mono text-[8px] text-slate-700">-12 dB</span>
-                    </div>
+                    {measuredInteractiveEq ? (
+                      <div className="absolute inset-x-0 inset-y-2 flex flex-col justify-between pointer-events-none pl-3 z-0">
+                        <span className="font-mono text-[8px] text-slate-500">
+                          {measuredInteractiveEq.maxDbfsPerHz} dBFS/Hz
+                        </span>
+                        <span className="font-mono text-[8px] text-slate-500">Measured level (not EQ gain)</span>
+                        <span className="font-mono text-[8px] text-slate-500">
+                          {measuredInteractiveEq.minDbfsPerHz} dBFS/Hz
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="absolute inset-x-0 inset-y-2 flex flex-col justify-between pointer-events-none pl-3 z-0">
+                        <span className="font-mono text-[8px] text-slate-700">+12 dB</span>
+                        <span className="font-mono text-[8px] text-slate-700">0 dB reference</span>
+                        <span className="font-mono text-[8px] text-slate-700">-12 dB</span>
+                      </div>
+                    )}
 
                     <svg className="absolute inset-0 w-full h-full" viewBox="0 0 850 220" preserveAspectRatio="none">
                       <defs>
@@ -989,17 +1043,26 @@ const generateHarmonicNodes = () => {
                         </linearGradient>
                       </defs>
 
-                      <path 
-                        d={`${getSimulatedPath()} L 850 220 L 30 220 Z`}
-                        fill="url(#curveGradient)"
-                        className="transition-all duration-300"
-                      />
-
-                      <path 
-                        d={getSimulatedPath()}
-                        fill="none" 
-                        stroke="#2563EB" 
-                        strokeWidth="3.5" 
+                      {/* Measured mode uses the actual saved SonicLens 96-band
+                          baseline, never the original simulated problem curve.
+                          Invalid/legacy evidence keeps every original control. */}
+                      {!measuredInteractiveEq && (
+                        <path
+                          d={`${getSimulatedPath()} L 850 220 L 30 220 Z`}
+                          fill="url(#curveGradient)"
+                          className="transition-all duration-300"
+                        />
+                      )}
+                      {measuredInteractiveEq && (
+                        <path d={measuredInteractiveEq.rawPath} fill="none"
+                          stroke="#93c5fd" strokeWidth="2" strokeDasharray="5 4"
+                          opacity="0.8" aria-label="Unmodified measured source spectrum"/>
+                      )}
+                      <path
+                        d={measuredInteractiveEq ? measuredInteractiveEq.adjustedPath : getSimulatedPath()}
+                        fill="none"
+                        stroke="#2563EB"
+                        strokeWidth="3.5"
                         className="transition-all duration-300 drop-shadow-[0_0_12px_rgba(37,99,235,0.85)]"
                       />
 
@@ -1008,9 +1071,16 @@ const generateHarmonicNodes = () => {
                         const customCorr = customCorrections[node.id] || 0;
                         const isFixed = customCorr >= 0.85 && node.status !== "optimized";
 
-                        const cx = (node.xPct / 100) * 850;
+                        const nodeHz = harmonicFrequencyHz(node.frequency);
+                        const cx = measuredInteractiveEq
+                          ? measuredInteractiveEq.xForFrequency(nodeHz)
+                          : (node.xPct / 100) * 850;
                         const netProblemArea = node.dbOffset - (customCorr * node.dbOffset);
-                        const cy = 110 - (netProblemArea * 8);
+                        // When a band has no FFT bins, node stays selectable as
+                        // advisory guidance; no measured point is fabricated.
+                        const cy = measuredInteractiveEq
+                          ? (measuredInteractiveEq.adjustedYAtFrequency(nodeHz) ?? 110)
+                          : 110 - (netProblemArea * 8);
 
                         let colorCode = "#ef4444";
                         let glowCode = "rgba(239, 68, 68, 0.65)";
@@ -1074,7 +1144,9 @@ const generateHarmonicNodes = () => {
                               : "text-[#2563EB]/70 bg-[#0A0B0E] border border-[#2563EB]/30 hover:border-[#2563EB]/70 hover:text-[#2563EB]"
                           }`}
                           style={{
-                            left: `calc(${node.xPct}% - 45px)`,
+                            left: measuredInteractiveEq
+                              ? `calc(${measuredInteractiveEq.xForFrequency(harmonicFrequencyHz(node.frequency))/850*100}% - 45px)`
+                              : `calc(${node.xPct}% - 45px)`,
                             top: "14px"
                           }}
                         >
@@ -1095,7 +1167,7 @@ const generateHarmonicNodes = () => {
                             </span>
                             {(customCorrections[activeSelectedNode.id] || 0) >= 0.85 ? (
                               <span className="text-[8px] bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase flex items-center gap-1 font-semibold select-none">
-                                <Check className="w-2.5 h-2.5" /> Resolved
+                                <Check className="w-2.5 h-2.5" /> {measuredInteractiveEq ? "Previewed" : "Resolved"}
                               </span>
                             ) : activeSelectedNode.status === "optimized" ? (
                               <span className="text-[8px] bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase font-semibold">Healthy Range</span>
@@ -1133,7 +1205,9 @@ const generateHarmonicNodes = () => {
                             <div className="text-2xl font-black text-white mt-1.5 font-mono">
                               {Math.round(correctionValue * 100)}%
                             </div>
-                            <span className="text-[9px] text-slate-400 font-medium block mt-1">Simulated Attenuation Applied</span>
+                            <span className="text-[9px] text-slate-400 font-medium block mt-1">
+                              {measuredInteractiveEq ? "Hypothetical EQ Preview" : "Simulated Attenuation Applied"}
+                            </span>
                           </div>
 
                           <div className="flex flex-col gap-2">
@@ -1148,7 +1222,7 @@ const generateHarmonicNodes = () => {
                             />
                             <div className="flex justify-between text-[8px] font-mono text-slate-500">
                               <span>0% (Raw Intensity)</span>
-                              <span>100% (Clean EQ)</span>
+                              <span>{measuredInteractiveEq ? "100% (Preview)" : "100% (Clean EQ)"}</span>
                             </div>
                           </div>
 
