@@ -3,7 +3,7 @@ import jsmediatags from "jsmediatags";
 import { parseWavFile } from "./lib/wavParser";
 import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, UserProfile, InternalBatchResult } from "./types";
 import type { SonicLensSavedMasterEqProfile } from "./types";
-import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey, measureSonicLensSavedMasterEq } from "./lib/liveAudioAnalyzer";
+import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey, measureSonicLensSavedMasterEq, isValidSonicLensSavedMasterEq } from "./lib/liveAudioAnalyzer";
 import type { AuralisEncodedSourceIdentity } from "./lib/liveAudioAnalyzer";
 import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow, resolveAuralisReviewedRealShadowContext, planAuralisReviewed79ScoreIntegration, executeAuralisReviewed79Score, authorizeAuralisReviewed79Execution, isAuralisStage3F9IdentityCandidate, isAuralisStage3F9ExactEncodedIdentity, summarizeAuralisQueuedMp3Shadow } from "./lib/mudPreventionDiagnostic";
 
@@ -88,7 +88,7 @@ import EngineeringDetailsPage from "./components/EngineeringDetailsPage";
 import Dashboard, { MOCK_GENERATED_CRITIQUE_TEMPLATE } from "./components/Dashboard";
 import ArConsultPage, { REPRESENTATIVES, renderActiveAvatarSVG } from "./components/ArConsultPage";
 import AlphaLandingPage from "./components/AlphaLandingPage";
-import { saveUserTrack, subscribeToAuth, fetchUserTracks } from "./firebase";
+import { saveUserTrack, subscribeToAuth, fetchUserTracks, getVerifiedAnalyzedMp3ForSonicLens, saveValidatedSonicLensProfileForTrack } from "./firebase";
 import { GENRE_MAP } from "./data/musicData";
 import { getSubgenreProfile, getVectorTargets, getCritiqueAndFix } from "./data/musicData";
 import { 
@@ -212,6 +212,16 @@ export default function App() {
   const [viewingDashboard, setViewingDashboard] = useState(false);
   const [activeUploadFile, setActiveUploadFile] = useState<File | null>(null);
   const [localTrackFiles, setLocalTrackFiles] = useState<Record<string, File>>({});
+  // Only a deliberate click can measure a cached spectrum. Record the current
+  // report/account in a ref so a navigation or logout during async decode fails closed.
+  const cachedSpectrumBusyRef = React.useRef(false);
+  const cachedSpectrumContextRef = React.useRef<{ trackId: string | null; ownerId: string | null }>({
+    trackId: null, ownerId: null,
+  });
+  cachedSpectrumContextRef.current = {
+    trackId: critiqueResult?.trackInfo?.id ?? null,
+    ownerId: currentUser?.uid ?? null,
+  };
   const [selectedDefinitionTerm, setSelectedDefinitionTerm] = useState<string | undefined>(undefined);
   const [threeXMode, setThreeXMode] = useState(false);
   // Explicitly opt-in; token stays in React memory and is never saved to Locker.
@@ -2557,6 +2567,64 @@ export default function App() {
     }
   };
 
+
+  // Measurement-only supplement for an EXISTING analyzed Artist Locker report.
+  // Never invokes handleSubmitFile, handleAuditQueuedTrack, Gemini or scoring DSP.
+  const handleMeasureCachedSpectrum = async (): Promise<string> => {
+    const trackId = critiqueResult?.trackInfo?.id;
+    const ownerId = currentUser?.uid;
+    if (!trackId || !ownerId || !critiqueResult?.critique)
+      return "Unavailable: open an analyzed song using Artist Locker > Report.";
+    if (cachedSpectrumBusyRef.current) return "A spectrum measurement is already running.";
+    if (isValidSonicLensSavedMasterEq(critiqueResult.critique.auralisMasterEqProfile))
+      return "A validated spectrum is already saved for this report.";
+
+    cachedSpectrumBusyRef.current = true;
+    const stillCurrent = () => cachedSpectrumContextRef.current.trackId === trackId &&
+      cachedSpectrumContextRef.current.ownerId === ownerId;
+    try {
+      // Exact account ownership and analyzed-MP3 state checked against the
+      // authoritative saved record, never inferred from the display title.
+      const track = await getVerifiedAnalyzedMp3ForSonicLens(trackId, ownerId);
+      if (!stillCurrent()) return "The selected report changed; nothing was saved.";
+      if (!track) return "Unavailable: no owner-verified analyzed MP3 matches this Locker report.";
+      if (isValidSonicLensSavedMasterEq(track.critique?.auralisMasterEqProfile))
+        return "This report already has a saved validated spectrum.";
+
+      // IndexedDB only: no remote URL, upload, cached fallback by filename,
+      // reanalysis, or automatic retry.
+      const cachedFile = await getLocalFile(trackId);
+      if (!stillCurrent()) return "The selected report changed; nothing was saved.";
+      if (!(cachedFile instanceof File) ||
+          cachedFile.name !== track.name || !/\.mp3$/i.test(cachedFile.name) ||
+          cachedFile.size < 1 || cachedFile.size > 24 * 1024 * 1024) {
+        return "Unavailable: the exact locally cached MP3 is missing, mismatched or out of bounds.";
+      }
+
+      const audioBuffer = await decodeAudioFile(cachedFile);
+      const profile = measureSonicLensSavedMasterEq(
+        Array.from({ length: audioBuffer.numberOfChannels },
+          (_, index) => audioBuffer.getChannelData(index)),
+        audioBuffer.sampleRate,
+      );
+      if (!isValidSonicLensSavedMasterEq(profile))
+        return "Unavailable: SonicLens produced no validated measurement.";
+      if (!stillCurrent()) return "The selected report changed; nothing was saved.";
+
+      // Dedicated field-only save revalidates ownership and retains null bins.
+      await saveValidatedSonicLensProfileForTrack(trackId, ownerId, track.name, profile);
+      if (!stillCurrent()) return "Spectrum saved for the original Locker report.";
+      setCritiqueResult(previous => previous?.trackInfo?.id === trackId
+        ? { ...previous, critique: { ...previous.critique, auralisMasterEqProfile: profile } }
+        : previous);
+      return "Measured spectrum saved from the exact cached MP3. No A&R audit or scores were changed.";
+    } catch (_error) {
+      return "Unavailable: cached spectrum measurement or saving failed. Existing report is unchanged.";
+    } finally {
+      cachedSpectrumBusyRef.current = false;
+    }
+  };
+
   const handleStartReview = () => {
     if (queuedTrack) {
       // Explicit final authorization: merely selecting Reanalyze never calls Gemini.
@@ -3124,6 +3192,7 @@ export default function App() {
             critique={critiqueResult ? critiqueResult.critique : null}
             trackInfo={critiqueResult ? critiqueResult.trackInfo : null}
             localFileBlobUrl={localFileBlobUrl}
+            onMeasureCachedSpectrum={handleMeasureCachedSpectrum}
             onNavigateToEngineeringDetails={() => {
               setEngineeringDetailsSource("studio");
               setViewingEngineeringStudio(false);
