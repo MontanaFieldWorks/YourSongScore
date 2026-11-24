@@ -6166,3 +6166,88 @@ test("SonicLens opt-in cached MP3 measurement never enters A&R analysis or scori
   for(const token of ["getSimulatedPath()","harmonicNodes.map","handleSelectNode(node)","handleCorrectionChange","Acoustic EQ Solver","Autocorrect Resonance","View Surgical DAW Guidance in Checklist","Analog Saturation Note:"])
     assert.ok(original.includes(token),"Protected original solver element missing: "+token);
 });
+
+
+test("SonicLens measured spectrum drives interactive EQ preview without changing measured evidence",async()=>{
+  const {measureSonicLensSavedMasterEq,buildSonicLensInteractiveEqPreview}=await import("../src/lib/liveAudioAnalyzer.ts");
+  const pcm=new Float32Array(32768);
+  for(let i=0;i<pcm.length;i++)pcm[i]=.17*Math.sin(2*Math.PI*330*i/48000)+.04*Math.sin(2*Math.PI*3900*i/48000);
+  const profile=measureSonicLensSavedMasterEq([pcm],48000);
+  const original=JSON.stringify(profile);
+  const five=[
+    {frequencyHz:28,dbOffset:1.2,completion:0},
+    {frequencyHz:220,dbOffset:3,completion:0},
+    {frequencyHz:580,dbOffset:2.8,completion:0},
+    {frequencyHz:4400,dbOffset:2,completion:0},
+    {frequencyHz:14500,dbOffset:-1.8,completion:0},
+  ];
+  const baseline=buildSonicLensInteractiveEqPreview(profile,five);
+  assert.ok(baseline,"Validated saved PCM must produce measured interactive plot");
+  assert.equal(baseline.rawPath,baseline.adjustedPath,"Zero slider inputs preserve exact measured curve");
+  assert.ok(baseline.finiteBandCount>60&&baseline.finiteBandCount<96);
+  assert.ok((baseline.rawPath.match(/M/g)||[]).length>=2,"Null band gaps remain disconnected");
+  assert.equal(baseline.xForFrequency(20),30);
+  assert.equal(baseline.xForFrequency(20000),850);
+  assert.equal(baseline.measuredYAtFrequency(10),null);
+  const full=buildSonicLensInteractiveEqPreview(profile,five.map((f,i)=>i===3?{...f,completion:1}:f));
+  assert.equal(full.rawPath,baseline.rawPath,"No slider changes may alter measured baseline");
+  assert.notEqual(full.adjustedPath,baseline.adjustedPath,"Slider applies a visible hypothetical change");
+  assert.equal(JSON.stringify(profile),original,"No saved evidence mutations");
+  const half=buildSonicLensInteractiveEqPreview(profile,five.map((f,i)=>i===3?{...f,completion:0.5}:f));
+  assert.notEqual(half.adjustedPath,full.adjustedPath);
+  assert.notEqual(half.adjustedPath,baseline.adjustedPath);
+});
+
+test("SonicLens interactive EQ projection fails closed on invalid provenance, coverage or correction",async()=>{
+  const {measureSonicLensSavedMasterEq,buildSonicLensInteractiveEqPreview}=await import("../src/lib/liveAudioAnalyzer.ts");
+  const pcm=new Float32Array(16384);
+  for(let i=0;i<pcm.length;i++)pcm[i]=.25*Math.sin(2*Math.PI*1200*i/48000);
+  const profile=measureSonicLensSavedMasterEq([pcm],48000);
+  const corrections=[{frequencyHz:1200,dbOffset:2,completion:0.3}];
+  for(const source of [null,{},undefined,
+    {...profile,sourceIdentity:"HISTORICAL_UNVERIFIED"},
+    {...profile,scoringImpact:"DOWNWARD"},
+    {...profile,bands:profile.bands.slice(0,95)},
+    {...profile,bands:profile.bands.map(b=>({...b,dbfsPerHz:null}))},
+  ]) assert.equal(buildSonicLensInteractiveEqPreview(source,corrections),null);
+  for(const bad of [
+    [{frequencyHz:1200,dbOffset:2,completion:1.1}],
+    [{frequencyHz:1200,dbOffset:2,completion:-0.1}],
+    [{frequencyHz:NaN,dbOffset:2,completion:0}],
+    [{frequencyHz:1200,dbOffset:Infinity,completion:0}],
+    [{frequencyHz:1200,dbOffset:25,completion:1}],
+    Array.from({length:6},()=>({frequencyHz:1200,dbOffset:1,completion:0})),
+  ])assert.equal(buildSonicLensInteractiveEqPreview(profile,bad),null);
+});
+
+test("SonicLens interactive Studio uses true measured baseline but preserves legacy five-node workflow",async()=>{
+  const [studio,analyzer,app,display]=await Promise.all([
+    readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8"),
+    readFile(new URL("../src/lib/liveAudioAnalyzer.ts",import.meta.url),"utf8"),
+    readFile(new URL("../src/App.tsx",import.meta.url),"utf8"),
+    readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8"),
+  ]);
+  assert.match(studio,/buildSonicLensInteractiveEqPreview\(/);
+  assert.match(studio,/critique\?\.auralisMasterEqProfile/);
+  assert.match(studio,/measuredInteractiveEq\?\.adjustedPath|measuredInteractiveEq\.adjustedPath/);
+  assert.match(studio,/measuredInteractiveEq\.rawPath/);
+  assert.match(studio,/measuredInteractiveEq\.adjustedYAtFrequency\(nodeHz\)/);
+  assert.match(studio,/measuredInteractiveEq\.xForFrequency\(nodeHz\)/);
+  assert.match(studio,/measuredInteractiveEq\.minDbfsPerHz/);
+  assert.match(studio,/measuredInteractiveEq\.maxDbfsPerHz/);
+  assert.match(studio,/getSimulatedPath\(\)/);
+  assert.match(studio,/harmonicNodes\.map\(/);
+  assert.match(studio,/handleSelectNode\(node\)/);
+  assert.match(studio,/onChange=\{handleCorrectionChange\}/);
+  for(const original of ["Acoustic EQ Solver","Autocorrect Resonance","View Surgical DAW Guidance in Checklist","Analog Saturation Note:","Simulated Attenuation Applied","SonicLensMixBalanceReport profile={critique?.auralisMasterEqProfile} context=\"studio\""])
+    assert.ok(studio.includes(original),"Original control missing: "+original);
+  for(const id of ["sub-rumble","muddy-mids","boxy-color","harsh-presence","air-texture"])
+    assert.ok(studio.includes('id: "'+id+'"'),"Five-node selection must remain: "+id);
+  assert.match(analyzer,/if\s*\(!isValidSonicLensSavedMasterEq\(profile\)/);
+  assert.match(analyzer,/if \(band\.bins===0 \|\| band\.dbfsPerHz===null\)\{connected=false;continue;\}/);
+  assert.match(analyzer,/not an actual DAW filter\/Q/);
+  assert.match(studio,/This is not an EQ target, a mastering transfer curve/);
+  assert.match(display,/SonicLens display only · scoringImpact NONE/);
+  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+});
