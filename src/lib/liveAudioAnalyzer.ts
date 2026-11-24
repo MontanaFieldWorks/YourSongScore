@@ -3599,3 +3599,84 @@ export function isValidSonicLensSavedMasterEq(value:unknown):value is SonicLensS
       (b.dbfsPerHz===null||(finite(b.dbfsPerHz)&&b.dbfsPerHz>-600&&b.dbfsPerHz<200));
   });
 }
+
+
+/**
+ * Display-only link from a validated saved SonicLens master spectrum to the
+ * existing Engineering Studio correction sliders. A measured dBFS/Hz spectrum
+ * is NOT an EQ transfer curve or a target; these are hypothetical bell-shaped
+ * gain previews around the existing five narrative guidance nodes. No DSP,
+ * scores, Gemini, source lineage, or persisted report fields are modified.
+ *
+ * Null (unmeasured) FFT bins remain gaps in both traces. Never fabricate them.
+ */
+export interface SonicLensInteractiveEqPreview {
+  rawPath: string;
+  adjustedPath: string;
+  xForFrequency: (frequencyHz:number) => number;
+  measuredYAtFrequency: (frequencyHz:number) => number|null;
+  adjustedYAtFrequency: (frequencyHz:number) => number|null;
+  minDbfsPerHz: number;
+  maxDbfsPerHz: number;
+  finiteBandCount: number;
+}
+export interface SonicLensInteractiveEqCorrection {
+  frequencyHz: number;
+  dbOffset: number;
+  completion: number;
+}
+export function buildSonicLensInteractiveEqPreview(
+  profile: unknown,
+  corrections: readonly SonicLensInteractiveEqCorrection[],
+): SonicLensInteractiveEqPreview|null {
+  if (!isValidSonicLensSavedMasterEq(profile) ||
+      !Array.isArray(corrections) || corrections.length > 5 ||
+      !corrections.every(c =>
+        Number.isFinite(c.frequencyHz) && c.frequencyHz >= 20 && c.frequencyHz <= 20000 &&
+        Number.isFinite(c.dbOffset) && Math.abs(c.dbOffset) <= 24 &&
+        Number.isFinite(c.completion) && c.completion >= 0 && c.completion <= 1))
+    return null;
+  const finite=profile.bands.filter(b=>b.bins>0&&b.dbfsPerHz!==null);
+  if (finite.length < 2) return null;
+  const levels=finite.map(b=>b.dbfsPerHz!);
+  const low=Math.floor(Math.min(...levels)/10)*10-5;
+  const high=Math.max(low+20,Math.ceil(Math.max(...levels)/10)*10+5);
+  const xForFrequency=(hz:number)=>30+820*Math.log(hz/20)/Math.log(1000);
+  const y=(db:number)=>Math.max(12,Math.min(206,200-180*(db-low)/(high-low)));
+  const previewGain=(hz:number):number=>corrections.reduce((sum,c)=>{
+    // Illustrative Gaussian in log-frequency: not an actual DAW filter/Q
+    // transfer function or an inferred mastering recommendation.
+    const distanceInOctaves=Math.log2(hz/c.frequencyHz);
+    const bell=Math.exp(-0.5*Math.pow(distanceInOctaves/0.7,2));
+    return sum-c.dbOffset*c.completion*bell;
+  },0);
+  const makePath=(adjusted:boolean)=>{
+    let path="",connected=false;
+    for(const band of profile.bands){
+      if (band.bins===0 || band.dbfsPerHz===null){connected=false;continue;}
+      const hz=band.centerHz,db=band.dbfsPerHz+(adjusted?previewGain(hz):0);
+      path+=(connected?" L":" M")+xForFrequency(hz).toFixed(2)+" "+y(db).toFixed(2);
+      connected=true;
+    }
+    return path.trim();
+  };
+  const nearest=(hz:number,adjusted:boolean):number|null=>{
+    if (!Number.isFinite(hz)||hz<20||hz>20000)return null;
+    let best=Infinity,band:SonicLensSavedMasterEqProfile["bands"][number]|null=null;
+    for(const b of finite){
+      const distance=Math.abs(Math.log2(hz/b.centerHz));
+      if(distance<best){best=distance;band=b;}
+    }
+    // Absent bins around a control must not be silently interpolated.
+    if(!band||best>0.5)return null;
+    return y(band.dbfsPerHz!+(adjusted?previewGain(band.centerHz):0));
+  };
+  return {
+    rawPath:makePath(false),
+    adjustedPath:makePath(true),
+    xForFrequency,
+    measuredYAtFrequency:(hz:number)=>nearest(hz,false),
+    adjustedYAtFrequency:(hz:number)=>nearest(hz,true),
+    minDbfsPerHz:low,maxDbfsPerHz:high,finiteBandCount:finite.length,
+  };
+}
