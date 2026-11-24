@@ -3,6 +3,8 @@ import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, si
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc, getDocFromServer, deleteDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { StoredTrack, UserProfile } from "./types";
+import type { SonicLensSavedMasterEqProfile } from "./types";
+import { isValidSonicLensSavedMasterEq } from "./lib/liveAudioAnalyzer";
 import { safeLocalStorage } from "./lib/safeStorage";
 import firebaseConfig from "../firebase-applet-config.json";
 
@@ -715,6 +717,79 @@ export const saveUserTrack = async (track: StoredTrack): Promise<void> => {
     } catch (err) {
       console.warn("Firestore saveUserTrack error, local fallback active:", err);
     }
+  }
+};
+
+
+/**
+ * Read-only, fail-closed lookup of an existing analyzed MP3 by its exact
+ * account owner and Artist Locker ID. Never migrates guest records, loads a
+ * remote audio URL, or starts the A&R analysis pipeline.
+ */
+export const getVerifiedAnalyzedMp3ForSonicLens = async (
+  trackId: string, ownerId: string,
+): Promise<StoredTrack | null> => {
+  if (!trackId || !ownerId) return null;
+  let record: StoredTrack | null = null;
+  if (ownerId.startsWith("usr_")) {
+    record = getLocalTracks().find(t => t.id === trackId && t.userId === ownerId) || null;
+  } else {
+    if (!isFirebaseActive || !dbInstance || authInstance?.currentUser?.uid !== ownerId) return null;
+    // Server-backed read is required for cloud accounts: no unverified local
+    // cache record may authorize updates to a different owner's report.
+    const snapshot = await getDocFromServer(doc(dbInstance, "tracks", trackId));
+    if (snapshot.exists()) record = snapshot.data() as StoredTrack;
+  }
+  return record && record.id === trackId && record.userId === ownerId &&
+    record.status === "analyzed" && record.format === "MP3" &&
+    typeof record.name === "string" && /\.mp3$/i.test(record.name) &&
+    !!record.critique ? record : null;
+};
+
+/**
+ * One-field, measurement-only persistence path. The normal Firestore cleaner
+ * removes null fields, but legitimate unpopulated FFT bins MUST keep
+ * dbfsPerHz: null. Use a dotted updateDoc field path directly; do not
+ * rewrite a historical critique or alter the general cleaner.
+ */
+export const saveValidatedSonicLensProfileForTrack = async (
+  trackId: string, ownerId: string, expectedFileName: string,
+  profile: SonicLensSavedMasterEqProfile,
+): Promise<void> => {
+  if (!isValidSonicLensSavedMasterEq(profile)) throw new Error("INVALID_SONICLENS_PROFILE");
+  const track = await getVerifiedAnalyzedMp3ForSonicLens(trackId, ownerId);
+  if (!track || track.name !== expectedFileName ||
+      isValidSonicLensSavedMasterEq(track.critique?.auralisMasterEqProfile)) {
+    throw new Error("SONICLENS_TRACK_NOT_ELIGIBLE");
+  }
+
+  if (!ownerId.startsWith("usr_")) {
+    // Null frequency bins survive Firestore serialization because this path
+    // intentionally bypasses deepCleanFirestoreObject.
+    await updateDoc(doc(dbInstance, "tracks", trackId), {
+      "critique.auralisMasterEqProfile": profile,
+    });
+  }
+
+  // Keep a matching local record in sync; never prune unrelated reports to
+  // make room. For cloud accounts the server update above is authoritative.
+  const tracks = getLocalTracks();
+  const index = tracks.findIndex(t => t.id === trackId && t.userId === ownerId &&
+    t.status === "analyzed" && t.name === expectedFileName && !!t.critique);
+  if (index < 0) {
+    if (ownerId.startsWith("usr_")) throw new Error("SONICLENS_LOCAL_TRACK_MISSING");
+    return;
+  }
+  tracks[index] = {
+    ...tracks[index],
+    critique: { ...tracks[index].critique!, auralisMasterEqProfile: profile },
+  };
+  try {
+    // A memory-only fallback would misrepresent an unsaved local-only report.
+    window.localStorage.setItem(LOCAL_TRACKS_KEY, JSON.stringify(tracks));
+  } catch (error) {
+    if (ownerId.startsWith("usr_")) throw new Error("SONICLENS_LOCAL_SAVE_FAILED");
+    console.warn("SonicLens local report cache could not be refreshed; cloud field is saved.", error);
   }
 };
 
