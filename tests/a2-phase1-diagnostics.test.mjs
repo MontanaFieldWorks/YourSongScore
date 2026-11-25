@@ -6232,8 +6232,8 @@ test("SonicLens interactive Studio uses true measured baseline but preserves leg
   assert.match(studio,/critique\?\.auralisMasterEqProfile/);
   assert.match(studio,/measuredInteractiveEq\?\.adjustedPath|measuredInteractiveEq\.adjustedPath/);
   assert.match(studio,/measuredInteractiveEq\.rawPath/);
-  assert.match(studio,/measuredInteractiveEq\.adjustedYAtFrequency\(nodeHz\)/);
-  assert.match(studio,/measuredInteractiveEq\.xForFrequency\(nodeHz\)/);
+  assert.match(studio,/measuredInteractiveEq\.xForFrequency\(harmonicFrequencyHz\(activeSelectedNode\.frequency\)\)/);
+  assert.match(studio,/measuredInteractiveEq\.differencePath/);
   assert.match(studio,/measuredInteractiveEq\.minDbfsPerHz/);
   assert.match(studio,/measuredInteractiveEq\.maxDbfsPerHz/);
   assert.match(studio,/getSimulatedPath\(\)/);
@@ -6335,7 +6335,8 @@ test("SonicLens consolidated A–E UI retains one enlarged measured graph and or
   assert.match(studio,/transform="scale\(1 2\)"/);
   assert.match(studio,/aria-label="Select an advisory frequency node"/);
   assert.match(studio,/text-\[12px\] font-semibold font-mono/);
-  assert.match(studio,/grid-cols-1 lg:grid-cols-\[minmax\(0,1fr\)_230px\]/);
+  assert.doesNotMatch(studio,/lg:grid-cols-\[minmax\(0,1fr\)_230px\]/,
+    "The full-width spectrum cannot be squeezed by the old sidebar");
   assert.match(studio,/formatSonicLensSignedGain\(hypotheticalNodeGainDb\(activeSelectedNode\)\)/);
   assert.match(studio,/onChange=\{handleCorrectionChange\}/);
   assert.match(studio,/Autocorrect Resonance — Preview Only/);
@@ -6344,7 +6345,9 @@ test("SonicLens consolidated A–E UI retains one enlarged measured graph and or
   assert.match(studio,/onClick=\{handleCachedSpectrumClick\}/);
   assert.match(studio,/No validated saved SonicLens spectrum is available/);
   assert.doesNotMatch(studio,/EQ Correction Detail — hypothetical gain only|SonicLensMixBalanceReport/);
-  assert.doesNotMatch(studio,/const BAND_IDEALS|Slightly Above|Near Target|tilt = parseFloat\(\(-2\.0/);
+  assert.match(studio,/Provisional legacy: \{provisionalLegacyComparison\(index\)\}/);
+  assert.match(studio,/uncalibrated genre reference buckets/);
+  assert.doesNotMatch(studio,/const BAND_IDEALS|tilt = parseFloat\(\(-2\.0/);
   assert.match(display,/SonicLensMixBalanceReport profile=\{critique\.auralisMasterEqProfile\}/);
   for(const id of ["sub-rumble","muddy-mids","boxy-color","harsh-presence","air-texture"])
     assert.ok(studio.includes('id: "'+id+'"'));
@@ -6464,4 +6467,102 @@ test("Auralis Mud and Low-End handoff cannot establish defects or change scores"
   assert.equal(missing.lowEnd.status,"INSUFFICIENT_EVIDENCE");
   assert.equal(missing.lowEnd.roleStatus,"ROLES_UNVERIFIED_OR_INAPPLICABLE");
   assert.equal(missing.correctionStatus,"NOT_SUPPORTED");
+});
+
+
+test("SonicLens full-width repaired layout preserves original five-node selection and does not fake defects",async()=>{
+  const [studio,app,diag]=await Promise.all([
+    readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8"),
+    readFile(new URL("../src/App.tsx",import.meta.url),"utf8"),
+    readFile(new URL("../src/lib/mudPreventionDiagnostic.ts",import.meta.url),"utf8"),
+  ]);
+  assert.match(studio,/h-\[440px\]/);
+  assert.match(studio,/aria-label="Select an advisory frequency node"/);
+  assert.match(studio,/text-\[12px\] font-semibold font-mono/);
+  assert.match(studio,/spectrumVerticalView/);
+  assert.match(studio,/setSpectrumVerticalView\("full"\)/);
+  assert.match(studio,/setSpectrumVerticalView\("detail"\)/);
+  assert.match(studio,/measuredInteractiveEq\.differencePath/);
+  assert.match(studio,/Actual measured-to-hypothetical gain displacement/);
+  assert.match(studio,/Legacy critique suggestion — not an Auralis-verified fix/);
+  assert.match(studio,/Provisional legacy: \{provisionalLegacyComparison\(index\)\}/);
+  assert.match(studio,/provisionalLegacyComparison=\(i:number\)/);
+  assert.match(studio,/No missing metrics are imputed/);
+  assert.match(studio,/SonicLens measurement details \(no duplicate graph\)/);
+  assert.match(studio,/onClick=\{handleCachedSpectrumClick\}/);
+  assert.doesNotMatch(studio,/lg:grid-cols-\[minmax\(0,1fr\)_230px\]/);
+  assert.doesNotMatch(studio,/<Lightbulb/);
+  assert.doesNotMatch(studio,/EQ Correction Detail — hypothetical gain only/);
+  const graph=studio.indexOf('viewBox="0 0 850 440"');
+  const solver=studio.indexOf("Acoustic EQ Solver");
+  const selectedGuide=studio.indexOf("Selected guidance frequency, not a measured defect");
+  const checklist=studio.indexOf("View Surgical DAW Guidance in Checklist",solver);
+  assert.ok(graph>0&&selectedGuide>graph&&solver>selectedGuide&&checklist>solver,
+    "Single full-width graph, external selector, immediately following solver and DAW guidance");
+  for(const id of ["sub-rumble","muddy-mids","boxy-color","harsh-presence","air-texture"])
+    assert.ok(studio.includes('id: "'+id+'"'));
+  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.match(diag,/correctionStatus:"NOT_SUPPORTED"/);
+  assert.match(diag,/scoringImpact:"NONE" as const,adjustments:\[\]/);
+});
+
+test("SonicLens selected-frequency +/-12 dBFS/Hz zoom uses real measured bins and no invented EQ strength",async()=>{
+  const {measureSonicLensSavedMasterEq,buildSonicLensInteractiveEqPreview}=await import("../src/lib/liveAudioAnalyzer.ts");
+  const pcm=new Float32Array(32768);
+  for(let i=0;i<pcm.length;i++){
+    pcm[i]=0.14*Math.sin(2*Math.PI*580*i/48000)
+      +0.07*Math.sin(2*Math.PI*3900*i/48000);
+  }
+  const profile=measureSonicLensSavedMasterEq([pcm],48000);
+  const frozen=JSON.stringify(profile);
+  const corrections=[
+    {frequencyHz:580,dbOffset:3.2,completion:0},
+    {frequencyHz:3800,dbOffset:1.5,completion:0},
+  ];
+  const full=buildSonicLensInteractiveEqPreview(profile,corrections);
+  assert.ok(full);
+  assert.equal(full.verticalViewMode,"FULL");
+  assert.equal(full.differencePath,"");
+  const detail=buildSonicLensInteractiveEqPreview(profile,corrections,{zoomAtFrequencyHz:580});
+  assert.ok(detail);
+  assert.equal(detail.verticalViewMode,"DETAIL");
+  assert.ok(Math.abs(detail.maxDbfsPerHz-detail.minDbfsPerHz-24)<1e-10);
+  assert.equal(detail.rawPath,detail.adjustedPath,"Zero correction keeps source and preview identical");
+  assert.equal(detail.differencePath,"");
+  assert.notEqual(full.rawPath,detail.rawPath,"Only graph projection changes, no FFT evidence changed");
+  const enabled=buildSonicLensInteractiveEqPreview(profile,
+    corrections.map((c,i)=>i===0?{...c,completion:1}:c),
+    {zoomAtFrequencyHz:580});
+  assert.ok(enabled);
+  assert.equal(enabled.verticalViewMode,"DETAIL");
+  assert.equal(enabled.rawPath,detail.rawPath,"Moving slider cannot change saved measured baseline");
+  assert.notEqual(enabled.adjustedPath,detail.rawPath,"Hypothetical adjustment must be visible");
+  assert.ok(enabled.differencePath.startsWith("M"),
+    "Highlight exact source-to-preview vertical displacement at real FFT bins");
+  assert.equal(JSON.stringify(profile),frozen);
+  const outOfBounds=buildSonicLensInteractiveEqPreview(profile,corrections,{zoomAtFrequencyHz:NaN});
+  assert.equal(outOfBounds?.verticalViewMode,"FULL");
+  assert.equal(buildSonicLensInteractiveEqPreview({...profile,bands:profile.bands.slice(0,95)},
+    corrections,{zoomAtFrequencyHz:580}),null);
+});
+
+test("SonicLens repaired six-band labels preserve original provisional comparisons without fabricating measurements",async()=>{
+  const [studio,server]=await Promise.all([
+    readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8"),
+    readFile(new URL("../server.ts",import.meta.url),"utf8"),
+  ]);
+  assert.match(studio,/const legacyBandIdeals:Record<string,number\[\]>/);
+  assert.match(studio,/mainstream:\[55,60,60,55,55,50\]/);
+  assert.match(studio,/hiphop:\[65,62,55,50,48,42\]/);
+  assert.match(studio,/indie:\[45,50,55,58,52,45\]/);
+  assert.match(studio,/classical:\[35,40,45,48,40,35\]/);
+  assert.match(studio,/typeof value!=="number"\|\|!Number\.isFinite\(value\)/);
+  assert.match(studio,/return "Unavailable"/);
+  assert.match(studio,/Slightly Above/);
+  assert.match(studio,/Slightly Below/);
+  assert.match(studio,/Near Target/);
+  assert.match(studio,/Legacy critique suggestion — not an Auralis-verified fix/);
+  assert.match(studio,/No missing metrics are imputed/);
+  assert.match(server,/lowEnd\.sourceVerification/);
 });
