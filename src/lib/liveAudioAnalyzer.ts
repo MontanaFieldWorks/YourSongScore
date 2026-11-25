@@ -3619,6 +3619,14 @@ export interface SonicLensInteractiveEqPreview {
   minDbfsPerHz: number;
   maxDbfsPerHz: number;
   finiteBandCount: number;
+  // Separate gain-only view. These are hypothetical transfer deltas (dB),
+  // NEVER the measured dBFS/Hz levels or an inferred EQ recommendation.
+  gainDetailPath: string | null;
+  gainDetailOutOfRange: boolean;
+  gainDetailUnmeasuredRanges: readonly {x:number;width:number}[];
+  gainDetailYForDb: (gainDb:number)=>number|null;
+  gainAtFrequency: (frequencyHz:number)=>number|null;
+  hasMeasuredBinAtFrequency: (frequencyHz:number)=>boolean;
 }
 export interface SonicLensInteractiveEqCorrection {
   frequencyHz: number;
@@ -3650,6 +3658,33 @@ export function buildSonicLensInteractiveEqPreview(
     const bell=Math.exp(-0.5*Math.pow(distanceInOctaves/0.7,2));
     return sum-c.dbOffset*c.completion*bell;
   },0);
+  // The detail view uses an independent, truthfully labeled +/-6 dB
+  // hypothetical *gain* axis. If an actual preview exceeds that viewport,
+  // abstain instead of clipping or visually understating the gain.
+  const gainDetailYForDb=(db:number):number|null=>
+    Number.isFinite(db)&&Math.abs(db)<=6 ? 110-db*(88/6) : null;
+  const gainDetailSamples=Array.from({length:257},(_,i)=>{
+    const hz=20*Math.pow(1000,i/256);
+    return {hz,gainDb:previewGain(hz)};
+  });
+  const gainDetailOutOfRange=gainDetailSamples.some(p=>gainDetailYForDb(p.gainDb)===null);
+  const gainDetailPath=gainDetailOutOfRange
+    ? null
+    : gainDetailSamples.map((p,i)=>
+        (i===0?"M":"L")+xForFrequency(p.hz).toFixed(2)+" "+gainDetailYForDb(p.gainDb)!.toFixed(2)
+      ).join(" ");
+  // Shading indicates true gaps in the saved FFT evidence, but a gain curve
+  // can remain mathematically defined there: it is explicitly hypothetical.
+  const gainDetailUnmeasuredRanges=profile.bands
+    .filter(b=>b.bins===0||b.dbfsPerHz===null)
+    .map(b=>({
+      x:xForFrequency(b.loHz),
+      width:xForFrequency(b.hiHz)-xForFrequency(b.loHz),
+    }));
+  const hasMeasuredBinAtFrequency=(hz:number):boolean=>
+    Number.isFinite(hz)&&hz>=20&&hz<=20000&&profile.bands.some(b=>
+      hz>=b.loHz && (hz<b.hiHz || hz===20000&&b.hiHz===20000) &&
+      b.bins>0&&b.dbfsPerHz!==null);
   const makePath=(adjusted:boolean)=>{
     let path="",connected=false;
     for(const band of profile.bands){
@@ -3678,5 +3713,10 @@ export function buildSonicLensInteractiveEqPreview(
     measuredYAtFrequency:(hz:number)=>nearest(hz,false),
     adjustedYAtFrequency:(hz:number)=>nearest(hz,true),
     minDbfsPerHz:low,maxDbfsPerHz:high,finiteBandCount:finite.length,
+    gainDetailPath,gainDetailOutOfRange,gainDetailUnmeasuredRanges,
+    gainDetailYForDb,
+    gainAtFrequency:(hz:number)=>
+      Number.isFinite(hz)&&hz>=20&&hz<=20000 ? previewGain(hz) : null,
+    hasMeasuredBinAtFrequency,
   };
 }
