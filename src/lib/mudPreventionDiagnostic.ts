@@ -1745,7 +1745,7 @@ export function getAuralisBetaAuditReportRows(critique:unknown):AuralisBetaExcel
 // Engineering Studio evidence only. A saved measured master spectrum does
 // NOT identify kick vs bass, prove low-mid masking, establish artistic intent,
 // or justify a DAW EQ transfer. No writes to critique or its scoring children.
-import {summarizeSonicLensMeasuredOverview} from "./liveAudioAnalyzer";
+import {summarizeSonicLensMeasuredOverview} from "./liveAudioAnalyzer.ts";
 
 export type AuralisObjectiveEvidenceStatus =
   "MEASURED_CHARACTERISTIC"|"INSUFFICIENT_EVIDENCE"|"SUPPORTED_TECHNICAL_CONCERN";
