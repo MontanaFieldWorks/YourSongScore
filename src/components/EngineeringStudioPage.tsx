@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import FFT from "fft.js";
-import { SonicLensMixBalanceReport } from "./CritiqueDisplay";
-import { isValidSonicLensSavedMasterEq, buildSonicLensInteractiveEqPreview } from "../lib/liveAudioAnalyzer";
+import { isValidSonicLensSavedMasterEq, buildSonicLensInteractiveEqPreview, summarizeSonicLensMeasuredOverview } from "../lib/liveAudioAnalyzer";
+import { classifyAuralisMudAndLowEndHandoff } from "../lib/mudPreventionDiagnostic";
 import { 
   ArrowLeft, ArrowRight, Volume2, Sliders, Mic, CheckCircle, Square, Play, Pause, 
   Activity, Sparkles, Cpu, AlertTriangle, Check, RotateCcw, Compass, Layers, CheckSquare,
@@ -700,6 +700,8 @@ const generateHarmonicNodes = () => {
   // and the same per-node term used by the gain-only preview function.
   const hypotheticalNodeGainDb = (node:HarmonicNode):number =>
     -node.dbOffset*(customCorrections[node.id] || 0);
+  const measuredOverview=summarizeSonicLensMeasuredOverview(critique?.auralisMasterEqProfile);
+  const objectiveHandoff=classifyAuralisMudAndLowEndHandoff(critique);
 
   return (
     <div className="flex flex-col gap-6" id="engineering-studio-page">
@@ -920,6 +922,13 @@ const generateHarmonicNodes = () => {
                         Harmonic Spectral Resolution Curve (20 - 20,000 Hz)
                       </span>
                     </div>
+                    {measuredInteractiveEq ? (
+                      <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] text-slate-200">
+                        <span>Dashed: measured dBFS/Hz</span>
+                        <span>Blue: hypothetical correction preview</span>
+                        <span>Node labels: legacy advice (not verified)</span>
+                      </div>
+                    ) : (
                     <div className="flex items-center gap-3 font-mono text-[9px] text-slate-500">
                       <span className="flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Critical Problem
@@ -931,84 +940,125 @@ const generateHarmonicNodes = () => {
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Optimized
                       </span>
                     </div>
+                    )}
                   </div>
 
-                  {/* At-a-glance 6-band energy strip, genre-aware targets */}
-                  <div className="grid grid-cols-3 md:grid-cols-6 gap-2.5">
-                    {(() => {
-                      const bandBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
-                      const BAND_IDEALS: Record<string, number[]> = {
-                        hiphop:     [65, 62, 55, 50, 48, 42],
-                        mainstream: [55, 60, 60, 55, 55, 50],
-                        indie:      [45, 50, 55, 58, 52, 45],
-                        classical:  [35, 40, 45, 48, 40, 35],
-                      };
-                      const ideals = BAND_IDEALS[bandBucket.key] ?? BAND_IDEALS.mainstream;
-                      const subBassVal = critique?.liveMetrics?.calculatedSubBassBandEnergy ?? 45;
-                      const bassCorridorVal = critique?.liveMetrics?.calculatedBassBandEnergy ?? 48;
-                      const lowMidVal = critique?.liveMetrics?.calculatedLowMidsBandEnergy ?? 55;
-                      const coreMidVal = critique?.liveMetrics?.calculatedCoreMidsBandEnergy ?? 56;
-                      const presenceVal = critique?.liveMetrics?.calculatedPresenceBandEnergy ?? 50;
-                      const airVal = critique?.liveMetrics?.calculatedAirBandEnergy ?? 46;
-                      // Descriptive comparison to the genre target only. These labels
-                      // are not standalone mix-quality verdicts; calibrated multi-signal
-                      // evidence is what is allowed to reduce Mix Balance scores.
-                      const getStatus = (v: number, ideal: number) =>
-                        v > ideal + 15 ? "Above Target" : v > ideal + 7 ? "Slightly Above" : v < ideal - 15 ? "Below Target" : v < ideal - 7 ? "Slightly Below" : "Near Target";
-                      const bands = [
-                        { band: "Sub-Bass", r: "20-64Hz", val: subBassVal, status: getStatus(subBassVal, ideals[0]), color: "from-blue-600 to-blue-400" },
-                        { band: "Bass", r: "64-250Hz", val: bassCorridorVal, status: getStatus(bassCorridorVal, ideals[1]), color: "from-indigo-600 to-indigo-400" },
-                        { band: "Low-Mids", r: "250Hz-1kHz", val: lowMidVal, status: getStatus(lowMidVal, ideals[2]), color: "from-purple-600 to-purple-400" },
-                        { band: "Core Mids", r: "1-4kHz", val: coreMidVal, status: getStatus(coreMidVal, ideals[3]), color: "from-pink-600 to-pink-400" },
-                        { band: "Presence", r: "4-8kHz", val: presenceVal, status: getStatus(presenceVal, ideals[4]), color: "from-rose-600 to-rose-400" },
-                        { band: "Air", r: "8-20kHz", val: airVal, status: getStatus(airVal, ideals[5]), color: "from-teal-600 to-teal-400" }
-                      ];
-                      return bands.map((band) => (
-                        <div key={band.band} className="bg-[#0A0B0E] border border-white/5 p-2.5 rounded-xl flex flex-col items-center justify-between min-h-[110px]">
-                          <span className="text-[9px] font-bold text-slate-200 tracking-wide text-center">{band.band}</span>
-                          <span className="text-[7px] font-mono text-slate-500 uppercase">{band.r}</span>
-                          <div className="w-3.5 h-12 bg-neutral-950 rounded-full flex flex-col justify-end p-[2px] border border-white/5 mt-1.5">
-                            <div
-                              className={`w-full rounded-full bg-gradient-to-t ${band.color} transition-all duration-300`}
-                              style={{ height: `${band.val}%` }}
-                            />
-                          </div>
-                          <span className="text-[8px] font-mono uppercase tracking-wider text-purple-400 font-bold mt-1.5">{band.status}</span>
+
+                  {/* Auralis-derived master power, never genre/quality targets.
+                      Missing spectral evidence never falls back to legacy ratios. */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5"
+                       aria-label="Auralis six-band measured frequency overview">
+                    {(measuredOverview?.bands ?? [
+                      {name:"Sub-Bass",loHz:20,hiHz:64,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
+                      {name:"Bass",loHz:64,hiHz:250,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
+                      {name:"Low-Mids",loHz:250,hiHz:1000,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
+                      {name:"Core Mids",loHz:1000,hiHz:4000,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
+                      {name:"Presence",loHz:4000,hiHz:8000,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
+                      {name:"Air",loHz:8000,hiHz:20000,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
+                    ]).map(band=>(
+                      <div key={band.name} className="bg-[#0A0B0E] border border-white/10 p-3 rounded-xl flex flex-col gap-2 min-h-[114px]">
+                        <span className="text-[12px] font-bold text-slate-100">{band.name}</span>
+                        <span className="text-[11px] text-slate-300 font-mono">{band.loHz}–{band.hiHz} Hz</span>
+                        <div className="h-2 rounded-full bg-slate-800 overflow-hidden"
+                             aria-hidden="true">
+                          <div className="h-full bg-cyan-400" style={{width:`${band.powerSharePct ?? 0}%`}}/>
                         </div>
-                      ));
-                    })()}
+                        <span className="text-[12px] font-bold text-cyan-200 font-mono">
+                          {band.powerSharePct===null ? "Unavailable" : `${band.powerSharePct.toFixed(1)}% of measured power`}
+                        </span>
+                        <span className="text-[10px] text-slate-300">
+                          {band.status==="MEASURED"?"Measured FFT bins":
+                            band.status==="PARTIAL"?"Partial FFT coverage":"No FFT coverage"}
+                        </span>
+                      </div>
+                    ))}
                   </div>
 
-                  {/* Spectral Tilt Indicator */}
-                  <div className="bg-neutral-900 border border-white/5 p-4 rounded-xl mt-1 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-left">
-                    <div className="text-left">
-                      <span className="text-[10px] font-mono text-slate-500 uppercase font-bold block mb-1">Spectral Tilt Indicator</span>
-                      <p className="text-[11.5px] text-slate-300">
-                        {(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25; const tilt = parseFloat((-2.0 - (bass * 0.08) + (high * 0.04)).toFixed(1)); return <>Your master registers a spectral tilt of <span className="text-purple-400 font-mono font-bold">{tilt}dB/oct</span>. {tilt < -5 ? "This indicates a bass-heavy, warm analog profile — common in classic rock and vintage recordings." : tilt < -3 ? "This translates to a balanced, natural spectral slope well-suited for modern streaming." : "This indicates a bright, high-energy mix — presence and air are elevated relative to the low end."}</>; })()}
-                      </p>
+                  <section className="bg-[#0A0B0E] border border-white/10 rounded-xl p-4 text-left flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-bold text-xs text-slate-200">Auralis measured spectral tilt</span>
+                      <span className="font-mono text-[13px] font-bold text-cyan-200">
+                        {measuredOverview?.tiltDbPerOct===null || !measuredOverview
+                          ? "Unavailable" : `${measuredOverview.tiltDbPerOct.toFixed(1)} dB/oct`}
+                      </span>
                     </div>
-                    <span className="px-3.5 py-1.5 bg-[#0A0B0E] border border-purple-500/20 text-purple-400 font-mono tracking-widest text-[9.5px] rounded-lg uppercase whitespace-nowrap">
-                      {(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25; if (bass > 40) return "Bass-Heavy Tilt"; if (bass > 28 && high < 25) return "Slight Sub Bass Tilt"; if (high > 35) return "Bright High-End Tilt"; if (high > 28) return "Slight High-End Tilt"; return "Neutral Spectral Balance"; })()}
-                    </span>
-                  </div>
+                    <p className="text-[11px] text-slate-300">
+                      Slope fitted to populated measured bands (50 Hz–16 kHz); shown only with
+                      sufficient coverage and fit quality. Six-band percentages describe the
+                      share of represented FFT power, not ideal genre targets or corrections.
+                      Partial/empty bins are not fabricated. Scoring impact: NONE.
+                    </p>
+                  </section>
+
+                  <section aria-label="Auralis objective engineering evidence"
+                    className="bg-[#0A0B0E] rounded-xl border border-cyan-500/20 p-3 text-[11px] text-slate-200 leading-relaxed">
+                    <strong className="text-cyan-200">Objective engineering evidence — NOT SCORED</strong>
+                    <div className="mt-2 grid md:grid-cols-2 gap-2">
+                      <div>
+                        <span className="font-semibold">Mud Prevention: </span>
+                        {objectiveHandoff.mud.status==="MEASURED_CHARACTERISTIC"
+                          ? "Measured spectral characteristic; mud defect not established."
+                          : "Insufficient verified spectral evidence."}
+                        <span className="block text-slate-400">
+                          {objectiveHandoff.mud.scoringStatus==="DIAGNOSTIC_ONLY"
+                            ? "Diagnostic-only; excluded from current Mix Balance scores."
+                            : "Historical report; existing scores remain unchanged."}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="font-semibold">Low-End Division: </span>
+                        {objectiveHandoff.lowEnd.status==="MEASURED_CHARACTERISTIC"
+                          ? "Measured low-frequency distribution; separation defect not established."
+                          : "Insufficient verified spectral evidence."}
+                        <span className="block text-slate-400">
+                          {objectiveHandoff.lowEnd.roleStatus==="INDEPENDENT_ROLES_CORROBORATED"
+                            ? "Independent bass/percussion roles previously corroborated by listening passes; no masking verdict."
+                            : "Independent bass/percussion roles unverified or not applicable."}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-slate-400">
+                      A supported technical concern would require independently verified defect
+                      evidence and a known processing target. Neither is asserted here.
+                      {objectiveHandoff.worker.status==="SEPARATE_MEASUREMENT_AVAILABLE"
+                        ? ` Separate Auralis Worker observation: ${objectiveHandoff.worker.lowToUpperDb?.toFixed(2)} dB 60–250 Hz versus 500–20,000 Hz (not a defect verdict).`
+                        : " Independent Worker observation unavailable or provenance-unverified."}
+                    </p>
+                  </section>
 
                   {measuredInteractiveEq && (
                     <div role="note" className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-[10px] text-slate-300 leading-relaxed">
-                      <strong className="text-blue-200">Auralis measured source (dashed)</strong>
-                      {" · "}Blue curve previews hypothetical slider changes against those exact measured bands.
-                      This is not an EQ target, a mastering transfer curve, or evidence that a node is defective.
-                      Empty FFT bands remain gaps. Existing five-node guidance is qualitative and unchanged.
+                      <strong className="text-blue-200">What Auralis measures:</strong>
+                      {" "}The dashed line is measured spectral power (dBFS/Hz).
+                      The blue overlay previews hypothetical slider changes from legacy guidance;
+                      This is not an EQ target, a mastering transfer curve or a verified fix.
+                      Empty FFT bands remain gaps. No score changes.
                     </div>
                   )}
 
-                  {/* The SVG Canvas wrapper */}
-                  <div className="relative w-full h-[220px] bg-[#0A0B0E] rounded-2xl border border-white/5 overflow-hidden flex items-center justify-center p-2 shadow-inner">
+                  {/* Five readable frequency selectors outside the plot. */}
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="Select an advisory frequency node">
+                    {harmonicNodes.map(node=>(
+                      <button key={node.id} type="button" onClick={()=>handleSelectNode(node)}
+                        aria-pressed={selectedNodeId===node.id}
+                        className={`min-w-[110px] text-[12px] font-semibold font-mono rounded-lg px-3 py-2.5 border
+                          focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300
+                          ${selectedNodeId===node.id
+                            ?"bg-blue-500/25 border-blue-300 text-white"
+                            :"bg-[#0A0B0E] border-blue-500/30 text-slate-200 hover:text-white hover:border-blue-300"}`}>
+                        {node.band} · {node.frequency}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_230px] gap-3 items-stretch">
+                  <div className="relative w-full h-[440px] bg-[#0A0B0E] rounded-2xl border border-white/5 overflow-hidden flex items-center justify-center p-2 shadow-inner">
                     {measuredInteractiveEq ? (
                       <div className="absolute inset-0 pointer-events-none">
                         {[20, 100, 250, 500, 1000, 4000, 10000, 20000].map(f=>(
                           <div key={f} className="absolute inset-y-0 border-l border-white/10"
                             style={{left:`${measuredInteractiveEq.xForFrequency(f)/850*100}%`}}>
-                            <span className="absolute bottom-1 left-1 font-mono text-[8px] text-slate-500 whitespace-nowrap">
+                            <span className="absolute bottom-1 left-1 font-mono text-[10px] text-slate-300 whitespace-nowrap">
                               {f<1000?`${f}Hz`:`${f/1000}kHz`}
                             </span>
                           </div>
@@ -1030,11 +1080,11 @@ const generateHarmonicNodes = () => {
 
                     {measuredInteractiveEq ? (
                       <div className="absolute inset-x-0 inset-y-2 flex flex-col justify-between pointer-events-none pl-3 z-0">
-                        <span className="font-mono text-[8px] text-slate-500">
+                        <span className="font-mono text-[10px] text-slate-300">
                           {measuredInteractiveEq.maxDbfsPerHz} dBFS/Hz
                         </span>
-                        <span className="font-mono text-[8px] text-slate-500">Measured level (not EQ gain)</span>
-                        <span className="font-mono text-[8px] text-slate-500">
+                        <span className="font-mono text-[10px] text-slate-300">Measured level (not EQ gain)</span>
+                        <span className="font-mono text-[10px] text-slate-300">
                           {measuredInteractiveEq.minDbfsPerHz} dBFS/Hz
                         </span>
                       </div>
@@ -1046,7 +1096,7 @@ const generateHarmonicNodes = () => {
                       </div>
                     )}
 
-                    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 850 220" preserveAspectRatio="none">
+                    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 850 440" preserveAspectRatio="none" aria-label="Measured spectral power with hypothetical EQ overlay">
                       <defs>
                         <linearGradient id="curveGradient" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#2563eb" stopOpacity="0.25" />
@@ -1060,17 +1110,19 @@ const generateHarmonicNodes = () => {
                       {!measuredInteractiveEq && (
                         <path
                           d={`${getSimulatedPath()} L 850 220 L 30 220 Z`}
+                          transform="scale(1 2)"
                           fill="url(#curveGradient)"
                           className="transition-all duration-300"
                         />
                       )}
                       {measuredInteractiveEq && (
-                        <path d={measuredInteractiveEq.rawPath} fill="none"
+                        <path d={measuredInteractiveEq.rawPath} transform="scale(1 2)" fill="none"
                           stroke="#93c5fd" strokeWidth="2" strokeDasharray="5 4"
                           opacity="0.8" aria-label="Unmodified measured source spectrum"/>
                       )}
                       <path
                         d={measuredInteractiveEq ? measuredInteractiveEq.adjustedPath : getSimulatedPath()}
+                        transform="scale(1 2)"
                         fill="none"
                         stroke="#2563EB"
                         strokeWidth="3.5"
@@ -1103,11 +1155,15 @@ const generateHarmonicNodes = () => {
                           glowCode = "rgba(245, 158, 11, 0.65)";
                         }
 
+                        if(measuredInteractiveEq){
+                          colorCode=isSelected?"#60a5fa":"#94a3b8";
+                          glowCode=isSelected?"rgba(96, 165, 250, 0.6)":"rgba(148, 163, 184, 0.3)";
+                        }
                         return (
                           <g key={node.id} className="cursor-pointer" onClick={() => handleSelectNode(node)}>
                             <circle 
                               cx={cx} 
-                              cy={cy} 
+                              cy={cy * 2} 
                               r={isSelected ? "15" : "7"} 
                               fill="none" 
                               stroke={colorCode} 
@@ -1116,7 +1172,7 @@ const generateHarmonicNodes = () => {
                             />
                             <foreignObject 
                               x={cx - (isSelected ? 12 : 9)} 
-                              y={cy - (isSelected ? 12 : 9)} 
+                              y={cy * 2 - (isSelected ? 12 : 9)} 
                               width={isSelected ? 24 : 18} 
                               height={isSelected ? 24 : 18}
                               className="overflow-visible"
@@ -1142,176 +1198,19 @@ const generateHarmonicNodes = () => {
                         );
                       })}
                     </svg>
-
-                    {harmonicNodes.map((node) => {
-                      const isThisSelected = selectedNodeId === node.id;
-                      return (
-                        <div
-                          key={`select-pill-${node.id}`}
-                          onClick={() => handleSelectNode(node)}
-                          className={`absolute font-mono text-[9px] px-2.5 py-1 rounded-xl shadow-lg cursor-pointer transition-all duration-200 ${
-                            isThisSelected
-                              ? "text-white bg-[#2563EB]/20 border border-[#2563EB] shadow-[0_0_12px_rgba(37,99,235,0.5)] scale-105"
-                              : "text-[#2563EB]/70 bg-[#0A0B0E] border border-[#2563EB]/30 hover:border-[#2563EB]/70 hover:text-[#2563EB]"
-                          }`}
-                          style={{
-                            left: measuredInteractiveEq
-                              ? `calc(${measuredInteractiveEq.xForFrequency(harmonicFrequencyHz(node.frequency))/850*100}% - 45px)`
-                              : `calc(${node.xPct}% - 45px)`,
-                            top: "14px"
-                          }}
-                        >
-                          SELECT: {node.frequency}
-                        </div>
-                      );
-                    })}
                   </div>
-
-
-                  {/* Separate, truthful gain-only zoom: never rescale or alter
-                      the full measured dBFS/Hz spectrum above. */}
-                  {measuredInteractiveEq && (
-                    <section aria-label="SonicLens hypothetical EQ correction detail"
-                      className="bg-[#0A0B0E] border border-blue-500/20 rounded-2xl p-4 flex flex-col gap-3 text-left">
-                      <div className="flex flex-wrap justify-between items-start gap-2">
-                        <div>
-                          <h3 className="text-xs font-bold tracking-widest uppercase text-blue-300">
-                            EQ Correction Detail — hypothetical gain only
-                          </h3>
-                          <p className="text-[10px] text-slate-400 leading-relaxed mt-1">
-                            Fixed ±6 dB gain scale (not measured dBFS/Hz). The curve visualizes
-                            only the current five-slider simulation. It is not a DAW filter
-                            response, an automatic EQ recommendation, or a change to your audio.
-                          </p>
-                        </div>
-                        {activeSelectedNode && (
-                          <div className="font-mono text-right text-[11px] text-blue-200">
-                            <span className="text-slate-400">Selected {activeSelectedNode.frequency}: </span>
-                            <strong>{formatSonicLensSignedGain(hypotheticalNodeGainDb(activeSelectedNode))}</strong>
-                          </div>
-                        )}
-                      </div>
-                      {measuredInteractiveEq.gainDetailOutOfRange ? (
-                        <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-200">
-                          Combined hypothetical EQ gain exceeds the fixed ±6 dB viewing range.
-                          No clipped or misleading gain curve is drawn. The exact per-node
-                          simulated gain values remain listed below; reduce the sliders to view
-                          the curve within this scale.
-                        </p>
-                      ) : (
-                        <svg viewBox="0 0 850 220" className="w-full h-[220px] rounded-xl bg-[#0b1322]"
-                          role="img" aria-label="Hypothetical EQ gain change on a fixed minus six to plus six decibel scale, 20 hertz to 20 kilohertz logarithmic">
-                          {[-6,-3,0,3,6].map(gainDb=>(
-                            <g key={gainDb}>
-                              <line x1="30" x2="850"
-                                y1={measuredInteractiveEq.gainDetailYForDb(gainDb) ?? 110}
-                                y2={measuredInteractiveEq.gainDetailYForDb(gainDb) ?? 110}
-                                stroke={gainDb===0?"#64748b":"#334155"}
-                                strokeDasharray={gainDb===0?"4 4":undefined} strokeWidth="1"/>
-                              <text x="27" y={(measuredInteractiveEq.gainDetailYForDb(gainDb) ?? 110)-3}
-                                fontSize="10" fill="#94a3b8" textAnchor="end">
-                                {gainDb>0?`+${gainDb}`:gainDb}dB
-                              </text>
-                            </g>
-                          ))}
-                          {measuredInteractiveEq.gainDetailUnmeasuredRanges.map((range,index)=>(
-                            <rect key={index} x={range.x} y="22" width={range.width} height="176"
-                              fill="#94a3b8" fillOpacity="0.16"/>
-                          ))}
-                          {[20,100,1000,10000,20000].map(hz=>(
-                            <g key={hz}>
-                              <line x1={measuredInteractiveEq.xForFrequency(hz)}
-                                x2={measuredInteractiveEq.xForFrequency(hz)}
-                                y1="22" y2="198" stroke="#334155" strokeWidth=".75"/>
-                              <text x={measuredInteractiveEq.xForFrequency(hz)} y="215"
-                                textAnchor={hz===20?"start":hz===20000?"end":"middle"}
-                                fontSize="10" fill="#94a3b8">
-                                {hz>=1000?`${hz/1000}k`:`${hz}`}Hz
-                              </text>
-                            </g>
-                          ))}
-                          {measuredInteractiveEq.gainDetailPath && (
-                            <path d={measuredInteractiveEq.gainDetailPath}
-                              fill="none" stroke="#60a5fa" strokeWidth="3"
-                              strokeLinejoin="round" aria-label="Illustrative hypothetical gain preview"/>
-                          )}
-                        </svg>
-                      )}
-                      <p className="text-[10px] text-slate-400 leading-relaxed">
-                        <span className="text-slate-300">Gray frequency strips:</span> no
-                        populated FFT bins in the saved Auralis measurement. The hypothetical
-                        gain function is still defined there, but no source spectrum power
-                        or audio correction is inferred for those bands.
+                  {activeSelectedNode && activeSelectedNode.status !== "optimized" ? (
+                    <aside className="rounded-xl bg-[#0A0B0E] border border-blue-500/25 p-3 self-stretch flex flex-col justify-center gap-2">
+                      <p className="text-[11px] text-slate-300">
+                        Selected: <strong className="text-white">{activeSelectedNode.frequency}</strong>
                       </p>
-                      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
-                        {harmonicNodes.map(node=>(
-                          <div key={node.id}
-                            className={`rounded-lg border px-2.5 py-2 text-[10px] font-mono ${selectedNodeId===node.id
-                              ?"border-blue-400/50 bg-blue-500/10 text-blue-200"
-                              :"border-white/10 bg-white/[0.02] text-slate-300"}`}>
-                            <div className="text-slate-400">{node.band} · {node.frequency}</div>
-                            <strong className="block mt-1 text-[12px]">
-                              {formatSonicLensSignedGain(hypotheticalNodeGainDb(node))}
-                            </strong>
-                            {!measuredInteractiveEq.hasMeasuredBinAtFrequency(harmonicFrequencyHz(node.frequency)) && (
-                              <span className="text-amber-300 text-[9px]">No FFT bin at center</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                      {activeSelectedNode && measuredInteractiveEq.gainAtFrequency(harmonicFrequencyHz(activeSelectedNode.frequency))!==null && (
-                        <p className="text-[10px] text-slate-400">
-                          Combined hypothetical gain at {activeSelectedNode.frequency}, including
-                          overlapping simulated nodes: <strong className="text-slate-200">
-                            {formatSonicLensSignedGain(measuredInteractiveEq.gainAtFrequency(harmonicFrequencyHz(activeSelectedNode.frequency))!)}
-                          </strong>
-                        </p>
-                      )}
-                    </section>
-                  )}
-
-                  {/* Correction Solver */}
-                  {activeSelectedNode ? (
-                    <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-5 text-left flex flex-col md:flex-row items-stretch justify-between gap-6 relative overflow-hidden transition-all duration-300">
-                      <div className="flex-1 flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <span className="text-[10px] font-mono font-bold tracking-widest text-slate-500 uppercase">
-                              Target Frequency Zone: {activeSelectedNode.frequency} ({activeSelectedNode.band})
-                            </span>
-                            {(customCorrections[activeSelectedNode.id] || 0) >= 0.85 ? (
-                              <span className="text-[8px] bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase flex items-center gap-1 font-semibold select-none">
-                                <Check className="w-2.5 h-2.5" /> {measuredInteractiveEq ? "Previewed" : "Resolved"}
-                              </span>
-                            ) : activeSelectedNode.status === "optimized" ? (
-                              <span className="text-[8px] bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase font-semibold">Healthy Range</span>
-                            ) : activeSelectedNode.dbOffset < 0 ? (
-                              <span className="text-[8px] bg-amber-400/15 border border-amber-500/25 text-amber-500 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase font-semibold animate-pulse">Resonance Deficit</span>
-                            ) : (
-                              <span className="text-[8px] bg-red-400/15 border border-red-500/25 text-red-500 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase font-semibold animate-pulse">Resonance Overload</span>
-                            )}
-                          </div>
-                          <h3 className="text-white font-bold text-base tracking-tight">{activeSelectedNode.problem}</h3>
-                        </div>
-
-                        <div className="mt-4 pt-3.5 border-t border-white/5 flex gap-2 items-center text-xs">
-                          <Sliders className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                          <button
-                            onClick={() => {
-                              const target = document.getElementById(`checklist-item-${activeSelectedNode.id}`);
-                              if (target) {
-                                target.scrollIntoView({ behavior: "smooth", block: "center" });
-                                target.classList.add("ring-2", "ring-cyan-400");
-                                setTimeout(() => target.classList.remove("ring-2", "ring-cyan-400"), 2000);
-                              }
-                            }}
-                            className="font-bold text-blue-400 hover:text-blue-300 uppercase underline underline-offset-2 transition-colors cursor-pointer text-left"
-                          >
-                            View Surgical DAW Guidance in Checklist →
-                          </button>
-                        </div>
-                      </div>
-
+                      <p className="text-[11px] text-cyan-200 font-mono">
+                        Hypothetical gain: {formatSonicLensSignedGain(hypotheticalNodeGainDb(activeSelectedNode))}
+                      </p>
+                      <p className="text-[10px] text-slate-400">
+                        Legacy critique advice — not an Auralis-verified fix.
+                        Sliders do not process audio.
+                      </p>
                       {activeSelectedNode.status !== "optimized" && (
                         <div className="md:w-[220px] bg-[#111317]/80 rounded-xl p-4 border border-white/5 flex flex-col justify-between text-center gap-4">
                           <div>
@@ -1351,10 +1250,66 @@ const generateHarmonicNodes = () => {
                             disabled={correctionValue >= 1.0}
                             className="py-1.5 text-[9px] font-mono uppercase bg-blue-600/10 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-white rounded-lg transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                           >
-                            Autocorrect Resonance
+                            Autocorrect Resonance — Preview Only
                           </button>
                         </div>
                       )}
+                    </aside>
+                  ) : (
+                    <aside className="bg-[#0A0B0E] rounded-xl border border-white/10 p-4 text-xs text-slate-300">
+                      Choose one of the five advisory nodes. No supported EQ correction is established by spectral power alone.
+                    </aside>
+                  )}
+                  </div>
+
+                  {/* Correction Solver */}
+                  {activeSelectedNode ? (
+                    <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-5 text-left flex flex-col md:flex-row items-stretch justify-between gap-6 relative overflow-hidden transition-all duration-300">
+                      <div className="flex-1 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className="text-[10px] font-mono font-bold tracking-widest text-slate-500 uppercase">
+                              Target Frequency Zone: {activeSelectedNode.frequency} ({activeSelectedNode.band})
+                            </span>
+                            {measuredInteractiveEq ? (
+                              <span className="text-[10px] text-amber-200 border border-amber-400/25 rounded px-2 py-0.5">
+                                Legacy advisory — Auralis defect not established
+                              </span>
+                            ) : (customCorrections[activeSelectedNode.id] || 0) >= 0.85 ? (
+                              <span className="text-[8px] bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase flex items-center gap-1 font-semibold select-none">
+                                <Check className="w-2.5 h-2.5" /> {measuredInteractiveEq ? "Previewed (not applied)" : "Resolved"}
+                              </span>
+                            ) : activeSelectedNode.status === "optimized" ? (
+                              <span className="text-[8px] bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase font-semibold">Healthy Range</span>
+                            ) : activeSelectedNode.dbOffset < 0 ? (
+                              <span className="text-[8px] bg-amber-400/15 border border-amber-500/25 text-amber-500 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase font-semibold animate-pulse">Resonance Deficit</span>
+                            ) : (
+                              <span className="text-[8px] bg-red-400/15 border border-red-500/25 text-red-500 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase font-semibold animate-pulse">Resonance Overload</span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-amber-300 mb-2">Legacy critique suggestion — not Auralis verified. Review by listening before changing any DAW controls.</p>
+                          <h3 className="text-white font-bold text-base tracking-tight">{activeSelectedNode.problem}</h3>
+                        </div>
+
+                        <div className="mt-4 pt-3.5 border-t border-white/5 flex gap-2 items-center text-xs">
+                          <Sliders className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                          <button
+                            onClick={() => {
+                              const target = document.getElementById(`checklist-item-${activeSelectedNode.id}`);
+                              if (target) {
+                                target.scrollIntoView({ behavior: "smooth", block: "center" });
+                                target.classList.add("ring-2", "ring-cyan-400");
+                                setTimeout(() => target.classList.remove("ring-2", "ring-cyan-400"), 2000);
+                              }
+                            }}
+                            className="font-bold text-blue-400 hover:text-blue-300 uppercase underline underline-offset-2 transition-colors cursor-pointer text-left"
+                          >
+                            View Surgical DAW Guidance in Checklist →
+                          </button>
+                        </div>
+                      </div>
+
+
                     </div>
                   ) : (
                     <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-6 text-center text-xs text-slate-500">
@@ -1362,7 +1317,7 @@ const generateHarmonicNodes = () => {
                     </div>
                   )}
                   <div className="bg-[#0b1322] border border-amber-500/10 rounded-xl p-3.5 mt-2 text-[10px] text-slate-400 leading-relaxed">
-                    <span className="font-mono font-bold text-amber-400 uppercase text-[9px] block mb-1">Analog Saturation Note:</span>
+                    <span className="font-mono font-bold text-amber-400 uppercase text-[9px] block mb-1">Analog Saturation Note: Legacy suggestion (not Auralis verified)</span>
                     {(() => {
                       const b858 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
                       if (critique?.liveMetrics?.calculatedLufs === undefined) return "Light vintage tape drive (+0.5dB, 30 ips) recommended to add cohesion across the high-mid transient peaks.";
@@ -1378,7 +1333,7 @@ const generateHarmonicNodes = () => {
                       Native details keeps the graph separate from simulated EQ correction. */}
                   <details className="group rounded-2xl border border-cyan-500/20 bg-[#0A0B0E]/70 mt-3">
                     <summary className="cursor-pointer select-none px-4 py-3 text-xs font-mono font-bold tracking-wider text-cyan-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-400">
-                      Measured SonicLens spectrum (dBFS/Hz) — expand
+                      SonicLens measurement details (no duplicate graph) — expand
                     </summary>
                     <div className="border-t border-white/10 px-4 pb-4">
                       {!isValidSonicLensSavedMasterEq(critique?.auralisMasterEqProfile) &&
@@ -1398,7 +1353,38 @@ const generateHarmonicNodes = () => {
                           )}
                         </div>
                       )}
-                      <SonicLensMixBalanceReport profile={critique?.auralisMasterEqProfile} context="studio"/>
+                      {isValidSonicLensSavedMasterEq(critique?.auralisMasterEqProfile) ? (
+                        <div className="mt-4 rounded-xl bg-black/20 border border-white/10 p-3 text-[11px] text-slate-300">
+                          <h4 className="font-bold text-cyan-200 mb-2">
+                            Validated saved Auralis spectrum — source and measurement details
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 font-mono">
+                            <span>Source: {critique.auralisMasterEqProfile.sourceIdentity}</span>
+                            <span>Units: {critique.auralisMasterEqProfile.units}</span>
+                            <span>Sample rate: {critique.auralisMasterEqProfile.sampleRateHz} Hz</span>
+                            <span>Channels: {critique.auralisMasterEqProfile.channels}</span>
+                            <span>Samples per channel: {critique.auralisMasterEqProfile.inputSamplesPerChannel}</span>
+                            <span>FFT window: {critique.auralisMasterEqProfile.window}</span>
+                            <span>FFT size: {critique.auralisMasterEqProfile.fftSize}</span>
+                            <span>FFT hop: {critique.auralisMasterEqProfile.hopSize}</span>
+                            <span>Normalization: {critique.auralisMasterEqProfile.normalization}</span>
+                            <span>Bin resolution: {critique.auralisMasterEqProfile.binResolutionHz.toFixed(2)} Hz</span>
+                            <span>Frames: {critique.auralisMasterEqProfile.sampledFrames} / {critique.auralisMasterEqProfile.eligibleFrames} eligible</span>
+                            <span>Bands: {critique.auralisMasterEqProfile.bands.length} log-frequency bands</span>
+                          </div>
+                          <p className="text-slate-400 mt-2">
+                            This represents the decoded PCM at analysis time, not source-to-master
+                            verification, a reference-target match, or a new analysis. Gaps
+                            in the upper graph reflect FFT-bin coverage.
+                            Scoring impact: NONE.
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="mt-4 text-slate-300 text-xs">
+                          No validated saved SonicLens spectrum is available for this report.
+                          Legacy reports cannot reconstruct missing FFT bins or spectral measurements.
+                        </p>
+                      )}
                     </div>
                   </details>
 

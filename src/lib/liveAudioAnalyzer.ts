@@ -3720,3 +3720,83 @@ export function buildSonicLensInteractiveEqPreview(
     hasMeasuredBinAtFrequency,
   };
 }
+
+
+/**
+ * Auralis saved-PCM spectral overview for the Engineering Studio only.
+ * Sum LINEAR band power (density times represented FFT-bin bandwidth).
+ * Values are shares of represented power, not genre targets or mix grades.
+ * 96 log-band edge intersections are approximate because the source bins
+ * were grouped before persistence; missing bins are never interpolated.
+ */
+export const SONICLENS_SIX_BAND_EDGES_HZ = [20,64,250,1000,4000,8000,20000] as const;
+export const SONICLENS_SIX_BAND_NAMES = [
+  "Sub-Bass","Bass","Low-Mids","Core Mids","Presence","Air",
+] as const;
+export type SonicLensMeasuredBand = {
+  name:string;loHz:number;hiHz:number;powerSharePct:number|null;
+  coveragePct:number;status:"MEASURED"|"PARTIAL"|"UNAVAILABLE";
+};
+export type SonicLensMeasuredOverview = {
+  status:"AVAILABLE";scoringImpact:"NONE";bands:SonicLensMeasuredBand[];
+  tiltDbPerOct:number|null;tiltFitR2:number|null;
+  tiltStatus:"MEASURED"|"UNAVAILABLE";
+  method:"PERSISTED_8192_FFT_96_LOG_BANDS";
+};
+export function summarizeSonicLensMeasuredOverview(source:unknown):SonicLensMeasuredOverview|null {
+  if(!isValidSonicLensSavedMasterEq(source))return null;
+  const p=source;
+  const ranges=SONICLENS_SIX_BAND_EDGES_HZ;
+  const representedPower=Array<number>(6).fill(0);
+  const representedHz=Array<number>(6).fill(0);
+  const populated=Array<number>(6).fill(0);
+  const fit:{x:number;y:number}[]=[];
+  for(const b of p.bands){
+    // A null density from an eligible FFT bin represents no positive measured
+    // power; empty FFT bins have no measurement whatsoever.
+    const power=b.dbfsPerHz===null?0:Math.pow(10,b.dbfsPerHz/10)*b.bins*p.binResolutionHz;
+    if(!Number.isFinite(power)||power<0)return null;
+    for(let i=0;i<6;i++){
+      const overlap=Math.max(0,Math.min(b.hiHz,ranges[i+1])-Math.max(b.loHz,ranges[i]));
+      if(overlap===0)continue;
+      const part=overlap/(b.hiHz-b.loHz);
+      representedPower[i]+=power*part;
+      representedHz[i]+=Math.min(b.hiHz-b.loHz,b.bins*p.binResolutionHz)*part;
+      if(b.bins>0)populated[i]++;
+    }
+    if(b.bins>0&&b.dbfsPerHz!==null&&b.centerHz>=50&&b.centerHz<=16000){
+      fit.push({x:Math.log2(b.centerHz),y:b.dbfsPerHz});
+    }
+  }
+  const total=representedPower.reduce((a,b)=>a+b,0);
+  if(!Number.isFinite(total)||total<=0)return null;
+  const bands=SONICLENS_SIX_BAND_NAMES.map((name,i):SonicLensMeasuredBand=>{
+    const coveragePct=Math.max(0,Math.min(100,
+      100*representedHz[i]/(ranges[i+1]-ranges[i])));
+    const status=populated[i]===0?"UNAVAILABLE"
+      :coveragePct>=80&&populated[i]>=2?"MEASURED":"PARTIAL";
+    return {name,loHz:ranges[i],hiHz:ranges[i+1],
+      powerSharePct:status==="UNAVAILABLE"?null:100*representedPower[i]/total,
+      coveragePct,status};
+  });
+  let tiltDbPerOct:number|null=null,tiltFitR2:number|null=null;
+  if(fit.length>=24&&fit.at(-1)!.x-fit[0].x>=5){
+    const n=fit.length,xm=fit.reduce((s,z)=>s+z.x,0)/n,
+      ym=fit.reduce((s,z)=>s+z.y,0)/n;
+    const xx=fit.reduce((s,z)=>s+(z.x-xm)**2,0);
+    const yy=fit.reduce((s,z)=>s+(z.y-ym)**2,0);
+    const xy=fit.reduce((s,z)=>s+(z.x-xm)*(z.y-ym),0);
+    if(xx>0&&yy>0){
+      const slope=xy/xx,r2=xy**2/(xx*yy);
+      // A nonlinear or unstable spectrum is not assigned a single slope.
+      if(Number.isFinite(slope)&&Number.isFinite(r2)&&r2>=0.45){
+        tiltDbPerOct=Math.round(slope*10)/10;
+        tiltFitR2=Math.round(r2*100)/100;
+      }
+    }
+  }
+  return {status:"AVAILABLE",scoringImpact:"NONE",bands,
+    tiltDbPerOct,tiltFitR2,
+    tiltStatus:tiltDbPerOct===null?"UNAVAILABLE":"MEASURED",
+    method:"PERSISTED_8192_FFT_96_LOG_BANDS"};
+}
