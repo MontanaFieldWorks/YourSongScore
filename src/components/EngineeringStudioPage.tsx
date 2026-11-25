@@ -922,6 +922,13 @@ const generateHarmonicNodes = () => {
                         Harmonic Spectral Resolution Curve (20 - 20,000 Hz)
                       </span>
                     </div>
+                    {measuredInteractiveEq ? (
+                      <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] text-slate-200">
+                        <span>Dashed: measured dBFS/Hz</span>
+                        <span>Blue: hypothetical correction preview</span>
+                        <span>Node labels: legacy advice (not verified)</span>
+                      </div>
+                    ) : (
                     <div className="flex items-center gap-3 font-mono text-[9px] text-slate-500">
                       <span className="flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Critical Problem
@@ -933,6 +940,7 @@ const generateHarmonicNodes = () => {
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Optimized
                       </span>
                     </div>
+                    )}
                   </div>
 
 
@@ -1263,7 +1271,11 @@ const generateHarmonicNodes = () => {
                             <span className="text-[10px] font-mono font-bold tracking-widest text-slate-500 uppercase">
                               Target Frequency Zone: {activeSelectedNode.frequency} ({activeSelectedNode.band})
                             </span>
-                            {(customCorrections[activeSelectedNode.id] || 0) >= 0.85 ? (
+                            {measuredInteractiveEq ? (
+                              <span className="text-[10px] text-amber-200 border border-amber-400/25 rounded px-2 py-0.5">
+                                Legacy advisory — Auralis defect not established
+                              </span>
+                            ) : (customCorrections[activeSelectedNode.id] || 0) >= 0.85 ? (
                               <span className="text-[8px] bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase flex items-center gap-1 font-semibold select-none">
                                 <Check className="w-2.5 h-2.5" /> {measuredInteractiveEq ? "Previewed (not applied)" : "Resolved"}
                               </span>
