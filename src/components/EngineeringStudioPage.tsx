@@ -1072,11 +1072,11 @@ const generateHarmonicNodes = () => {
 
                     {measuredInteractiveEq ? (
                       <div className="absolute inset-x-0 inset-y-2 flex flex-col justify-between pointer-events-none pl-3 z-0">
-                        <span className="font-mono text-[8px] text-slate-500">
+                        <span className="font-mono text-[10px] text-slate-300">
                           {measuredInteractiveEq.maxDbfsPerHz} dBFS/Hz
                         </span>
                         <span className="font-mono text-[10px] text-slate-300">Measured level (not EQ gain)</span>
-                        <span className="font-mono text-[8px] text-slate-500">
+                        <span className="font-mono text-[10px] text-slate-300">
                           {measuredInteractiveEq.minDbfsPerHz} dBFS/Hz
                         </span>
                       </div>
@@ -1147,6 +1147,10 @@ const generateHarmonicNodes = () => {
                           glowCode = "rgba(245, 158, 11, 0.65)";
                         }
 
+                        if(measuredInteractiveEq){
+                          colorCode=isSelected?"#60a5fa":"#94a3b8";
+                          glowCode=isSelected?"rgba(96, 165, 250, 0.6)":"rgba(148, 163, 184, 0.3)";
+                        }
                         return (
                           <g key={node.id} className="cursor-pointer" onClick={() => handleSelectNode(node)}>
                             <circle 
@@ -1305,7 +1309,7 @@ const generateHarmonicNodes = () => {
                     </div>
                   )}
                   <div className="bg-[#0b1322] border border-amber-500/10 rounded-xl p-3.5 mt-2 text-[10px] text-slate-400 leading-relaxed">
-                    <span className="font-mono font-bold text-amber-400 uppercase text-[9px] block mb-1">Analog Saturation Note:</span>
+                    <span className="font-mono font-bold text-amber-400 uppercase text-[9px] block mb-1">Legacy analog saturation suggestion (not Auralis verified):</span>
                     {(() => {
                       const b858 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
                       if (critique?.liveMetrics?.calculatedLufs === undefined) return "Light vintage tape drive (+0.5dB, 30 ips) recommended to add cohesion across the high-mid transient peaks.";
@@ -1321,7 +1325,7 @@ const generateHarmonicNodes = () => {
                       Native details keeps the graph separate from simulated EQ correction. */}
                   <details className="group rounded-2xl border border-cyan-500/20 bg-[#0A0B0E]/70 mt-3">
                     <summary className="cursor-pointer select-none px-4 py-3 text-xs font-mono font-bold tracking-wider text-cyan-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-400">
-                      Measured SonicLens spectrum (dBFS/Hz) — expand
+                      SonicLens measurement details (no duplicate graph) — expand
                     </summary>
                     <div className="border-t border-white/10 px-4 pb-4">
                       {!isValidSonicLensSavedMasterEq(critique?.auralisMasterEqProfile) &&
@@ -1341,7 +1345,38 @@ const generateHarmonicNodes = () => {
                           )}
                         </div>
                       )}
-                      <SonicLensMixBalanceReport profile={critique?.auralisMasterEqProfile} context="studio"/>
+                      {isValidSonicLensSavedMasterEq(critique?.auralisMasterEqProfile) ? (
+                        <div className="mt-4 rounded-xl bg-black/20 border border-white/10 p-3 text-[11px] text-slate-300">
+                          <h4 className="font-bold text-cyan-200 mb-2">
+                            Validated saved Auralis spectrum — source and measurement details
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 font-mono">
+                            <span>Source: {critique.auralisMasterEqProfile.sourceIdentity}</span>
+                            <span>Units: {critique.auralisMasterEqProfile.units}</span>
+                            <span>Sample rate: {critique.auralisMasterEqProfile.sampleRateHz} Hz</span>
+                            <span>Channels: {critique.auralisMasterEqProfile.channels}</span>
+                            <span>Samples per channel: {critique.auralisMasterEqProfile.inputSamplesPerChannel}</span>
+                            <span>FFT window: {critique.auralisMasterEqProfile.window}</span>
+                            <span>FFT size: {critique.auralisMasterEqProfile.fftSize}</span>
+                            <span>FFT hop: {critique.auralisMasterEqProfile.hopSize}</span>
+                            <span>Normalization: {critique.auralisMasterEqProfile.normalization}</span>
+                            <span>Bin resolution: {critique.auralisMasterEqProfile.binResolutionHz.toFixed(2)} Hz</span>
+                            <span>Frames: {critique.auralisMasterEqProfile.sampledFrames} / {critique.auralisMasterEqProfile.eligibleFrames} eligible</span>
+                            <span>Bands: {critique.auralisMasterEqProfile.bands.length} log-frequency bands</span>
+                          </div>
+                          <p className="text-slate-400 mt-2">
+                            This represents the decoded PCM at analysis time, not source-to-master
+                            verification, a reference-target match, or a new analysis. Gaps
+                            in the upper graph reflect FFT-bin coverage.
+                            Scoring impact: NONE.
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="mt-4 text-slate-300 text-xs">
+                          No validated saved SonicLens spectrum is available for this report.
+                          Legacy reports cannot reconstruct missing FFT bins or spectral measurements.
+                        </p>
+                      )}
                     </div>
                   </details>
 
