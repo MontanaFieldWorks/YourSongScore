@@ -78,6 +78,12 @@ const harmonicFrequencyHz = (display:string):number => {
   return match ? Number(match[1]) * (/^khz$/i.test(match[2]) ? 1000 : 1) : NaN;
 };
 
+// Numeric sign is the hypothetical gain delta, not measured dBFS/Hz.
+const formatSonicLensSignedGain = (value:number):string => {
+  const rounded=Math.abs(value)<0.000001 ? 0 : value;
+  return `${rounded>=0?"+":""}${rounded.toFixed(1)} dB`;
+};
+
 interface HarmonicNode {
   id: string;
   frequency: string;
@@ -690,6 +696,11 @@ const generateHarmonicNodes = () => {
       )
     : null;
 
+  // Keep the numeric value synchronized with the existing slider state
+  // and the same per-node term used by the gain-only preview function.
+  const hypotheticalNodeGainDb = (node:HarmonicNode):number =>
+    -node.dbOffset*(customCorrections[node.id] || 0);
+
   return (
     <div className="flex flex-col gap-6" id="engineering-studio-page">
       
@@ -1155,6 +1166,109 @@ const generateHarmonicNodes = () => {
                       );
                     })}
                   </div>
+
+
+                  {/* Separate, truthful gain-only zoom: never rescale or alter
+                      the full measured dBFS/Hz spectrum above. */}
+                  {measuredInteractiveEq && (
+                    <section aria-label="SonicLens hypothetical EQ correction detail"
+                      className="bg-[#0A0B0E] border border-blue-500/20 rounded-2xl p-4 flex flex-col gap-3 text-left">
+                      <div className="flex flex-wrap justify-between items-start gap-2">
+                        <div>
+                          <h3 className="text-xs font-bold tracking-widest uppercase text-blue-300">
+                            EQ Correction Detail — hypothetical gain only
+                          </h3>
+                          <p className="text-[10px] text-slate-400 leading-relaxed mt-1">
+                            Fixed ±6 dB gain scale (not measured dBFS/Hz). The curve visualizes
+                            only the current five-slider simulation. It is not a DAW filter
+                            response, an automatic EQ recommendation, or a change to your audio.
+                          </p>
+                        </div>
+                        {activeSelectedNode && (
+                          <div className="font-mono text-right text-[11px] text-blue-200">
+                            <span className="text-slate-400">Selected {activeSelectedNode.frequency}: </span>
+                            <strong>{formatSonicLensSignedGain(hypotheticalNodeGainDb(activeSelectedNode))}</strong>
+                          </div>
+                        )}
+                      </div>
+                      {measuredInteractiveEq.gainDetailOutOfRange ? (
+                        <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-200">
+                          Combined hypothetical EQ gain exceeds the fixed ±6 dB viewing range.
+                          No clipped or misleading gain curve is drawn. The exact per-node
+                          simulated gain values remain listed below; reduce the sliders to view
+                          the curve within this scale.
+                        </p>
+                      ) : (
+                        <svg viewBox="0 0 850 220" className="w-full h-[220px] rounded-xl bg-[#0b1322]"
+                          role="img" aria-label="Hypothetical EQ gain change on a fixed minus six to plus six decibel scale, 20 hertz to 20 kilohertz logarithmic">
+                          {[-6,-3,0,3,6].map(gainDb=>(
+                            <g key={gainDb}>
+                              <line x1="30" x2="850"
+                                y1={measuredInteractiveEq.gainDetailYForDb(gainDb) ?? 110}
+                                y2={measuredInteractiveEq.gainDetailYForDb(gainDb) ?? 110}
+                                stroke={gainDb===0?"#64748b":"#334155"}
+                                strokeDasharray={gainDb===0?"4 4":undefined} strokeWidth="1"/>
+                              <text x="27" y={(measuredInteractiveEq.gainDetailYForDb(gainDb) ?? 110)-3}
+                                fontSize="10" fill="#94a3b8" textAnchor="end">
+                                {gainDb>0?`+${gainDb}`:gainDb}dB
+                              </text>
+                            </g>
+                          ))}
+                          {measuredInteractiveEq.gainDetailUnmeasuredRanges.map((range,index)=>(
+                            <rect key={index} x={range.x} y="22" width={range.width} height="176"
+                              fill="#94a3b8" fillOpacity="0.16"/>
+                          ))}
+                          {[20,100,1000,10000,20000].map(hz=>(
+                            <g key={hz}>
+                              <line x1={measuredInteractiveEq.xForFrequency(hz)}
+                                x2={measuredInteractiveEq.xForFrequency(hz)}
+                                y1="22" y2="198" stroke="#334155" strokeWidth=".75"/>
+                              <text x={measuredInteractiveEq.xForFrequency(hz)} y="215"
+                                textAnchor={hz===20?"start":hz===20000?"end":"middle"}
+                                fontSize="10" fill="#94a3b8">
+                                {hz>=1000?`${hz/1000}k`:`${hz}`}Hz
+                              </text>
+                            </g>
+                          ))}
+                          {measuredInteractiveEq.gainDetailPath && (
+                            <path d={measuredInteractiveEq.gainDetailPath}
+                              fill="none" stroke="#60a5fa" strokeWidth="3"
+                              strokeLinejoin="round" aria-label="Illustrative hypothetical gain preview"/>
+                          )}
+                        </svg>
+                      )}
+                      <p className="text-[10px] text-slate-400 leading-relaxed">
+                        <span className="text-slate-300">Gray frequency strips:</span> no
+                        populated FFT bins in the saved Auralis measurement. The hypothetical
+                        gain function is still defined there, but no source spectrum power
+                        or audio correction is inferred for those bands.
+                      </p>
+                      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                        {harmonicNodes.map(node=>(
+                          <div key={node.id}
+                            className={`rounded-lg border px-2.5 py-2 text-[10px] font-mono ${selectedNodeId===node.id
+                              ?"border-blue-400/50 bg-blue-500/10 text-blue-200"
+                              :"border-white/10 bg-white/[0.02] text-slate-300"}`}>
+                            <div className="text-slate-400">{node.band} · {node.frequency}</div>
+                            <strong className="block mt-1 text-[12px]">
+                              {formatSonicLensSignedGain(hypotheticalNodeGainDb(node))}
+                            </strong>
+                            {!measuredInteractiveEq.hasMeasuredBinAtFrequency(harmonicFrequencyHz(node.frequency)) && (
+                              <span className="text-amber-300 text-[9px]">No FFT bin at center</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      {activeSelectedNode && measuredInteractiveEq.gainAtFrequency(harmonicFrequencyHz(activeSelectedNode.frequency))!==null && (
+                        <p className="text-[10px] text-slate-400">
+                          Combined hypothetical gain at {activeSelectedNode.frequency}, including
+                          overlapping simulated nodes: <strong className="text-slate-200">
+                            {formatSonicLensSignedGain(measuredInteractiveEq.gainAtFrequency(harmonicFrequencyHz(activeSelectedNode.frequency))!)}
+                          </strong>
+                        </p>
+                      )}
+                    </section>
+                  )}
 
                   {/* Correction Solver */}
                   {activeSelectedNode ? (
