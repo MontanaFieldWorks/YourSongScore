@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import FFT from "fft.js";
-import { SonicLensMixBalanceReport } from "./CritiqueDisplay";
-import { isValidSonicLensSavedMasterEq, buildSonicLensInteractiveEqPreview } from "../lib/liveAudioAnalyzer";
+import { isValidSonicLensSavedMasterEq, buildSonicLensInteractiveEqPreview, summarizeSonicLensMeasuredOverview } from "../lib/liveAudioAnalyzer";
+import { classifyAuralisMudAndLowEndHandoff } from "../lib/mudPreventionDiagnostic";
 import { 
   ArrowLeft, ArrowRight, Volume2, Sliders, Mic, CheckCircle, Square, Play, Pause, 
   Activity, Sparkles, Cpu, AlertTriangle, Check, RotateCcw, Compass, Layers, CheckSquare,
@@ -700,6 +700,8 @@ const generateHarmonicNodes = () => {
   // and the same per-node term used by the gain-only preview function.
   const hypotheticalNodeGainDb = (node:HarmonicNode):number =>
     -node.dbOffset*(customCorrections[node.id] || 0);
+  const measuredOverview=summarizeSonicLensMeasuredOverview(critique?.auralisMasterEqProfile);
+  const objectiveHandoff=classifyAuralisMudAndLowEndHandoff(critique);
 
   return (
     <div className="flex flex-col gap-6" id="engineering-studio-page">
@@ -933,71 +935,96 @@ const generateHarmonicNodes = () => {
                     </div>
                   </div>
 
-                  {/* At-a-glance 6-band energy strip, genre-aware targets */}
-                  <div className="grid grid-cols-3 md:grid-cols-6 gap-2.5">
-                    {(() => {
-                      const bandBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
-                      const BAND_IDEALS: Record<string, number[]> = {
-                        hiphop:     [65, 62, 55, 50, 48, 42],
-                        mainstream: [55, 60, 60, 55, 55, 50],
-                        indie:      [45, 50, 55, 58, 52, 45],
-                        classical:  [35, 40, 45, 48, 40, 35],
-                      };
-                      const ideals = BAND_IDEALS[bandBucket.key] ?? BAND_IDEALS.mainstream;
-                      const subBassVal = critique?.liveMetrics?.calculatedSubBassBandEnergy ?? 45;
-                      const bassCorridorVal = critique?.liveMetrics?.calculatedBassBandEnergy ?? 48;
-                      const lowMidVal = critique?.liveMetrics?.calculatedLowMidsBandEnergy ?? 55;
-                      const coreMidVal = critique?.liveMetrics?.calculatedCoreMidsBandEnergy ?? 56;
-                      const presenceVal = critique?.liveMetrics?.calculatedPresenceBandEnergy ?? 50;
-                      const airVal = critique?.liveMetrics?.calculatedAirBandEnergy ?? 46;
-                      // Descriptive comparison to the genre target only. These labels
-                      // are not standalone mix-quality verdicts; calibrated multi-signal
-                      // evidence is what is allowed to reduce Mix Balance scores.
-                      const getStatus = (v: number, ideal: number) =>
-                        v > ideal + 15 ? "Above Target" : v > ideal + 7 ? "Slightly Above" : v < ideal - 15 ? "Below Target" : v < ideal - 7 ? "Slightly Below" : "Near Target";
-                      const bands = [
-                        { band: "Sub-Bass", r: "20-64Hz", val: subBassVal, status: getStatus(subBassVal, ideals[0]), color: "from-blue-600 to-blue-400" },
-                        { band: "Bass", r: "64-250Hz", val: bassCorridorVal, status: getStatus(bassCorridorVal, ideals[1]), color: "from-indigo-600 to-indigo-400" },
-                        { band: "Low-Mids", r: "250Hz-1kHz", val: lowMidVal, status: getStatus(lowMidVal, ideals[2]), color: "from-purple-600 to-purple-400" },
-                        { band: "Core Mids", r: "1-4kHz", val: coreMidVal, status: getStatus(coreMidVal, ideals[3]), color: "from-pink-600 to-pink-400" },
-                        { band: "Presence", r: "4-8kHz", val: presenceVal, status: getStatus(presenceVal, ideals[4]), color: "from-rose-600 to-rose-400" },
-                        { band: "Air", r: "8-20kHz", val: airVal, status: getStatus(airVal, ideals[5]), color: "from-teal-600 to-teal-400" }
-                      ];
-                      return bands.map((band) => (
-                        <div key={band.band} className="bg-[#0A0B0E] border border-white/5 p-2.5 rounded-xl flex flex-col items-center justify-between min-h-[110px]">
-                          <span className="text-[9px] font-bold text-slate-200 tracking-wide text-center">{band.band}</span>
-                          <span className="text-[7px] font-mono text-slate-500 uppercase">{band.r}</span>
-                          <div className="w-3.5 h-12 bg-neutral-950 rounded-full flex flex-col justify-end p-[2px] border border-white/5 mt-1.5">
-                            <div
-                              className={`w-full rounded-full bg-gradient-to-t ${band.color} transition-all duration-300`}
-                              style={{ height: `${band.val}%` }}
-                            />
-                          </div>
-                          <span className="text-[8px] font-mono uppercase tracking-wider text-purple-400 font-bold mt-1.5">{band.status}</span>
+
+                  {/* Auralis-derived master power, never genre/quality targets.
+                      Missing spectral evidence never falls back to legacy ratios. */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5"
+                       aria-label="Auralis six-band measured frequency overview">
+                    {(measuredOverview?.bands ?? [
+                      {name:"Sub-Bass",loHz:20,hiHz:64,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
+                      {name:"Bass",loHz:64,hiHz:250,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
+                      {name:"Low-Mids",loHz:250,hiHz:1000,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
+                      {name:"Core Mids",loHz:1000,hiHz:4000,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
+                      {name:"Presence",loHz:4000,hiHz:8000,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
+                      {name:"Air",loHz:8000,hiHz:20000,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
+                    ]).map(band=>(
+                      <div key={band.name} className="bg-[#0A0B0E] border border-white/10 p-3 rounded-xl flex flex-col gap-2 min-h-[114px]">
+                        <span className="text-[12px] font-bold text-slate-100">{band.name}</span>
+                        <span className="text-[11px] text-slate-300 font-mono">{band.loHz}–{band.hiHz} Hz</span>
+                        <div className="h-2 rounded-full bg-slate-800 overflow-hidden"
+                             aria-hidden="true">
+                          <div className="h-full bg-cyan-400" style={{width:`${band.powerSharePct ?? 0}%`}}/>
                         </div>
-                      ));
-                    })()}
+                        <span className="text-[12px] font-bold text-cyan-200 font-mono">
+                          {band.powerSharePct===null ? "Unavailable" : `${band.powerSharePct.toFixed(1)}% of measured power`}
+                        </span>
+                        <span className="text-[10px] text-slate-300">
+                          {band.status==="MEASURED"?"Measured FFT bins":
+                            band.status==="PARTIAL"?"Partial FFT coverage":"No FFT coverage"}
+                        </span>
+                      </div>
+                    ))}
                   </div>
 
-                  {/* Spectral Tilt Indicator */}
-                  <div className="bg-neutral-900 border border-white/5 p-4 rounded-xl mt-1 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-left">
-                    <div className="text-left">
-                      <span className="text-[10px] font-mono text-slate-500 uppercase font-bold block mb-1">Spectral Tilt Indicator</span>
-                      <p className="text-[11.5px] text-slate-300">
-                        {(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25; const tilt = parseFloat((-2.0 - (bass * 0.08) + (high * 0.04)).toFixed(1)); return <>Your master registers a spectral tilt of <span className="text-purple-400 font-mono font-bold">{tilt}dB/oct</span>. {tilt < -5 ? "This indicates a bass-heavy, warm analog profile — common in classic rock and vintage recordings." : tilt < -3 ? "This translates to a balanced, natural spectral slope well-suited for modern streaming." : "This indicates a bright, high-energy mix — presence and air are elevated relative to the low end."}</>; })()}
-                      </p>
+                  <section className="bg-[#0A0B0E] border border-white/10 rounded-xl p-4 text-left flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-bold text-xs text-slate-200">Auralis measured spectral tilt</span>
+                      <span className="font-mono text-[13px] font-bold text-cyan-200">
+                        {measuredOverview?.tiltDbPerOct===null || !measuredOverview
+                          ? "Unavailable" : `${measuredOverview.tiltDbPerOct.toFixed(1)} dB/oct`}
+                      </span>
                     </div>
-                    <span className="px-3.5 py-1.5 bg-[#0A0B0E] border border-purple-500/20 text-purple-400 font-mono tracking-widest text-[9.5px] rounded-lg uppercase whitespace-nowrap">
-                      {(() => { const bass = critique?.liveMetrics?.calculatedBassEnergy ?? 35; const high = critique?.liveMetrics?.calculatedHighEnergy ?? 25; if (bass > 40) return "Bass-Heavy Tilt"; if (bass > 28 && high < 25) return "Slight Sub Bass Tilt"; if (high > 35) return "Bright High-End Tilt"; if (high > 28) return "Slight High-End Tilt"; return "Neutral Spectral Balance"; })()}
-                    </span>
-                  </div>
+                    <p className="text-[11px] text-slate-300">
+                      Slope fitted to populated measured bands (50 Hz–16 kHz); shown only with
+                      sufficient coverage and fit quality. Six-band percentages describe the
+                      share of represented FFT power, not ideal genre targets or corrections.
+                      Partial/empty bins are not fabricated. Scoring impact: NONE.
+                    </p>
+                  </section>
+
+                  <section aria-label="Auralis objective engineering evidence"
+                    className="bg-[#0A0B0E] rounded-xl border border-cyan-500/20 p-3 text-[11px] text-slate-200 leading-relaxed">
+                    <strong className="text-cyan-200">Objective engineering evidence — NOT SCORED</strong>
+                    <div className="mt-2 grid md:grid-cols-2 gap-2">
+                      <div>
+                        <span className="font-semibold">Mud Prevention: </span>
+                        {objectiveHandoff.mud.status==="MEASURED_CHARACTERISTIC"
+                          ? "Measured spectral characteristic; mud defect not established."
+                          : "Insufficient verified spectral evidence."}
+                        <span className="block text-slate-400">
+                          {objectiveHandoff.mud.scoringStatus==="DIAGNOSTIC_ONLY"
+                            ? "Diagnostic-only; excluded from current Mix Balance scores."
+                            : "Historical report; existing scores remain unchanged."}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="font-semibold">Low-End Division: </span>
+                        {objectiveHandoff.lowEnd.status==="MEASURED_CHARACTERISTIC"
+                          ? "Measured low-frequency distribution; separation defect not established."
+                          : "Insufficient verified spectral evidence."}
+                        <span className="block text-slate-400">
+                          {objectiveHandoff.lowEnd.roleStatus==="INDEPENDENT_ROLES_CORROBORATED"
+                            ? "Independent bass/percussion roles previously corroborated by listening passes; no masking verdict."
+                            : "Independent bass/percussion roles unverified or not applicable."}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-slate-400">
+                      A supported technical concern would require independently verified defect
+                      evidence and a known processing target. Neither is asserted here.
+                      {objectiveHandoff.worker.status==="SEPARATE_MEASUREMENT_AVAILABLE"
+                        ? ` Separate Auralis Worker observation: ${objectiveHandoff.worker.lowToUpperDb?.toFixed(2)} dB 60–250 Hz versus 500–20,000 Hz (not a defect verdict).`
+                        : " Independent Worker observation unavailable or provenance-unverified."}
+                    </p>
+                  </section>
 
                   {measuredInteractiveEq && (
                     <div role="note" className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-[10px] text-slate-300 leading-relaxed">
-                      <strong className="text-blue-200">Auralis measured source (dashed)</strong>
-                      {" · "}Blue curve previews hypothetical slider changes against those exact measured bands.
-                      This is not an EQ target, a mastering transfer curve, or evidence that a node is defective.
-                      Empty FFT bands remain gaps. Existing five-node guidance is qualitative and unchanged.
+                      <strong className="text-blue-200">What Auralis measures:</strong>
+                      {" "}The dashed line is measured spectral power (dBFS/Hz).
+                      The blue overlay previews hypothetical slider changes from legacy guidance;
+                      it is not an EQ target, a DAW filter specification or a verified fix.
+                      Empty FFT bands remain gaps. No score changes.
                     </div>
                   )}
 
