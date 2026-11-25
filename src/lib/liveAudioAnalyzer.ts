@@ -3613,6 +3613,10 @@ export function isValidSonicLensSavedMasterEq(value:unknown):value is SonicLensS
 export interface SonicLensInteractiveEqPreview {
   rawPath: string;
   adjustedPath: string;
+  // Each segment joins actual measured spectral bins with the preview at the
+  // same frequency. No invented FFT values or magnified gain displacement.
+  differencePath: string;
+  verticalViewMode: "FULL"|"DETAIL";
   xForFrequency: (frequencyHz:number) => number;
   measuredYAtFrequency: (frequencyHz:number) => number|null;
   adjustedYAtFrequency: (frequencyHz:number) => number|null;
@@ -3636,6 +3640,7 @@ export interface SonicLensInteractiveEqCorrection {
 export function buildSonicLensInteractiveEqPreview(
   profile: unknown,
   corrections: readonly SonicLensInteractiveEqCorrection[],
+  options?:{zoomAtFrequencyHz?:number},
 ): SonicLensInteractiveEqPreview|null {
   if (!isValidSonicLensSavedMasterEq(profile) ||
       !Array.isArray(corrections) || corrections.length > 5 ||
@@ -3647,10 +3652,27 @@ export function buildSonicLensInteractiveEqPreview(
   const finite=profile.bands.filter(b=>b.bins>0&&b.dbfsPerHz!==null);
   if (finite.length < 2) return null;
   const levels=finite.map(b=>b.dbfsPerHz!);
-  const low=Math.floor(Math.min(...levels)/10)*10-5;
-  const high=Math.max(low+20,Math.ceil(Math.max(...levels)/10)*10+5);
+  const fullLow=Math.floor(Math.min(...levels)/10)*10-5;
+  const fullHigh=Math.max(fullLow+20,Math.ceil(Math.max(...levels)/10)*10+5);
+  const zoomHz=options?.zoomAtFrequencyHz;
+  let zoomCenter:number|null=null;
+  if(typeof zoomHz==="number"&&Number.isFinite(zoomHz)&&zoomHz>=20&&zoomHz<=20000){
+    let distance=Infinity;
+    for(const b of finite){
+      const d=Math.abs(Math.log2(zoomHz/b.centerHz));
+      if(d<distance){distance=d;zoomCenter=b.dbfsPerHz;}
+    }
+    // Do not create a detail view around a frequency with no nearby FFT bin.
+    if(distance>0.5)zoomCenter=null;
+  }
+  const detail=zoomCenter!==null;
+  // Explicit +/-12 dBFS/Hz viewport centered on the selected measured band.
+  // Values outside the visible range are cropped, never flattened at an edge.
+  const low=detail?zoomCenter!-12:fullLow;
+  const high=detail?zoomCenter!+12:fullHigh;
   const xForFrequency=(hz:number)=>30+820*Math.log(hz/20)/Math.log(1000);
-  const y=(db:number)=>Math.max(12,Math.min(206,200-180*(db-low)/(high-low)));
+  const rawY=(db:number)=>200-180*(db-low)/(high-low);
+  const y=(db:number)=>detail?rawY(db):Math.max(12,Math.min(206,rawY(db)));
   const previewGain=(hz:number):number=>corrections.reduce((sum,c)=>{
     // Illustrative Gaussian in log-frequency: not an actual DAW filter/Q
     // transfer function or an inferred mastering recommendation.
@@ -3695,6 +3717,17 @@ export function buildSonicLensInteractiveEqPreview(
     }
     return path.trim();
   };
+  // Highlight true dB displacement between two visible curves; the strokes
+  // are exactly the measured-to-preview y distance, not magnified indicators.
+  const differencePath=profile.bands.flatMap(b=>{
+    if(b.bins===0||b.dbfsPerHz===null)return [];
+    const gain=previewGain(b.centerHz);
+    if(Math.abs(gain)<0.1)return [];
+    const y0=y(b.dbfsPerHz),y1=y(b.dbfsPerHz+gain);
+    if(y0<12||y0>206||y1<12||y1>206)return [];
+    const x=xForFrequency(b.centerHz).toFixed(2);
+    return ["M"+x+" "+y0.toFixed(2)+" L"+x+" "+y1.toFixed(2)];
+  }).join(" ");
   const nearest=(hz:number,adjusted:boolean):number|null=>{
     if (!Number.isFinite(hz)||hz<20||hz>20000)return null;
     let best=Infinity,band:SonicLensSavedMasterEqProfile["bands"][number]|null=null;
@@ -3709,6 +3742,8 @@ export function buildSonicLensInteractiveEqPreview(
   return {
     rawPath:makePath(false),
     adjustedPath:makePath(true),
+    differencePath,
+    verticalViewMode:detail?"DETAIL":"FULL",
     xForFrequency,
     measuredYAtFrequency:(hz:number)=>nearest(hz,false),
     adjustedYAtFrequency:(hz:number)=>nearest(hz,true),
