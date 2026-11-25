@@ -6251,3 +6251,105 @@ test("SonicLens interactive Studio uses true measured baseline but preserves leg
   assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
 });
+
+
+test("SonicLens gain-only EQ detail uses a real +/-6 dB hypothetical axis and preserves measured spectrum",async()=>{
+  const {measureSonicLensSavedMasterEq,buildSonicLensInteractiveEqPreview}=await import("../src/lib/liveAudioAnalyzer.ts");
+  const pcm=new Float32Array(32768);
+  for(let i=0;i<pcm.length;i++)pcm[i]=0.14*Math.sin(2*Math.PI*330*i/48000);
+  const profile=measureSonicLensSavedMasterEq([pcm],48000);
+  const serialized=JSON.stringify(profile);
+  const five=[
+    {frequencyHz:40,dbOffset:-2,completion:0},
+    {frequencyHz:265,dbOffset:2.1,completion:0},
+    {frequencyHz:580,dbOffset:2.8,completion:0},
+    {frequencyHz:3800,dbOffset:2,completion:0},
+    {frequencyHz:14500,dbOffset:-0.5,completion:0},
+  ];
+  const zero=buildSonicLensInteractiveEqPreview(profile,five);
+  assert.ok(zero);
+  assert.equal(zero.gainDetailYForDb(6),22);
+  assert.equal(zero.gainDetailYForDb(0),110);
+  assert.equal(zero.gainDetailYForDb(-6),198);
+  assert.equal(zero.gainDetailYForDb(6.001),null);
+  assert.equal(zero.gainDetailYForDb(-6.001),null);
+  assert.equal(zero.gainDetailOutOfRange,false);
+  assert.ok(zero.gainDetailPath?.startsWith("M30.00 110.00"));
+  assert.equal(zero.gainAtFrequency(40),0);
+  assert.equal(zero.gainAtFrequency(2),null);
+  const half=buildSonicLensInteractiveEqPreview(profile,five.map((c,i)=>i===0?{...c,completion:0.5}:c));
+  assert.ok(half);
+  assert.equal(half.gainDetailOutOfRange,false);
+  assert.ok(Math.abs(half.gainAtFrequency(40)-1)<1e-10,"Negative offset becomes positive simulated boost");
+  assert.notEqual(half.gainDetailPath,zero.gainDetailPath);
+  assert.equal(half.rawPath,zero.rawPath,"Measured dBFS/Hz source must never move with slider");
+  const full=buildSonicLensInteractiveEqPreview(profile,five.map((c,i)=>i===0?{...c,completion:1}:c));
+  assert.ok(full);
+  assert.ok(Math.abs(full.gainAtFrequency(40)-2)<1e-10);
+  assert.notEqual(full.gainDetailPath,half.gainDetailPath);
+  assert.equal(full.rawPath,zero.rawPath);
+  assert.equal(JSON.stringify(profile),serialized,"No mutation of stored spectral evidence");
+});
+
+test("SonicLens gain-only detail labels unpopulated FFT bands and does not clip out-of-range gains",async()=>{
+  const {measureSonicLensSavedMasterEq,buildSonicLensInteractiveEqPreview}=await import("../src/lib/liveAudioAnalyzer.ts");
+  const pcm=new Float32Array(32768);
+  for(let i=0;i<pcm.length;i++)pcm[i]=0.12*Math.sin(2*Math.PI*520*i/48000);
+  const profile=measureSonicLensSavedMasterEq([pcm],48000);
+  const normal=buildSonicLensInteractiveEqPreview(profile,[{frequencyHz:580,dbOffset:2,completion:0.5}]);
+  assert.ok(normal);
+  const empty=profile.bands.filter(b=>b.bins===0||b.dbfsPerHz===null);
+  assert.ok(empty.length>0,"Synthetic signal has legitimate zero-bin bands");
+  assert.equal(normal.gainDetailUnmeasuredRanges.length,empty.length);
+  assert.ok(normal.gainDetailUnmeasuredRanges.every(r=>Number.isFinite(r.x)&&r.width>0));
+  assert.equal(normal.hasMeasuredBinAtFrequency(empty[0].centerHz),false);
+  const populated=profile.bands.find(b=>b.bins>0&&b.dbfsPerHz!==null);
+  assert.ok(populated);
+  assert.equal(normal.hasMeasuredBinAtFrequency(populated.centerHz),true);
+  const excessive=buildSonicLensInteractiveEqPreview(profile,[{frequencyHz:580,dbOffset:12,completion:1}]);
+  assert.ok(excessive);
+  assert.equal(excessive.gainDetailOutOfRange,true);
+  assert.equal(excessive.gainDetailPath,null,"Never draw a clipped gain transfer line");
+  assert.equal(excessive.gainAtFrequency(580),-12,"The numeric hypothetical value stays truthful");
+  assert.equal(excessive.rawPath,normal.rawPath);
+  for(const bad of [null,{},undefined,{...profile,scoringImpact:"DOWNWARD"},
+    {...profile,sourceIdentity:"HISTORICAL_UNVERIFIED"}]){
+    assert.equal(buildSonicLensInteractiveEqPreview(bad,[]),null);
+  }
+});
+
+test("SonicLens EQ detail view remains display-only, preserves all five original controls and scoring OFF",async()=>{
+  const [studio,analyzer,app,critique]=await Promise.all([
+    readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8"),
+    readFile(new URL("../src/lib/liveAudioAnalyzer.ts",import.meta.url),"utf8"),
+    readFile(new URL("../src/App.tsx",import.meta.url),"utf8"),
+    readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8"),
+  ]);
+  assert.match(studio,/EQ Correction Detail — hypothetical gain only/);
+  assert.match(studio,/Fixed ±6 dB gain scale \(not measured dBFS\/Hz\)/);
+  assert.match(studio,/gainDetailOutOfRange/);
+  assert.match(studio,/gainDetailPath/);
+  assert.match(studio,/gainDetailUnmeasuredRanges\.map/);
+  assert.match(studio,/hasMeasuredBinAtFrequency/);
+  assert.match(studio,/hypotheticalNodeGainDb\(node\)/);
+  assert.match(studio,/hypotheticalNodeGainDb\(activeSelectedNode\)/);
+  assert.match(studio,/gainAtFrequency\(harmonicFrequencyHz\(activeSelectedNode\.frequency\)\)/);
+  assert.match(studio,/onChange=\{handleCorrectionChange\}/);
+  assert.match(studio,/Measured SonicLens spectrum \(dBFS\/Hz\)/);
+  assert.match(studio,/measuredInteractiveEq\.rawPath/);
+  assert.match(studio,/measuredInteractiveEq\.adjustedPath/);
+  for(const original of ["Acoustic EQ Solver","Autocorrect Resonance",
+    "View Surgical DAW Guidance in Checklist","Analog Saturation Note:",
+    "SonicLensMixBalanceReport profile={critique?.auralisMasterEqProfile} context=\"studio\""]){
+    assert.ok(studio.includes(original),"Original control must remain: "+original);
+  }
+  for(const node of ["sub-rumble","muddy-mids","boxy-color","harsh-presence","air-texture"]){
+    assert.ok(studio.includes('id: "'+node+'"'),"Original selectable node must remain "+node);
+  }
+  assert.match(analyzer,/if \(!isValidSonicLensSavedMasterEq\(profile\)/);
+  assert.match(analyzer,/gainDetailOutOfRange=gainDetailSamples\.some/);
+  assert.match(analyzer,/gainDetailOutOfRange\s*\?\s*null/);
+  assert.match(critique,/SonicLens display only · scoringImpact NONE/);
+  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+});
