@@ -1740,3 +1740,69 @@ export function getAuralisBetaAuditReportRows(critique:unknown):AuralisBetaExcel
   add("Current Scores","Reported Commercial Readiness",score(c?.scores?.commercialReadiness));
   return rows;
 }
+
+
+// Engineering Studio evidence only. A saved measured master spectrum does
+// NOT identify kick vs bass, prove low-mid masking, establish artistic intent,
+// or justify a DAW EQ transfer. No writes to critique or its scoring children.
+import {summarizeSonicLensMeasuredOverview} from "./liveAudioAnalyzer";
+
+export type AuralisObjectiveEvidenceStatus =
+  "MEASURED_CHARACTERISTIC"|"INSUFFICIENT_EVIDENCE"|"SUPPORTED_TECHNICAL_CONCERN";
+export function classifyAuralisMudAndLowEndHandoff(critique:unknown) {
+  const c=critique as any;
+  const overview=summarizeSonicLensMeasuredOverview(c?.auralisMasterEqProfile);
+  const execution=c?.auralisExecution, engineering=c?.auralisEngineering;
+  const lineage=c?.auralisSourceLineage;
+  const workerCorroboration=execution?.status==="AVAILABLE" &&
+    execution.scoringImpact==="NONE" &&
+    engineering?.schemaVersion===AURALIS_ENGINEERING_ADAPTER_VERSION &&
+    engineering?.scoringImpact==="NONE" &&
+    engineering?.scoringAdapter?.status===AURALIS_ENGINEERING_SCORE_POLICY &&
+    Array.isArray(engineering?.scoringAdapter?.adjustments) &&
+    engineering.scoringAdapter.adjustments.length===0 &&
+    Number.isFinite(engineering?.metrics?.lowToUpperDb) &&
+    lineage?.status==="VERIFIED" &&
+    lineage?.pcmIdentityStatus==="VERIFIED";
+  const lowEnd=c?.subMetricsCall1?.lowEndDivision;
+  const rolesVerified=lowEnd?.applicable===true &&
+    lowEnd?.sourceVerification?.corroborated===true &&
+    lowEnd?.sourceVerification?.firstPassRolesIndependent===true &&
+    lowEnd?.sourceVerification?.secondPassRolesIndependent===true;
+  // Even independently corroborated instrument roles do NOT demonstrate an
+  // objective *mix defect*. Do not reclassify a measured ratio as supported.
+  const hasSubAndLow=!!overview &&
+    overview.bands[0].status!=="UNAVAILABLE" &&
+    overview.bands[1].status!=="UNAVAILABLE" &&
+    overview.bands[2].status!=="UNAVAILABLE";
+  const mudStatus:AuralisObjectiveEvidenceStatus=hasSubAndLow?
+    "MEASURED_CHARACTERISTIC":"INSUFFICIENT_EVIDENCE";
+  const lowEndStatus:AuralisObjectiveEvidenceStatus=hasSubAndLow?
+    "MEASURED_CHARACTERISTIC":"INSUFFICIENT_EVIDENCE";
+  return {
+    schemaVersion:"auralis-objective-handoff-display-v1" as const,
+    scoringImpact:"NONE" as const,adjustments:[] as [],
+    mud:{
+      status:mudStatus,
+      scoringStatus:isMudDiagnosticCritique(c)?"DIAGNOSTIC_ONLY" as const:"LEGACY_REPORT" as const,
+      reason:hasSubAndLow?"SPECTRAL_CHARACTERISTIC_NOT_A_MUD_VERDICT" as const
+        :"SPECTRAL_COVERAGE_UNAVAILABLE" as const,
+    },
+    lowEnd:{
+      status:lowEndStatus,
+      roleStatus:rolesVerified?"INDEPENDENT_ROLES_CORROBORATED" as const
+        :"ROLES_UNVERIFIED_OR_INAPPLICABLE" as const,
+      reason:hasSubAndLow?"NO_VERIFIED_LOW_END_SEPARATION_DEFECT" as const
+        :"SPECTRAL_COVERAGE_UNAVAILABLE" as const,
+    },
+    worker:{
+      status:workerCorroboration?"SEPARATE_MEASUREMENT_AVAILABLE" as const
+        :"UNVERIFIED_OR_UNAVAILABLE" as const,
+      lowToUpperDb:workerCorroboration?engineering.metrics.lowToUpperDb as number:null,
+    },
+    correctionStatus:"NOT_SUPPORTED" as const,
+    // A true SUPPORTED_TECHNICAL_CONCERN requires verified independent
+    // defect + processing-target evidence; current reports do not supply it.
+    // Therefore this display-only handoff never emits that finding.
+  };
+}
