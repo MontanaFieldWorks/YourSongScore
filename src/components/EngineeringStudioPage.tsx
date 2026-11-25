@@ -1023,7 +1023,7 @@ const generateHarmonicNodes = () => {
                       <strong className="text-blue-200">What Auralis measures:</strong>
                       {" "}The dashed line is measured spectral power (dBFS/Hz).
                       The blue overlay previews hypothetical slider changes from legacy guidance;
-                      it is not an EQ target, a DAW filter specification or a verified fix.
+                      This is not an EQ target, a mastering transfer curve or a verified fix.
                       Empty FFT bands remain gaps. No score changes.
                     </div>
                   )}
@@ -1253,10 +1253,6 @@ const generateHarmonicNodes = () => {
                     </aside>
                   )}
                   </div>
-                      );
-                    })}
-                  </div>
-
 
                   {/* Correction Solver */}
                   {activeSelectedNode ? (
@@ -1309,7 +1305,7 @@ const generateHarmonicNodes = () => {
                     </div>
                   )}
                   <div className="bg-[#0b1322] border border-amber-500/10 rounded-xl p-3.5 mt-2 text-[10px] text-slate-400 leading-relaxed">
-                    <span className="font-mono font-bold text-amber-400 uppercase text-[9px] block mb-1">Legacy analog saturation suggestion (not Auralis verified):</span>
+                    <span className="font-mono font-bold text-amber-400 uppercase text-[9px] block mb-1">Analog Saturation Note: Legacy suggestion (not Auralis verified)</span>
                     {(() => {
                       const b858 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
                       if (critique?.liveMetrics?.calculatedLufs === undefined) return "Light vintage tape drive (+0.5dB, 30 ips) recommended to add cohesion across the high-mid transient peaks.";
