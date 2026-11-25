@@ -368,6 +368,8 @@ export default function EngineeringStudioPage({ onBack, critique, trackInfo, loc
   // Loaded/generated advanced mix corrective nodes
   const [harmonicNodes, setHarmonicNodes] = useState<HarmonicNode[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  // Explicit, reversible viewport only; measured spectral values never change.
+  const [spectrumVerticalView, setSpectrumVerticalView] = useState<"full"|"detail">("full");
 
   // Correction slider value for the selected node (simulation)
   const [correctionValue, setCorrectionValue] = useState<number>(0);
@@ -693,6 +695,9 @@ const generateHarmonicNodes = () => {
           dbOffset:node.dbOffset,
           completion:customCorrections[node.id] || 0,
         })),
+        spectrumVerticalView==="detail" && activeSelectedNode
+          ? {zoomAtFrequencyHz:harmonicFrequencyHz(activeSelectedNode.frequency)}
+          : undefined,
       )
     : null;
 
@@ -702,6 +707,31 @@ const generateHarmonicNodes = () => {
     -node.dbOffset*(customCorrections[node.id] || 0);
   const measuredOverview=summarizeSonicLensMeasuredOverview(critique?.auralisMasterEqProfile);
   const objectiveHandoff=classifyAuralisMudAndLowEndHandoff(critique);
+  // Keep the original provisional comparisons for users who want context,
+  // but never present these uncalibrated genre buckets as Auralis judgments.
+  const legacyBandIdeals:Record<string,number[]>={
+    hiphop:[65,62,55,50,48,42],
+    mainstream:[55,60,60,55,55,50],
+    indie:[45,50,55,58,52,45],
+    classical:[35,40,45,48,40,35],
+  };
+  const legacyBandBucket=getGenreLoudnessBucket(critique?.vibe?.genre,critique?.vibe?.subgenre).key;
+  const legacyBandTargets=legacyBandIdeals[legacyBandBucket]??legacyBandIdeals.mainstream;
+  const legacyMetricValues=[
+    critique?.liveMetrics?.calculatedSubBassBandEnergy,
+    critique?.liveMetrics?.calculatedBassBandEnergy,
+    critique?.liveMetrics?.calculatedLowMidsBandEnergy,
+    critique?.liveMetrics?.calculatedCoreMidsBandEnergy,
+    critique?.liveMetrics?.calculatedPresenceBandEnergy,
+    critique?.liveMetrics?.calculatedAirBandEnergy,
+  ];
+  const provisionalLegacyComparison=(i:number):string=>{
+    const value=legacyMetricValues[i],target=legacyBandTargets[i];
+    if(typeof value!=="number"||!Number.isFinite(value))return "Unavailable";
+    const difference=value-target;
+    return difference>15?"Above Target":difference>7?"Slightly Above":
+      difference< -15?"Below Target":difference< -7?"Slightly Below":"Near Target";
+  };
 
   return (
     <div className="flex flex-col gap-6" id="engineering-studio-page">
@@ -955,7 +985,7 @@ const generateHarmonicNodes = () => {
                       {name:"Core Mids",loHz:1000,hiHz:4000,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
                       {name:"Presence",loHz:4000,hiHz:8000,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
                       {name:"Air",loHz:8000,hiHz:20000,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
-                    ]).map(band=>(
+                    ]).map((band,index)=>(
                       <div key={band.name} className="bg-[#0A0B0E] border border-white/10 p-3 rounded-xl flex flex-col gap-2 min-h-[114px]">
                         <span className="text-[12px] font-bold text-slate-100">{band.name}</span>
                         <span className="text-[11px] text-slate-300 font-mono">{band.loHz}–{band.hiHz} Hz</span>
@@ -970,9 +1000,18 @@ const generateHarmonicNodes = () => {
                           {band.status==="MEASURED"?"Measured FFT bins":
                             band.status==="PARTIAL"?"Partial FFT coverage":"No FFT coverage"}
                         </span>
+                        <span className="mt-1 pt-1.5 border-t border-white/10 text-[11px] font-semibold text-amber-200">
+                          Provisional legacy: {provisionalLegacyComparison(index)}
+                        </span>
                       </div>
                     ))}
                   </div>
+                  <p className="text-[11px] text-amber-200/90">
+                    Provisional legacy comparisons use historical YSS broad-band metrics and
+                    uncalibrated genre reference buckets, NOT Auralis thresholds.
+                    "Near/Above/Below Target" is a historical comparison label, not evidence
+                    of a mastering defect or an EQ instruction. No missing metrics are imputed.
+                  </p>
 
                   <section className="bg-[#0A0B0E] border border-white/10 rounded-xl p-4 text-left flex flex-col gap-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
