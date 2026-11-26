@@ -6303,7 +6303,7 @@ test("Boston HSR displays exactly one plotted master spectrum, six inside-plot c
   assert.match(view,/h-\[470px\] min-w-\[880px\]/);
   assert.match(view,/hsr-boston-purple-fill/);
   assert.match(view,/hsr-boston-white-line/);
-  assert.match(view,/six selectable parameter cards|Six selectable parameter cards/i);
+  assert.match(view,/grid grid-cols-6 gap-0/);
   assert.match(view,/role="group" aria-label="Select a frequency band/);
   assert.match(view,/grid-cols-6/);
   assert.match(view,/onClick=\{\(\)=>setSelectedHsrBand\(index\)\}/);
