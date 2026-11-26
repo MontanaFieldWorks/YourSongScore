@@ -5999,7 +5999,7 @@ test("SonicLens measured Mix Balance survives the screenshot-faithful Boston HSR
   assert.doesNotMatch(mix,/Comparative Spectral Blueprint|Target "Successful" Modern Indie Hit|Delta \+1\.8dB|Delta -0\.5dB/);
   assert.match(display,/Measured spectrum unavailable for this saved report/);
   assert.doesNotMatch(display,/Paired EQ difference: UNAVAILABLE/);
-  assert.match(studio,/hsrBandAlignedPath/);
+  assert.match(studio,/hsrSpectrum\.rawPath/);
   assert.match(studio,/View Surgical DAW Guidance in Checklist/);
   assert.doesNotMatch(studio,/SonicLensMixBalanceReport|SonicLensMasterEqPanel/);
   const direct=app.split("  const handleSubmitFile = async () => {")[1]
@@ -6024,8 +6024,8 @@ test("Boston-reference HSR retains original five advisory sources and checklist 
   assert.ok(view,"One screenshot-faithful HSR view must precede Signal");
   assert.match(view,/Harmonic Spectral Resolution Curve/);
   assert.match(view,/h-\[470px\]/);
-  assert.match(view,/hsrBandAlignedPath/);
-  assert.match(view,/grid-cols-6/);
+  assert.match(view,/hsrSpectrum\.rawPath/);
+  assert.match(view,/hsrBands\.map\(\(band,index\)=>\(/);
   assert.match(view,/setSelectedHsrBand\(index\)/);
   assert.match(view,/aria-label="Selected frequency band analysis"/);
   assert.match(view,/View Surgical DAW Guidance in Checklist/);
@@ -6208,7 +6208,7 @@ test("Boston HSR uses saved validated master bins with no simulated EQ overlay",
   ]);
   assert.match(studio,/buildSonicLensInteractiveEqPreview\(critique\?\.auralisMasterEqProfile, \[\]\)/);
   assert.match(studio,/summarizeSonicLensMeasuredOverview\(critique\?\.auralisMasterEqProfile\)/);
-  assert.match(studio,/hsrBandAlignedPath/);
+  assert.match(studio,/hsrSpectrum\.rawPath/);
   assert.match(studio,/hsrFilledSegments/);
   assert.match(studio,/positions\.length<2/);
   assert.match(studio,/hsrSpectrum\.measuredYAtFrequency\(hz\)/);
@@ -6303,9 +6303,9 @@ test("Boston HSR displays exactly one plotted master spectrum, six inside-plot c
   assert.match(view,/h-\[470px\] min-w-\[880px\]/);
   assert.match(view,/hsr-boston-purple-fill/);
   assert.match(view,/hsr-boston-white-line/);
-  assert.match(view,/grid grid-cols-6 gap-0/);
+  assert.match(view,/className="absolute bottom-7 z-10 min-w-0 px-0\.5"/);
   assert.match(view,/role="group" aria-label="Select a frequency band/);
-  assert.match(view,/grid-cols-6/);
+  assert.match(view,/hsrBands\.map\(\(band,index\)=>\(/);
   assert.match(view,/onClick=\{\(\)=>setSelectedHsrBand\(index\)\}/);
   assert.match(view,/selectedHsrBand===index/);
   assert.match(view,/Target Frequency Zone:/);
@@ -6519,81 +6519,65 @@ test("Boston reference six card labels use true Auralis measured percentages, ne
 
 
 
-test("Boston six selection cards align exactly with their six shaded frequency columns",async()=>{
+test("Boston spectrum cards occupy proportional logarithmic frequency corridors, not equal-width slots",async()=>{
   const studio=await readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8");
   const view=studio.split("VIEW 1: Boston-reference Harmonic Spectral Resolution.")[1]
     ?.split("VIEW 2: Signal & Levels")[0];
-  assert.ok(view,"HSR still has one isolated Boston-style section");
-  assert.match(studio,/const hsrBandWidth=820\/6;/);
-  assert.match(studio,/const hsrXAxis=\(hz:number\):number=>/);
-  assert.match(studio,/SONICLENS_SIX_BAND_EDGES_HZ/);
-  assert.match(studio,/Math\.log\(boundedHz\/lo\)\/Math\.log\(hi\/lo\)/,
-    "Each band uses true logarithmic frequency within its own visual column");
-  assert.match(studio,/30\+hsrBandWidth\*\(index\+/);
+  assert.ok(view);
+  assert.match(studio,/const hsrXAxis=\(hz:number\)=>30\+820\*Math\.log\(hz\/20\)\/Math\.log\(1000\)/);
+  assert.doesNotMatch(studio,/hsrBandWidth|hsrBandAlignedPath|hsrReferenceMarkers/);
   assert.match(view,/viewBox="0 0 880 470"/);
-  assert.match(view,/min-w-\[880px\]/);
   assert.match(view,/x=\{hsrXAxis\(band\.loHz\)\}/);
   assert.match(view,/width=\{hsrXAxis\(band\.hiHz\)-hsrXAxis\(band\.loHz\)\}/);
-  assert.match(view,/grid grid-cols-6 gap-0/);
-  assert.match(view,/style=\{\{left:"3\.4090909%",right:"3\.4090909%"\}\}/);
-  assert.match(view,/hsrBands\.map\(\(band,index\)=>\(/);
-  assert.match(view,/key=\{band\.name\} className="min-w-0 px-1\.5"/);
-  assert.match(view,/w-full min-w-0 h-\[124px\]/);
+  assert.match(view,/className="absolute bottom-7 z-10 min-w-0 px-0\.5"/);
+  assert.match(view,/left:\`\$\{100\*hsrXAxis\(band\.loHz\)\/880\}%\`/);
+  assert.match(view,/width:\`\$\{100\*\(hsrXAxis\(band\.hiHz\)-hsrXAxis\(band\.loHz\)\)\/880\}%\`/);
   assert.match(view,/onClick=\{\(\)=>setSelectedHsrBand\(index\)\}/);
   assert.match(view,/aria-pressed=\{selectedHsrBand===index\}/);
-  assert.doesNotMatch(view,/left-\[6\.2%\]|right-\[3\.2%\]|grid-cols-6 gap-2/);
+  assert.match(view,/selectedHsrBand===index\s*\?\s*"bg-\[#080b13\]\/10/);
+  assert.match(view,/"bg-\[#080b13\]\/95 border-\[#1a2538\]/);
+  assert.doesNotMatch(view,/grid-cols-6|left:"3\.4090909%"|right:"3\.4090909%"/);
+  const edges=[20,64,250,1000,4000,8000,20000];
+  const x=hz=>30+820*Math.log(hz/20)/Math.log(1000);
+  const spans=edges.slice(0,-1).map((lo,i)=>x(edges[i+1])-x(lo));
+  assert.ok(new Set(spans.map(v=>v.toFixed(4))).size>3);
+  assert.ok(spans[4]<spans[2],"Presence must be narrower than Low-Mids");
+  assert.ok(Math.abs(spans.reduce((a,b)=>a+b,0)-820)<1e-9);
+  for(let i=0;i<6;i++){
+    const left=x(edges[i]),right=left+spans[i];
+    assert.ok(Math.abs(right-x(edges[i+1]))<1e-9);
+  }
   assert.match(view,/aria-label="Selected frequency band analysis"/);
   assert.match(view,/\{hsrDescription\}/);
   assert.match(view,/\{hsrRecommendation\}/);
-
-  // Chart x=30..850 in the 880-unit SVG, exactly 820 units total.
-  // Each card cell and shade extends across one-sixth of that same interval.
-  const lo=30, hi=850, cellWidth=(hi-lo)/6;
-  const leftPct=100*lo/880, rightPct=100*(880-hi)/880;
-  assert.ok(Math.abs(leftPct-3.4090909)<1e-6);
-  assert.ok(Math.abs(rightPct-3.4090909)<1e-6);
-  for(let i=0;i<6;i++){
-    const left=lo+i*cellWidth,right=lo+(i+1)*cellWidth;
-    assert.ok(right>left);
-    if(i<5)assert.ok(Math.abs(right-(lo+(i+1)*cellWidth))<1e-10);
-  }
 });
 
-test("Boston band-column projection keeps genuine saved Auralis power values and gaps",async()=>{
+test("Boston real Auralis spectrum remains unmodified, with no yellow mockup markers",async()=>{
   const [studio,app,analyzer,diag]=await Promise.all([
     readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8"),
     readFile(new URL("../src/App.tsx",import.meta.url),"utf8"),
     readFile(new URL("../src/lib/liveAudioAnalyzer.ts",import.meta.url),"utf8"),
     readFile(new URL("../src/lib/mudPreventionDiagnostic.ts",import.meta.url),"utf8"),
   ]);
+  const view=studio.split("VIEW 1: Boston-reference Harmonic Spectral Resolution.")[1]
+    ?.split("VIEW 2: Signal & Levels")[0];
+  assert.ok(view);
   assert.match(studio,/buildSonicLensInteractiveEqPreview\(critique\?\.auralisMasterEqProfile, \[\]\)/);
-  assert.match(studio,/hsrBandAlignedPath=\(hsrSpectrum\?\.rawPath\?\?""\)\.replace/);
-  assert.match(studio,/return command\+hsrXAxis\(hz\)\.toFixed\(2\)\+" "\+py/,
-    "Only measured path x-coordinates change, while every y-value is retained");
-  assert.match(studio,/hsrFilledSegments=\(hsrBandAlignedPath\.match/);
-  assert.match(studio,/d=\{hsrBandAlignedPath\}/);
-  assert.match(studio,/x:hsrXAxis\(hz\),y:measuredY\*2\.16/);
-  assert.match(studio,/hsrSpectrum\.measuredYAtFrequency\(hz\)/);
+  assert.match(studio,/const hsrFilledSegments=\(hsrSpectrum\?\.rawPath\.match/);
+  assert.match(view,/d=\{hsrSpectrum\.rawPath\}/);
+  assert.match(view,/hsr-boston-purple-fill/);
+  assert.match(view,/hsr-boston-white-line/);
+  assert.match(view,/Measured Auralis spectrum unavailable for this report/);
   assert.match(studio,/band\.powerSharePct\.toFixed\(1\)/);
+  assert.doesNotMatch(studio,/hsrBandAlignedPath|hsrReferenceMarkers/);
+  assert.doesNotMatch(view,/fill="#ddbd55"|fill="#d3b54e"|marker\.label|<circle /);
   assert.match(analyzer,/if \(band\.bins===0 \|\| band\.dbfsPerHz===null\)\{connected=false;continue;\}/);
   assert.match(diag,/correctionStatus:"NOT_SUPPORTED"/);
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
   assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
-  // A two-disjoint-segment path stays disjoint after projection, and dBFS/Hz y coordinates
-  // are not altered. This tests the prescribed transform with known synthetic points.
   const edges=[20,64,250,1000,4000,8000,20000];
-  const mapHz=hz=>{
-    const bounded=Math.max(20,Math.min(20000,hz));
-    const idx=edges.findIndex((v,i)=>i<6&&bounded>=v&&bounded<edges[i+1]);
-    const i=idx<0?5:idx;
-    return 30+(820/6)*(i+Math.log(bounded/edges[i])/Math.log(edges[i+1]/edges[i]));
-  };
-  for(let i=0;i<7;i++)assert.ok(Math.abs(mapHz(edges[i])-(30+(820/6)*i))<1e-9);
-  const path="M30.00 95.12 L301.00 83.73 M500.00 112.40 L850.00 154.61";
-  const mapped=path.replace(/([ML])([0-9.]+) ([0-9.]+)/g,(_,cmd,x,y)=>
-    cmd+mapHz(20*Math.pow(1000,(Number(x)-30)/820)).toFixed(2)+" "+y);
-  assert.equal((mapped.match(/M/g)||[]).length,2,"No filled-in missing FFT band");
-  assert.deepEqual([...mapped.matchAll(/[ML]([0-9.]+) ([0-9.]+)/g)].map(x=>x[2]),
-    ["95.12","83.73","112.40","154.61"],"Every measured dBFS/Hz y-value is unchanged");
-  assert.equal(mapped.match(/M/g)?.length,path.match(/M/g)?.length);
+  const x=hz=>30+820*Math.log(hz/20)/Math.log(1000);
+  assert.ok(edges.every((v,i)=>i===0||x(v)>x(edges[i-1])));
+  assert.ok(Math.abs(x(20)-30)<1e-10);
+  assert.ok(Math.abs(x(20000)-850)<1e-9);
 });
