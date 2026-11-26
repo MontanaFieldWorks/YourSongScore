@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import FFT from "fft.js";
-import { isValidSonicLensSavedMasterEq, buildSonicLensInteractiveEqPreview, summarizeSonicLensMeasuredOverview, SONICLENS_SIX_BAND_EDGES_HZ, SONICLENS_SIX_BAND_NAMES } from "../lib/liveAudioAnalyzer";
+import { isValidSonicLensSavedMasterEq, buildSonicLensInteractiveEqPreview, summarizeSonicLensMeasuredOverview, describeSonicLensMeasuredBand, SONICLENS_SIX_BAND_EDGES_HZ, SONICLENS_SIX_BAND_NAMES } from "../lib/liveAudioAnalyzer";
 import { 
   ArrowLeft, ArrowRight, Volume2, Sliders, Mic, CheckCircle, Square, Play, Pause, 
   Activity, Sparkles, Cpu, AlertTriangle, Check, RotateCcw, Compass, Layers, CheckSquare,
@@ -647,6 +647,7 @@ const generateHarmonicNodes = () => {
   const hsrNodeIds=["sub-rumble",null,"muddy-mids","boxy-color","harsh-presence","air-texture"] as const;
   const selectedHsrNode=harmonicNodes.find(n=>n.id===hsrNodeIds[selectedHsrBand]);
   const selectedHsrRange=hsrBands[selectedHsrBand];
+  const hsrMeasuredDescription=describeSonicLensMeasuredBand(hsrOverview,selectedHsrBand);
   const bassText=typeof critique?.mixQuality?.frequencyBalance?.lowEnd==="string"
     ? critique.mixQuality.frequencyBalance.lowEnd.trim() : "";
   const hsrDescription=selectedHsrBand===1
@@ -1001,7 +1002,12 @@ const generateHarmonicNodes = () => {
                         `${selectedHsrRange.loHz}–${selectedHsrRange.hiHz} Hz`}
                       {" "}({selectedHsrNode?.band ?? selectedHsrRange.name})
                     </p>
-                    <p className="text-white text-[15px] md:text-[16px] leading-[1.6] font-semibold mt-6">
+                    <p className="text-cyan-200 text-[12px] font-bold mt-6">Auralis — Measured findings</p>
+                    <p className="text-white text-[15px] md:text-[16px] leading-[1.6] mt-2">
+                      {hsrMeasuredDescription}
+                    </p>
+                    <p className="text-slate-400 text-[12px] font-bold mt-5">Existing YSS / Gemini guidance (not an Auralis diagnosis)</p>
+                    <p className="text-white text-[15px] md:text-[16px] leading-[1.6] font-semibold mt-2">
                       {hsrDescription}
                     </p>
                     {hsrRecommendation && (
