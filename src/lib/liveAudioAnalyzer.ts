@@ -3835,3 +3835,22 @@ export function summarizeSonicLensMeasuredOverview(source:unknown):SonicLensMeas
     tiltStatus:tiltDbPerOct===null?"UNAVAILABLE":"MEASURED",
     method:"PERSISTED_8192_FFT_96_LOG_BANDS"};
 }
+
+/** Display-only explanation of a validated overview's selected frequency band. */
+export function describeSonicLensMeasuredBand(overview:SonicLensMeasuredOverview|null,index:number):string {
+  const unavailable="Auralis measurement unavailable for this frequency region.";
+  if(!Number.isInteger(index)||index<0||index>=6||overview?.status!=="AVAILABLE"||
+    overview.scoringImpact!=="NONE"||overview.method!=="PERSISTED_8192_FFT_96_LOG_BANDS"||
+    overview.bands.length!==6)return unavailable;
+  const b=overview.bands[index];
+  if(!b||b.name!==SONICLENS_SIX_BAND_NAMES[index]||
+    b.loHz!==SONICLENS_SIX_BAND_EDGES_HZ[index]||b.hiHz!==SONICLENS_SIX_BAND_EDGES_HZ[index+1]||
+    (b.status!=="MEASURED"&&b.status!=="PARTIAL")||
+    b.powerSharePct===null||!Number.isFinite(b.powerSharePct)||b.powerSharePct<0||b.powerSharePct>100||
+    !Number.isFinite(b.coveragePct)||b.coveragePct<=0||b.coveragePct>100||
+    (b.status==="MEASURED"&&b.coveragePct<80))return unavailable;
+  const pct=(n:number)=>n>0&&n<0.1?"less than 0.1%":n.toFixed(1)+"%";
+  return `${b.name} (${b.loHz}–${b.hiHz} Hz) contains ${pct(b.powerSharePct)} of represented spectral power, with ${pct(b.coveragePct)} estimated frequency coverage.`+
+    (b.status==="PARTIAL"?" Coverage is partial; interpret this share cautiously.":"")+
+    " This describes the recording's tonal distribution, not a defect or required EQ correction.";
+}
