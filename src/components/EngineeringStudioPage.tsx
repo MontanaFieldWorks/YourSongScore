@@ -629,10 +629,32 @@ const generateHarmonicNodes = () => {
     name,loHz:SONICLENS_SIX_BAND_EDGES_HZ[i],hiHz:SONICLENS_SIX_BAND_EDGES_HZ[i+1],
     powerSharePct:null,coveragePct:0,status:"UNAVAILABLE" as const,
   }));
-  const hsrXAxis=(hz:number)=>30+820*Math.log(hz/20)/Math.log(1000);
+  // Six equal-width visible band columns so the cards and shaded regions
+  // have precisely matching horizontal bounds. Within each band, frequency
+  // positions are logarithmic. The saved Auralis FFT values are untouched.
+  const hsrBandWidth=820/6;
+  const hsrXAxis=(hz:number):number=>{
+    const boundedHz=Math.max(20,Math.min(20000,hz));
+    const edges=SONICLENS_SIX_BAND_EDGES_HZ;
+    const found=edges.findIndex((edge,i)=>
+      i<6&&boundedHz>=edge&&boundedHz<edges[i+1]);
+    const index=found<0?5:found; // 20,000 Hz is the last right edge
+    const lo=edges[index],hi=edges[index+1];
+    return 30+hsrBandWidth*(index+Math.log(boundedHz/lo)/Math.log(hi/lo));
+  };
+  // Move ONLY the x-coordinates of the validated spectrum path to the
+  // visual band-column geometry. Preserve every real y-value and every
+  // discontinuity left by empty FFT bins; never fabricate spectral power.
+  const hsrBandAlignedPath=(hsrSpectrum?.rawPath??"").replace(
+    /([ML])([0-9.]+) ([0-9.]+)/g,
+    (_match,command:string,px:string,py:string)=>{
+      const hz=20*Math.pow(1000,(Number(px)-30)/820);
+      return command+hsrXAxis(hz).toFixed(2)+" "+py;
+    },
+  );
   // Every area is bounded by actual contiguous populated FFT bins. Null bins
   // stay discontinuous rather than becoming an invented purple fill.
-  const hsrFilledSegments=(hsrSpectrum?.rawPath.match(/M[^M]+/g)??[]).flatMap(segment=>{
+  const hsrFilledSegments=(hsrBandAlignedPath.match(/M[^M]+/g)??[]).flatMap(segment=>{
     const positions=[...segment.matchAll(/[ML]([0-9.]+) ([0-9.]+)/g)];
     if(positions.length<2)return [];
     return [segment+
@@ -643,7 +665,7 @@ const generateHarmonicNodes = () => {
     ? [64,140,401,1100,2400].flatMap(hz=>{
       const measuredY=hsrSpectrum.measuredYAtFrequency(hz);
       return measuredY===null?[]:[{
-        hz,x:hsrSpectrum.xForFrequency(hz),y:measuredY*2.16,
+        hz,x:hsrXAxis(hz),y:measuredY*2.16,
         label:hz>=1000?`${(hz/1000).toFixed(1)} kHz`:`${hz} Hz`,
       }];
     })
@@ -895,7 +917,7 @@ const generateHarmonicNodes = () => {
                   {/* The only visible graph: actual saved Auralis power, no
                       slider, second curve, grade targets or simulated FFT. */}
                   <div className="overflow-x-auto rounded-md border border-white/10 bg-[#060a10]">
-                    <div className="relative h-[470px] min-w-[820px]">
+                    <div className="relative h-[470px] min-w-[880px]">
                       <svg viewBox="0 0 880 470" preserveAspectRatio="none"
                         className="absolute inset-0 h-full w-full"
                         role="img"
@@ -941,7 +963,7 @@ const generateHarmonicNodes = () => {
                               <path key={i} d={d} transform="scale(1 2.16)"
                                 fill="url(#hsr-boston-purple-fill)" stroke="none"/>
                             ))}
-                            <path d={hsrSpectrum.rawPath} transform="scale(1 2.16)"
+                            <path d={hsrBandAlignedPath} transform="scale(1 2.16)"
                               fill="none" stroke="url(#hsr-boston-white-line)"
                               strokeWidth="1.9" strokeLinejoin="round"/>
                             {hsrReferenceMarkers.map(marker=>(
@@ -964,34 +986,38 @@ const generateHarmonicNodes = () => {
                           textAnchor="start">dBFS/Hz</text>
                       </svg>
 
-                      {/* Six selectable parameter cards, within the graph,
-                          matching the reference screenshot (not a second row). */}
-                      <div className="absolute bottom-7 left-[6.2%] right-[3.2%] grid grid-cols-6 gap-2 z-10"
+
+                      {/* Each card occupies one and only one shaded region:
+                          svg x 30..850 divided into the same six columns. */}
+                      <div className="absolute bottom-7 z-10 grid grid-cols-6 gap-0"
+                        style={{left:"3.4090909%",right:"3.4090909%"}}
                         role="group" aria-label="Select a frequency band to see its analysis and recommendations">
                         {hsrBands.map((band,index)=>(
-                          <button key={band.name} type="button"
-                            onClick={()=>setSelectedHsrBand(index)}
-                            aria-pressed={selectedHsrBand===index}
-                            className={`h-[124px] rounded-xl p-2.5 text-left bg-[#080b13]/95 border shadow-xl
-                              flex flex-col gap-2 overflow-hidden cursor-pointer
-                              focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-300
-                              ${selectedHsrBand===index
-                                ?"border-[#aa8ed7] ring-1 ring-[#997cc9]"
-                                :"border-[#1a2538] hover:border-[#697a9d]"}`}>
-                            <span className="text-[11px] font-bold text-white">{band.name}</span>
-                            <span className="text-[10px] font-mono text-slate-300">
-                              {band.loHz}–{band.hiHz} Hz
-                            </span>
-                            <span className="h-1.5 w-full overflow-hidden rounded-full bg-[#27354e]" aria-hidden="true">
-                              <span className="block h-full bg-cyan-400"
-                                style={{width:`${band.powerSharePct ?? 0}%`}}/>
-                            </span>
-                            <span className="font-bold text-[12px] leading-tight text-cyan-200">
-                              {band.powerSharePct===null
-                                ? "Unavailable"
-                                : `${band.powerSharePct.toFixed(1)}% of measured power`}
-                            </span>
-                          </button>
+                          <div key={band.name} className="min-w-0 px-1.5">
+                            <button type="button"
+                              onClick={()=>setSelectedHsrBand(index)}
+                              aria-pressed={selectedHsrBand===index}
+                              className={`w-full min-w-0 h-[124px] rounded-xl p-2 text-left bg-[#080b13]/95 border shadow-xl
+                                flex flex-col gap-1.5 overflow-hidden cursor-pointer
+                                focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-300
+                                ${selectedHsrBand===index
+                                  ?"border-[#aa8ed7] ring-1 ring-[#997cc9]"
+                                  :"border-[#1a2538] hover:border-[#697a9d]"}`}>
+                              <span className="text-[11px] font-bold text-white">{band.name}</span>
+                              <span className="text-[10px] font-mono text-slate-300">
+                                {band.loHz}–{band.hiHz} Hz
+                              </span>
+                              <span className="h-1.5 w-full overflow-hidden rounded-full bg-[#27354e]" aria-hidden="true">
+                                <span className="block h-full bg-cyan-400"
+                                  style={{width:`${band.powerSharePct ?? 0}%`}}/>
+                              </span>
+                              <span className="font-bold text-[12px] leading-tight text-cyan-200">
+                                {band.powerSharePct===null
+                                  ? "Unavailable"
+                                  : `${band.powerSharePct.toFixed(1)}% of measured power`}
+                              </span>
+                            </button>
+                          </div>
                         ))}
                       </div>
                     </div>
