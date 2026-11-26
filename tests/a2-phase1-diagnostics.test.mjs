@@ -6211,7 +6211,7 @@ test("Boston HSR uses saved validated master bins with no simulated EQ overlay",
   assert.match(studio,/hsrSpectrum\.rawPath/);
   assert.match(studio,/hsrFilledSegments/);
   assert.match(studio,/positions\.length<2/);
-  assert.match(studio,/hsrSpectrum\.measuredYAtFrequency\(hz\)/);
+  assert.doesNotMatch(studio,/hsrSpectrum\.measuredYAtFrequency\(hz\)/);
   assert.match(studio,/hsrOverview\?\.bands/);
   assert.doesNotMatch(studio,/measuredInteractiveEq|onChange=\{handleCorrectionChange\}|getSimulatedPath/);
   for(const id of ["sub-rumble","muddy-mids","boxy-color","harsh-presence","air-texture"])
@@ -6304,7 +6304,7 @@ test("Boston HSR displays exactly one plotted master spectrum, six inside-plot c
   assert.match(view,/hsr-boston-purple-fill/);
   assert.match(view,/hsr-boston-white-line/);
   assert.match(view,/className="absolute bottom-7 z-10 min-w-0 px-0\.5"/);
-  assert.match(view,/role="group" aria-label="Select a frequency band/);
+  assert.match(view,/role="group"\s+aria-label="Select a frequency band/);
   assert.match(view,/hsrBands\.map\(\(band,index\)=>\(/);
   assert.match(view,/onClick=\{\(\)=>setSelectedHsrBand\(index\)\}/);
   assert.match(view,/selectedHsrBand===index/);
