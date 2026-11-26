@@ -6299,6 +6299,15 @@ test("Boston HSR displays exactly one plotted master spectrum, six inside-plot c
   const view=studio.split("VIEW 1: Boston-reference Harmonic Spectral Resolution.")[1]
     ?.split("VIEW 2: Signal & Levels")[0];
   assert.ok(view);
+  const headerPos=view.indexOf("Harmonic Spectral Resolution Curve");
+  const explainerPos=view.indexOf("This graph shows how sound energy is distributed");
+  const plotPos=view.indexOf('className="overflow-x-auto rounded-md');
+  assert.ok(headerPos>=0&&headerPos<explainerPos&&explainerPos<plotPos,
+    "Two-sentence measured-spectrum explainer sits below the HSR header and above the chart");
+  assert.match(view,/as measured by Auralis SonicLens\. Each frequency box shows/);
+  assert.match(view,/the graph describes the recording, not an EQ setting or a judgment of its quality/);
+  assert.match(studio,/const hsrDescription=selectedHsrBand===1/);
+  assert.match(studio,/const hsrRecommendation=selectedHsrBand===1/);
   assert.match(view,/viewBox="0 0 880 470"/);
   assert.match(view,/h-\[470px\] min-w-\[880px\]/);
   assert.match(view,/hsr-boston-purple-fill/);

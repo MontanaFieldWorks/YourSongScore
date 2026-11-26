@@ -885,6 +885,9 @@ const generateHarmonicNodes = () => {
                       <span className="block">(20 - 20,000 Hz)</span>
                     </h2>
                   </header>
+                  <p className="text-[12px] md:text-[13px] leading-relaxed text-slate-300 max-w-4xl">
+                    This graph shows how sound energy is distributed across your recording's frequencies, from deep bass on the left to high-frequency detail on the right, as measured by Auralis SonicLens. Each frequency box shows that region's share of measured spectral power; the graph describes the recording, not an EQ setting or a judgment of its quality.
+                  </p>
 
                   {/* The only visible graph: actual saved Auralis power, no
                       slider, second curve, grade targets or simulated FFT. */}
