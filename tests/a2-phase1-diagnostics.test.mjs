@@ -5985,7 +5985,8 @@ test("SonicLens Mix Balance saved report fails closed: no old 7-band fallback, m
   assert.throws(()=>measureSonicLensSavedMasterEq([bad],48000),RangeError);
 });
 
-test("SonicLens static relocation is confined to Mix Balance, preserves interactive Studio and scores",async()=>{
+
+test("SonicLens measured Mix Balance survives the screenshot-faithful Boston HSR view",async()=>{
   const [display,studio,app,server]=await Promise.all([
     readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8"),
     readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8"),
@@ -5993,22 +5994,19 @@ test("SonicLens static relocation is confined to Mix Balance, preserves interact
     readFile(new URL("../server.ts",import.meta.url),"utf8"),
   ]);
   const mix=display.split('      case "mix":\n        return (')[1]?.split('      case "flow":')[0];
-  assert.ok(mix,"Mix Balance detail block should exist");
+  assert.ok(mix);
   assert.match(mix,/SonicLensMixBalanceReport profile=\{critique.auralisMasterEqProfile\}/);
-  assert.doesNotMatch(mix,/Comparative Spectral Blueprint|Target "Successful" Modern Indie Hit|Delta \+1\.8dB|Delta -0\.5dB|Notching this dynamic region/);
-  assert.match(display,/Me[a-z]+ed spectrum unavailable for this saved report/);
+  assert.doesNotMatch(mix,/Comparative Spectral Blueprint|Target "Successful" Modern Indie Hit|Delta \+1\.8dB|Delta -0\.5dB/);
+  assert.match(display,/Measured spectrum unavailable for this saved report/);
   assert.doesNotMatch(display,/Paired EQ difference: UNAVAILABLE/);
-  assert.match(display,/Existing A&amp;R Mix Balance feedback/);
-  assert.match(studio,/getSimulatedPath/);
-  assert.match(studio,/Acoustic EQ Solver/);
-  assert.match(studio,/SonicLens measurement details \(no duplicate graph\)/);
-  assert.doesNotMatch(studio,/SonicLensMixBalanceReport/);
-  assert.doesNotMatch(studio,/SonicLensMasterEqPanel/);
+  assert.match(studio,/hsrSpectrum\.rawPath/);
+  assert.match(studio,/View Surgical DAW Guidance in Checklist/);
+  assert.doesNotMatch(studio,/SonicLensMixBalanceReport|SonicLensMasterEqPanel/);
   const direct=app.split("  const handleSubmitFile = async () => {")[1]
-    .split("  const analyzeInternalBatchFile = async (")[0];
+    ?.split("  const analyzeInternalBatchFile = async (")[0];
+  assert.ok(direct);
   assert.ok(direct.indexOf("executeAuralisReviewed79Score(")<
-    direct.indexOf("if (savedMasterEq) overriddenCritique.auralisMasterEqProfile"),
-    "Saved plot evidence only attaches after scoring");
+    direct.indexOf("if (savedMasterEq) overriddenCritique.auralisMasterEqProfile"));
   assert.match(app,/measureSonicLensSavedMasterEq/);
   assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
@@ -6016,45 +6014,32 @@ test("SonicLens static relocation is confined to Mix Balance, preserves interact
 });
 
 
-test("SonicLens studio integration retains original interactive EQ control and guidance contract",async()=>{
-  const studio=await readFile(
-    new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8");
-  const display=await readFile(
-    new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
-  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
-  const original=studio.split('              {/* VIEW 1: Harmonic Spectral Resolution */}')[1]
-    ?.split('                  {/* Display-only SonicLens evidence.')[0];
-  assert.ok(original,"Original interactive harmonic content must precede added panel");
-  assert.match(original,/getSimulatedPath\(\)/);
-  assert.match(original,/harmonicNodes\.map/);
-  assert.match(original,/handleSelectNode\(node\)/);
-  assert.match(original,/onChange=\{handleCorrectionChange\}/);
-  assert.match(original,/Acoustic EQ Solver/);
-  assert.match(original,/Autocorrect Resonance/);
-  assert.match(original,/View Surgical DAW Guidance in Checklist/);
-  assert.match(original,/Analog Saturation Note:/);
-  const generation=studio.split('const generateHarmonicNodes = () => {')[1]
-    ?.split('  const handleSelectNode = (node: HarmonicNode) => {')[0];
-  assert.ok(generation,"Original five-node source must remain available");
-  for(const id of ["sub-rumble","muddy-mids","boxy-color","harsh-presence","air-texture"]){
-    assert.match(generation,new RegExp('id: "'+id+'"'));
-  }
-  const after=studio.split('                  {/* Display-only SonicLens evidence.')[1]
-    ?.split('              {/* VIEW 2: Signal & Levels */}')[0];
-  assert.ok(after,"Measured panel must remain inside harmonic view, ahead of Signal module");
-  assert.match(after,/<details[^>]+>/);
-  assert.match(after,/<summary[^>]+>/);
-  assert.match(after,/SonicLens measurement details \(no duplicate graph\)/);
-  assert.match(after,/Validated saved Auralis spectrum — source and measurement details/);
-  assert.doesNotMatch(after,/analyzeAudioBuffer|measureSonicLensSavedMasterEq|decodeAudio|fetch\(/);
+test("Boston-reference HSR retains original five advisory sources and checklist while removing sliders",async()=>{
+  const [studio,display]=await Promise.all([
+    readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8"),
+    readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8"),
+  ]);
+  const view=studio.split("{/* VIEW 1: Boston-reference Harmonic Spectral Resolution.")[1]
+    ?.split("{/* VIEW 2: Signal & Levels */}")[0];
+  assert.ok(view,"One screenshot-faithful HSR view must precede Signal");
+  assert.match(view,/Harmonic Spectral Resolution Curve/);
+  assert.match(view,/h-\[470px\]/);
+  assert.match(view,/hsrSpectrum\.rawPath/);
+  assert.match(view,/grid-cols-6/);
+  assert.match(view,/setSelectedHsrBand\(index\)/);
+  assert.match(view,/aria-label="Selected frequency band analysis"/);
+  assert.match(view,/View Surgical DAW Guidance in Checklist/);
+  assert.doesNotMatch(view,/type="range"|Acoustic EQ Solver|Autocorrect Resonance|spectrumVerticalView|SonicLens measurement details|EQ Correction Detail/);
+  assert.doesNotMatch(view,/Objective engineering evidence|Auralis measured spectral tilt|Provisional legacy|hypothetical gain/);
+  const gen=studio.split("const generateHarmonicNodes = () => {")[1]
+    ?.split("    setHarmonicNodes(derivedNodes);")[0];
+  assert.ok(gen);
+  for(const id of ["sub-rumble","muddy-mids","boxy-color","harsh-presence","air-texture"])
+    assert.ok(gen.includes('id: "'+id+'"'),"Original DAW/checklist node retained: "+id);
+  assert.match(studio,/sourceNodeId: node\.id/);
+  assert.match(studio,/id=\{item\.sourceNodeId \? \`checklist-item-\$\{item\.sourceNodeId\}\` : undefined\}/);
   assert.match(display,/export function SonicLensMixBalanceReport/);
   assert.match(display,/isValidSonicLensSavedMasterEq\(profile\)/);
-  assert.match(display,/context==="studio"/);
-  assert.doesNotMatch(display,/Paired EQ difference: UNAVAILABLE/);
-  assert.match(display,/Existing A&amp;R Mix Balance feedback/);
-  assert.doesNotMatch(app,/SonicLensMixBalanceReport/);
-  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
-  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
 });
 
 test("SonicLens studio reads only JSON-persisted validated profile; malformed and legacy records stay unavailable",async()=>{
@@ -6129,14 +6114,15 @@ test("SonicLens cache owner and profile-only persistence paths fail closed and p
   assert.match(save,/window\.localStorage\.setItem\(LOCAL_TRACKS_KEY, JSON\.stringify\(tracks\)\)/);
 });
 
-test("SonicLens opt-in cached MP3 measurement never enters A&R analysis or scoring paths",async()=>{
+
+test("SonicLens explicit exact-cached-MP3 measurement remains opt-in outside Boston HSR plotting",async()=>{
   const [app,studio]=await Promise.all([
     readFile(new URL("../src/App.tsx",import.meta.url),"utf8"),
     readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8"),
   ]);
   const measure=app.split("const handleMeasureCachedSpectrum = async (): Promise<string> => {")[1]
     ?.split("  const handleStartReview = () => {")[0];
-  assert.ok(measure,"Explicit cached-only measurement handler must exist");
+  assert.ok(measure);
   assert.match(measure,/cachedSpectrumBusyRef\.current/);
   assert.match(measure,/getVerifiedAnalyzedMp3ForSonicLens\(trackId, ownerId\)/);
   assert.match(measure,/await getLocalFile\(trackId\)/);
@@ -6146,28 +6132,19 @@ test("SonicLens opt-in cached MP3 measurement never enters A&R analysis or scori
   assert.match(measure,/measureSonicLensSavedMasterEq\(/);
   assert.match(measure,/isValidSonicLensSavedMasterEq\(profile\)/);
   assert.match(measure,/await saveValidatedSonicLensProfileForTrack\(trackId, ownerId, track\.name, profile\)/);
-  assert.match(measure,/stillCurrent\(\)/);
   assert.doesNotMatch(measure,/\b(?:handleSubmitFile|handleAuditQueuedTrack|handleStartReview|computeMixBalanceScore|executeAuralisReviewed79Score|analyzeAudioBuffer|analyzeEngineeringDiagnosticsInWorker|decodeAudioUrl|fetch)\s*\(/);
   assert.match(app,/onMeasureCachedSpectrum=\{handleMeasureCachedSpectrum\}/);
-  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  const view=studio.split("VIEW 1: Boston-reference Harmonic Spectral Resolution.")[1]
+    ?.split("VIEW 2: Signal & Levels")[0];
+  assert.ok(view);
+  assert.match(view,/!hsrSpectrum && !!trackInfo\?\.id && !!onMeasureCachedSpectrum/);
+  assert.match(view,/onClick=\{handleCachedSpectrumClick\}/);
+  assert.match(view,/disabled=\{cachedSpectrumMeasuring\}/);
+  assert.match(view,/Measure cached spectrum/);
+  assert.doesNotMatch(view,/\b(?:decodeAudioFile|measureSonicLensSavedMasterEq|handleAuditQueuedTrack|handleSubmitFile)\s*\(/);
   assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
-  const panel=studio.split("{/* Display-only SonicLens evidence.")[1]
-    ?.split("{/* VIEW 2: Signal & Levels */}")[0];
-  assert.ok(panel,"Original interactive solver should precede added panel");
-  assert.match(panel,/<details/);
-  assert.match(panel,/!isValidSonicLensSavedMasterEq\(critique\?\.auralisMasterEqProfile\)/);
-  assert.match(panel,/onClick=\{handleCachedSpectrumClick\}/);
-  assert.match(panel,/disabled=\{cachedSpectrumMeasuring\}/);
-  assert.match(panel,/Measure cached spectrum/);
-  assert.match(panel,/Validated saved Auralis spectrum — source and measurement details/);
-  assert.doesNotMatch(panel,/\b(?:decodeAudioFile|measureSonicLensSavedMasterEq|handleAuditQueuedTrack|handleSubmitFile)\s*\(/);
-  const original=studio.split("{/* VIEW 1: Harmonic Spectral Resolution */}")[1]
-    ?.split("{/* Display-only SonicLens evidence.")[0];
-  assert.ok(original);
-  for(const token of ["getSimulatedPath()","harmonicNodes.map","handleSelectNode(node)","handleCorrectionChange","Acoustic EQ Solver","Autocorrect Resonance","View Surgical DAW Guidance in Checklist","Analog Saturation Note:"])
-    assert.ok(original.includes(token),"Protected original solver element missing: "+token);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
 });
-
 
 test("SonicLens measured spectrum drives interactive EQ preview without changing measured evidence",async()=>{
   const {measureSonicLensSavedMasterEq,buildSonicLensInteractiveEqPreview}=await import("../src/lib/liveAudioAnalyzer.ts");
@@ -6221,38 +6198,30 @@ test("SonicLens interactive EQ projection fails closed on invalid provenance, co
   ])assert.equal(buildSonicLensInteractiveEqPreview(profile,bad),null);
 });
 
-test("SonicLens interactive Studio uses true measured baseline but preserves legacy five-node workflow",async()=>{
+
+test("Boston HSR uses saved validated master bins with no simulated EQ overlay",async()=>{
   const [studio,analyzer,app,display]=await Promise.all([
     readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8"),
     readFile(new URL("../src/lib/liveAudioAnalyzer.ts",import.meta.url),"utf8"),
     readFile(new URL("../src/App.tsx",import.meta.url),"utf8"),
     readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8"),
   ]);
-  assert.match(studio,/buildSonicLensInteractiveEqPreview\(/);
-  assert.match(studio,/critique\?\.auralisMasterEqProfile/);
-  assert.match(studio,/measuredInteractiveEq\?\.adjustedPath|measuredInteractiveEq\.adjustedPath/);
-  assert.match(studio,/measuredInteractiveEq\.rawPath/);
-  assert.match(studio,/measuredInteractiveEq\.xForFrequency\(harmonicFrequencyHz\(activeSelectedNode\.frequency\)\)/);
-  assert.match(studio,/measuredInteractiveEq\.differencePath/);
-  assert.match(studio,/measuredInteractiveEq\.minDbfsPerHz/);
-  assert.match(studio,/measuredInteractiveEq\.maxDbfsPerHz/);
-  assert.match(studio,/getSimulatedPath\(\)/);
-  assert.match(studio,/harmonicNodes\.map\(/);
-  assert.match(studio,/handleSelectNode\(node\)/);
-  assert.match(studio,/onChange=\{handleCorrectionChange\}/);
-  for(const original of ["Acoustic EQ Solver","Autocorrect Resonance","View Surgical DAW Guidance in Checklist","Analog Saturation Note:","Simulated Attenuation Applied","SonicLens measurement details (no duplicate graph)"])
-    assert.ok(studio.includes(original),"Original control missing: "+original);
+  assert.match(studio,/buildSonicLensInteractiveEqPreview\(critique\?\.auralisMasterEqProfile, \[\]\)/);
+  assert.match(studio,/summarizeSonicLensMeasuredOverview\(critique\?\.auralisMasterEqProfile\)/);
+  assert.match(studio,/hsrSpectrum\.rawPath/);
+  assert.match(studio,/hsrFilledSegments/);
+  assert.match(studio,/positions\.length<2/);
+  assert.match(studio,/hsrSpectrum\.measuredYAtFrequency\(hz\)/);
+  assert.match(studio,/hsrOverview\?\.bands/);
+  assert.doesNotMatch(studio,/measuredInteractiveEq|onChange=\{handleCorrectionChange\}|getSimulatedPath/);
   for(const id of ["sub-rumble","muddy-mids","boxy-color","harsh-presence","air-texture"])
-    assert.ok(studio.includes('id: "'+id+'"'),"Five-node selection must remain: "+id);
+    assert.ok(studio.includes('id: "'+id+'"'));
   assert.match(analyzer,/if\s*\(!isValidSonicLensSavedMasterEq\(profile\)/);
   assert.match(analyzer,/if \(band\.bins===0 \|\| band\.dbfsPerHz===null\)\{connected=false;continue;\}/);
-  assert.match(analyzer,/not an actual DAW filter\/Q/);
-  assert.match(studio,/This is not an EQ target, a mastering transfer curve/);
   assert.match(display,/SonicLens display only · scoringImpact NONE/);
   assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
 });
-
 
 test("SonicLens gain-only EQ detail uses a real +/-6 dB hypothetical axis and preserves measured spectrum",async()=>{
   const {measureSonicLensSavedMasterEq,buildSonicLensInteractiveEqPreview}=await import("../src/lib/liveAudioAnalyzer.ts");
@@ -6319,44 +6288,37 @@ test("SonicLens gain-only detail labels unpopulated FFT bands and does not clip 
   }
 });
 
-test("SonicLens consolidated A–E UI retains one enlarged measured graph and original five-node workflows",async()=>{
+
+test("Boston HSR displays exactly one plotted master spectrum, six inside-plot cards and one selected panel",async()=>{
   const [studio,app,display,server]=await Promise.all([
     readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8"),
     readFile(new URL("../src/App.tsx",import.meta.url),"utf8"),
     readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8"),
     readFile(new URL("../server.ts",import.meta.url),"utf8"),
   ]);
-  assert.match(studio,/summarizeSonicLensMeasuredOverview\(critique\?\.auralisMasterEqProfile\)/);
-  assert.match(studio,/classifyAuralisMudAndLowEndHandoff\(critique\)/);
-  assert.match(studio,/h-\[440px\]/);
-  assert.match(studio,/viewBox="0 0 850 440"/);
-  assert.match(studio,/measuredInteractiveEq\.rawPath/);
-  assert.match(studio,/measuredInteractiveEq\.adjustedPath/);
-  assert.match(studio,/transform="scale\(1 2\)"/);
-  assert.match(studio,/aria-label="Select an advisory frequency node"/);
-  assert.match(studio,/text-\[12px\] font-semibold font-mono/);
-  assert.doesNotMatch(studio,/lg:grid-cols-\[minmax\(0,1fr\)_230px\]/,
-    "The full-width spectrum cannot be squeezed by the old sidebar");
-  assert.match(studio,/formatSonicLensSignedGain\(hypotheticalNodeGainDb\(activeSelectedNode\)\)/);
-  assert.match(studio,/onChange=\{handleCorrectionChange\}/);
-  assert.match(studio,/Autocorrect Resonance — Preview Only/);
-  assert.match(studio,/Legacy critique suggestion — not Auralis verified/);
-  assert.match(studio,/SonicLens measurement details \(no duplicate graph\)/);
-  assert.match(studio,/onClick=\{handleCachedSpectrumClick\}/);
-  assert.match(studio,/No validated saved SonicLens spectrum is available/);
-  assert.doesNotMatch(studio,/EQ Correction Detail — hypothetical gain only|SonicLensMixBalanceReport/);
-  assert.match(studio,/Provisional legacy: \{provisionalLegacyComparison\(index\)\}/);
-  assert.match(studio,/uncalibrated genre reference buckets/);
-  assert.doesNotMatch(studio,/const BAND_IDEALS|tilt = parseFloat\(\(-2\.0/);
+  const view=studio.split("VIEW 1: Boston-reference Harmonic Spectral Resolution.")[1]
+    ?.split("VIEW 2: Signal & Levels")[0];
+  assert.ok(view);
+  assert.match(view,/viewBox="0 0 880 470"/);
+  assert.match(view,/h-\[470px\] min-w-\[820px\]/);
+  assert.match(view,/hsr-boston-purple-fill/);
+  assert.match(view,/hsr-boston-white-line/);
+  assert.match(view,/six selectable parameter cards|Six selectable parameter cards/i);
+  assert.match(view,/role="group" aria-label="Select a frequency band/);
+  assert.match(view,/grid-cols-6/);
+  assert.match(view,/onClick=\{\(\)=>setSelectedHsrBand\(index\)\}/);
+  assert.match(view,/selectedHsrBand===index/);
+  assert.match(view,/Target Frequency Zone:/);
+  assert.match(view,/aria-live="polite" aria-label="Selected frequency band analysis"/);
+  assert.match(view,/\{hsrDescription\}/);
+  assert.match(view,/\{hsrRecommendation\}/);
+  assert.match(view,/View Surgical DAW Guidance in Checklist/);
+  assert.doesNotMatch(view,/type="range"|Lightbulb|hypothetical correction|Acoustic EQ Solver|SonicLens measurement details|spectrumVerticalView|Provisional legacy|spectral tilt/);
+  assert.doesNotMatch(studio,/SonicLensMixBalanceReport/);
   assert.match(display,/SonicLensMixBalanceReport profile=\{critique\.auralisMasterEqProfile\}/);
-  for(const id of ["sub-rumble","muddy-mids","boxy-color","harsh-presence","air-texture"])
-    assert.ok(studio.includes('id: "'+id+'"'));
-  for(const token of ["getSimulatedPath()","handleSelectNode(node)","Acoustic EQ Solver",
-    "View Surgical DAW Guidance in Checklist","Analog Saturation Note:","Measure cached spectrum"])
-    assert.ok(studio.includes(token),"protected original control/guidance missing: "+token);
+  assert.match(server,/lowEnd\.sourceVerification/);
   assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
   assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
-  assert.match(server,/lowEnd\.sourceVerification/);
 });
 
 test("Auralis six-band overview uses linear represented FFT power without inventing targets",async()=>{
@@ -6470,41 +6432,31 @@ test("Auralis Mud and Low-End handoff cannot establish defects or change scores"
 });
 
 
-test("SonicLens full-width repaired layout preserves original five-node selection and does not fake defects",async()=>{
-  const [studio,app,diag]=await Promise.all([
+
+test("Boston HSR hides verbose evidence and slider UI without deleting score-inert Auralis safeguards",async()=>{
+  const [studio,app,diag,analyzer]=await Promise.all([
     readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8"),
     readFile(new URL("../src/App.tsx",import.meta.url),"utf8"),
     readFile(new URL("../src/lib/mudPreventionDiagnostic.ts",import.meta.url),"utf8"),
+    readFile(new URL("../src/lib/liveAudioAnalyzer.ts",import.meta.url),"utf8"),
   ]);
-  assert.match(studio,/h-\[440px\]/);
-  assert.match(studio,/aria-label="Select an advisory frequency node"/);
-  assert.match(studio,/text-\[12px\] font-semibold font-mono/);
-  assert.match(studio,/spectrumVerticalView/);
-  assert.match(studio,/setSpectrumVerticalView\("full"\)/);
-  assert.match(studio,/setSpectrumVerticalView\("detail"\)/);
-  assert.match(studio,/measuredInteractiveEq\.differencePath/);
-  assert.match(studio,/Actual measured-to-hypothetical gain displacement/);
-  assert.match(studio,/Legacy critique suggestion — not an Auralis-verified fix/);
-  assert.match(studio,/Provisional legacy: \{provisionalLegacyComparison\(index\)\}/);
-  assert.match(studio,/provisionalLegacyComparison=\(i:number\)/);
-  assert.match(studio,/No missing metrics are imputed/);
-  assert.match(studio,/SonicLens measurement details \(no duplicate graph\)/);
-  assert.match(studio,/onClick=\{handleCachedSpectrumClick\}/);
-  assert.doesNotMatch(studio,/lg:grid-cols-\[minmax\(0,1fr\)_230px\]/);
-  assert.doesNotMatch(studio,/<Lightbulb/);
-  assert.doesNotMatch(studio,/EQ Correction Detail — hypothetical gain only/);
-  const graph=studio.indexOf('viewBox="0 0 850 440"');
-  const solver=studio.indexOf("Acoustic EQ Solver");
-  const selectedGuide=studio.indexOf("Selected guidance frequency, not a measured defect");
-  const checklist=studio.indexOf("View Surgical DAW Guidance in Checklist",solver);
-  assert.ok(graph>0&&selectedGuide>graph&&solver>selectedGuide&&checklist>solver,
-    "Single full-width graph, external selector, immediately following solver and DAW guidance");
-  for(const id of ["sub-rumble","muddy-mids","boxy-color","harsh-presence","air-texture"])
-    assert.ok(studio.includes('id: "'+id+'"'));
-  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
-  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  const view=studio.split("VIEW 1: Boston-reference Harmonic Spectral Resolution.")[1]
+    ?.split("VIEW 2: Signal & Levels")[0];
+  assert.ok(view);
+  assert.doesNotMatch(view,/Acoustic EQ Solver|Autocorrect Resonance|type="range"/);
+  assert.doesNotMatch(view,/Objective engineering evidence|Measured FFT bins|Auralis measured spectral tilt/);
+  assert.doesNotMatch(view,/Spectrum vertical scale|Zoom ±12 dB|Legacy critique suggestion/);
+  assert.doesNotMatch(view,/<details/);
+  assert.match(view,/aria-label="Selected frequency band analysis"/);
+  assert.match(studio,/const hsrNodeIds=\["sub-rumble",null,"muddy-mids","boxy-color","harsh-presence","air-texture"\]/);
+  assert.match(studio,/const hsrRecommendation=/);
+  assert.match(studio,/const openHsrChecklist=\(\)=>/);
+  assert.match(studio,/sourceNodeId: node\.id/);
   assert.match(diag,/correctionStatus:"NOT_SUPPORTED"/);
   assert.match(diag,/scoringImpact:"NONE" as const,adjustments:\[\]/);
+  assert.match(analyzer,/export function summarizeSonicLensMeasuredOverview/);
+  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
 });
 
 test("SonicLens selected-frequency +/-12 dBFS/Hz zoom uses real measured bins and no invented EQ strength",async()=>{
@@ -6547,22 +6499,21 @@ test("SonicLens selected-frequency +/-12 dBFS/Hz zoom uses real measured bins an
     corrections,{zoomAtFrequencyHz:580}),null);
 });
 
-test("SonicLens repaired six-band labels preserve original provisional comparisons without fabricating measurements",async()=>{
+
+test("Boston reference six card labels use true Auralis measured percentages, never genre targets",async()=>{
   const [studio,server]=await Promise.all([
     readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8"),
     readFile(new URL("../server.ts",import.meta.url),"utf8"),
   ]);
-  assert.match(studio,/const legacyBandIdeals:Record<string,number\[\]>/);
-  assert.match(studio,/mainstream:\[55,60,60,55,55,50\]/);
-  assert.match(studio,/hiphop:\[65,62,55,50,48,42\]/);
-  assert.match(studio,/indie:\[45,50,55,58,52,45\]/);
-  assert.match(studio,/classical:\[35,40,45,48,40,35\]/);
-  assert.match(studio,/typeof value!=="number"\|\|!Number\.isFinite\(value\)/);
-  assert.match(studio,/return "Unavailable"/);
-  assert.match(studio,/Slightly Above/);
-  assert.match(studio,/Slightly Below/);
-  assert.match(studio,/Near Target/);
-  assert.match(studio,/Legacy critique suggestion — not an Auralis-verified fix/);
-  assert.match(studio,/No missing metrics are imputed/);
+  assert.match(studio,/SONICLENS_SIX_BAND_NAMES\.map/);
+  assert.match(studio,/hsrOverview\?\.bands/);
+  assert.match(studio,/selectedHsrBand/);
+  assert.match(studio,/setSelectedHsrBand\(index\)/);
+  assert.match(studio,/band\.powerSharePct===null/);
+  assert.match(studio,/band\.powerSharePct\.toFixed\(1\)/);
+  assert.match(studio,/of measured power/);
+  assert.match(studio,/No YSS assessment was saved for this frequency region/);
+  assert.doesNotMatch(studio,/Provisional legacy:|const legacyBandIdeals|provisionalLegacyComparison/);
   assert.match(server,/lowEnd\.sourceVerification/);
 });
+

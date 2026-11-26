@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import FFT from "fft.js";
-import { isValidSonicLensSavedMasterEq, buildSonicLensInteractiveEqPreview, summarizeSonicLensMeasuredOverview } from "../lib/liveAudioAnalyzer";
-import { classifyAuralisMudAndLowEndHandoff } from "../lib/mudPreventionDiagnostic";
+import { isValidSonicLensSavedMasterEq, buildSonicLensInteractiveEqPreview, summarizeSonicLensMeasuredOverview, SONICLENS_SIX_BAND_EDGES_HZ, SONICLENS_SIX_BAND_NAMES } from "../lib/liveAudioAnalyzer";
 import { 
   ArrowLeft, ArrowRight, Volume2, Sliders, Mic, CheckCircle, Square, Play, Pause, 
   Activity, Sparkles, Cpu, AlertTriangle, Check, RotateCcw, Compass, Layers, CheckSquare,
@@ -367,13 +366,9 @@ export default function EngineeringStudioPage({ onBack, critique, trackInfo, loc
 
   // Loaded/generated advanced mix corrective nodes
   const [harmonicNodes, setHarmonicNodes] = useState<HarmonicNode[]>([]);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  // Explicit, reversible viewport only; measured spectral values never change.
-  const [spectrumVerticalView, setSpectrumVerticalView] = useState<"full"|"detail">("full");
-
-  // Correction slider value for the selected node (simulation)
-  const [correctionValue, setCorrectionValue] = useState<number>(0);
-  const [customCorrections, setCustomCorrections] = useState<Record<string, number>>({});
+  // Six user-selectable spectral regions; visible panel changes only on click.
+  // Default Presence matches the provided Boston screenshot's high-mid focus.
+  const [selectedHsrBand, setSelectedHsrBand] = useState(4);
 
   // Tab View Configuration
   const [activeView, setActiveView] = useState<
@@ -621,116 +616,56 @@ const generateHarmonicNodes = () => {
     ];
 
     setHarmonicNodes(derivedNodes);
-    setSelectedNodeId("muddy-mids");
-    setCorrectionValue(0);
   };
 
-  const handleSelectNode = (node: HarmonicNode) => {
-    setSelectedNodeId(node.id);
-    const completedCorrection = customCorrections[node.id] || 0;
-    setCorrectionValue(completedCorrection);
-  };
 
-  const handleCorrectionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    setCorrectionValue(val);
-    if (selectedNodeId) {
-      setCustomCorrections({
-        ...customCorrections,
-        [selectedNodeId]: val
-      });
-    }
-  };
-
-  // Helper calculation for simulated corrected curve
-  const getSimulatedPath = () => {
-    if (!isAnalyzed) return "M 50 150 Q 250 150 450 150 T 850 150";
-
-    const basePoints = [
-      { x: 30, y: 150 },
-      { x: 120, y: 150 },
-      { x: 260, y: 150 },
-      { x: 400, y: 150 },
-      { x: 550, y: 150 },
-      { x: 700, y: 150 },
-      { x: 850, y: 150 }
-    ];
-
-    // Modify base points with offset of harmonicNodes minus corrections
-    harmonicNodes.forEach(node => {
-      const idx = basePoints.findIndex(p => Math.abs(p.x - (node.xPct / 100 * 850)) < 80);
-      if (idx !== -1) {
-        const customCorr = customCorrections[node.id] || 0;
-        const currentProblemAmt = node.dbOffset;
-        const netProblemAmt = currentProblemAmt - (customCorr * currentProblemAmt);
-        
-        // Map dbOffset to Y space (up is standard, down is cut, positive means peak problem so we render high bump, negative means trough problem)
-        const scale = 8;
-        basePoints[idx].y = 150 - (netProblemAmt * scale);
-      }
-    });
-
-    let path = `M ${basePoints[0].x} ${basePoints[0].y}`;
-    for (let i = 1; i < basePoints.length; i++) {
-      const p = basePoints[i];
-      const prev = basePoints[i - 1];
-      const cpX1 = prev.x + (p.x - prev.x) / 2;
-      const cpY1 = prev.y;
-      const cpX2 = prev.x + (p.x - prev.x) / 2;
-      const cpY2 = p.y;
-      path += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${p.x} ${p.y}`;
-    }
-    return path;
-  };
-
-  const activeSelectedNode = harmonicNodes.find(n => n.id === selectedNodeId);
-  // Only validated saved Auralis evidence may drive the upper display. The
-  // existing node advice and sliders remain unchanged; only the plotted
-  // measured baseline and its hypothetical slider-adjusted preview differ.
-  const measuredInteractiveEq = isAnalyzed
-    ? buildSonicLensInteractiveEqPreview(
-        critique?.auralisMasterEqProfile,
-        harmonicNodes.map(node=>({
-          frequencyHz:harmonicFrequencyHz(node.frequency),
-          dbOffset:node.dbOffset,
-          completion:customCorrections[node.id] || 0,
-        })),
-        spectrumVerticalView==="detail" && activeSelectedNode
-          ? {zoomAtFrequencyHz:harmonicFrequencyHz(activeSelectedNode.frequency)}
-          : undefined,
-      )
+  // Read the real saved 96-band Auralis PCM profile. Never start an analysis,
+  // fabricate unmeasured FFT bins, or convert measurements into EQ verdicts.
+  const hsrSpectrum = isAnalyzed
+    ? buildSonicLensInteractiveEqPreview(critique?.auralisMasterEqProfile, [])
     : null;
-
-  // Keep the numeric value synchronized with the existing slider state
-  // and the same per-node term used by the gain-only preview function.
-  const hypotheticalNodeGainDb = (node:HarmonicNode):number =>
-    -node.dbOffset*(customCorrections[node.id] || 0);
-  const measuredOverview=summarizeSonicLensMeasuredOverview(critique?.auralisMasterEqProfile);
-  const objectiveHandoff=classifyAuralisMudAndLowEndHandoff(critique);
-  // Keep the original provisional comparisons for users who want context,
-  // but never present these uncalibrated genre buckets as Auralis judgments.
-  const legacyBandIdeals:Record<string,number[]>={
-    hiphop:[65,62,55,50,48,42],
-    mainstream:[55,60,60,55,55,50],
-    indie:[45,50,55,58,52,45],
-    classical:[35,40,45,48,40,35],
-  };
-  const legacyBandBucket=getGenreLoudnessBucket(critique?.vibe?.genre,critique?.vibe?.subgenre).key;
-  const legacyBandTargets=legacyBandIdeals[legacyBandBucket]??legacyBandIdeals.mainstream;
-  const legacyMetricValues=[
-    critique?.liveMetrics?.calculatedSubBassBandEnergy,
-    critique?.liveMetrics?.calculatedBassBandEnergy,
-    critique?.liveMetrics?.calculatedLowMidsBandEnergy,
-    critique?.liveMetrics?.calculatedCoreMidsBandEnergy,
-    critique?.liveMetrics?.calculatedPresenceBandEnergy,
-    critique?.liveMetrics?.calculatedAirBandEnergy,
-  ];
-  const provisionalLegacyComparison=(i:number):string=>{
-    const value=legacyMetricValues[i],target=legacyBandTargets[i];
-    if(typeof value!=="number"||!Number.isFinite(value))return "Unavailable";
-    const difference=value-target;
-    return difference>15?"Above Target":difference>7?"Slightly Above":
-      difference< -15?"Below Target":difference< -7?"Slightly Below":"Near Target";
+  const hsrOverview = summarizeSonicLensMeasuredOverview(critique?.auralisMasterEqProfile);
+  const hsrBands = hsrOverview?.bands ?? SONICLENS_SIX_BAND_NAMES.map((name,i)=>({
+    name,loHz:SONICLENS_SIX_BAND_EDGES_HZ[i],hiHz:SONICLENS_SIX_BAND_EDGES_HZ[i+1],
+    powerSharePct:null,coveragePct:0,status:"UNAVAILABLE" as const,
+  }));
+  const hsrXAxis=(hz:number)=>30+820*Math.log(hz/20)/Math.log(1000);
+  // Every area is bounded by actual contiguous populated FFT bins. Null bins
+  // stay discontinuous rather than becoming an invented purple fill.
+  const hsrFilledSegments=(hsrSpectrum?.rawPath.match(/M[^M]+/g)??[]).flatMap(segment=>{
+    const positions=[...segment.matchAll(/[ML]([0-9.]+) ([0-9.]+)/g)];
+    if(positions.length<2)return [];
+    return [segment+
+      " L "+positions[positions.length-1][1]+" 212"+
+      " L "+positions[0][1]+" 212 Z"];
+  });
+  const hsrReferenceMarkers=hsrSpectrum
+    ? [64,140,401,1100,2400].flatMap(hz=>{
+      const measuredY=hsrSpectrum.measuredYAtFrequency(hz);
+      return measuredY===null?[]:[{
+        hz,x:hsrSpectrum.xForFrequency(hz),y:measuredY*2.16,
+        label:hz>=1000?`${(hz/1000).toFixed(1)} kHz`:`${hz} Hz`,
+      }];
+    })
+    : [];
+  // These are legacy YSS critique narratives, not Auralis judgments. Five
+  // existing nodes and their original checklist IDs remain untouched.
+  const hsrNodeIds=["sub-rumble",null,"muddy-mids","boxy-color","harsh-presence","air-texture"] as const;
+  const selectedHsrNode=harmonicNodes.find(n=>n.id===hsrNodeIds[selectedHsrBand]);
+  const selectedHsrRange=hsrBands[selectedHsrBand];
+  const bassText=typeof critique?.mixQuality?.frequencyBalance?.lowEnd==="string"
+    ? critique.mixQuality.frequencyBalance.lowEnd.trim() : "";
+  const hsrDescription=selectedHsrBand===1
+    ? bassText || "Bass-region power is measured above; the spectrum alone does not establish a problem."
+    : selectedHsrNode?.problem || "No YSS assessment was saved for this frequency region.";
+  const hsrRecommendation=selectedHsrBand===1
+    ? "Check bass and percussion separation by listening before making any EQ changes."
+    : selectedHsrNode?.solution || "";
+  const openHsrChecklist=()=>{
+    const target=document.getElementById(
+      selectedHsrNode?`checklist-item-${selectedHsrNode.id}`:"daw-checklist"
+    );
+    target?.scrollIntoView({behavior:"smooth",block:"center"});
   };
 
   return (
@@ -942,480 +877,164 @@ const generateHarmonicNodes = () => {
             {/* Right Stage: Interactive Viewer Panel */}
             <div className="lg:col-span-9" id="active-viewport-analyzer-container">
 
-              {/* VIEW 1: Harmonic Spectral Resolution */}
+
+              {/* VIEW 1: Boston-reference Harmonic Spectral Resolution. The
+                  screenshot is the visible specification: ONE measured plot,
+                  six inside-plot selector cards and ONE selected critique. */}
               {activeView === "harmonic" && (
-                <div className="bg-[#13161C] border border-[#2563EB]/25 rounded-3xl p-6 shadow-xl relative overflow-hidden flex flex-col gap-4">
-                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
-                    <div className="flex items-center gap-2">
-                      <Activity className="w-5 h-5 text-blue-400 animate-pulse" />
-                      <span className="font-black text-sm uppercase text-slate-200 tracking-wider">
-                        Harmonic Spectral Resolution Curve (20 - 20,000 Hz)
-                      </span>
-                    </div>
-                    {measuredInteractiveEq ? (
-                      <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] text-slate-200">
-                        <span>Dashed: measured dBFS/Hz</span>
-                        <span>Blue: hypothetical correction preview</span>
-                        <span>Node labels: legacy advice (not verified)</span>
+                <section className="bg-[#121720] border border-[#273459] rounded-3xl p-4 md:p-6 shadow-xl flex flex-col gap-3 text-left"
+                  aria-label="Harmonic Spectral Resolution">
+                  <header className="flex items-center gap-2.5 border-b border-white/10 pb-4">
+                    <Activity className="w-5 h-5 text-blue-400 flex-shrink-0"/>
+                    <h2 className="text-[14px] font-extrabold text-slate-100 uppercase leading-snug tracking-wide">
+                      Harmonic Spectral Resolution Curve
+                      <span className="block">(20 - 20,000 Hz)</span>
+                    </h2>
+                  </header>
+
+                  {/* The only visible graph: actual saved Auralis power, no
+                      slider, second curve, grade targets or simulated FFT. */}
+                  <div className="overflow-x-auto rounded-md border border-white/10 bg-[#060a10]">
+                    <div className="relative h-[470px] min-w-[820px]">
+                      <svg viewBox="0 0 880 470" preserveAspectRatio="none"
+                        className="absolute inset-0 h-full w-full"
+                        role="img"
+                        aria-label="Auralis measured master spectrum, 20 hertz to 20 kilohertz">
+                        <defs>
+                          <linearGradient id="hsr-boston-purple-fill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#9662d6" stopOpacity="0.60"/>
+                            <stop offset="100%" stopColor="#574181" stopOpacity="0.57"/>
+                          </linearGradient>
+                          <linearGradient id="hsr-boston-white-line" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#ddd5ee"/>
+                            <stop offset="55%" stopColor="#b6efdd"/>
+                            <stop offset="100%" stopColor="#c3d9ee"/>
+                          </linearGradient>
+                        </defs>
+                        {hsrBands.map((band,i)=>(
+                          <g key={band.name}>
+                            <rect x={hsrXAxis(band.loHz)} y="16"
+                              width={hsrXAxis(band.hiHz)-hsrXAxis(band.loHz)} height="440"
+                              fill={i%2===0?"#366479":"#27465a"} fillOpacity="0.30"/>
+                            <line x1={hsrXAxis(band.loHz)} x2={hsrXAxis(band.loHz)}
+                              y1="16" y2="456" stroke="#030509" strokeWidth="4"/>
+                          </g>
+                        ))}
+                        {[20,50,100,250,500,1000,2000,5000,10000,20000].map(hz=>(
+                          <g key={hz}>
+                            <line x1={hsrXAxis(hz)} x2={hsrXAxis(hz)}
+                              y1="16" y2="457" stroke="#7890ac" opacity="0.14"/>
+                            <text x={hsrXAxis(hz)} y="460"
+                              textAnchor={hz===20?"start":hz===20000?"end":"middle"}
+                              fontSize="10" fill="#8290a5">
+                              {hz>=1000?`${hz/1000}k`:`${hz}`}
+                            </text>
+                          </g>
+                        ))}
+                        {[30,80,130,180,230,280,330,380,430].map(y=>(
+                          <line key={y} x1="30" x2="850" y1={y} y2={y}
+                            stroke="#acb7c9" opacity="0.09"/>
+                        ))}
+                        {hsrSpectrum && (
+                          <g>
+                            {hsrFilledSegments.map((d,i)=>(
+                              <path key={i} d={d} transform="scale(1 2.16)"
+                                fill="url(#hsr-boston-purple-fill)" stroke="none"/>
+                            ))}
+                            <path d={hsrSpectrum.rawPath} transform="scale(1 2.16)"
+                              fill="none" stroke="url(#hsr-boston-white-line)"
+                              strokeWidth="1.9" strokeLinejoin="round"/>
+                            {hsrReferenceMarkers.map(marker=>(
+                              <g key={marker.hz}>
+                                <circle cx={marker.x} cy={marker.y} r="3.8" fill="#ddbd55"/>
+                                <rect x={marker.x-25} y={Math.max(18,marker.y-32)}
+                                  rx="4" width="50" height="21" fill="#d3b54e"/>
+                                <text x={marker.x} y={Math.max(18,marker.y-32)+14}
+                                  textAnchor="middle" fontSize="10"
+                                  fontWeight="700" fill="#23212b">{marker.label}</text>
+                              </g>
+                            ))}
+                          </g>
+                        )}
+                        {!hsrSpectrum && (
+                          <text x="440" y="220" textAnchor="middle" fontSize="15"
+                            fill="#cbd5e1">Measured Auralis spectrum unavailable for this report</text>
+                        )}
+                        <text x="857" y="29" fontSize="10" fill="#c4cad8"
+                          textAnchor="start">dBFS/Hz</text>
+                      </svg>
+
+                      {/* Six selectable parameter cards, within the graph,
+                          matching the reference screenshot (not a second row). */}
+                      <div className="absolute bottom-7 left-[6.2%] right-[3.2%] grid grid-cols-6 gap-2 z-10"
+                        role="group" aria-label="Select a frequency band to see its analysis and recommendations">
+                        {hsrBands.map((band,index)=>(
+                          <button key={band.name} type="button"
+                            onClick={()=>setSelectedHsrBand(index)}
+                            aria-pressed={selectedHsrBand===index}
+                            className={`h-[124px] rounded-xl p-2.5 text-left bg-[#080b13]/95 border shadow-xl
+                              flex flex-col gap-2 overflow-hidden cursor-pointer
+                              focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-300
+                              ${selectedHsrBand===index
+                                ?"border-[#aa8ed7] ring-1 ring-[#997cc9]"
+                                :"border-[#1a2538] hover:border-[#697a9d]"}`}>
+                            <span className="text-[11px] font-bold text-white">{band.name}</span>
+                            <span className="text-[10px] font-mono text-slate-300">
+                              {band.loHz}–{band.hiHz} Hz
+                            </span>
+                            <span className="h-1.5 w-full overflow-hidden rounded-full bg-[#27354e]" aria-hidden="true">
+                              <span className="block h-full bg-cyan-400"
+                                style={{width:`${band.powerSharePct ?? 0}%`}}/>
+                            </span>
+                            <span className="font-bold text-[12px] leading-tight text-cyan-200">
+                              {band.powerSharePct===null
+                                ? "Unavailable"
+                                : `${band.powerSharePct.toFixed(1)}% of measured power`}
+                            </span>
+                          </button>
+                        ))}
                       </div>
-                    ) : (
-                    <div className="flex items-center gap-3 font-mono text-[9px] text-slate-500">
-                      <span className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Critical Problem
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Caution
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Optimized
-                      </span>
                     </div>
-                    )}
                   </div>
 
-
-                  {/* Auralis-derived master power, never genre/quality targets.
-                      Missing spectral evidence never falls back to legacy ratios. */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5"
-                       aria-label="Auralis six-band measured frequency overview">
-                    {(measuredOverview?.bands ?? [
-                      {name:"Sub-Bass",loHz:20,hiHz:64,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
-                      {name:"Bass",loHz:64,hiHz:250,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
-                      {name:"Low-Mids",loHz:250,hiHz:1000,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
-                      {name:"Core Mids",loHz:1000,hiHz:4000,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
-                      {name:"Presence",loHz:4000,hiHz:8000,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
-                      {name:"Air",loHz:8000,hiHz:20000,powerSharePct:null,coveragePct:0,status:"UNAVAILABLE"},
-                    ]).map((band,index)=>(
-                      <div key={band.name} className="bg-[#0A0B0E] border border-white/10 p-3 rounded-xl flex flex-col gap-2 min-h-[114px]">
-                        <span className="text-[12px] font-bold text-slate-100">{band.name}</span>
-                        <span className="text-[11px] text-slate-300 font-mono">{band.loHz}–{band.hiHz} Hz</span>
-                        <div className="h-2 rounded-full bg-slate-800 overflow-hidden"
-                             aria-hidden="true">
-                          <div className="h-full bg-cyan-400" style={{width:`${band.powerSharePct ?? 0}%`}}/>
-                        </div>
-                        <span className="text-[12px] font-bold text-cyan-200 font-mono">
-                          {band.powerSharePct===null ? "Unavailable" : `${band.powerSharePct.toFixed(1)}% of measured power`}
-                        </span>
-                        <span className="text-[10px] text-slate-300">
-                          {band.status==="MEASURED"?"Measured FFT bins":
-                            band.status==="PARTIAL"?"Partial FFT coverage":"No FFT coverage"}
-                        </span>
-                        <span className="mt-1 pt-1.5 border-t border-white/10 text-[11px] font-semibold text-amber-200">
-                          Provisional legacy: {provisionalLegacyComparison(index)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-amber-200/90">
-                    Provisional legacy comparisons use historical YSS broad-band metrics and
-                    uncalibrated genre reference buckets, NOT Auralis thresholds.
-                    "Near/Above/Below Target" is a historical comparison label, not evidence
-                    of a mastering defect or an EQ instruction. No missing metrics are imputed.
-                  </p>
-
-                  <section className="bg-[#0A0B0E] border border-white/10 rounded-xl p-4 text-left flex flex-col gap-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-bold text-xs text-slate-200">Auralis measured spectral tilt</span>
-                      <span className="font-mono text-[13px] font-bold text-cyan-200">
-                        {measuredOverview?.tiltDbPerOct===null || !measuredOverview
-                          ? "Unavailable" : `${measuredOverview.tiltDbPerOct.toFixed(1)} dB/oct`}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-300">
-                      Slope fitted to populated measured bands (50 Hz–16 kHz); shown only with
-                      sufficient coverage and fit quality. Six-band percentages describe the
-                      share of represented FFT power, not ideal genre targets or corrections.
-                      Partial/empty bins are not fabricated. Scoring impact: NONE.
+                  {/* Only ONE panel, and it is controlled by the six cards. */}
+                  <section className="rounded-2xl bg-[#080b11] border border-white/5 p-5 md:p-6"
+                    aria-live="polite" aria-label="Selected frequency band analysis">
+                    <p className="text-[11px] uppercase tracking-[0.13em] font-bold font-mono text-slate-400">
+                      Target Frequency Zone: {selectedHsrNode?.frequency ??
+                        `${selectedHsrRange.loHz}–${selectedHsrRange.hiHz} Hz`}
+                      {" "}({selectedHsrNode?.band ?? selectedHsrRange.name})
                     </p>
-                  </section>
-
-                  <section aria-label="Auralis objective engineering evidence"
-                    className="bg-[#0A0B0E] rounded-xl border border-cyan-500/20 p-3 text-[11px] text-slate-200 leading-relaxed">
-                    <strong className="text-cyan-200">Objective engineering evidence — NOT SCORED</strong>
-                    <div className="mt-2 grid md:grid-cols-2 gap-2">
-                      <div>
-                        <span className="font-semibold">Mud Prevention: </span>
-                        {objectiveHandoff.mud.status==="MEASURED_CHARACTERISTIC"
-                          ? "Measured spectral characteristic; mud defect not established."
-                          : "Insufficient verified spectral evidence."}
-                        <span className="block text-slate-400">
-                          {objectiveHandoff.mud.scoringStatus==="DIAGNOSTIC_ONLY"
-                            ? "Diagnostic-only; excluded from current Mix Balance scores."
-                            : "Historical report; existing scores remain unchanged."}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="font-semibold">Low-End Division: </span>
-                        {objectiveHandoff.lowEnd.status==="MEASURED_CHARACTERISTIC"
-                          ? "Measured low-frequency distribution; separation defect not established."
-                          : "Insufficient verified spectral evidence."}
-                        <span className="block text-slate-400">
-                          {objectiveHandoff.lowEnd.roleStatus==="INDEPENDENT_ROLES_CORROBORATED"
-                            ? "Independent bass/percussion roles previously corroborated by listening passes; no masking verdict."
-                            : "Independent bass/percussion roles unverified or not applicable."}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="mt-2 text-slate-400">
-                      A supported technical concern would require independently verified defect
-                      evidence and a known processing target. Neither is asserted here.
-                      {objectiveHandoff.worker.status==="SEPARATE_MEASUREMENT_AVAILABLE"
-                        ? ` Separate Auralis Worker observation: ${objectiveHandoff.worker.lowToUpperDb?.toFixed(2)} dB 60–250 Hz versus 500–20,000 Hz (not a defect verdict).`
-                        : " Independent Worker observation unavailable or provenance-unverified."}
+                    <p className="text-white text-[15px] md:text-[16px] leading-[1.6] font-semibold mt-6">
+                      {hsrDescription}
                     </p>
-                  </section>
-
-                  {measuredInteractiveEq && (
-                    <div role="note" className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-[10px] text-slate-300 leading-relaxed">
-                      <strong className="text-blue-200">What Auralis measures:</strong>
-                      {" "}The dashed line is measured spectral power (dBFS/Hz).
-                      The blue overlay previews hypothetical slider changes from legacy guidance;
-                      This is not an EQ target, a mastering transfer curve or a verified fix.
-                      Empty FFT bands remain gaps. No score changes.
-                    </div>
-                  )}
-
-                  {/* Five readable frequency selectors outside the plot. */}
-                  <div className="flex flex-wrap gap-2" role="group" aria-label="Select an advisory frequency node">
-                    {harmonicNodes.map(node=>(
-                      <button key={node.id} type="button" onClick={()=>handleSelectNode(node)}
-                        aria-pressed={selectedNodeId===node.id}
-                        className={`min-w-[110px] text-[12px] font-semibold font-mono rounded-lg px-3 py-2.5 border
-                          focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300
-                          ${selectedNodeId===node.id
-                            ?"bg-blue-500/25 border-blue-300 text-white"
-                            :"bg-[#0A0B0E] border-blue-500/30 text-slate-200 hover:text-white hover:border-blue-300"}`}>
-                        {node.band} · {node.frequency}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#0A0B0E] border border-white/10 px-3 py-2">
-                    <div className="text-[11px] text-slate-200">
-                      Spectrum vertical scale: <strong>{measuredInteractiveEq?.verticalViewMode==="DETAIL"
-                        ? "Detail — ±12 dBFS/Hz around selected frequency"
-                        : "Full measured range"}</strong>
-                      {spectrumVerticalView==="detail" && measuredInteractiveEq?.verticalViewMode!=="DETAIL" &&
-                        <span className="text-amber-200"> · No nearby measured FFT bin: full range shown</span>}
-                    </div>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={()=>setSpectrumVerticalView("full")}
-                        aria-pressed={spectrumVerticalView==="full"}
-                        className={`px-3 py-2 text-[11px] rounded-lg border font-semibold ${spectrumVerticalView==="full"
-                          ?"border-blue-400 text-white bg-blue-500/20"
-                          :"border-white/20 text-slate-200"}`}>
-                        Full range
-                      </button>
-                      <button type="button" onClick={()=>setSpectrumVerticalView("detail")}
-                        disabled={!activeSelectedNode || !measuredInteractiveEq}
-                        aria-pressed={spectrumVerticalView==="detail"}
-                        className={`px-3 py-2 text-[11px] rounded-lg border font-semibold disabled:opacity-40 ${spectrumVerticalView==="detail"
-                          ?"border-blue-400 text-white bg-blue-500/20"
-                          :"border-white/20 text-slate-200"}`}>
-                        Zoom ±12 dB at selected node
-                      </button>
-                    </div>
-                    {measuredInteractiveEq?.verticalViewMode==="DETAIL" && (
-                      <p className="w-full text-[11px] text-amber-200">
-                        Zoom is a cropped dBFS/Hz viewport around the selected measured frequency.
-                        Data outside this range is hidden, not changed, flattened, or interpolated.
-                        Choose Full range to inspect the entire source spectrum.
+                    {hsrRecommendation && (
+                      <p className="text-[14px] leading-relaxed text-slate-200 mt-2">
+                        {hsrRecommendation}
                       </p>
                     )}
-                  </div>
-                  <div className="relative w-full h-[440px] bg-[#0A0B0E] rounded-2xl border border-white/5 overflow-hidden flex items-center justify-center p-2 shadow-inner">
-                    {measuredInteractiveEq ? (
-                      <div className="absolute inset-0 pointer-events-none">
-                        {[20, 100, 250, 500, 1000, 4000, 10000, 20000].map(f=>(
-                          <div key={f} className="absolute inset-y-0 border-l border-white/10"
-                            style={{left:`${measuredInteractiveEq.xForFrequency(f)/850*100}%`}}>
-                            <span className="absolute bottom-1 left-1 font-mono text-[10px] text-slate-300 whitespace-nowrap">
-                              {f<1000?`${f}Hz`:`${f/1000}kHz`}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="absolute inset-0 flex">
-                        {[20, 100, 250, 500, 1000, 4000, 10000, 20000].map((f) => (
-                          <div key={f}
-                            className="h-full border-r border-[#ffffff]/2 flex flex-col justify-end pb-1 pr-1.5 relative"
-                            style={{ width: `${100 / 8}%` }}>
-                            <span className="font-mono text-[8px] text-slate-600 block text-right">
-                              {f < 1000 ? `${f}Hz` : `${(f/1000).toFixed(0)}kHz`}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {measuredInteractiveEq ? (
-                      <div className="absolute inset-x-0 inset-y-2 flex flex-col justify-between pointer-events-none pl-3 z-0">
-                        <span className="font-mono text-[10px] text-slate-300">
-                          {measuredInteractiveEq.maxDbfsPerHz} dBFS/Hz
-                        </span>
-                        <span className="font-mono text-[10px] text-slate-300">Measured level (not EQ gain)</span>
-                        <span className="font-mono text-[10px] text-slate-300">
-                          {measuredInteractiveEq.minDbfsPerHz} dBFS/Hz
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="absolute inset-x-0 inset-y-2 flex flex-col justify-between pointer-events-none pl-3 z-0">
-                        <span className="font-mono text-[8px] text-slate-700">+12 dB</span>
-                        <span className="font-mono text-[8px] text-slate-700">0 dB reference</span>
-                        <span className="font-mono text-[8px] text-slate-700">-12 dB</span>
-                      </div>
-                    )}
-
-                    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 850 440" preserveAspectRatio="none" aria-label="Measured spectral power with hypothetical EQ overlay">
-                      <defs>
-                        <linearGradient id="curveGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#2563eb" stopOpacity="0.25" />
-                          <stop offset="100%" stopColor="#2563eb" stopOpacity="0.0" />
-                        </linearGradient>
-                      </defs>
-
-                      {/* Measured mode uses the actual saved SonicLens 96-band
-                          baseline, never the original simulated problem curve.
-                          Invalid/legacy evidence keeps every original control. */}
-                      {!measuredInteractiveEq && (
-                        <path
-                          d={`${getSimulatedPath()} L 850 220 L 30 220 Z`}
-                          transform="scale(1 2)"
-                          fill="url(#curveGradient)"
-                          className="transition-all duration-300"
-                        />
-                      )}
-                      {measuredInteractiveEq && (
-                        <path d={measuredInteractiveEq.rawPath} transform="scale(1 2)" fill="none"
-                          stroke="#93c5fd" strokeWidth="2" strokeDasharray="5 4"
-                          opacity="0.8" aria-label="Unmodified measured source spectrum"/>
-                      )}
-                      {measuredInteractiveEq && measuredInteractiveEq.differencePath && (
-                        <path d={measuredInteractiveEq.differencePath}
-                          transform="scale(1 2)" fill="none"
-                          stroke="#fbbf24" strokeWidth="2.6" opacity="0.85"
-                          aria-label="Actual measured-to-hypothetical gain displacement in the displayed dBFS/Hz scale"/>
-                      )}
-                      <path
-                        d={measuredInteractiveEq ? measuredInteractiveEq.adjustedPath : getSimulatedPath()}
-                        transform="scale(1 2)"
-                        fill="none"
-                        stroke="#2563EB"
-                        strokeWidth="3.5"
-                        className="transition-all duration-300 drop-shadow-[0_0_12px_rgba(37,99,235,0.85)]"
-                      />
-
-                      {/* Selected frequency is a thin guide only. All five
-                          advisory selectors remain readable above the plot. */}
-                      {measuredInteractiveEq && activeSelectedNode && (
-                        <line
-                          x1={measuredInteractiveEq.xForFrequency(harmonicFrequencyHz(activeSelectedNode.frequency))}
-                          x2={measuredInteractiveEq.xForFrequency(harmonicFrequencyHz(activeSelectedNode.frequency))}
-                          y1="24" y2="416" stroke="#e2e8f0" opacity="0.35"
-                          strokeWidth="1" strokeDasharray="4 6"
-                          aria-label="Selected guidance frequency, not a measured defect"
-                        />
-                      )}
-                    </svg>
-                  </div>
-                  {activeSelectedNode && activeSelectedNode.status !== "optimized" ? (
-                    <aside className="rounded-xl bg-[#0A0B0E] border border-blue-500/25 p-4 self-stretch flex flex-col md:flex-row md:items-center gap-4">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] text-slate-200">
-                          Selected: <strong className="text-white">{activeSelectedNode.frequency}</strong>
-                        </p>
-                        <p className="mt-2 text-[13px] text-cyan-200 font-mono">
-                          Hypothetical gain: <strong>{formatSonicLensSignedGain(hypotheticalNodeGainDb(activeSelectedNode))}</strong>
-                        </p>
-                        <p className="mt-2 text-[11px] text-slate-300">
-                          Legacy critique suggestion — not an Auralis-verified fix.
-                          Compare dashed measured and solid preview curves above.
-                          Amber marks their actual gain difference at measured FFT bins.
-                          Sliders do not process audio.
-                        </p>
-                        <p className="mt-2 text-[11px] text-slate-300">
-                          DAW guidance is in the selected advisory panel immediately below;
-                          verify by listening before making any real correction.
-                        </p>
-                      </div>
-                      {activeSelectedNode.status !== "optimized" && (
-                        <div className="w-full md:w-[42%] bg-[#111317]/80 rounded-xl p-4 border border-white/5 flex flex-col justify-between text-center gap-4">
-                          <div>
-                            <span className="text-[10px] font-mono tracking-widest text-[#2563EB] uppercase font-bold">Acoustic EQ Solver</span>
-                            <div className="text-2xl font-black text-white mt-1.5 font-mono">
-                              {Math.round(correctionValue * 100)}%
-                            </div>
-                            <span className="text-[9px] text-slate-400 font-medium block mt-1">
-                              {measuredInteractiveEq ? "Hypothetical EQ Preview" : "Simulated Attenuation Applied"}
-                            </span>
-                          </div>
-
-                          <div className="flex flex-col gap-2">
-                            <input 
-                              type="range"
-                              min="0"
-                              max="1.0"
-                              step="0.01"
-                              value={correctionValue}
-                              onChange={handleCorrectionChange}
-                              className="w-full h-1 bg-neutral-950 rounded-lg appearance-none cursor-pointer accent-[#2563EB]"
-                            />
-                            <div className="flex justify-between text-[8px] font-mono text-slate-500">
-                              <span>0% (Raw Intensity)</span>
-                              <span>{measuredInteractiveEq ? "100% (Preview)" : "100% (Clean EQ)"}</span>
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={() => {
-                              setCorrectionValue(1.0);
-                              setCustomCorrections({
-                                ...customCorrections,
-                                [activeSelectedNode.id]: 1.0
-                              });
-                            }}
-                            disabled={correctionValue >= 1.0}
-                            className="py-1.5 text-[9px] font-mono uppercase bg-blue-600/10 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-white rounded-lg transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            Autocorrect Resonance — Preview Only
-                          </button>
-                        </div>
-                      )}
-                    </aside>
-                  ) : (
-                    <aside className="bg-[#0A0B0E] rounded-xl border border-white/10 p-4 text-xs text-slate-300">
-                      Choose one of the five advisory nodes. No supported EQ correction is established by spectral power alone.
-                    </aside>
-                  )}
-
-                  {/* Correction Solver */}
-                  {activeSelectedNode ? (
-                    <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-5 text-left flex flex-col items-stretch justify-between gap-3 relative overflow-hidden transition-all duration-300">
-                      <div className="flex-1 flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <span className="text-[10px] font-mono font-bold tracking-widest text-slate-500 uppercase">
-                              Target Frequency Zone: {activeSelectedNode.frequency} ({activeSelectedNode.band})
-                            </span>
-                            {measuredInteractiveEq ? (
-                              <span className="text-[10px] text-amber-200 border border-amber-400/25 rounded px-2 py-0.5">
-                                Legacy advisory — Auralis defect not established
-                              </span>
-                            ) : (customCorrections[activeSelectedNode.id] || 0) >= 0.85 ? (
-                              <span className="text-[8px] bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase flex items-center gap-1 font-semibold select-none">
-                                <Check className="w-2.5 h-2.5" /> {measuredInteractiveEq ? "Previewed (not applied)" : "Resolved"}
-                              </span>
-                            ) : activeSelectedNode.status === "optimized" ? (
-                              <span className="text-[8px] bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase font-semibold">Healthy Range</span>
-                            ) : activeSelectedNode.dbOffset < 0 ? (
-                              <span className="text-[8px] bg-amber-400/15 border border-amber-500/25 text-amber-500 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase font-semibold animate-pulse">Resonance Deficit</span>
-                            ) : (
-                              <span className="text-[8px] bg-red-400/15 border border-red-500/25 text-red-500 font-mono tracking-widest px-2 py-0.5 rounded-full uppercase font-semibold animate-pulse">Resonance Overload</span>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-amber-300 mb-2">Legacy critique suggestion — not Auralis verified. Review by listening before changing any DAW controls.</p>
-                          <h3 className="text-white font-bold text-base tracking-tight">{activeSelectedNode.problem}</h3>
-                        </div>
-
-                        <div className="mt-4 pt-3.5 border-t border-white/5 flex gap-2 items-center text-xs">
-                          <Sliders className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                          <button
-                            onClick={() => {
-                              const target = document.getElementById(`checklist-item-${activeSelectedNode.id}`);
-                              if (target) {
-                                target.scrollIntoView({ behavior: "smooth", block: "center" });
-                                target.classList.add("ring-2", "ring-cyan-400");
-                                setTimeout(() => target.classList.remove("ring-2", "ring-cyan-400"), 2000);
-                              }
-                            }}
-                            className="font-bold text-blue-400 hover:text-blue-300 uppercase underline underline-offset-2 transition-colors cursor-pointer text-left"
-                          >
-                            View Surgical DAW Guidance in Checklist →
-                          </button>
-                        </div>
-                      </div>
-
-
+                    <div className="mt-5 border-t border-white/10 pt-3">
+                      <button type="button" onClick={openHsrChecklist}
+                        className="text-[12px] text-[#52b4ff] hover:text-[#9cdcff] font-bold uppercase underline underline-offset-2 cursor-pointer">
+                        <Sliders className="inline w-4 h-4 mr-1 align-middle"/>
+                        View Surgical DAW Guidance in Checklist →
+                      </button>
                     </div>
-                  ) : (
-                    <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-6 text-center text-xs text-slate-500">
-                      Select any frequency node to view corrections.
+                  </section>
+
+                  {/* Leave the opt-in exact-ID local measurement recoverable
+                      ONLY for old reports with no saved Auralis profile. */}
+                  {!hsrSpectrum && !!trackInfo?.id && !!onMeasureCachedSpectrum && (
+                    <div className="rounded-xl border border-cyan-500/20 p-3 text-xs text-slate-300">
+                      <button type="button" onClick={handleCachedSpectrumClick}
+                        disabled={cachedSpectrumMeasuring}
+                        className="rounded-lg border border-cyan-500/40 px-3 py-2 text-cyan-200 disabled:opacity-50">
+                        {cachedSpectrumMeasuring?"Measuring cached spectrum...":"Measure cached spectrum"}
+                      </button>
+                      {cachedSpectrumMessage && <p role="status" className="mt-2">{cachedSpectrumMessage}</p>}
                     </div>
                   )}
-                  <div className="bg-[#0b1322] border border-amber-500/10 rounded-xl p-3.5 mt-2 text-[10px] text-slate-400 leading-relaxed">
-                    <span className="font-mono font-bold text-amber-400 uppercase text-[9px] block mb-1">Analog Saturation Note: Legacy suggestion (not Auralis verified)</span>
-                    {(() => {
-                      const b858 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
-                      if (critique?.liveMetrics?.calculatedLufs === undefined) return "Light vintage tape drive (+0.5dB, 30 ips) recommended to add cohesion across the high-mid transient peaks.";
-                      if (critique.liveMetrics.calculatedLufs > b858.lufsMax) return "Master is heavily saturated for this genre's target window. Ease limiter gain by 1.5dB and reduce harmonic drive to preserve transient clarity.";
-                      if (critique.liveMetrics.calculatedHighEnergy > 32) return "High-mid harmonic content is elevated. A gentle tape emulation (30 ips, +0.3dB) would smooth sibilant peaks without losing presence.";
-                      if (critique.liveMetrics.calculatedBassEnergy > 42) return "Low-end harmonic density is high. Tube saturation on the bass bus (+0.5dB even-order drive) would add warmth without muddying the mix.";
-                      return "Harmonic profile is well balanced. Light vintage tape drive (+0.5dB, 30 ips) would add cohesion across the high-mid transient peaks.";
-                    })()}
-                  </div>
-
-                  {/* Display-only SonicLens evidence. Original Harmonic Resolution curve,
-                      all selectable nodes, solver, guidance and checklists above stay intact.
-                      Native details keeps the graph separate from simulated EQ correction. */}
-                  <details className="group rounded-2xl border border-cyan-500/20 bg-[#0A0B0E]/70 mt-3">
-                    <summary className="cursor-pointer select-none px-4 py-3 text-xs font-mono font-bold tracking-wider text-cyan-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-400">
-                      SonicLens measurement details (no duplicate graph) — expand
-                    </summary>
-                    <div className="border-t border-white/10 px-4 pb-4">
-                      {!isValidSonicLensSavedMasterEq(critique?.auralisMasterEqProfile) &&
-                        !!trackInfo?.id && !!onMeasureCachedSpectrum && (
-                        <div className="mt-4 flex flex-col items-start gap-2">
-                          <button type="button" onClick={handleCachedSpectrumClick}
-                            disabled={cachedSpectrumMeasuring}
-                            className="px-4 py-2 rounded-lg border border-cyan-500/40 bg-cyan-500/10 text-cyan-200 text-xs font-bold hover:bg-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed">
-                            {cachedSpectrumMeasuring ? "Measuring cached spectrum..." : "Measure cached spectrum"}
-                          </button>
-                          <p className="text-[10px] text-slate-400">
-                            Explicit local MP3 measurement only; no Gemini, A&amp;R reanalysis or scoring changes.
-                            Requires this report's exact browser-cached MP3.
-                          </p>
-                          {cachedSpectrumMessage && (
-                            <p role="status" className="text-[11px] text-cyan-200">{cachedSpectrumMessage}</p>
-                          )}
-                        </div>
-                      )}
-                      {isValidSonicLensSavedMasterEq(critique?.auralisMasterEqProfile) ? (
-                        <div className="mt-4 rounded-xl bg-black/20 border border-white/10 p-3 text-[11px] text-slate-300">
-                          <h4 className="font-bold text-cyan-200 mb-2">
-                            Validated saved Auralis spectrum — source and measurement details
-                          </h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 font-mono">
-                            <span>Source: {critique.auralisMasterEqProfile.sourceIdentity}</span>
-                            <span>Units: {critique.auralisMasterEqProfile.units}</span>
-                            <span>Sample rate: {critique.auralisMasterEqProfile.sampleRateHz} Hz</span>
-                            <span>Channels: {critique.auralisMasterEqProfile.channels}</span>
-                            <span>Samples per channel: {critique.auralisMasterEqProfile.inputSamplesPerChannel}</span>
-                            <span>FFT window: {critique.auralisMasterEqProfile.window}</span>
-                            <span>FFT size: {critique.auralisMasterEqProfile.fftSize}</span>
-                            <span>FFT hop: {critique.auralisMasterEqProfile.hopSize}</span>
-                            <span>Normalization: {critique.auralisMasterEqProfile.normalization}</span>
-                            <span>Bin resolution: {critique.auralisMasterEqProfile.binResolutionHz.toFixed(2)} Hz</span>
-                            <span>Frames: {critique.auralisMasterEqProfile.sampledFrames} / {critique.auralisMasterEqProfile.eligibleFrames} eligible</span>
-                            <span>Bands: {critique.auralisMasterEqProfile.bands.length} log-frequency bands</span>
-                          </div>
-                          <p className="text-slate-400 mt-2">
-                            This represents the decoded PCM at analysis time, not source-to-master
-                            verification, a reference-target match, or a new analysis. Gaps
-                            in the upper graph reflect FFT-bin coverage.
-                            Scoring impact: NONE.
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="mt-4 text-slate-300 text-xs">
-                          No validated saved SonicLens spectrum is available for this report.
-                          Legacy reports cannot reconstruct missing FFT bins or spectral measurements.
-                        </p>
-                      )}
-                    </div>
-                  </details>
-
-                </div>
+                </section>
               )}
 
               {/* VIEW 2: Signal & Levels */}
