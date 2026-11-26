@@ -6590,3 +6590,40 @@ test("Boston real Auralis spectrum remains unmodified, with no yellow mockup mar
   assert.ok(Math.abs(x(20)-30)<1e-10);
   assert.ok(Math.abs(x(20000)-850)<1e-9);
 });
+
+test("Auralis selected-band narratives use validated recording-specific shares and fail closed",async()=>{
+  const {measureSonicLensSavedMasterEq,summarizeSonicLensMeasuredOverview,describeSonicLensMeasuredBand}=await import("../src/lib/liveAudioAnalyzer.ts");
+  const make=hz=>{
+    const pcm=Float32Array.from({length:32768},(_,i)=>0.2*Math.sin(2*Math.PI*hz*i/48000));
+    return summarizeSonicLensMeasuredOverview(measureSonicLensSavedMasterEq([pcm],48000));
+  };
+  const low=make(110),high=make(6000);
+  assert.ok(low&&high);
+  const before=JSON.stringify(low);
+  for(let i=0;i<6;i++){
+    const b=low.bands[i],description=describeSonicLensMeasuredBand(low,i);
+    if(b.status==="UNAVAILABLE")assert.match(description,/unavailable/);
+    else{
+      assert.ok(description.includes(b.name));
+      assert.ok(description.includes(b.loHz+"–"+b.hiHz+" Hz"));
+      assert.match(description,/represented spectral power/);
+      assert.match(description,/not a defect or required EQ correction/);
+      if(b.status==="PARTIAL")assert.match(description,/Coverage is partial/);
+    }
+  }
+  assert.notEqual(describeSonicLensMeasuredBand(low,1),describeSonicLensMeasuredBand(high,1));
+  assert.equal(JSON.stringify(low),before);
+  for(const bad of [null,{...low,scoringImpact:"DOWNWARD"},{...low,bands:low.bands.slice(0,5)}])
+    assert.match(describeSonicLensMeasuredBand(bad,1),/unavailable/);
+  for(const value of [null,NaN,Infinity,-1,101]){
+    const malformed={...low,bands:low.bands.map((b,i)=>i===1?{...b,powerSharePct:value}:b)};
+    assert.match(describeSonicLensMeasuredBand(malformed,1),/unavailable/);
+  }
+  for(const i of [-1,6,NaN,1.5])assert.match(describeSonicLensMeasuredBand(low,i),/unavailable/);
+  const partial={...low,bands:low.bands.map((b,i)=>i===1?{...b,status:"PARTIAL",coveragePct:40}:b)};
+  assert.match(describeSonicLensMeasuredBand(partial,1),/Coverage is partial/);
+  const studio=await readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8");
+  assert.match(studio,/describeSonicLensMeasuredBand\(hsrOverview,selectedHsrBand\)/);
+  assert.ok(studio.indexOf("{hsrMeasuredDescription}")<studio.indexOf("{hsrDescription}"));
+  assert.match(studio,/Existing YSS \/ Gemini guidance \(not an Auralis diagnosis\)/);
+});
