@@ -5171,7 +5171,8 @@ test("Stage 3F-10 controlled activation keeps exact Carry On-only identity and e
 
 test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle and honest memory", {timeout:180000}, async t=>{
   const {spawn,execFileSync}=await import("node:child_process");
-  const {mkdtempSync,rmSync,existsSync}=await import("node:fs");
+  const {mkdtempSync,existsSync}=await import("node:fs");
+  const {rm}=await import("node:fs/promises");
   const {tmpdir}=await import("node:os");
   const {join,resolve}=await import("node:path");
   const root=resolve(new URL("..",import.meta.url).pathname);
@@ -5211,7 +5212,7 @@ test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle a
       "--disable-background-timer-throttling","--disable-renderer-backgrounding",
       "--enable-precise-memory-info","--remote-allow-origins=*",
       "--remote-debugging-port="+cdpPort,"--user-data-dir="+profile,url
-    ],{cwd:root,stdio:["ignore","ignore","pipe"]});
+    ],{cwd:root,detached:true,stdio:["ignore","ignore","pipe"]});
     let chromeErrors="";
     chrome.stderr.on("data",b=>chromeErrors+=String(b).slice(-3000));
     let target=null;
@@ -5350,8 +5351,16 @@ test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle a
       });
     };
     await stop(chrome);
+    // Chromium helpers may outlive the browser parent and write into Default.
+    // This test owns a dedicated process group; terminate only that group.
+    if(chrome?.pid){
+      try{process.kill(-chrome.pid,"SIGKILL");}
+      catch(error){if(error.code!=="ESRCH")throw error;}
+    }
     await stop(server);
-    rmSync(profile,{recursive:true,force:true,maxRetries:8,retryDelay:200});
+    // Bounded asynchronous filesystem retries only; never retry the Worker
+    // or swallow a terminal cleanup failure.
+    await rm(profile,{recursive:true,force:true,maxRetries:8,retryDelay:200});
   }
 });
 
