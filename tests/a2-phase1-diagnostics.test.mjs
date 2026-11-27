@@ -5171,7 +5171,8 @@ test("Stage 3F-10 controlled activation keeps exact Carry On-only identity and e
 
 test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle and honest memory", {timeout:180000}, async t=>{
   const {spawn,execFileSync}=await import("node:child_process");
-  const {mkdtempSync,rmSync,existsSync}=await import("node:fs");
+  const {mkdtempSync,existsSync}=await import("node:fs");
+  const {rm}=await import("node:fs/promises");
   const {tmpdir}=await import("node:os");
   const {join,resolve}=await import("node:path");
   const root=resolve(new URL("..",import.meta.url).pathname);
@@ -5211,7 +5212,7 @@ test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle a
       "--disable-background-timer-throttling","--disable-renderer-backgrounding",
       "--enable-precise-memory-info","--remote-allow-origins=*",
       "--remote-debugging-port="+cdpPort,"--user-data-dir="+profile,url
-    ],{cwd:root,stdio:["ignore","ignore","pipe"]});
+    ],{cwd:root,detached:true,stdio:["ignore","ignore","pipe"]});
     let chromeErrors="";
     chrome.stderr.on("data",b=>chromeErrors+=String(b).slice(-3000));
     let target=null;
@@ -5350,8 +5351,16 @@ test("Stage 3D-2L-1 actual Chromium identity handshake: bounded PCM, lifecycle a
       });
     };
     await stop(chrome);
+    // Chromium helpers may outlive the browser parent and write into Default.
+    // This test owns a dedicated process group; terminate only that group.
+    if(chrome?.pid){
+      try{process.kill(-chrome.pid,"SIGKILL");}
+      catch(error){if(error.code!=="ESRCH")throw error;}
+    }
     await stop(server);
-    rmSync(profile,{recursive:true,force:true,maxRetries:8,retryDelay:200});
+    // Bounded asynchronous filesystem retries only; never retry the Worker
+    // or swallow a terminal cleanup failure.
+    await rm(profile,{recursive:true,force:true,maxRetries:8,retryDelay:200});
   }
 });
 
@@ -6626,4 +6635,50 @@ test("Auralis selected-band narratives use validated recording-specific shares a
   assert.match(studio,/describeSonicLensMeasuredBand\(hsrOverview,selectedHsrBand\)/);
   assert.ok(studio.indexOf("{hsrMeasuredDescription}")<studio.indexOf("{hsrDescription}"));
   assert.match(studio,/Existing YSS \/ Gemini guidance \(not an Auralis diagnosis\)/);
+});
+
+test("Auralis Phase 1 uses measured Worker band shares without changing assessments or scoring authority",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const make=(gain,lo=110)=>{
+    const pcm=Float32Array.from({length:16384},(_,i)=>gain*(.15*Math.sin(2*Math.PI*lo*i/48000)+.05*Math.sin(2*Math.PI*1200*i/48000)));
+    return runStage2c2aBrowserDiagnostics({sampleRate:48000,numberOfChannels:1,getChannelData:()=>pcm},true);
+  };
+  const raw=make(1),engineering=m.prepareAuralisEngineeringEvidence(raw);
+  const attenuated=m.prepareAuralisEngineeringEvidence(make(.5));
+  const moved=m.prepareAuralisEngineeringEvidence(make(1,330));
+  assert.ok(engineering&&attenuated);
+  const shares=engineering.metrics.bandPowerSharePct;
+  assert.equal(shares.length,7);
+  assert.ok(Math.abs(shares.reduce((a,b)=>a+b,0)-100)<1e-6);
+  assert.ok(shares[1]>shares[2]);
+  for(let i=0;i<7;i++)assert.ok(Math.abs(shares[i]-attenuated.metrics.bandPowerSharePct[i])<1e-5);
+  const c={auralisEngineering:engineering,auralisExecution:m.classifyAuralisExecution("AVAILABLE",engineering),
+    subMetricsCall1:{spectralMatch:{score:88},lowEndDivision:{applicable:true,score:85,
+      sourceVerification:{corroborated:true,firstPassRolesIndependent:true,secondPassRolesIndependent:true}}},
+    scores:{commercialReadiness:88}};
+  const before=JSON.stringify(c),f=m.getAuralisObjectiveEngineeringFindings(c);
+  assert.equal(f.spectralMatch.status,"MEASURED_CHARACTERISTIC");
+  assert.equal(f.sourceIdentity,"UNVERIFIED");
+  assert.equal(f.mudPrevention.lowMidPowerPct,shares[2]);
+  assert.equal(f.lowEndDivision.bassPowerPct,shares[1]);
+  assert.equal(f.lowEndDivision.roleStatus,"INDEPENDENT_ROLES_CORROBORATED");
+  assert.equal(f.lowEndDivision.separationStatus,"INSUFFICIENT_EVIDENCE");
+  assert.equal(f.mudPrevention.defectStatus,"INSUFFICIENT_EVIDENCE");
+  assert.equal(f.scoringImpact,"NONE");assert.deepEqual(f.adjustments,[]);
+  assert.equal(JSON.stringify(c),before);
+  assert.match(m.formatAuralisObjectiveEngineeringFindings(c),/cannot establish masking/);
+  const rows=m.getAuralisBetaAuditReportRows(c);
+  assert.ok(rows.some(row=>row.field==="250-500 Hz power share (%)"&&row.value===shares[2]));
+  const sparse=[...shares]; sparse[3]+=sparse[2]; delete sparse[2];
+  for(const bad of [null,[1,2],sparse,[NaN,0,0,0,0,0,100],[100,0,0,0,0,0,0],[10,20,30,40,0,0,0]]){
+    const invalid={...c,auralisEngineering:{...engineering,metrics:{...engineering.metrics,bandPowerSharePct:bad}}};
+    assert.equal(m.getAuralisObjectiveEngineeringFindings(invalid).mudPrevention.status,"INSUFFICIENT_EVIDENCE");
+  }
+  assert.equal(m.getAuralisObjectiveEngineeringFindings({...c,auralisExecution:{status:"UNAVAILABLE"}}).spectralMatch.status,"INSUFFICIENT_EVIDENCE");
+  assert.equal(m.getAuralisObjectiveEngineeringFindings({...c,subMetricsCall1:{lowEndDivision:{applicable:false}}}).lowEndDivision.roleStatus,"NOT_APPLICABLE");
+  assert.equal(m.getAuralisObjectiveEngineeringFindings({...c,auralisStage3F1SpectralShadow:{status:"REAL_REVIEW_HYPOTHETICAL_ONLY"}}).spectralMatch.concernBasis,"NO_SUPPORTED_CONCERN");
+  assert.ok(moved===null||moved.metrics.bandPowerSharePct[2]>shares[2]);
+  assert.equal(m.prepareAuralisEngineeringEvidence({...raw,spectralProfile:{...raw.spectralProfile,scoringImpact:"APPLIED"}}),null);
+  const display=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  assert.match(display,/formatAuralisObjectiveEngineeringFindings\(critique\)/);
 });

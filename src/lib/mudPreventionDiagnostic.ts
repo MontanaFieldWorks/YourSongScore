@@ -155,7 +155,7 @@ export function prepareAuralisEngineeringEvidence(diagnostic: unknown): {
   scoringImpact: "NONE";
   scoringAdapter: {version: string; status: typeof AURALIS_ENGINEERING_SCORE_POLICY; adjustments: []};
   observations: string[];
-  metrics: {lowToUpperDb: number; stereoEvidenceStatus: "MEASURED_NOT_GRADED"};
+  metrics: {lowToUpperDb: number; stereoEvidenceStatus: "MEASURED_NOT_GRADED"; bandPowerSharePct: number[] | null};
 } | null {
   const d = diagnostic as any;
   const p = d?.evidence?.sourceProvenance;
@@ -217,6 +217,13 @@ export function prepareAuralisEngineeringEvidence(diagnostic: unknown): {
   if(power[1] <= 1e-12 || upper <= 1e-12)return null;
   const ratio = 10*Math.log10(power[1]/upper);
   if(!Number.isFinite(ratio))return null;
+  // Shares of represented 20–20,000 Hz power, not amplitude or genre targets.
+  // Do not claim full-range evidence when Nyquist or a complete FFT is missing.
+  const totalBandPower=power.reduce((sum,v)=>sum+v,0);
+  const bandPowerSharePct=Number.isFinite(profile.sampleRate)&&profile.sampleRate>=40000&&
+    Number.isSafeInteger(p.inputSampleCount)&&p.inputSampleCount>=4096&&
+    Number.isFinite(totalBandPower)&&totalBandPower>0
+    ? power.map(v=>100*(v/totalBandPower)):null;
   const meters = d?.referenceMeters;
   const integratedLufs = meters?.schemaVersion === "stage2k-meter-summary-v1" &&
     meters?.scoringImpact === "NONE" ? meters?.measurements?.integratedLufs : null;
@@ -231,7 +238,7 @@ export function prepareAuralisEngineeringEvidence(diagnostic: unknown): {
     scoringImpact: "NONE",
     scoringAdapter: {version: AURALIS_ENGINEERING_ADAPTER_VERSION,
       status: AURALIS_ENGINEERING_SCORE_POLICY, adjustments: []},
-    metrics: {lowToUpperDb: Math.round(ratio*100)/100, stereoEvidenceStatus: "MEASURED_NOT_GRADED"},
+    metrics: {lowToUpperDb: Math.round(ratio*100)/100, stereoEvidenceStatus: "MEASURED_NOT_GRADED", bandPowerSharePct},
     observations: [
       `Measured 60–250 Hz energy relative to 500–20,000 Hz: ${ratio.toFixed(2)} dB. This is descriptive spectral balance, not proof of masking, muddiness or a mix defect. If this is an intentional production choice, no correction may be necessary.`,
       "Auralis measured stereo engineering evidence, but this release does not infer a Stereo Width defect or change its score from those measurements. If the stereo presentation is intentional, review mono compatibility by listening before making changes.",
@@ -1736,6 +1743,19 @@ export function getAuralisBetaAuditReportRows(critique:unknown):AuralisBetaExcel
   add("Stage 3F-6 Executor","Applied cap",cap(x?.appliedCap,x!==undefined&&x!==null));
   add("Stage 3F-6 Executor","Applied score change",number(x?.appliedScoreChange));
   add("Stage 3F-6 Executor","Scoring impact",code(x?.scoringImpact,["NONE","DOWNWARD_ONLY"]));
+  const objective=getAuralisObjectiveEngineeringFindings(c);
+  add("Objective Engineering","Scoring impact",objective.scoringImpact);
+  add("Objective Engineering","PCM identity",objective.sourceIdentity);
+  add("Objective Engineering","Spectral Match status",objective.spectralMatch.status);
+  add("Objective Engineering","Spectral Match concern basis",objective.spectralMatch.concernBasis);
+  add("Objective Engineering","Mud Prevention status",objective.mudPrevention.status);
+  add("Objective Engineering","250-500 Hz power share (%)",number(objective.mudPrevention.lowMidPowerPct));
+  add("Objective Engineering","Mud defect evidence",objective.mudPrevention.defectStatus);
+  add("Objective Engineering","Low-End Division status",objective.lowEndDivision.status);
+  add("Objective Engineering","20-60 Hz power share (%)",number(objective.lowEndDivision.subPowerPct));
+  add("Objective Engineering","60-250 Hz power share (%)",number(objective.lowEndDivision.bassPowerPct));
+  add("Objective Engineering","Low-End source roles",objective.lowEndDivision.roleStatus);
+  add("Objective Engineering","Separation defect evidence",objective.lowEndDivision.separationStatus);
   add("Current Scores","Reported Spectral Match",score(c?.subMetricsCall1?.spectralMatch?.score));
   add("Current Scores","Reported Commercial Readiness",score(c?.scores?.commercialReadiness));
   return rows;
@@ -1805,4 +1825,67 @@ export function classifyAuralisMudAndLowEndHandoff(critique:unknown) {
     // defect + processing-target evidence; current reports do not supply it.
     // Therefore this display-only handoff never emits that finding.
   };
+}
+
+/** Read-only Phase 1 assessment. Worker bands are distinct from the saved 96-band graph.
+ * A recorded reviewed shadow is not a new review credential or score authority.
+ */
+export function getAuralisObjectiveEngineeringFindings(critique:unknown) {
+  const c=critique as any,g=c?.auralisEngineering,e=c?.auralisExecution,l=c?.auralisSourceLineage;
+  const a=c?.auralisBetaScoringAudit,s=c?.auralisStage3F1SpectralShadow;
+  const valid=e?.status==="AVAILABLE"&&e.reason==="VALIDATED_ENGINEERING_EVIDENCE"&&
+    e.scoringImpact==="NONE"&&classifyAuralisExecution("AVAILABLE",g).status==="AVAILABLE";
+  const identity=valid&&l?.status==="VERIFIED"&&l.pcmIdentityStatus==="VERIFIED"&&
+    l.scoringImpact==="NONE"?"VERIFIED":"UNVERIFIED";
+  const raw=g?.metrics?.bandPowerSharePct;
+  const shares=valid&&Array.isArray(raw)&&raw.length===7&&
+    Array.from(raw).every((v:unknown)=>typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=100)&&
+    Math.abs(raw.reduce((sum:number,v:number)=>sum+v,0)-100)<1e-6
+    ? raw as number[]:null;
+  const upper=shares?shares.slice(3).reduce((sum,v)=>sum+v,0):0;
+  const consistent=!!shares&&shares[1]>0&&upper>0&&
+    Math.abs(10*Math.log10(shares[1]/upper)-g.metrics.lowToUpperDb)<=0.005001;
+  const bands=consistent?shares:null;
+  const roles=c?.subMetricsCall1?.lowEndDivision;
+  const roleStatus=roles?.applicable===false?"NOT_APPLICABLE":
+    roles?.applicable===true&&roles.sourceVerification?.corroborated===true&&
+    roles.sourceVerification?.firstPassRolesIndependent===true&&
+    roles.sourceVerification?.secondPassRolesIndependent===true?
+      "INDEPENDENT_ROLES_CORROBORATED":"UNVERIFIED";
+  // Reuse the existing A2 audit and reviewed shadow planner, not a new threshold.
+  // This describes the recorded shadow only; it never authorizes a real review,
+  // a paired reference, a correction or an additional score change.
+  const reviewed=valid&&identity==="VERIFIED"&&
+    a?.sourceIdentity==="CURRENT_UPLOAD_PCM_VERIFIED"&&
+    a?.measurementDb===g.metrics.lowToUpperDb&&s?.measurementDb===a.measurementDb&&
+    s?.schemaVersion===AURALIS_STAGE3F1_SHADOW_VERSION&&
+    JSON.stringify(buildAuralisBetaScoringAudit(c,a.serverReturnedSpectralScore))===JSON.stringify(a)&&
+    planAuralisReviewed79ScoreIntegration(c,a,s,false).status==="PROJECTION_ONLY";
+  const measured=valid?"MEASURED_CHARACTERISTIC":"INSUFFICIENT_EVIDENCE";
+  const bandStatus=bands?"MEASURED_CHARACTERISTIC":"INSUFFICIENT_EVIDENCE";
+  return {
+    schemaVersion:"auralis-objective-engineering-phase1-v1" as const,
+    scoringImpact:"NONE" as const,adjustments:[] as [],
+    sourceIdentity:identity,
+    spectralMatch:{status:reviewed?"SUPPORTED_TECHNICAL_CONCERN":measured,
+      concernBasis:reviewed?"RECORDED_REVIEWED_SHADOW_ONLY":"NO_SUPPORTED_CONCERN",
+      lowToUpperDb:valid?g.metrics.lowToUpperDb as number:null},
+    mudPrevention:{status:bandStatus,lowMidPowerPct:bands?bands[2]:null,
+      defectStatus:"INSUFFICIENT_EVIDENCE",scoringStatus:isMudDiagnosticCritique(c)?"DIAGNOSTIC_ONLY":"LEGACY_REPORT"},
+    lowEndDivision:{status:bandStatus,subPowerPct:bands?bands[0]:null,bassPowerPct:bands?bands[1]:null,
+      roleStatus,separationStatus:"INSUFFICIENT_EVIDENCE"},
+  };
+}
+
+export function formatAuralisObjectiveEngineeringFindings(critique:unknown):string {
+  const f=getAuralisObjectiveEngineeringFindings(critique);
+  const pct=(v:number|null)=>v===null?"unavailable":v>0&&v<0.1?"less than 0.1%":v.toFixed(1)+"%";
+  const ratio=f.spectralMatch.lowToUpperDb;
+  return "Auralis objective evidence (not scored; PCM identity "+f.sourceIdentity+"): "+
+    "Spectral Match: "+(ratio===null?"insufficient measurement evidence":ratio.toFixed(2)+" dB (60–250 Hz / 500–20,000 Hz)")+
+    (f.spectralMatch.concernBasis==="RECORDED_REVIEWED_SHADOW_ONLY"?"; recorded reviewed shadow concern, not a new diagnosis or score authority. ": "; no supported quality verdict. ")+
+    "Mud Prevention: 250–500 Hz power share "+pct(f.mudPrevention.lowMidPowerPct)+
+    "; a master spectrum cannot establish masking. Low-End Division: 20–60 Hz "+pct(f.lowEndDivision.subPowerPct)+
+    ", 60–250 Hz "+pct(f.lowEndDivision.bassPowerPct)+"; source roles "+f.lowEndDivision.roleStatus+
+    "; separation defect evidence insufficient. Shares are of represented 20–20,000 Hz Worker power.";
 }
