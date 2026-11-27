@@ -10,7 +10,7 @@ import { analyzeClimaxPeakCompetition, formatClimaxPeakDiagnostic } from "../lib
 import { getClimaxTrajectoryEvidenceRows } from "../lib/climaxEvidenceExport";
 import { appendA2ProvenanceToSourceDiagnostics } from "../lib/a2ScoringProvenance";
 import { getMudPreventionPublicCommentary } from "../lib/mudPreventionReporting";
-import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS, getAuralisReviewed79ReportRows, getAuralisWorkerFailureCodeForReport, getAuralisBetaAuditReportRows, formatAuralisObjectiveEngineeringFindings } from "../lib/mudPreventionDiagnostic";
+import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS, getAuralisReviewed79ReportRows, getAuralisWorkerFailureCodeForReport, getAuralisBetaAuditReportRows, formatAuralisObjectiveEngineeringFindings, formatAuralisDynamicsFindings } from "../lib/mudPreventionDiagnostic";
 import { 
   Play, Pause, RefreshCw, Layers, Sliders, Mic,
   Volume2, Disc, ArrowLeft, ArrowRight, CheckCircle, Flame, Sparkles, CheckSquare, Square,
@@ -1803,7 +1803,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ],
       callout: "The track demonstrates strong somatic control, pulling viewers along an elegant storytelling trajectory.",
       description: "Evaluates structural dynamics. Ensures high levels of tension building, filtering out listening fatigue by using well-placed volume and spectral variations.",
-      feedback: critique?.subMetricsCall2?.acousticTension?.feedback ?? "Superb arrangement balance. The energy accumulates cleanly, peaking exactly during the main chorus with robust authority."
+      feedback: `${critique?.subMetricsCall2?.acousticTension?.feedback ?? "No saved artistic acoustic-tension assessment."} ${formatAuralisDynamicsFindings(critique)}`
     },
     {
       id: "dna-density",

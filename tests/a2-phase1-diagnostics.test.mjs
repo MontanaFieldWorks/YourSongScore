@@ -4095,6 +4095,7 @@ test("Stage 2K meters are pilot-only, bounded scalar evidence and fail closed at
       x=>{x.referenceMeters.lraAvailability="AVAILABLE";},
       x=>{x.referenceMeters.truePeakAccuracyStatus="CERTIFIED";},
       x=>{x.referenceMeters.scoringImpact="SCORE";},
+      x=>{x.referenceMeters.programmeTrajectory={method:"PROGRAMME_3S_K_WEIGHTED_100MS",windowCount:2,peakWindowIndex:2,peakLufs:-10,openingRiseLu:1};},
     ]){
       mutate=change;
       assert.deepEqual(await analyzeEngineeringDiagnosticsInWorker(audio,undefined,128*1024*1024,30000,true),
@@ -4104,7 +4105,7 @@ test("Stage 2K meters are pilot-only, bounded scalar evidence and fail closed at
     const legacy=await analyzeEngineeringDiagnosticsInWorker(audio);
     assert.equal(legacy.status,"AVAILABLE");
     assert.equal(legacy.referenceMeters,undefined);
-    assert.equal(terminations,12);
+    assert.equal(terminations,13);
   }finally{globalThis.Worker=NativeWorker;}
 });
 
@@ -6681,4 +6682,52 @@ test("Auralis Phase 1 uses measured Worker band shares without changing assessme
   assert.equal(m.prepareAuralisEngineeringEvidence({...raw,spectralProfile:{...raw.spectralProfile,scoringImpact:"APPLIED"}}),null);
   const display=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
   assert.match(display,/formatAuralisObjectiveEngineeringFindings\(critique\)/);
+});
+
+test("Auralis Phase 2 reuses programme-only K-weighted windows and meters without altering score authority",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const {isValidAuralisProgrammeTrajectory}=await import("../src/lib/liveAudioAnalyzer.ts");
+  const sr=8000,n=12*sr;
+  const make=(gain,reverse=false)=>{
+    const pcm=Float32Array.from({length:n},(_,i)=>{
+      const loud=reverse?i<6*sr:i>=6*sr;
+      return gain*(loud?.2:.04)*(Math.sin(2*Math.PI*120*i/sr)+.35*Math.sin(2*Math.PI*1000*i/sr));
+    });
+    return runStage2c2aBrowserDiagnostics({sampleRate:sr,numberOfChannels:1,getChannelData:()=>pcm},true,true);
+  };
+  const raw=make(1),scaled=make(.5),early=make(1,true);
+  const trajectory=raw.referenceMeters.programmeTrajectory;
+  assert.ok(isValidAuralisProgrammeTrajectory(trajectory,n,sr));
+  assert.equal(trajectory.windowCount,91,"No post-programme LRA padding in the trajectory");
+  assert.ok(trajectory.peakWindowIndex>=60);
+  assert.ok(trajectory.openingRiseLu>10);
+  assert.ok(early.referenceMeters.programmeTrajectory.peakWindowIndex<45);
+  assert.ok(Math.abs(trajectory.openingRiseLu-scaled.referenceMeters.programmeTrajectory.openingRiseLu)<1e-5);
+  const engineering=m.prepareAuralisEngineeringEvidence(raw);
+  assert.ok(engineering&&engineering.metrics.dynamics);
+  const c={auralisEngineering:engineering,auralisExecution:m.classifyAuralisExecution("AVAILABLE",engineering),
+    subMetricsCall2:{acousticTension:{score:90,dynamicModulation:{score:88},climaxTrajectory:{score:92}}},
+    scores:{commercialReadiness:88}};
+  const before=JSON.stringify(c),f=m.getAuralisDynamicsFindings(c);
+  assert.equal(f.dynamicModulation.loudnessRangeLu,raw.referenceMeters.measurements.loudnessRangeLu);
+  assert.equal(f.climaxTrajectory.status,"MEASURED_CHARACTERISTIC");
+  assert.ok(f.climaxTrajectory.peakPositionPct>60&&f.climaxTrajectory.peakPositionPct<100);
+  assert.equal(f.climaxTrajectory.qualityStatus,"INSUFFICIENT_EVIDENCE");
+  assert.equal(f.sourceIdentity,"UNVERIFIED");
+  assert.equal(f.scoringImpact,"NONE");assert.deepEqual(f.adjustments,[]);
+  assert.equal(JSON.stringify(c),before);
+  assert.match(m.formatAuralisDynamicsFindings(c),/not proof of a unique musical climax/);
+  assert.ok(m.getAuralisBetaAuditReportRows(c).some(row=>row.field==="Peak window centre (seconds)"&&row.value===f.climaxTrajectory.peakTimeSec));
+  for(const bad of [null,{...trajectory,windowCount:92},{...trajectory,peakWindowIndex:91},{...trajectory,peakLufs:NaN},{...trajectory,openingRiseLu:-1},{...trajectory,privateField:"bad"}]){
+    const altered={...c,auralisEngineering:{...engineering,metrics:{...engineering.metrics,dynamics:{...engineering.metrics.dynamics,trajectory:bad}}}};
+    assert.equal(m.getAuralisDynamicsFindings(altered).climaxTrajectory.status,"INSUFFICIENT_EVIDENCE");
+  }
+  assert.equal(m.getAuralisDynamicsFindings({...c,auralisExecution:{status:"UNAVAILABLE"}}).dynamicModulation.status,"INSUFFICIENT_EVIDENCE");
+  const wrong=m.prepareAuralisEngineeringEvidence({...raw,referenceMeters:{...raw.referenceMeters,sampleCount:n+1}});
+  assert.equal(wrong.metrics.dynamics,null);
+  const silence=analyzeStage1aMeterReference([new Float32Array(n)],sr);
+  assert.equal(silence.programmeTrajectory,null);
+  assert.equal(analyzeStage1aMeterReference([new Float32Array(2*sr)],sr).programmeTrajectory,null);
+  const display=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  assert.match(display,/formatAuralisDynamicsFindings\(critique\)/);
 });

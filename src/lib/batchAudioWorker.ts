@@ -1,5 +1,6 @@
 import type { LiveAudioMetrics } from "../types";
 import type { AuralisEncodedSourceIdentity } from "./liveAudioAnalyzer";
+import { isValidAuralisProgrammeTrajectory } from "./liveAudioAnalyzer.ts";
 
 /**
  * Runs the existing synchronous PCM analyzer inside a dedicated worker for the temporary
@@ -221,7 +222,8 @@ function validEngineeringReferenceMeters(
   const status=["AVAILABLE","SILENCE","TOO_SHORT","INSUFFICIENT_GATED_WINDOWS"];
   if(Object.keys(p).sort().join(",")!==
      ["schemaVersion","scoringImpact","method","sampleRate","channelCount",
-       "sampleCount","lraAvailability","truePeakAccuracyStatus","measurements"].sort().join(",")||
+       "sampleCount","lraAvailability","truePeakAccuracyStatus","measurements",
+       ...(Object.prototype.hasOwnProperty.call(p,"programmeTrajectory")?["programmeTrajectory"]:[])].sort().join(",")||
      p.schemaVersion!=="stage2k-meter-summary-v1"||p.scoringImpact!=="NONE"||
      p.method!=="stage1a-reference-v1"||p.sampleRate!==input.sampleRate||
      p.channelCount!==input.numberOfChannels||p.sampleCount!==input.length||
@@ -233,6 +235,9 @@ function validEngineeringReferenceMeters(
      Object.keys(p.measurements).sort().join(",")!==[...fields].sort().join(","))
     return false;
   const m=p.measurements;
+  if(Object.prototype.hasOwnProperty.call(p,"programmeTrajectory")&&p.programmeTrajectory!==null&&
+     !isValidAuralisProgrammeTrajectory(p.programmeTrajectory,input.length,input.sampleRate))return false;
+  if(p.programmeTrajectory&&p.lraAvailability==="SILENCE")return false;
   if(fields.some(key=>m[key]!==null&&
        (typeof m[key]!=="number"||!Number.isFinite(m[key])))||
      (p.lraAvailability==="AVAILABLE")!==(m.loudnessRangeLu!==null)||
