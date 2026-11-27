@@ -8,7 +8,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { GoogleGenAI as A2PilotGoogleGenAI } from "@google/genai-a2-pilot";
 import dotenv from "dotenv";
 import { GENRE_MAP } from "./src/data/musicData";
-import { computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC_SCORING_VERSION, validateAuralisOperatorReviewPolicy } from "./src/lib/mudPreventionDiagnostic";
+import { computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC_SCORING_VERSION, validateAuralisOperatorReviewPolicy, validateAuralisPairedOperatorReviewPolicy } from "./src/lib/mudPreventionDiagnostic";
 import { captureA2ServerProductionInputs, captureA2ServerMixInputs, captureA2ServerSpectralScore } from "./src/lib/a2ScoringProvenance";
 import { withholdA2RawEvidence, getRestrictedA2RawEvidence } from "./src/lib/a2InternalEvidence";
 import { describeLowEndGateFactors, captureA2OriginalAssertionSnapshot } from "./src/lib/sourceVerificationDiagnostics";
@@ -2584,12 +2584,15 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
       // Clearing this private setting stops issuing NEW review candidates.
       // The client scoring switch and PCM identity capture remain OFF.
       if(isA2PilotRequest()||
-         process.env.YSS_AURALIS_BETA_ARMED!=="EXACT_SHA_REVIEW_ONLY"||
+         (process.env.YSS_AURALIS_BETA_ARMED!=="EXACT_SHA_REVIEW_ONLY"&&
+          process.env.YSS_AURALIS_BETA_ARMED!=="EXACT_PAIRED_SHA_REVIEW_ONLY")||
          !process.env.YSS_AURALIS_REVIEW_POLICY_JSON)return null;
       try {
         const review=JSON.parse(process.env.YSS_AURALIS_REVIEW_POLICY_JSON);
         const sha=createHash("sha256").update(req.file!.buffer).digest("hex");
-        return validateAuralisOperatorReviewPolicy(review,sha);
+        return process.env.YSS_AURALIS_BETA_ARMED==="EXACT_PAIRED_SHA_REVIEW_ONLY"
+          ? validateAuralisPairedOperatorReviewPolicy(review,sha)
+          : validateAuralisOperatorReviewPolicy(review,sha);
       }catch{return null;}
     })();
     res.json({ critique: parsedCritique,

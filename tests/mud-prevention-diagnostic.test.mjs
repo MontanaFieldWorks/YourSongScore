@@ -1987,3 +1987,98 @@ test("Stage 3F-18 fail-closed paired shadow: real/archive untrusted, materiality
   assert.ok(!app.includes("SYNTHETIC_VERIFIED_FIXTURE_ONLY"));
   assert.deepEqual({c,audit,ref,ctx,strong,strongAudit},before);
 });
+
+test("Controlled paired authority uses exact WAV identity, trusted review and zero-warning A2 lineage; default remains off",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  // Synthetic policy/measurements only. Real review and numeric records are not configured.
+  const candidateSha256="19526bc02de79cbc3690357f5e1ae720f11999e95739a7b99358900f39448799";
+  const referenceSha256="7a61db814087ef280c05f7db99095f74c4deb30b954c7756ee685cd8cc9f2d61";
+  const policy={version:m.AURALIS_PAIRED_REVIEW_VERSION,candidateSha256,referenceSha256,
+    originalSourceSha256:"a".repeat(64),referenceStartSample:1440000,candidateStartSample:1440000,
+    sampleCount:1440000,sampleRate:48000,channelCount:2,alignment:"VERIFIED_SOURCE_TO_PAIR",
+    measurementLineage:"VERIFIED_WORKER_PCM_BOTH_RECORDINGS",referenceLowToUpperDb:-2,candidateLowToUpperDb:2,
+    reviewerId:"synthetic-test",independentDefect:"CONFIRMED_REVIEWED_REAL",artisticIntent:"REVIEWED_NOT_INTENTIONAL_REAL"};
+  const encoded={status:"VERIFIED",encodedSha256:candidateSha256,encodedBytes:11520056,format:"WAV_FLOAT",
+    sourceRateStatus:"VERIFIED_WAV_HEADER",sourceSampleRate:48000};
+  const e={schemaVersion:m.AURALIS_ENGINEERING_ADAPTER_VERSION,scoringImpact:"NONE",
+    scoringAdapter:{status:m.AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},metrics:{lowToUpperDb:2}};
+  const make=()=>{
+    const c={auralisEngineering:structuredClone(e),auralisExecution:m.classifyAuralisExecution("AVAILABLE",e),
+      auralisSourceLineage:{status:"VERIFIED",pcmIdentityStatus:"VERIFIED",scoringImpact:"NONE",
+        sourceFormat:"WAV_FLOAT",sourceRateStatus:"VERIFIED_WAV_HEADER",sourceSampleRate:48000,
+        decodedSampleRate:48000,workerSampleRate:48000,decodedChannels:2,workerChannels:2,
+        decodedSamples:1440000,workerSamples:1440000},
+      subMetricsCall1:{spectralMatch:{score:88,applicable:true,commentary:"Existing"},dynamicVariety:{score:88},
+        a2ScoringProvenance:{spectralMatch:{canonicalMappedScore:88,serverSpectralStatus:"CAPTURED",
+          serverFinishCapCandidate:null,serverFinishCapApplied:false,serverFinishCapReason:"NONE",
+          serverScoreAfterFinishCap:88,preClientScore:88,browserSpectralStatus:"CAPTURED",
+          browserSpectralCapCandidate:null,browserSpectralCapApplied:false,afterSpectralCapScore:88,
+          browserFinishStatus:"COMPLETED",browserFinishCapCandidate:null,afterFinishCeilingScore:88,finalScore:88}}},
+      mixBalanceEvidence:{spectralCap:null,signals:[]},productionFinishEvidence:{ceiling:null},
+      subMetricsCall3:{compositionFlowSubs:{hookPlacement:{score:90},sectionalContrast:{score:88}}},
+      scores:{commercialReadiness:89,overallProduction:93}};
+    const a=m.buildAuralisBetaScoringAudit(c,88);c.auralisBetaScoringAudit=a;return {c,a};
+  };
+  assert.deepEqual(m.validateAuralisPairedOperatorReviewPolicy(policy,candidateSha256),policy);
+  for(const p of [null,{...policy,referenceSha256:candidateSha256},{...policy,originalSourceSha256:referenceSha256},
+    {...policy,candidateStartSample:0},{...policy,sampleRate:44100},{...policy,channelCount:1},
+    {...policy,measurementLineage:"UNVERIFIED"},{...policy,alignment:"UNKNOWN"},
+    {...policy,independentDefect:"UNKNOWN"},{...policy,artisticIntent:"INTENTIONAL"},
+    {...policy,referenceLowToUpperDb:NaN},{...policy,candidateLowToUpperDb:2.001},{...policy,extra:true}])
+    assert.equal(m.validateAuralisPairedOperatorReviewPolicy(p,candidateSha256),null);
+  assert.equal(m.validateAuralisPairedOperatorReviewPolicy(policy,referenceSha256),null);
+  const {c,a}=make();
+  assert.equal(a.scoreLineage,"A2_RECONCILED");
+  const evaluate=(p=policy,id=encoded,crit=c,audit=a)=>{
+    const context=m.resolveAuralisReviewedRealShadowContext(p,id,audit);
+    return m.evaluateAuralisStage3F1SpectralShadow(crit,audit,context??undefined);
+  };
+  assert.equal(m.evaluateAuralisStage3F1SpectralShadow(c,a).reason,"NO_INDEPENDENT_DSP_CORROBORATION");
+  assert.equal(evaluate(policy,{...encoded,format:"UNVERIFIED"}).candidateCap,null);
+  assert.equal(evaluate(policy,{...encoded,encodedSha256:"b".repeat(64)}).candidateCap,null);
+  assert.equal(evaluate({...policy,referenceLowToUpperDb:-1}).candidateCap,null,"Rounded 3 dB is not enough");
+  assert.equal(evaluate({...policy,referenceLowToUpperDb:-1.01}).candidateCap,79);
+  assert.equal(evaluate({...policy,candidateLowToUpperDb:2.01}).candidateCap,null);
+  assert.equal(evaluate(null).candidateCap,null);
+  const shadow=evaluate();c.auralisStage3F1SpectralShadow=shadow;
+  assert.equal(shadow.reason,"REVIEWED_REAL_PAIRED_SHADOW_NOT_ACTIVATION");
+  assert.equal(shadow.candidateCap,79);assert.equal(shadow.scoringImpact,"NONE");
+  const plan=m.planAuralisReviewed79ScoreIntegration(c,a,shadow,false);
+  assert.equal(plan.status,"PROJECTION_ONLY");
+  const before=structuredClone(c);
+  assert.equal(m.authorizeAuralisReviewed79Execution(c,a,shadow,null,encoded),false);
+  assert.equal(m.authorizeAuralisReviewed79Execution(c,a,shadow,policy,{...encoded,format:"UNVERIFIED"}),false);
+  assert.equal(m.authorizeAuralisReviewed79Execution(c,a,shadow,policy,encoded),true);
+  assert.equal(m.executeAuralisReviewed79Score(c,a,shadow,plan,false).status,"DISABLED");
+  assert.deepEqual(c,before);
+  const unverified=make();unverified.c.auralisSourceLineage.workerSamples--;
+  assert.equal(evaluate(policy,encoded,unverified.c,unverified.a).candidateCap,null);
+  const stale=make();stale.c.auralisBetaScoringAudit={...stale.a};
+  assert.equal(evaluate(policy,encoded,stale.c,stale.a).candidateCap,null);
+  const stronger=make();
+  const trace=stronger.c.subMetricsCall1.a2ScoringProvenance.spectralMatch;
+  Object.assign(trace,{browserSpectralCapCandidate:76,browserSpectralCapApplied:true,
+    afterSpectralCapScore:76,afterFinishCeilingScore:76,finalScore:76});
+  stronger.c.subMetricsCall1.spectralMatch.score=76;
+  stronger.c.mixBalanceEvidence={spectralCap:76,signals:["collapsed midrange spectral structure (x)","extreme low-mid magnitude (x)","very low relative air energy (x)"]};
+  stronger.c.scores.commercialReadiness=88;
+  const strongAudit=m.buildAuralisBetaScoringAudit(stronger.c,88);stronger.c.auralisBetaScoringAudit=strongAudit;
+  assert.equal(evaluate(policy,encoded,stronger.c,strongAudit).candidateCap,null);
+  // Exercise the existing executor in memory only after independently recomputed authorization.
+  const applied=m.executeAuralisReviewed79Score(c,a,shadow,plan,
+    m.authorizeAuralisReviewed79Execution(c,a,shadow,policy,encoded));
+  assert.equal(applied.status,"APPLIED");assert.equal(c.subMetricsCall1.spectralMatch.score,79);
+  assert.equal(c.scores.commercialReadiness,88);assert.equal(c.scores.overallProduction,93);
+  assert.deepEqual(a,before.auralisBetaScoringAudit);
+  assert.equal(m.getAuralisReviewed79ReportRows(c)[0].value,"VERIFIED_POST_AURALIS_SCORE_LINEAGE");
+  assert.equal(m.executeAuralisReviewed79Score(c,a,shadow,plan,true).status,"ABSTAIN");
+  const rows=m.getAuralisBetaAuditReportRows(c);
+  assert.ok(rows.some(row=>row.value==="REVIEWED_REAL_PAIRED_SHADOW_NOT_ACTIVATION"));
+  assert.ok(!JSON.stringify({c,rows}).includes(candidateSha256));
+  assert.ok(!JSON.stringify({c,rows}).includes(policy.reviewerId));
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  assert.match(server,/process\.env\.YSS_AURALIS_BETA_ARMED==="EXACT_PAIRED_SHA_REVIEW_ONLY"/);
+  assert.match(server,/validateAuralisPairedOperatorReviewPolicy\(review,sha\)/);
+});

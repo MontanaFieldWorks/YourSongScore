@@ -896,6 +896,44 @@ export function validateAuralisOperatorReviewPolicy(
     reviewerId:v.reviewerId,independentDefect:"CONFIRMED_REVIEWED_REAL",
     artisticIntent:"REVIEWED_NOT_INTENTIONAL_REAL"};
 }
+// Phase 1: exact Carry On WAV pair only. The private operator record must
+// attest both identity-verified Worker measurements, source alignment and
+// completed listening/intent review. No real ratios or approval are shipped.
+export const AURALIS_PAIRED_REVIEW_VERSION="auralis-carry-on-paired-review-v1" as const;
+const CARRY_REFERENCE_SHA="7a61db814087ef280c05f7db99095f74c4deb30b954c7756ee685cd8cc9f2d61";
+const CARRY_CANDIDATE_SHA="19526bc02de79cbc3690357f5e1ae720f11999e95739a7b99358900f39448799";
+export type AuralisPairedOperatorReview={
+  version:typeof AURALIS_PAIRED_REVIEW_VERSION;
+  referenceSha256:string;candidateSha256:string;originalSourceSha256:string;
+  referenceStartSample:1440000;candidateStartSample:1440000;sampleCount:1440000;
+  sampleRate:48000;channelCount:2;
+  measurementLineage:"VERIFIED_WORKER_PCM_BOTH_RECORDINGS";
+  alignment:"VERIFIED_SOURCE_TO_PAIR";
+  referenceLowToUpperDb:number;candidateLowToUpperDb:number;
+  reviewerId:string;independentDefect:"CONFIRMED_REVIEWED_REAL";
+  artisticIntent:"REVIEWED_NOT_INTENTIONAL_REAL";
+};
+export function validateAuralisPairedOperatorReviewPolicy(configured:unknown,uploadedSha256:unknown):AuralisPairedOperatorReview|null {
+  const p=configured as any;
+  const keys=["version","referenceSha256","candidateSha256","originalSourceSha256",
+    "referenceStartSample","candidateStartSample","sampleCount","sampleRate","channelCount",
+    "measurementLineage","alignment","referenceLowToUpperDb","candidateLowToUpperDb",
+    "reviewerId","independentDefect","artisticIntent"];
+  const centi=(v:unknown):v is number=>typeof v==="number"&&Number.isFinite(v)&&
+    Number.isSafeInteger(Math.round(v*100))&&v===Math.round(v*100)/100;
+  if(!p||typeof p!=="object"||Array.isArray(p)||Object.keys(p).sort().join(",")!==keys.sort().join(",")||
+    p.version!==AURALIS_PAIRED_REVIEW_VERSION||uploadedSha256!==CARRY_CANDIDATE_SHA||
+    p.candidateSha256!==CARRY_CANDIDATE_SHA||p.referenceSha256!==CARRY_REFERENCE_SHA||
+    typeof p.originalSourceSha256!=="string"||! /^[a-f0-9]{64}$/.test(p.originalSourceSha256)||
+    [CARRY_REFERENCE_SHA,CARRY_CANDIDATE_SHA].includes(p.originalSourceSha256)||
+    p.referenceStartSample!==1440000||p.candidateStartSample!==1440000||p.sampleCount!==1440000||
+    p.sampleRate!==48000||p.channelCount!==2||
+    p.measurementLineage!=="VERIFIED_WORKER_PCM_BOTH_RECORDINGS"||p.alignment!=="VERIFIED_SOURCE_TO_PAIR"||
+    !centi(p.referenceLowToUpperDb)||!centi(p.candidateLowToUpperDb)||
+    typeof p.reviewerId!=="string"||!/^[-a-zA-Z0-9_.]{3,64}$/.test(p.reviewerId)||
+    p.independentDefect!=="CONFIRMED_REVIEWED_REAL"||p.artisticIntent!=="REVIEWED_NOT_INTENTIONAL_REAL")return null;
+  return {...p} as AuralisPairedOperatorReview;
+}
 // This checks a trusted server-issued decision against the *current* local
 // source digest and Worker PCM chain. It never accepts a browser review flag.
 // Current identity collection remains OFF until separately authorized.
@@ -910,18 +948,20 @@ export function resolveAuralisReviewedRealShadowContext(
   independentDefect:"CONFIRMED_REVIEWED_REAL";
   artisticIntent:"REVIEWED_NOT_INTENTIONAL_REAL";
   reviewEvidence:"EXTERNAL_REVIEW_RECORD_ASSERTED";
+  pairedPolicy?:AuralisPairedOperatorReview;
 }|null {
   const e=encodedIdentity as any,a=audit as any;
   if(e?.status!=="VERIFIED"||
      typeof e.encodedSha256!=="string"||
-     a?.sourceIdentity!=="CURRENT_UPLOAD_PCM_VERIFIED"||
-     !validateAuralisOperatorReviewPolicy(serverReview,e.encodedSha256))
-    return null;
+     a?.sourceIdentity!=="CURRENT_UPLOAD_PCM_VERIFIED")return null;
+  const pairedPolicy=validateAuralisPairedOperatorReviewPolicy(serverReview,e.encodedSha256);
+  if(pairedPolicy&&!isAuralisStage3F9ExactEncodedIdentity(e))return null;
+  if(!pairedPolicy&&!validateAuralisOperatorReviewPolicy(serverReview,e.encodedSha256))return null;
   return {evidenceScope:"REVIEWED_REAL_RECORDING_SHADOW_ONLY",
     sourceIdentity:"CURRENT_UPLOAD_PCM_VERIFIED",sameSourceAligned:false,
     independentDefect:"CONFIRMED_REVIEWED_REAL",
     artisticIntent:"REVIEWED_NOT_INTENTIONAL_REAL",
-    reviewEvidence:"EXTERNAL_REVIEW_RECORD_ASSERTED"};
+    reviewEvidence:"EXTERNAL_REVIEW_RECORD_ASSERTED",...(pairedPolicy?{pairedPolicy}:{})};
 }
 // Stage 3F-9: single-fixture, default-OFF identity trial preparation.
 // File name and size only select a candidate for hashing; they never
@@ -963,7 +1003,7 @@ export function authorizeAuralisReviewed79Execution(
   if(!context)return false;
   const independentlyComputed=evaluateAuralisStage3F1SpectralShadow(c,a,context);
   return independentlyComputed.status==="REAL_REVIEW_HYPOTHETICAL_ONLY"&&
-     independentlyComputed.reason==="REVIEWED_REAL_SHADOW_NOT_ACTIVATION"&&
+     independentlyComputed.reason===(context.pairedPolicy?"REVIEWED_REAL_PAIRED_SHADOW_NOT_ACTIVATION":"REVIEWED_REAL_SHADOW_NOT_ACTIVATION")&&
      independentlyComputed.candidateCap===79&&
      independentlyComputed.scoringImpact==="NONE"&&
      independentlyComputed.appliedCap===null&&
@@ -986,7 +1026,7 @@ export function planAuralisReviewed79ScoreIntegration(
   if(scoringEnabled!==false)
     return inert("BLOCKED","ACTIVATION_NOT_IMPLEMENTED");
   if(s?.status!=="REAL_REVIEW_HYPOTHETICAL_ONLY"||
-     s.reason!=="REVIEWED_REAL_SHADOW_NOT_ACTIVATION"||
+     !["REVIEWED_REAL_SHADOW_NOT_ACTIVATION","REVIEWED_REAL_PAIRED_SHADOW_NOT_ACTIVATION"].includes(s.reason)||
      s.scoringImpact!=="NONE"||s.appliedCap!==null||
      s.appliedScoreChange!==0||!Array.isArray(s.adjustments)||
      s.adjustments.length!==0||s.candidateCap!==79||
@@ -1197,6 +1237,7 @@ export function evaluateAuralisStage3F1SpectralShadow(
     // This is an input assertion, NOT a verified authorization credential.
     // No live App caller supplies reviewEvidence; scoring remains disabled.
     reviewEvidence?:"EXTERNAL_REVIEW_RECORD_ASSERTED";
+    pairedPolicy?:AuralisPairedOperatorReview;
 
   },
 ):AuralisStage3F1ShadowDecision {
@@ -1267,8 +1308,9 @@ export function evaluateAuralisStage3F1SpectralShadow(
       caps[Math.min(signals.length,5)] : undefined;
   if(expected===undefined||expected!==rawCap)
     return result("ABSTAIN","UNVERIFIED_LEGACY_DSP_CORROBORATION");
-  // No independent browser signal means no independent DSP corroboration.
-  if(signals.length===0)
+  // The new route substitutes trusted paired corroboration, not absence of evidence.
+  const pairedPolicy=context?.pairedPolicy;
+  if(signals.length===0&&!pairedPolicy)
     return result("EVIDENCE_ONLY","NO_INDEPENDENT_DSP_CORROBORATION");
   // Stage 3F-3: a reviewed *current* recording may be replayed in shadow,
   // but a review assertion is not a trusted activation credential. No live
@@ -1293,7 +1335,7 @@ export function evaluateAuralisStage3F1SpectralShadow(
               signal.startsWith("dark-spectrum collapse ("))families.add("AIR");
       else return result("EVIDENCE_ONLY","UNKNOWN_DSP_SIGNAL_FAMILY");
     }
-    if(families.size<2)
+    if(families.size<2&&!pairedPolicy)
       return result("EVIDENCE_ONLY","INSUFFICIENT_DISTINCT_DSP_FAMILIES");
     if(context.artisticIntent==="INTENTIONAL")
       return result("EVIDENCE_ONLY","INTENTIONAL_STYLE");
@@ -1303,9 +1345,34 @@ export function evaluateAuralisStage3F1SpectralShadow(
       return result("EVIDENCE_ONLY","INDEPENDENT_DEFECT_NOT_CONFIRMED");
     if(context.reviewEvidence!=="EXTERNAL_REVIEW_RECORD_ASSERTED")
       return result("EVIDENCE_ONLY","REVIEW_RECORD_NOT_SUPPLIED");
+    if(pairedPolicy){
+      const policy=validateAuralisPairedOperatorReviewPolicy(pairedPolicy,CARRY_CANDIDATE_SHA);
+      if(!policy||c.auralisBetaScoringAudit!==a||
+        JSON.stringify(buildAuralisBetaScoringAudit(c,a.serverReturnedSpectralScore))!==JSON.stringify(a)||
+        c.auralisStage3F6Execution!==undefined||
+        lineage.sourceRateStatus!=="VERIFIED_WAV_HEADER"||lineage.sourceSampleRate!==48000||
+        !["WAV_PCM","WAV_FLOAT"].includes(lineage.sourceFormat)||
+        lineage.decodedSampleRate!==48000||lineage.workerSampleRate!==48000||
+        lineage.decodedChannels!==2||lineage.workerChannels!==2||
+        lineage.decodedSamples!==1440000||lineage.workerSamples!==1440000||
+        measurement!==policy.candidateLowToUpperDb)
+        return result("EVIDENCE_ONLY","PAIRED_REVIEW_OR_CURRENT_MEASUREMENT_UNVERIFIED");
+      // Both adapter ratios are rounded to 0.01 dB. Require the conservative
+      // lower bound to meet the existing 3 dB materiality rule (not a new quality gate).
+      const deltaCenti=Math.round(policy.candidateLowToUpperDb*100)-Math.round(policy.referenceLowToUpperDb*100);
+      if(!Number.isSafeInteger(deltaCenti)||deltaCenti<301)
+        return result("EVIDENCE_ONLY","PAIRED_MATERIAL_CHANGE_UNCONFIRMED");
+      const reference={schemaVersion:AURALIS_ENGINEERING_ADAPTER_VERSION,scoringImpact:"NONE",
+        scoringAdapter:{status:AURALIS_ENGINEERING_SCORE_POLICY,adjustments:[]},
+        metrics:{lowToUpperDb:policy.referenceLowToUpperDb}};
+      const pair=assessAuralisPairedSpectralEvidence(reference,c.auralisEngineering,{
+        trustedPairLineage:true,independentDefect:"CONFIRMED",artisticIntent:"REVIEWED_NOT_INTENTIONAL",shadowPolicyAuthorized:true});
+      if(pair.candidateCap!==79||pair.reason!=="ELIGIBLE_SHADOW_ONLY")
+        return result("EVIDENCE_ONLY","PAIRED_MATERIAL_CHANGE_UNCONFIRMED");
+    }
   }else{
     // Historical UNVERIFIED and unreviewed current uploads never qualify.
-    if(context?.evidenceScope!=="SYNTHETIC_VERIFIED_FIXTURE_ONLY"||
+    if(pairedPolicy||context?.evidenceScope!=="SYNTHETIC_VERIFIED_FIXTURE_ONLY"||
        context.sourceIdentity!=="VERIFIED_SYNTHETIC"||
        context.sameSourceAligned!==true)
       return result("EVIDENCE_ONLY","NO_INDEPENDENT_VERIFIED_PAIR_POLICY");
@@ -1334,7 +1401,7 @@ export function evaluateAuralisStage3F1SpectralShadow(
   if(projected>c.scores.commercialReadiness)
     return result("ABSTAIN","INVALID_HYPOTHETICAL_PROPAGATION");
   return result(reviewedReal?"REAL_REVIEW_HYPOTHETICAL_ONLY":"SYNTHETIC_HYPOTHETICAL_ONLY",
-    reviewedReal?"REVIEWED_REAL_SHADOW_NOT_ACTIVATION":"SYNTHETIC_REPLAY_NOT_REAL_SONG_ACTIVATION",
+    reviewedReal?(pairedPolicy?"REVIEWED_REAL_PAIRED_SHADOW_NOT_ACTIVATION":"REVIEWED_REAL_SHADOW_NOT_ACTIVATION"):"SYNTHETIC_REPLAY_NOT_REAL_SONG_ACTIVATION",
     79,hypot,projected,projected-c.scores.commercialReadiness);
 }
 
@@ -1708,7 +1775,9 @@ export function getAuralisBetaAuditReportRows(critique:unknown):AuralisBetaExcel
     "REVIEW_RECORD_NOT_SUPPLIED","NO_INDEPENDENT_VERIFIED_PAIR_POLICY",
     "NO_ADDITIONAL_DOWNWARD_EFFECT","INCOMPLETE_READINESS_LINEAGE",
     "INCONSISTENT_READINESS_PARENT","INVALID_HYPOTHETICAL_PROPAGATION",
-    "REVIEWED_REAL_SHADOW_NOT_ACTIVATION","SYNTHETIC_REPLAY_NOT_REAL_SONG_ACTIVATION"]));
+    "REVIEWED_REAL_SHADOW_NOT_ACTIVATION","REVIEWED_REAL_PAIRED_SHADOW_NOT_ACTIVATION",
+    "PAIRED_REVIEW_OR_CURRENT_MEASUREMENT_UNVERIFIED","PAIRED_MATERIAL_CHANGE_UNCONFIRMED",
+    "SYNTHETIC_REPLAY_NOT_REAL_SONG_ACTIVATION"]));
   add("Stage 3F-1 Shadow","Measurement (dB)",number(s?.measurementDb));
   add("Stage 3F-1 Shadow","Existing final Spectral Match",score(s?.existingFinalScore));
   add("Stage 3F-1 Shadow","Existing legacy DSP cap",cap(s?.existingLegacyCap,s!==undefined&&s!==null));
