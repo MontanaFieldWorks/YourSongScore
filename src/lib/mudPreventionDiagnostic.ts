@@ -155,7 +155,7 @@ export function prepareAuralisEngineeringEvidence(diagnostic: unknown): {
   scoringImpact: "NONE";
   scoringAdapter: {version: string; status: typeof AURALIS_ENGINEERING_SCORE_POLICY; adjustments: []};
   observations: string[];
-  metrics: {lowToUpperDb: number; stereoEvidenceStatus: "MEASURED_NOT_GRADED"; bandPowerSharePct: number[] | null};
+  metrics: {lowToUpperDb: number; stereoEvidenceStatus: "MEASURED_NOT_GRADED"; bandPowerSharePct: number[] | null; dynamics:AuralisDynamicsEvidence|null};
 } | null {
   const d = diagnostic as any;
   const p = d?.evidence?.sourceProvenance;
@@ -225,6 +225,7 @@ export function prepareAuralisEngineeringEvidence(diagnostic: unknown): {
     Number.isFinite(totalBandPower)&&totalBandPower>0
     ? power.map(v=>100*(v/totalBandPower)):null;
   const meters = d?.referenceMeters;
+  const dynamics=prepareAuralisDynamicsEvidence(meters,profile.sampleRate,profile.channelCount,profile.inputSampleCount);
   const integratedLufs = meters?.schemaVersion === "stage2k-meter-summary-v1" &&
     meters?.scoringImpact === "NONE" ? meters?.measurements?.integratedLufs : null;
   const samplePeakDbfs = meters?.schemaVersion === "stage2k-meter-summary-v1" &&
@@ -238,7 +239,7 @@ export function prepareAuralisEngineeringEvidence(diagnostic: unknown): {
     scoringImpact: "NONE",
     scoringAdapter: {version: AURALIS_ENGINEERING_ADAPTER_VERSION,
       status: AURALIS_ENGINEERING_SCORE_POLICY, adjustments: []},
-    metrics: {lowToUpperDb: Math.round(ratio*100)/100, stereoEvidenceStatus: "MEASURED_NOT_GRADED", bandPowerSharePct},
+    metrics: {lowToUpperDb: Math.round(ratio*100)/100, stereoEvidenceStatus: "MEASURED_NOT_GRADED", bandPowerSharePct, dynamics},
     observations: [
       `Measured 60–250 Hz energy relative to 500–20,000 Hz: ${ratio.toFixed(2)} dB. This is descriptive spectral balance, not proof of masking, muddiness or a mix defect. If this is an intentional production choice, no correction may be necessary.`,
       "Auralis measured stereo engineering evidence, but this release does not infer a Stereo Width defect or change its score from those measurements. If the stereo presentation is intentional, review mono compatibility by listening before making changes.",
@@ -1756,6 +1757,18 @@ export function getAuralisBetaAuditReportRows(critique:unknown):AuralisBetaExcel
   add("Objective Engineering","60-250 Hz power share (%)",number(objective.lowEndDivision.bassPowerPct));
   add("Objective Engineering","Low-End source roles",objective.lowEndDivision.roleStatus);
   add("Objective Engineering","Separation defect evidence",objective.lowEndDivision.separationStatus);
+  const dynamics=getAuralisDynamicsFindings(c);
+  add("Objective Dynamics","Scoring impact",dynamics.scoringImpact);
+  add("Objective Dynamics","PCM identity",dynamics.sourceIdentity);
+  add("Objective Dynamics","Dynamic Modulation status",dynamics.dynamicModulation.status);
+  add("Objective Dynamics","Gated loudness range (LU)",number(dynamics.dynamicModulation.loudnessRangeLu));
+  add("Objective Dynamics","Full-channel crest factor (dB)",number(dynamics.dynamicModulation.crestFactorDb));
+  add("Objective Dynamics","Climax Trajectory status",dynamics.climaxTrajectory.status);
+  add("Objective Dynamics","Peak window centre (seconds)",number(dynamics.climaxTrajectory.peakTimeSec));
+  add("Objective Dynamics","Peak window centre (% decoded duration)",number(dynamics.climaxTrajectory.peakPositionPct));
+  add("Objective Dynamics","Peak 3-second loudness (LUFS)",number(dynamics.climaxTrajectory.peakLufs));
+  add("Objective Dynamics","Rise above opening mean power (LU)",number(dynamics.climaxTrajectory.openingRiseLu));
+  add("Objective Dynamics","Artistic quality verdict","INSUFFICIENT_EVIDENCE");
   add("Current Scores","Reported Spectral Match",score(c?.subMetricsCall1?.spectralMatch?.score));
   add("Current Scores","Reported Commercial Readiness",score(c?.scores?.commercialReadiness));
   return rows;
@@ -1765,7 +1778,8 @@ export function getAuralisBetaAuditReportRows(critique:unknown):AuralisBetaExcel
 // Engineering Studio evidence only. A saved measured master spectrum does
 // NOT identify kick vs bass, prove low-mid masking, establish artistic intent,
 // or justify a DAW EQ transfer. No writes to critique or its scoring children.
-import {summarizeSonicLensMeasuredOverview} from "./liveAudioAnalyzer.ts";
+import {summarizeSonicLensMeasuredOverview,isValidAuralisProgrammeTrajectory} from "./liveAudioAnalyzer.ts";
+import type {AuralisProgrammeTrajectory} from "./liveAudioAnalyzer.ts";
 
 export type AuralisObjectiveEvidenceStatus =
   "MEASURED_CHARACTERISTIC"|"INSUFFICIENT_EVIDENCE"|"SUPPORTED_TECHNICAL_CONCERN";
@@ -1888,4 +1902,71 @@ export function formatAuralisObjectiveEngineeringFindings(critique:unknown):stri
     "; a master spectrum cannot establish masking. Low-End Division: 20–60 Hz "+pct(f.lowEndDivision.subPowerPct)+
     ", 60–250 Hz "+pct(f.lowEndDivision.bassPowerPct)+"; source roles "+f.lowEndDivision.roleStatus+
     "; separation defect evidence insufficient. Shares are of represented 20–20,000 Hz Worker power.";
+}
+
+export type AuralisDynamicsEvidence={
+  method:"STAGE1A_REFERENCE_MEASUREMENTS";
+  sampleRate:number;sampleCount:number;channelCount:number;
+  loudnessRangeLu:number|null;crestFactorDb:number|null;
+  trajectory:AuralisProgrammeTrajectory|null;
+};
+function finiteNonnegative(value:unknown):value is number {
+  return typeof value==="number"&&Number.isFinite(value)&&value>=0;
+}
+function prepareAuralisDynamicsEvidence(meters:any,sampleRate:number,channelCount:number,sampleCount:number):AuralisDynamicsEvidence|null {
+  if(meters?.schemaVersion!=="stage2k-meter-summary-v1"||meters.scoringImpact!=="NONE"||
+    meters.method!=="stage1a-reference-v1"||meters.sampleRate!==sampleRate||
+    meters.channelCount!==channelCount||meters.sampleCount!==sampleCount||
+    !Number.isSafeInteger(sampleCount)||sampleCount<=0||!Number.isFinite(sampleRate)||sampleRate<8000||sampleRate>192000||
+    ![1,2].includes(channelCount))return null;
+  const m=meters.measurements;
+  const lra=meters.lraAvailability==="AVAILABLE"&&sampleCount>=Math.round(3*sampleRate)&&
+    finiteNonnegative(m?.loudnessRangeLu)?m.loudnessRangeLu:null;
+  const crest=finiteNonnegative(m?.crestFactorDb)&&Number.isFinite(m?.samplePeakDbfs)&&
+    Number.isFinite(m?.rmsDbfs)&&Math.abs(m.crestFactorDb-(m.samplePeakDbfs-m.rmsDbfs))<=1e-8
+    ?m.crestFactorDb:null;
+  const trajectory=meters.lraAvailability!=="SILENCE"&&
+    isValidAuralisProgrammeTrajectory(meters.programmeTrajectory,sampleCount,sampleRate)
+    ? {...meters.programmeTrajectory} as AuralisProgrammeTrajectory:null;
+  return {method:"STAGE1A_REFERENCE_MEASUREMENTS",sampleRate,sampleCount,channelCount,
+    loudnessRangeLu:lra,crestFactorDb:crest,trajectory};
+}
+
+/** Auralis measurements are descriptive, not a musical climax or scoring decision. */
+export function getAuralisDynamicsFindings(critique:unknown) {
+  const c=critique as any,g=c?.auralisEngineering,e=c?.auralisExecution,l=c?.auralisSourceLineage;
+  const m=g?.metrics?.dynamics;
+  const valid=e?.status==="AVAILABLE"&&e.reason==="VALIDATED_ENGINEERING_EVIDENCE"&&e.scoringImpact==="NONE"&&
+    classifyAuralisExecution("AVAILABLE",g).status==="AVAILABLE"&&m?.method==="STAGE1A_REFERENCE_MEASUREMENTS"&&
+    Number.isFinite(m.sampleRate)&&m.sampleRate>=8000&&m.sampleRate<=192000&&
+    Number.isSafeInteger(m.sampleCount)&&m.sampleCount>0&&[1,2].includes(m.channelCount);
+  const lra=valid&&m.sampleCount>=Math.round(3*m.sampleRate)&&finiteNonnegative(m.loudnessRangeLu)?m.loudnessRangeLu as number:null;
+  const crest=valid&&finiteNonnegative(m.crestFactorDb)?m.crestFactorDb as number:null;
+  const trajectory=valid&&isValidAuralisProgrammeTrajectory(m.trajectory,m.sampleCount,m.sampleRate)?m.trajectory as AuralisProgrammeTrajectory:null;
+  const peakTimeSec=trajectory?(15+trajectory.peakWindowIndex)/10:null;
+  const identity=valid&&l?.status==="VERIFIED"&&l.pcmIdentityStatus==="VERIFIED"&&l.scoringImpact==="NONE"&&
+    l.workerSampleRate===m.sampleRate&&l.decodedSampleRate===m.sampleRate&&
+    l.workerSamples===m.sampleCount&&l.decodedSamples===m.sampleCount&&
+    l.workerChannels===m.channelCount&&l.decodedChannels===m.channelCount?"VERIFIED":"UNVERIFIED";
+  return {schemaVersion:"auralis-objective-engineering-phase2-v1" as const,
+    scoringImpact:"NONE" as const,adjustments:[] as [],sourceIdentity:identity,
+    dynamicModulation:{status:lra!==null||crest!==null?"MEASURED_CHARACTERISTIC":"INSUFFICIENT_EVIDENCE",
+      loudnessRangeLu:lra,crestFactorDb:crest,qualityStatus:"INSUFFICIENT_EVIDENCE"},
+    climaxTrajectory:{status:trajectory?"MEASURED_CHARACTERISTIC":"INSUFFICIENT_EVIDENCE",
+      peakTimeSec,peakPositionPct:peakTimeSec===null?null:100*peakTimeSec/(m.sampleCount/m.sampleRate),
+      peakLufs:trajectory?.peakLufs??null,openingRiseLu:trajectory?.openingRiseLu??null,
+      qualityStatus:"INSUFFICIENT_EVIDENCE"},
+  };
+}
+
+export function formatAuralisDynamicsFindings(critique:unknown):string {
+  const f=getAuralisDynamicsFindings(critique),d=f.dynamicModulation,t=f.climaxTrajectory;
+  const val=(v:number|null,unit:string)=>v===null?"unavailable":v.toFixed(1)+" "+unit;
+  return "Auralis objective dynamics (not scored; PCM identity "+f.sourceIdentity+"): "+
+    "Dynamic Modulation: gated loudness range "+val(d.loudnessRangeLu,"LU")+
+    "; full-channel crest factor "+val(d.crestFactorDb,"dB")+
+    ". Climax Trajectory: highest measured 3-second programme loudness window centred at "+
+    val(t.peakTimeSec,"s")+" ("+val(t.peakPositionPct,"% of decoded duration")+")"+
+    "; peak "+val(t.peakLufs,"LUFS")+"; rise above mean opening-window power "+val(t.openingRiseLu,"LU")+
+    ". This is the first highest window if tied, not proof of a unique musical climax or effective artistic payoff.";
 }
