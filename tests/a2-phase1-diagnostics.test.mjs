@@ -6660,7 +6660,8 @@ test("Auralis Phase 1 uses measured Worker band shares without changing assessme
   assert.match(m.formatAuralisObjectiveEngineeringFindings(c),/cannot establish masking/);
   const rows=m.getAuralisBetaAuditReportRows(c);
   assert.ok(rows.some(row=>row.field==="250-500 Hz power share (%)"&&row.value===shares[2]));
-  for(const bad of [null,[1,2],[NaN,0,0,0,0,0,100],[100,0,0,0,0,0,0],[10,20,30,40,0,0,0]]){
+  const sparse=[...shares]; sparse[3]+=sparse[2]; delete sparse[2];
+  for(const bad of [null,[1,2],sparse,[NaN,0,0,0,0,0,100],[100,0,0,0,0,0,0],[10,20,30,40,0,0,0]]){
     const invalid={...c,auralisEngineering:{...engineering,metrics:{...engineering.metrics,bandPowerSharePct:bad}}};
     assert.equal(m.getAuralisObjectiveEngineeringFindings(invalid).mudPrevention.status,"INSUFFICIENT_EVIDENCE");
   }
