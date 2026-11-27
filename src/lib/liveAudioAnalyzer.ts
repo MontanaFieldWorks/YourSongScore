@@ -255,6 +255,49 @@ export interface Stage1aMeterReadings {
   integratedLufs: number | null;
   loudnessRangeLu: number | null;
 }
+/** Bounded descriptor of programme-only, complete 3-second K-weighted windows.
+ * Peak index is zero-based on the existing 100 ms hop. No raw timeline crosses the Worker.
+ */
+export interface AuralisProgrammeTrajectory {
+  method:"PROGRAMME_3S_K_WEIGHTED_100MS";
+  windowCount:number;
+  peakWindowIndex:number;
+  peakLufs:number;
+  openingRiseLu:number|null;
+}
+function programmeShortTermWindowCount(sampleCount:number,sampleRate:number):number {
+  let buckets=Math.floor(sampleCount*10/sampleRate);
+  if(Math.round((buckets+1)*sampleRate/10)<=sampleCount)buckets++;
+  return Math.max(0,buckets-29);
+}
+export function isValidAuralisProgrammeTrajectory(value:unknown,sampleCount:number,sampleRate:number):value is AuralisProgrammeTrajectory {
+  if(!Number.isSafeInteger(sampleCount)||sampleCount<=0||!Number.isFinite(sampleRate)||sampleRate<8000||sampleRate>192000||
+    !value||typeof value!=="object"||Array.isArray(value))return false;
+  const v=value as AuralisProgrammeTrajectory;
+  return Object.keys(v).sort().join(",")===["method","windowCount","peakWindowIndex","peakLufs","openingRiseLu"].sort().join(",")&&
+    v.method==="PROGRAMME_3S_K_WEIGHTED_100MS"&&
+    v.windowCount===programmeShortTermWindowCount(sampleCount,sampleRate)&&v.windowCount>=2&&
+    Number.isSafeInteger(v.peakWindowIndex)&&v.peakWindowIndex>=0&&v.peakWindowIndex<v.windowCount&&
+    Number.isFinite(v.peakLufs)&&(v.openingRiseLu===null||(Number.isFinite(v.openingRiseLu)&&v.openingRiseLu>=0));
+}
+function summarizeProgrammeTrajectory(powers:number[],sampleCount:number,sampleRate:number):AuralisProgrammeTrajectory|null {
+  const n=programmeShortTermWindowCount(sampleCount,sampleRate);
+  if(n<2||n>powers.length)return null;
+  let peak=0,idx=0,openingMean=0;
+  const openingCount=Math.max(1,Math.floor(n/3));
+  for(let i=0;i<n;i++){
+    const p=powers[i];
+    if(!Number.isFinite(p)||p<0)return null;
+    if(p>peak){peak=p;idx=i;}
+    if(i<openingCount)openingMean+=p/openingCount;
+  }
+  if(peak<=0)return null;
+  const peakLufs=-0.691+10*Math.log10(peak);
+  const rise=openingMean>0?10*(Math.log10(peak)-Math.log10(openingMean)):null;
+  const result:AuralisProgrammeTrajectory={method:"PROGRAMME_3S_K_WEIGHTED_100MS",windowCount:n,
+    peakWindowIndex:idx,peakLufs,openingRiseLu:rise===null?null:Math.max(0,rise)};
+  return isValidAuralisProgrammeTrajectory(result,sampleCount,sampleRate)?result:null;
+}
 export interface Stage1aMeterComparison {
   method: "stage1a-reference-v1";
   sampleRate: number;
@@ -270,6 +313,7 @@ export interface Stage1aMeterComparison {
   // numeric 4x estimate remains exploratory until independently validated.
   truePeakAccuracyStatus: "ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED" | "NON_48KHZ_UNVERIFIED";
   measurements: Stage1aMeterReadings;
+  programmeTrajectory: AuralisProgrammeTrajectory|null;
   // Corrected value minus the unchanged legacy value, in the same units.
   differences: Record<string, number>;
   limitations: string[];
@@ -518,6 +562,7 @@ export function analyzeStage1aMeterReference(
       ? "ANNEX2_48KHZ_REFERENCE_NOT_CERTIFIED"
       : "NON_48KHZ_UNVERIFIED",
     measurements, differences,
+    programmeTrajectory:summarizeProgrammeTrajectory(shortTermPowers,count,sampleRate),
     limitations: [
       "4x BS.1770 Annex 2 polyphase FIR diagnostic is not independently certified at all sample rates",
       "Full-channel and stereo-mid RMS/crest have different conventions; only like-for-like error deltas are reported",
@@ -3119,6 +3164,7 @@ export interface Stage2kMeterSummary {
   lraAvailability:Stage1aMeterComparison["lraAvailability"];
   truePeakAccuracyStatus:Stage1aMeterComparison["truePeakAccuracyStatus"];
   measurements:Stage1aMeterReadings;
+  programmeTrajectory?:AuralisProgrammeTrajectory|null;
 }
 export function runStage2c2aBrowserDiagnostics(
   audio: Pick<AudioBuffer, "numberOfChannels"|"sampleRate"|"getChannelData">,
@@ -3155,7 +3201,7 @@ export function runStage2c2aBrowserDiagnostics(
         channelCount:result.channelCount,sampleCount:result.sampleCount,
         lraAvailability:result.lraAvailability,
         truePeakAccuracyStatus:result.truePeakAccuracyStatus,
-        measurements:result.measurements};
+        measurements:result.measurements,programmeTrajectory:result.programmeTrajectory};
     })():undefined;
     return {status:"AVAILABLE",evidence:assembleStage2c1EngineeringEvidence(spectral,temporal,stereo),
       spectralProfile,...(referenceMeters?{referenceMeters}:{})};
