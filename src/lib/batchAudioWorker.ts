@@ -1,6 +1,6 @@
 import type { LiveAudioMetrics } from "../types";
 import type { AuralisEncodedSourceIdentity } from "./liveAudioAnalyzer";
-import { isValidAuralisProgrammeTrajectory } from "./liveAudioAnalyzer";
+import { isValidAuralisProgrammeTrajectory } from "./liveAudioAnalyzer.ts";
 
 /**
  * Runs the existing synchronous PCM analyzer inside a dedicated worker for the temporary
