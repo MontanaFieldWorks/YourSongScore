@@ -10,7 +10,7 @@ import { analyzeClimaxPeakCompetition, formatClimaxPeakDiagnostic } from "../lib
 import { getClimaxTrajectoryEvidenceRows } from "../lib/climaxEvidenceExport";
 import { appendA2ProvenanceToSourceDiagnostics } from "../lib/a2ScoringProvenance";
 import { getMudPreventionPublicCommentary } from "../lib/mudPreventionReporting";
-import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS, getAuralisReviewed79ReportRows, getAuralisWorkerFailureCodeForReport, getAuralisBetaAuditReportRows } from "../lib/mudPreventionDiagnostic";
+import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS, getAuralisReviewed79ReportRows, getAuralisWorkerFailureCodeForReport, getAuralisBetaAuditReportRows, formatAuralisObjectiveEngineeringFindings } from "../lib/mudPreventionDiagnostic";
 import { 
   Play, Pause, RefreshCw, Layers, Sliders, Mic,
   Volume2, Disc, ArrowLeft, ArrowRight, CheckCircle, Flame, Sparkles, CheckSquare, Square,
@@ -1729,7 +1729,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ],
       callout: "This Metric secures clear frequency separations so that your low and high ends decode without clipping.",
       description: "Audits decibel levels, EQ notches, sibilance de-essing, low frequency separation, and relative placement in the stereo panning field.",
-      feedback: `${critique?.mixQuality?.stereoField ?? "Solid width."} Low frequencies: ${critique?.mixQuality?.frequencyBalance?.lowEnd ?? "Balanced"}. Midrange: ${critique?.mixQuality?.frequencyBalance?.midrange ?? "Clear"}. High-end sibilance: ${critique?.mixQuality?.frequencyBalance?.highEnd ?? "Contained"}. Frequency issues: ${critique?.mixQuality?.dominanceIssues ?? "No bloating present."} ${(critique as any)?.auralisExecution ? "Auralis engineering (NOT SCORED): " + (critique as any).auralisExecution.status + " (" + (critique as any).auralisExecution.reason + "). " : ""}${(critique as any)?.auralisEngineering?.scoringAdapter?.status === "DISABLED_PENDING_STAGE_3D_2" ? "Auralis observations (not scored): " + ((critique as any).auralisEngineering.observations ?? []).join(" ") : ""}`
+      feedback: `${critique?.mixQuality?.stereoField ?? "Solid width."} Low frequencies: ${critique?.mixQuality?.frequencyBalance?.lowEnd ?? "Balanced"}. Midrange: ${critique?.mixQuality?.frequencyBalance?.midrange ?? "Clear"}. High-end sibilance: ${critique?.mixQuality?.frequencyBalance?.highEnd ?? "Contained"}. Frequency issues: ${critique?.mixQuality?.dominanceIssues ?? "No bloating present."} ${(critique as any)?.auralisExecution ? "Auralis engineering (NOT SCORED): " + (critique as any).auralisExecution.status + " (" + (critique as any).auralisExecution.reason + "). " : ""}${(critique as any)?.auralisEngineering?.scoringAdapter?.status === "DISABLED_PENDING_STAGE_3D_2" ? "Auralis observations (not scored): " + ((critique as any).auralisEngineering.observations ?? []).join(" ") : ""} ${formatAuralisObjectiveEngineeringFindings(critique)}`
     },
     {
       id: "vocals",
