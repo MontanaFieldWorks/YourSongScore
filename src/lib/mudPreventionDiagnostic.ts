@@ -1839,7 +1839,7 @@ export function getAuralisObjectiveEngineeringFindings(critique:unknown) {
     l.scoringImpact==="NONE"?"VERIFIED":"UNVERIFIED";
   const raw=g?.metrics?.bandPowerSharePct;
   const shares=valid&&Array.isArray(raw)&&raw.length===7&&
-    raw.every((v:unknown)=>typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=100)&&
+    Array.from(raw).every((v:unknown)=>typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=100)&&
     Math.abs(raw.reduce((sum:number,v:number)=>sum+v,0)-100)<1e-6
     ? raw as number[]:null;
   const upper=shares?shares.slice(3).reduce((sum,v)=>sum+v,0):0;
