@@ -66,6 +66,9 @@ export interface LiveAudioMetrics {
   calculatedLufs: number;
   calculatedTruePeak: number;
   calculatedLra: number;
+  // Presentation-only availability; legacy numeric compatibility is unchanged.
+  legacyLufsAvailable?: boolean;
+  legacyLraAvailable?: boolean;
   calculatedRmsDbfs?: number;
   calculatedCrestFactorDb?: number;
   calculatedFinishSubPct?: number;
