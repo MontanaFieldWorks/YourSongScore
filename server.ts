@@ -598,7 +598,7 @@ async function performSubMetricsCall1(
   measuredLowEndEvidence?: { subBassCorrelation?: number; subBassCrestFactor?: number; bassCrestFactor?: number },
   measuredMudEvidence?: { flatness?: number; flux?: number },
   measuredMidrangeEvidence?: { flatness?: number; flux?: number },
-  auralisContext = ""
+  auralisContext = formatAuralisNarrativeContext(null)
 ): Promise<any> {
   const bandEnergySummary = measuredBandEnergies
     ? `Sub-Bass (20-64Hz): ${measuredBandEnergies.subBass ?? 'N/A'}, Bass (64-250Hz): ${measuredBandEnergies.bass ?? 'N/A'}, Low-Mids (250Hz-1kHz): ${measuredBandEnergies.lowMids ?? 'N/A'}, Core Mids (1-4kHz): ${measuredBandEnergies.coreMids ?? 'N/A'}, Presence (4-8kHz): ${measuredBandEnergies.presence ?? 'N/A'}, Air (8-20kHz): ${measuredBandEnergies.air ?? 'N/A'}`
@@ -884,7 +884,7 @@ async function performSubMetricsCall2(
   parsedCritique: any,
   chordProgressionSummary?: string,
   melodySummary?: string,
-  auralisContext = ""
+  auralisContext = formatAuralisNarrativeContext(null)
 ): Promise<any> {
   const contextSummary = `
 INDEPENDENT ARTISTIC / SONGWRITING SCORING PASS.
@@ -1103,7 +1103,7 @@ async function performSubMetricsCall3(
   chordProgressionSummary?: string,
   melodySummary?: string,
   measuredVocalDynamics?: number,
-  auralisContext = ""
+  auralisContext = formatAuralisNarrativeContext(null)
 ): Promise<any> {
   const contextSummary = `
 INDEPENDENT STRUCTURE / PERFORMANCE / THEORY SCORING PASS.
@@ -2501,7 +2501,7 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
     await verifyInstrumentalGenreIfNeeded(audioPart, parsedCritique, !!metaGenre);
     validateGenrePair(parsedCritique);
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
-      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, narrativeMeasurements?.bandPowerSharePct ? undefined : bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence, auralisContext);
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, isA2PilotRequest()?bandEnergies:undefined, lowEndEvidence, mudEvidence, midrangeEvidence, auralisContext);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
@@ -2778,7 +2778,7 @@ app.post("/api/critique-url", async (req, res) => {
     const parsedCritique = await performCritiqueAnalysis(
       [
         audioPart,
-        userInstruction,
+        userInstruction + formatAuralisNarrativeContext(null),
       ],
       SYSTEM_PROMPT,
       !!threeX
@@ -2795,7 +2795,7 @@ app.post("/api/critique-url", async (req, res) => {
     await verifyInstrumentalGenreIfNeeded(audioPart, parsedCritique, !!metaGenre);
     validateGenrePair(parsedCritique);
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
-      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, undefined, lowEndEvidence, mudEvidence, midrangeEvidence,formatAuralisNarrativeContext(null));
       parsedCritique.subMetricsCall1 = subMetricsCall1;
       parsedCritique.subMetricsCall1Failed = false;
     } catch (subErr: any) {
@@ -2823,7 +2823,7 @@ app.post("/api/critique-url", async (req, res) => {
 
     try {
       console.log("[Call 2] Starting Sub-Metrics Call 2 (URL route)...");
-      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique, inferredChordSummary ?? chordProgressionSummary, melodySummary);
+      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique, inferredChordSummary ?? chordProgressionSummary, melodySummary,formatAuralisNarrativeContext(null));
       parsedCritique.subMetricsCall2 = subMetricsCall2;
       parsedCritique.subMetricsCall2Failed = false;
     } catch (subErr: any) {
@@ -2845,7 +2845,8 @@ app.post("/api/critique-url", async (req, res) => {
         instrumentalWarmth,
         chordProgressionSummary,
         melodySummary,
-        vocalDynamics
+        vocalDynamics,
+        formatAuralisNarrativeContext(null)
       );
       parsedCritique.subMetricsCall3 = subMetricsCall3;
       parsedCritique.subMetricsCall3Failed = false;
@@ -2863,6 +2864,7 @@ app.post("/api/critique-url", async (req, res) => {
     // Withhold unfiltered Gemini text in a process-local, authenticated vault.
     // Ordinary API responses and Excel reports never contain raw A2 commentary.
     withholdA2RawEvidence(parsedCritique);
+    delete parsedCritique.auralisNarrativeMeasurements;
     res.json({ critique: parsedCritique });
   } catch (error: any) {
     console.error("Error processing URL critique:", error);
