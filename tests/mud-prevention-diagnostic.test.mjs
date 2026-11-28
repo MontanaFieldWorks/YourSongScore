@@ -1622,7 +1622,7 @@ test("Stage 3F-11 stale rejected early decode cannot reach a Gemini request",asy
   assert.equal(submissions,1);
 });
 
-test("Stage 3F-11 existing-MP3 reanalysis is an explicit, cached-file-only operation",async()=>{
+test("Stage 3F-11 retained reanalysis safeguards and retired scoreboard control",async()=>{
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const dashboard=await readFile(new URL("../src/components/Dashboard.tsx",import.meta.url),"utf8");
   const begin=app.indexOf("const handleAuditQueuedTrack");
@@ -1647,10 +1647,9 @@ test("Stage 3F-11 existing-MP3 reanalysis is an explicit, cached-file-only opera
     confirm.includes("if (!approved) return;")&&
     confirm.indexOf("if (!approved) return;")<confirm.indexOf("handleAuditQueuedTrack(queuedTrack)"),
     "explicit exact-track confirmation must precede starting a new analysis");
-  assert.ok(scoreboard.includes('track.format === "MP3" && onQueueForAudit')&&
-    scoreboard.includes("onClick={() => onQueueForAudit(track)}")&&
-    scoreboard.includes("Reanalyze"),
-    "the analyzed scoreboard must only queue MP3 reanalysis, not submit immediately");
+  assert.ok(!scoreboard.includes("Reanalyze") &&
+    !scoreboard.includes("onClick={() => onQueueForAudit(track)}"),
+    "the analyzed scoreboard must not expose the retired reanalysis control");
   // Synthetic decision table for the fail-closed gates.
   const maySubmit=({status,format,cached,filename,id,confirmed})=>{
     if(status!=="analyzed")return false;
@@ -2121,4 +2120,22 @@ test("Controlled paired authority uses exact WAV identity, trusted review and ze
   assert.doesNotMatch(server,/req\.body\.auralisPairedScoringAuthorized/);
   assert.match(app,/const paired79Authorized = !a2PilotEnabled && authorizeAuralisCarryOnPairedExecution\(/);
   assert.match(app,/reviewed79Authorized \|\| paired79Authorized\);/);
+});
+
+
+test("Production UI housekeeping removes internal test controls and keeps the Mix Balance rose chart last",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const dashboard=await readFile(new URL("../src/components/Dashboard.tsx",import.meta.url),"utf8");
+  const display=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  assert.match(app,/const \[a2PilotEnabled\] = useState\(false\);/);
+  assert.doesNotMatch(app,/Internal A2 four-song pilot|setA2PilotEnabled|setA2PilotToken|setA2PilotCase|id="a2-pilot-token"|id="a2-pilot-case"/);
+  assert.match(dashboard,/onQueueForAudit\(track\)/,"unaudited-track queue remains available");
+  const expanded=display.slice(display.indexOf("const renderExpandedBreakdown"),display.indexOf("const renderAlgotorialSandbox"));
+  assert.match(expanded,/const isMixBalance = selectedObj.id === "mix";/);
+  assert.match(expanded,/isMixBalance \? "" : "md:flex-row"/);
+  assert.match(expanded,/renderMetricVisualizerFeature\(selectedObj.id, selectedObj.score\)\}\s*\{isMixBalance && renderMetricRoseChart\(\)\}/);
+  assert.match(expanded,/\{!isMixBalance && \([\s\S]*?Your A&amp;R Evaluation Summary[\s\S]*?\{renderMetricRoseChart\(\)\}/);
+  assert.match(expanded,/return <RoseChart data=\{visibleRoseData.length > 0 \? visibleRoseData : roseData\} \/>;/);
+  assert.match(expanded,/weight: diagnosticMud \? 0 : parsedWeight/);
+  assert.match(expanded,/const visibleRoseData = roseData.filter/);
 });
