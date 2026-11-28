@@ -1977,6 +1977,10 @@ test("Hybrid Auralis inputs prefer validated measured quantities, retain compara
   assert.deepEqual(chosen.integratedLufs,{value:-16.5,source:"AURALIS"});
   assert.deepEqual(chosen.loudnessRangeLu,{value:0,source:"AURALIS"});
   assert.deepEqual(chosen.crestFactorDb,{value:12,source:"AURALIS"});
+  const workerOnly=m.selectAuralisHybridInputs(v,undefined);
+  assert.deepEqual(workerOnly.loudnessRangeLu,{value:0,source:"AURALIS"});
+  assert.deepEqual(workerOnly.sustainedContrastDb,{value:undefined,source:"UNAVAILABLE"});
+  assert.deepEqual(workerOnly.midrangeFlatness,{value:undefined,source:"UNAVAILABLE"});
   const separate=m.selectAuralisHybridInputs(v,{...legacy,calculatedDynamicRangeDb:2.5,calculatedMidrangeFlatness:0.4});
   assert.deepEqual(separate.sustainedContrastDb,{value:2.5,source:"LEGACY_ESTIMATE"});
   assert.deepEqual(separate.midrangeFlatness,{value:0.4,source:"LEGACY_ESTIMATE"});
@@ -1990,7 +1994,7 @@ test("Hybrid Auralis inputs prefer validated measured quantities, retain compara
   const byField=Object.fromEntries(rows.map(row=>[row.field,row.value]));
   assert.equal(byField["Sustained contrast source"],"LEGACY_ESTIMATE");
   assert.equal(byField["Midrange flatness source"],"LEGACY_ESTIMATE");
-  assert.equal(byField["Measurement trust"],"CLIENT_WORKER_VALUES; UPLOAD_HASH_CHECKED; SERVER_DSP_NOT_RECOMPUTED");
+  assert.equal(byField["Measurement trust"],"CLIENT_WORKER_VALUES; NORMAL_UPLOAD_FLOW_CHECKS_HASH; SAVED_VALUES_NOT_REVERIFIED; SERVER_DSP_NOT_RECOMPUTED");
   assert.ok(Math.abs(chosen.airPct.value-1500/91)<1e-12);
   assert.ok(Math.abs(chosen.subPct.value-100/91)<1e-12);
   assert.deepEqual(m.selectAuralisHybridInputs(null,legacy).loudnessRangeLu,{value:undefined,source:"UNAVAILABLE"});

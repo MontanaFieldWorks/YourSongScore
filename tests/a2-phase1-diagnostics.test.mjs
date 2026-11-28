@@ -6508,7 +6508,7 @@ test("Boston reference six card labels use true Auralis measured percentages, ne
   assert.match(studio,/band\.powerSharePct===null/);
   assert.match(studio,/band\.powerSharePct\.toFixed\(1\)/);
   assert.match(studio,/of measured power/);
-  assert.match(studio,/Heuristic guidance unavailable for this frequency region/);
+  assert.match(studio,/Listening commentary unavailable for this frequency region/);
   assert.doesNotMatch(studio,/Provisional legacy:|const legacyBandIdeals|provisionalLegacyComparison/);
   assert.match(server,/lowEnd\.sourceVerification/);
 });

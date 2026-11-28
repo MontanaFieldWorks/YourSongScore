@@ -1575,7 +1575,7 @@ export function getAuralisBetaAuditReportRows(critique:unknown):AuralisBetaExcel
   add("Export Policy","Auralis responsibility",c?.auralisHybridInputVersion==="hybrid-v1"?"MEASUREMENT_AND_EXISTING_ENGINEERING_INPUTS":"MEASURED_ENGINEERING_EVIDENCE_ONLY");
   const narrativeMeasurements=validateAuralisNarrativeMeasurements(c?.auralisNarrativeMeasurements);
   add("Narrative Evidence","Gemini engineering context",narrativeMeasurements?"AURALIS_MEASUREMENTS_SUPPLIED":"NOT_CAPTURED");
-  add("Narrative Evidence","Measurement trust",narrativeMeasurements?"CLIENT_WORKER_VALUES; UPLOAD_HASH_CHECKED; SERVER_DSP_NOT_RECOMPUTED":"NOT_CAPTURED");
+  add("Narrative Evidence","Measurement trust",narrativeMeasurements?"CLIENT_WORKER_VALUES; NORMAL_UPLOAD_FLOW_CHECKS_HASH; SAVED_VALUES_NOT_REVERIFIED; SERVER_DSP_NOT_RECOMPUTED":"NOT_CAPTURED");
   if(c?.auralisHybridInputVersion==="hybrid-v1"){
     const inputs=selectAuralisHybridInputs(narrativeMeasurements,c?.liveMetrics);
     for(const [label,measurement,legacy] of [

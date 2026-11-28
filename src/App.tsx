@@ -487,7 +487,9 @@ export default function App() {
   // Final production-finish guardrail runs on the same liveMetrics object that feeds
   // Engineering Studio, eliminating the separate client->server evidence handoff.
   const applyProductionFinishGuardrail = (critique: CritiqueData, liveMetrics: any): CritiqueData => {
-    if (!critique || !liveMetrics) return critique;
+    if (!critique || (!liveMetrics && !validateAuralisNarrativeMeasurements(critique.auralisNarrativeMeasurements))) return critique;
+    // A validated Worker packet does not require the separate legacy analyzer to succeed.
+    liveMetrics = liveMetrics ?? {};
     // Record server-returned child scores before browser corrections, for internal audit only.
     captureA2BeforeClient(critique);
     const finite = (v: any): v is number => typeof v === "number" && Number.isFinite(v);
@@ -787,7 +789,7 @@ export default function App() {
     ) {
       call3.instrumentalStagingSubs.transientPunch.score = transientPunchCap;
       call3.instrumentalStagingSubs.transientPunch.commentary =
-        `The delivered master shows severe peak-density/brickwall evidence (PLR ${finite(measuredPlr) ? measuredPlr.toFixed(1) : "N/A"} dB; LRA ${finite(measuredLra) ? measuredLra.toFixed(1) : "N/A"} LU). Even if individual hits remain audible, the final master does not preserve enough transient headroom to support a top-band Transient Punch score.`;
+        `Existing peak-density score guardrail: sample peak minus loudness ${finite(measuredPlr) ? measuredPlr.toFixed(1) : "N/A"} dB; ${selected.loudnessRangeLu.source==="AURALIS"?"Auralis gated":"legacy estimated"} LRA ${finite(measuredLra) ? measuredLra.toFixed(1) : "N/A"} LU. These values do not establish clipping, limiter settings or audible transient damage; confirm by listening.`;
     }
 
     // Recompute Instrumental Staging if one child was constrained.
@@ -836,12 +838,12 @@ export default function App() {
         const reasons: string[] = [];
         if (dynamicFinishPenalty > 0) {
           reasons.push(
-            `genre-inappropriate dynamic flattening (${finite(measuredDynamicRange) ? measuredDynamicRange.toFixed(1) : "N/A"} dB sustained range; ${finite(measuredLra) ? measuredLra.toFixed(1) : "N/A"} LU LRA)`
+            `existing genre-conditioned dynamics policy (legacy sustained contrast ${finite(measuredDynamicRange) ? measuredDynamicRange.toFixed(1) : "N/A"} dB; ${finite(measuredLra) ? measuredLra.toFixed(1) : "N/A"} LU LRA; not proof of processing)`
           );
         }
         if (brickwallFinishPenalty > 0) {
           reasons.push(
-            `severe brickwall/peak-density evidence (PLR ${finite(measuredPlr) ? measuredPlr.toFixed(1) : "N/A"} dB; LRA ${finite(measuredLra) ? measuredLra.toFixed(1) : "N/A"} LU)`
+            `existing peak-density policy (sample peak minus loudness ${finite(measuredPlr) ? measuredPlr.toFixed(1) : "N/A"} dB; LRA ${finite(measuredLra) ? measuredLra.toFixed(1) : "N/A"} LU; not proof of clipping or limiting)`
           );
         }
 
@@ -1473,8 +1475,8 @@ export default function App() {
       // This is not necessarily the uncapped canonical Gemini tier.
       const serverReturnedSpectralScore =
         overriddenCritique.subMetricsCall1?.spectralMatch?.score;
-      if (liveMetrics) {
-        overriddenCritique.liveMetrics = liveMetrics;
+      if (liveMetrics || overriddenCritique.auralisNarrativeMeasurements) {
+        if (liveMetrics) overriddenCritique.liveMetrics = liveMetrics;
         applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
       } else {
         captureA2BrowserUnavailable(overriddenCritique);
@@ -2374,7 +2376,7 @@ export default function App() {
       if (liveMetrics) {
         overriddenFinalCritique.liveMetrics = liveMetrics;
       }
-      if (overriddenFinalCritique.liveMetrics) {
+      if (overriddenFinalCritique.liveMetrics || overriddenFinalCritique.auralisNarrativeMeasurements) {
         applyProductionFinishGuardrail(overriddenFinalCritique, overriddenFinalCritique.liveMetrics);
       } else {
         captureA2BrowserUnavailable(overriddenFinalCritique);
