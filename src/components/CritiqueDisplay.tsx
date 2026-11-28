@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { CritiqueData, TrackInfo, LiveAudioMetrics } from "../types";
-import { isValidSonicLensSavedMasterEq } from "../lib/liveAudioAnalyzer";
+import { getLegacyMeterDisplayValue, isValidSonicLensSavedMasterEq } from "../lib/liveAudioAnalyzer";
 import { getSubgenreProfile, getVectorTargets, getCritiqueAndFix } from "../data/musicData";
 import { updateTrackFields } from "../firebase";
 import ExcelJS from "exceljs";
@@ -1729,7 +1729,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ],
       callout: "This Metric secures clear frequency separations so that your low and high ends decode without clipping.",
       description: "Audits decibel levels, EQ notches, sibilance de-essing, low frequency separation, and relative placement in the stereo panning field.",
-      feedback: `${critique?.mixQuality?.stereoField ?? "Solid width."} Low frequencies: ${critique?.mixQuality?.frequencyBalance?.lowEnd ?? "Balanced"}. Midrange: ${critique?.mixQuality?.frequencyBalance?.midrange ?? "Clear"}. High-end sibilance: ${critique?.mixQuality?.frequencyBalance?.highEnd ?? "Contained"}. Frequency issues: ${critique?.mixQuality?.dominanceIssues ?? "No bloating present."} ${(critique as any)?.auralisExecution ? "Auralis engineering (NOT SCORED): " + (critique as any).auralisExecution.status + " (" + (critique as any).auralisExecution.reason + "). " : ""}${(critique as any)?.auralisEngineering?.scoringAdapter?.status === "DISABLED_PENDING_STAGE_3D_2" ? "Auralis observations (not scored): " + ((critique as any).auralisEngineering.observations ?? []).join(" ") : ""} ${formatAuralisObjectiveEngineeringFindings(critique)}`
+      feedback: `${critique?.mixQuality?.stereoField ?? "Solid width."} Low frequencies: ${critique?.mixQuality?.frequencyBalance?.lowEnd ?? "Balanced"}. Midrange: ${critique?.mixQuality?.frequencyBalance?.midrange ?? "Clear"}. High-end sibilance: ${critique?.mixQuality?.frequencyBalance?.highEnd ?? "Contained"}. Frequency issues: ${critique?.mixQuality?.dominanceIssues ?? "No bloating present."} ${(critique as any)?.auralisExecution?.status === "AVAILABLE" ? "Auralis measurement evidence available. " : "Auralis measurement evidence unavailable. "} ${formatAuralisObjectiveEngineeringFindings(critique)}`
     },
     {
       id: "vocals",
@@ -2490,8 +2490,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     wsEngineering.getCell("B3").font = { name: "Calibri", size: 10, italic: true, color: { argb: "FF888888" } };
 
     const lm = critique?.liveMetrics;
-    const engLufs = lm?.calculatedLufs;
-    const engLra = lm?.calculatedLra;
+    const engLufs = getLegacyMeterDisplayValue(lm, "calculatedLufs");
+    const engLra = getLegacyMeterDisplayValue(lm, "calculatedLra");
     const engTruePeak = lm?.calculatedTruePeak;
     const engPlr = (engTruePeak !== undefined && engLufs !== undefined) ? Math.abs(engTruePeak - engLufs) : undefined;
 
@@ -3326,7 +3326,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         <div className="flex flex-col gap-3 font-sans text-slate-300">
           <p className="text-xs leading-relaxed">
             For <strong className="text-white">"{name}"</strong> (an arena-ready synth-rock / retro-wave track), the master level is set at a hot <strong className="text-teal-400">
-              {critique?.liveMetrics ? `${critique.liveMetrics.calculatedLufs} LUFS` : "--"}
+              {getLegacyMeterDisplayValue(critique?.liveMetrics, "calculatedLufs") !== undefined ? `${getLegacyMeterDisplayValue(critique?.liveMetrics, "calculatedLufs")} LUFS` : "Unavailable"}
             </strong>. While this sits nicely in the commercial sweet spot of -9.0 to -7.0 LUFS, the heavy-packed arrangement (guitars, wall-of-sound synths, punching drums) and high-frequency sibilance are triggering limiting artifacts.
           </p>
           <span className="text-[12px] font-mono font-bold text-teal-400 uppercase tracking-widest block mt-1">Four-Step Blueprint to Fix Dynamic Balance &amp; LUFS Power:</span>
@@ -3341,7 +3341,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <strong className="text-slate-200">Abbey Road Reverb Filtering:</strong> Clean up the lush spatial ambience. Apply a high-pass filter up to <strong className="text-[#cb9fff]">350Hz</strong> and a low-pass down to <strong className="text-[#cb9fff]">8kHz</strong> on the vocal and synth reverb sends. This clears out cumulative low-mid muddy energy, allowing the master limiter to focus on punching the core transients.
             </li>
             <li>
-              <strong className="text-slate-200">Surgical Transient Preservation:</strong> Slightly slacken the limiter attack time (around <strong className="text-[#cb9fff]">2ms to 5ms</strong>) or use a multi-stage limiter with dynamic clipping. This lets kick and snare transients pass through cleanly, preserving punch while hitting the targeted {critique?.liveMetrics ? `${critique.liveMetrics.calculatedLufs} LUFS` : "--"}.
+              <strong className="text-slate-200">Surgical Transient Preservation:</strong> Slightly slacken the limiter attack time (around <strong className="text-[#cb9fff]">2ms to 5ms</strong>) or use a multi-stage limiter with dynamic clipping. This lets kick and snare transients pass through cleanly, preserving punch while hitting the targeted {getLegacyMeterDisplayValue(critique?.liveMetrics, "calculatedLufs") !== undefined ? `${getLegacyMeterDisplayValue(critique?.liveMetrics, "calculatedLufs")} LUFS` : "Unavailable"}.
             </li>
           </ol>
         </div>
@@ -3381,7 +3381,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div>
                   <span className="text-[12px] font-mono text-slate-400 uppercase">Integrated Loudness</span>
                   <p className="text-xl font-mono font-black text-white mt-1">
-                    {critique?.liveMetrics ? `${critique.liveMetrics.calculatedLufs} LUFS` : "--"}
+                    {getLegacyMeterDisplayValue(critique?.liveMetrics, "calculatedLufs") !== undefined ? `${getLegacyMeterDisplayValue(critique?.liveMetrics, "calculatedLufs")} LUFS` : "Unavailable"}
                   </p>
                 </div>
                 <p className="text-[13px] text-slate-500 mt-2 leading-relaxed">
@@ -3403,7 +3403,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div>
                   <span className="text-[12px] font-mono text-slate-400 uppercase">Loudness Range (LRA)</span>
                   <p className="text-xl font-mono font-black text-white mt-1">
-                    {critique?.liveMetrics ? `${critique.liveMetrics.calculatedLra} LU` : "--"}
+                    {getLegacyMeterDisplayValue(critique?.liveMetrics, "calculatedLra") !== undefined ? `${getLegacyMeterDisplayValue(critique?.liveMetrics, "calculatedLra")} LU` : "Unavailable"}
                   </p>
                 </div>
                 <p className="text-[13px] text-slate-500 mt-2 leading-relaxed">
