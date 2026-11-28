@@ -2137,11 +2137,10 @@ export function prepareAuralisNarrativePacket(diagnostic:unknown,
     engineering:ReturnType<typeof prepareAuralisEngineeringEvidence>) {
   const d=diagnostic as any;
   const l=prepareAuralisSourceLineage(diagnostic);
-  if(!l||l.sourceFormat!=="UNVERIFIED"||!engineering||
-    classifyAuralisExecution("AVAILABLE",engineering).status!=="AVAILABLE"||
-    d.identity.encodedBytes>24*1024*1024)return null;
-  const g=engineering.metrics,m=g.dynamics;
+  if(!l||l.sourceFormat!=="UNVERIFIED"||d.identity.encodedBytes>24*1024*1024)return null;
+  const g=classifyAuralisExecution("AVAILABLE",engineering).status==="AVAILABLE"?engineering?.metrics:null;
   const meter=d.referenceMeters;
+  const m=prepareAuralisDynamicsEvidence(meter,l.workerSampleRate,l.workerChannels,l.workerSamples);
   // The reference meter adapter checked schema, method and exact PCM geometry.
   const numericMeter=(key:string)=>m&&typeof meter?.measurements?.[key]==="number"&&
     Number.isFinite(meter.measurements[key])?meter.measurements[key]:null;
@@ -2149,7 +2148,7 @@ export function prepareAuralisNarrativePacket(diagnostic:unknown,
   const measurements=validateAuralisNarrativeMeasurements({
     version:"auralis-narrative-v1",sampleRate:l.workerSampleRate,
     sampleCount:l.workerSamples,channelCount:l.workerChannels,
-    bandPowerSharePct:g.bandPowerSharePct,lowToUpperDb:g.bandPowerSharePct?g.lowToUpperDb:null,
+    bandPowerSharePct:g?.bandPowerSharePct??null,lowToUpperDb:g?.bandPowerSharePct?g.lowToUpperDb:null,
     integratedLufs:numericMeter("integratedLufs"),samplePeakDbfs:numericMeter("samplePeakDbfs"),
     loudnessRangeLu:m?.loudnessRangeLu??null,crestFactorDb:m?.crestFactorDb??null,
     peakTimeSec:trajectory?(15+trajectory.peakWindowIndex)/10:null,
@@ -2168,7 +2167,7 @@ export function parseAuralisNarrativePacket(raw:unknown,uploadSha256:string): Au
 }
 export function formatAuralisNarrativeContext(raw:unknown,savedReport=false):string {
   const m=validateAuralisNarrativeMeasurements(raw);
-  const instruction="For every engineering narrative and DAW recommendation, distinguish objective measurements from listening-based interpretation. Auralis supplies physical signal measurements; Gemini supplies contextual listening, musical interpretation and practical explanation. Do not invent a measured value, infer source separation, masking, instrument identity, compression history or artistic intent solely from aggregate spectrum, loudness or crest factor. A loudness or spectral characteristic alone is not a defect. Interpret the existing tiers from audio and applicable evidence; do not override deterministic scores or declare an unmeasured quality verdict. Preserve independent low-end role listening checks. Use plain English and conditional listening checks, not universal genre targets or mandatory EQ from band shares.";
+  const instruction="For every engineering narrative and DAW recommendation, distinguish objective measurements from listening-based interpretation. Auralis is the source for physical engineering measurements; explicitly respect its reported values and unavailable fields throughout all main and submetric narratives, action items, feedback, frequency balance, dynamics and climax commentary. Do not restate a conflicting legacy estimate as a measured fact. Auralis supplies physical signal measurements; Gemini supplies contextual listening, musical interpretation and practical explanation. Do not invent a measured value, infer source separation, masking, instrument identity, compression history or artistic intent solely from aggregate spectrum, loudness or crest factor. A loudness or spectral characteristic alone is not a defect. Interpret the existing tiers from audio and applicable evidence; do not override deterministic scores or declare an unmeasured quality verdict. Preserve independent low-end role listening checks. Use plain English and conditional listening checks, not universal genre targets or mandatory EQ from band shares.";
   if(!m)return "\n\n[AURALIS ENGINEERING EVIDENCE UNAVAILABLE]\n"+instruction+
     " No Auralis numerical findings are available for this analysis; state uncertainty rather than inventing them.";
   const val=(v:number|null,unit:string)=>v===null?"unavailable":v.toFixed(2)+" "+unit;
