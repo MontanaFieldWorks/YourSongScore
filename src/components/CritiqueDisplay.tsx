@@ -4080,10 +4080,89 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ? subscoreColors[0] 
       : `linear-gradient(to bottom, ${subscoreColors.join(", ")})`;
     const primaryGlowColor = subscoreColors[0];
+    const isMixBalance = selectedObj.id === "mix";
+    // Shared chart data, weighting and applicability are unchanged; only placement differs.
+    const renderMetricRoseChart = () => {
+      const roseData = (selectedObj.subParams || []).map((param, index) => {
+        const realSub = getRealSubMetric(critique, selectedObj.id, index);
+        const diagnosticMud = selectedObj.id === "mix" && index === 0 && isMudDiagnosticCritique(critique);
+        const subScore = realSub ? realSub.score : getSubScore(selectedObj.score, index, selectedObj.subParams.length, selectedObj.id);
+        let ringColor = "#3b82f6";
+        
+        if (selectedObj.id === "flow") {
+          if (index === 0) ringColor = "#fbbf24";
+          else if (index === 1) ringColor = "#fcd74a";
+          else if (index === 2) ringColor = "#fde972";
+          else if (index === 3) ringColor = "#fef59e";
+        } else if (selectedObj.id === "mix") {
+          if (index === 0) ringColor = "#ff7dd6";
+          else if (index === 1) ringColor = "#ff8fde";
+          else if (index === 2) ringColor = "#ffaeeb";
+          else if (index === 3) ringColor = "#ffc8f6";
+        } else if (selectedObj.id === "vocals") {
+          if (index === 0) ringColor = "#8e7dff";
+          else if (index === 1) ringColor = "#9b8fff";
+          else if (index === 2) ringColor = "#b3aeff";
+        } else if (selectedObj.id === "instrumental") {
+          if (index === 0) ringColor = "#10b981";
+          else if (index === 1) ringColor = "#34d399";
+          else if (index === 2) ringColor = "#6ee7b7";
+        } else if (selectedObj.id === "searchability") {
+          if (index === 0) ringColor = "#f472b6";
+          else if (index === 1) ringColor = "#f9a8d4";
+        } else if (selectedObj.id === "readiness" || selectedObj.id === "production") {
+          if (index === 0) ringColor = "#4fa6ff";
+          else if (index === 1) ringColor = "#74c8f6";
+          else if (index === 2) ringColor = "#6cdfff";
+        } else if (selectedObj.id === "artistic") {
+          if (index === 0) ringColor = "#ec4899";
+          else if (index === 1) ringColor = "#f472b6";
+          else if (index === 2) ringColor = "#f9a8d4";
+          else if (index === 3) ringColor = "#fbcfe8";
+        } else if (selectedObj.id === "lyrics") {
+          if (index === 0) ringColor = "#22d3ee";
+          else if (index === 1) ringColor = "#67e8f9";
+        } else if (selectedObj.id === "theory") {
+          if (index === 0) ringColor = "#818cf8";
+          else if (index === 1) ringColor = "#a5b4fc";
+        } else if (selectedObj.id === "dna-melodic") {
+          ringColor = index === 0 ? "#10b981" : "#34d399";
+        } else if (selectedObj.id === "dna-tension") {
+          ringColor = index === 0 ? "#10b981" : "#34d399";
+        } else if (selectedObj.id === "dna-density") {
+          ringColor = index === 0 ? "#10b981" : "#34d399";
+        } else {
+          if (subScore >= 85) ringColor = "#10b981";
+          else if (subScore >= 75) ringColor = "#fbbf24";
+          else ringColor = "#f43f5e";
+        }
+        
+        const weightMatch = param.name.match(/\(([\d.]+)%\)/);
+        const parsedWeight = weightMatch 
+          ? parseFloat(weightMatch[1])
+          : (selectedObj.id === "artistic" ? (param.name === "Harmonic Intrigue" ? 40 : 30) : (100 / (selectedObj.subParams?.length || 4)));
+        return {
+          name: param.name.split(" (")[0],
+          score: subScore,
+          color: ringColor,
+          weight: diagnosticMud ? 0 : parsedWeight,
+          applicable: !diagnosticMud && realSub?.applicable !== false &&
+            !(selectedObj.id === "mix" && isMudDiagnosticCritique(critique) &&
+              index > 0 &&
+              getMixBalanceEffectiveWeight(critique?.subMetricsCall1, CALL1_FIELD_MAP.mix[index] as "midrangeSpacing" | "lowEndDivision" | "sibilanceShaving" | "stereoWidth") === null),
+        };
+      });
+      // Drop genuinely not-applicable sub-metrics from the chart rather than
+      // plotting their 0 placeholder, which would render as a collapsed petal
+      // and read as a catastrophic failure score - the opposite distortion from
+      // the absence-scored-as-100 problem, but just as misleading to the user.
+      const visibleRoseData = roseData.filter((d: any) => d.applicable);
+      return <RoseChart data={visibleRoseData.length > 0 ? visibleRoseData : roseData} />;
+    };
 
     return (
       <div style={{ marginTop: "0px", paddingTop: "0px" }} className="animate-fadeIn font-sans relative">
-        <div style={{ position: "relative", left: "10px" }} className="bg-[#050608] p-6 rounded-2xl border border-white/10 flex flex-col md:flex-row gap-6 items-start relative overflow-hidden shadow-2xl">
+        <div style={{ position: "relative", left: "10px" }} className={`bg-[#050608] p-6 rounded-2xl border border-white/10 flex flex-col ${isMixBalance ? "" : "md:flex-row"} gap-6 items-start relative overflow-hidden shadow-2xl`}>
           <div 
             style={{ 
               left: "10px", 
@@ -4441,9 +4520,11 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
             {/* Embedded custom high-end visualizer graphs and technical explanation breakdown columns */}
             {selectedObj.id !== "readiness" && renderMetricVisualizerFeature(selectedObj.id, selectedObj.score)}
+            {isMixBalance && renderMetricRoseChart()}
           </div>
 
-          {/* REQ: Right Column - AI Consultant Response / A&R Eval Summary with Highlighted importance pill */}
+          {/* Other metrics retain their existing right-column evaluation summary. */}
+          {!isMixBalance && (
           <div className="w-full md:w-[256px] bg-[#020203] py-5 px-3 rounded-2xl border border-white/10 self-stretch flex flex-col justify-between">
             <div>
               <div className="mb-4">
@@ -4479,84 +4560,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 "{adjustFeedbackForGenreOverride(selectedObj.feedback) || "Detailed sonics and frequency feedback is compiling for this sub-factor."}"
               </p>
 
-              {/* Dynamic Nightingale Rose Chart reflecting the 4 sub-scores */}
-              {(() => {
-                const roseData = (selectedObj.subParams || []).map((param, index) => {
-                  const realSub = getRealSubMetric(critique, selectedObj.id, index);
-                  const diagnosticMud = selectedObj.id === "mix" && index === 0 && isMudDiagnosticCritique(critique);
-                  const subScore = realSub ? realSub.score : getSubScore(selectedObj.score, index, selectedObj.subParams.length, selectedObj.id);
-                  let ringColor = "#3b82f6";
-                  
-                  if (selectedObj.id === "flow") {
-                    if (index === 0) ringColor = "#fbbf24";
-                    else if (index === 1) ringColor = "#fcd74a";
-                    else if (index === 2) ringColor = "#fde972";
-                    else if (index === 3) ringColor = "#fef59e";
-                  } else if (selectedObj.id === "mix") {
-                    if (index === 0) ringColor = "#ff7dd6";
-                    else if (index === 1) ringColor = "#ff8fde";
-                    else if (index === 2) ringColor = "#ffaeeb";
-                    else if (index === 3) ringColor = "#ffc8f6";
-                  } else if (selectedObj.id === "vocals") {
-                    if (index === 0) ringColor = "#8e7dff";
-                    else if (index === 1) ringColor = "#9b8fff";
-                    else if (index === 2) ringColor = "#b3aeff";
-                  } else if (selectedObj.id === "instrumental") {
-                    if (index === 0) ringColor = "#10b981";
-                    else if (index === 1) ringColor = "#34d399";
-                    else if (index === 2) ringColor = "#6ee7b7";
-                  } else if (selectedObj.id === "searchability") {
-                    if (index === 0) ringColor = "#f472b6";
-                    else if (index === 1) ringColor = "#f9a8d4";
-                  } else if (selectedObj.id === "readiness" || selectedObj.id === "production") {
-                    if (index === 0) ringColor = "#4fa6ff";
-                    else if (index === 1) ringColor = "#74c8f6";
-                    else if (index === 2) ringColor = "#6cdfff";
-                  } else if (selectedObj.id === "artistic") {
-                    if (index === 0) ringColor = "#ec4899";
-                    else if (index === 1) ringColor = "#f472b6";
-                    else if (index === 2) ringColor = "#f9a8d4";
-                    else if (index === 3) ringColor = "#fbcfe8";
-                  } else if (selectedObj.id === "lyrics") {
-                    if (index === 0) ringColor = "#22d3ee";
-                    else if (index === 1) ringColor = "#67e8f9";
-                  } else if (selectedObj.id === "theory") {
-                    if (index === 0) ringColor = "#818cf8";
-                    else if (index === 1) ringColor = "#a5b4fc";
-                  } else if (selectedObj.id === "dna-melodic") {
-                    ringColor = index === 0 ? "#10b981" : "#34d399";
-                  } else if (selectedObj.id === "dna-tension") {
-                    ringColor = index === 0 ? "#10b981" : "#34d399";
-                  } else if (selectedObj.id === "dna-density") {
-                    ringColor = index === 0 ? "#10b981" : "#34d399";
-                  } else {
-                    if (subScore >= 85) ringColor = "#10b981";
-                    else if (subScore >= 75) ringColor = "#fbbf24";
-                    else ringColor = "#f43f5e";
-                  }
-                  
-                  const weightMatch = param.name.match(/\(([\d.]+)%\)/);
-                  const parsedWeight = weightMatch 
-                    ? parseFloat(weightMatch[1])
-                    : (selectedObj.id === "artistic" ? (param.name === "Harmonic Intrigue" ? 40 : 30) : (100 / (selectedObj.subParams?.length || 4)));
-                  return {
-                    name: param.name.split(" (")[0],
-                    score: subScore,
-                    color: ringColor,
-                    weight: diagnosticMud ? 0 : parsedWeight,
-                    applicable: !diagnosticMud && realSub?.applicable !== false &&
-                      !(selectedObj.id === "mix" && isMudDiagnosticCritique(critique) &&
-                        index > 0 &&
-                        getMixBalanceEffectiveWeight(critique?.subMetricsCall1, CALL1_FIELD_MAP.mix[index] as "midrangeSpacing" | "lowEndDivision" | "sibilanceShaving" | "stereoWidth") === null),
-                  };
-                });
-                // Drop genuinely not-applicable sub-metrics from the chart rather than
-                // plotting their 0 placeholder, which would render as a collapsed petal
-                // and read as a catastrophic failure score - the opposite distortion from
-                // the absence-scored-as-100 problem, but just as misleading to the user.
-                const visibleRoseData = roseData.filter((d: any) => d.applicable);
-                return <RoseChart data={visibleRoseData.length > 0 ? visibleRoseData : roseData} />;
-              })()}
+              {renderMetricRoseChart()}
             </div>
 
             <div className="mt-4 pt-3.5 border-t border-white/5 flex items-center justify-between text-[12px] font-mono text-slate-500">
@@ -4564,6 +4568,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <span className="text-emerald-500 font-bold uppercase tracking-wide">COMPLETED</span>
             </div>
           </div>
+          )}
         </div>
       </div>
     );
