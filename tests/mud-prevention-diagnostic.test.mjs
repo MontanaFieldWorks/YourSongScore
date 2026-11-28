@@ -501,7 +501,8 @@ test("Stage 3D-2A reconciles existing caps without new numeric policies or write
   assert.match(app,/const STAGE2C2A_DIAGNOSTICS_ENABLED = false/);
   assert.match(app,/computeMixBalanceScore\(call1, isMudDiagnosticCritique\(critique\)\)/);
   assert.match(server,/computeMixBalanceScore\(c1Ready, true\)/);
-  assert.match(display,/Auralis observations \(not scored\)/);
+  assert.match(display,/Auralis measurement evidence available/);
+  assert.match(display,/formatAuralisObjectiveEngineeringFindings\(critique\)/);
   assert.equal(AURALIS_ENGINEERING_SCORE_POLICY,"DISABLED_PENDING_STAGE_3D_2");
 });
 
