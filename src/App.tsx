@@ -5,7 +5,7 @@ import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, 
 import type { SonicLensSavedMasterEqProfile } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey, measureSonicLensSavedMasterEq, isValidSonicLensSavedMasterEq } from "./lib/liveAudioAnalyzer";
 import type { AuralisEncodedSourceIdentity } from "./lib/liveAudioAnalyzer";
-import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow, resolveAuralisReviewedRealShadowContext, planAuralisReviewed79ScoreIntegration, executeAuralisReviewed79Score, authorizeAuralisReviewed79Execution, authorizeAuralisCarryOnPairedExecution, isAuralisStage3F9IdentityCandidate, isAuralisStage3F9ExactEncodedIdentity, summarizeAuralisQueuedMp3Shadow } from "./lib/mudPreventionDiagnostic";
+import { prepareAuralisNarrativePacket, prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow, resolveAuralisReviewedRealShadowContext, planAuralisReviewed79ScoreIntegration, executeAuralisReviewed79Score, authorizeAuralisReviewed79Execution, authorizeAuralisCarryOnPairedExecution, isAuralisStage3F9IdentityCandidate, isAuralisStage3F9ExactEncodedIdentity, summarizeAuralisQueuedMp3Shadow } from "./lib/mudPreventionDiagnostic";
 
 // Disabled by default: internal opt-in diagnostic computation only, no report/scoring data.
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
@@ -1393,6 +1393,7 @@ export default function App() {
       engineering:ReturnType<typeof prepareAuralisEngineeringEvidence>;
       sourceLineage:ReturnType<typeof prepareAuralisSourceLineage>;
       execution:ReturnType<typeof classifyAuralisExecution>;
+      narrativePacket: ReturnType<typeof prepareAuralisNarrativePacket>;
     } | null> | null = null;
     let auralisEncodedIdentity: Promise<AuralisEncodedSourceIdentity> | undefined;
     setLoading(true);
@@ -1466,7 +1467,7 @@ export default function App() {
           });
       }
       // Optional score-inert engineering evidence. The Worker validates the
-      // envelope and PCM provenance. Never pass this to Gemini or the scoring guards.
+      // envelope and PCM provenance. A compact numeric context may inform Gemini; no override authority.
       if (STAGE3D1_AURALIS_EVIDENCE_ENABLED && !a2PilotEnabled &&
           diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
         const controller = new AbortController();
@@ -1480,11 +1481,12 @@ export default function App() {
             return {
               engineering,
               sourceLineage:prepareAuralisSourceLineage(result),
+              narrativePacket:prepareAuralisNarrativePacket(result,engineering),
               execution:classifyAuralisExecution(result.status, engineering),
             };
           })
           .catch(() => ({
-            engineering:null,sourceLineage:null,
+            engineering:null,sourceLineage:null,narrativePacket:null,
             execution:classifyAuralisExecution("FAILED",null),
           }));
       }
@@ -1500,6 +1502,11 @@ export default function App() {
     }
 
     try {
+      // Await the already-running bounded Worker; never launch a second analysis.
+      const narrativeEvidence = auralisEvidencePromise ? await auralisEvidencePromise : null;
+      if(diagnosticGeneration !== auralisDiagnosticGenerationRef.current)return;
+      if(!a2PilotEnabled && /\.mp3$/i.test(selectedFile.name) && narrativeEvidence?.narrativePacket)
+        formData.append("measuredEngineeringContext", JSON.stringify(narrativeEvidence.narrativePacket));
       // Step A: Upload and trigger Gemini analysis
       setLoadingStatus(threeXMode ? "Multi-pass analysis starting up..." : "Gemini is listening to your transients and harmonics...");
       const res = await fetch("/api/critique-file", {
@@ -1541,9 +1548,8 @@ export default function App() {
 
       const overriddenCritique = applyGenreOverride(data.critique);
       // Attach only validated compact observations, not PCM or full frame arrays.
-      // Failures and A2 pilots retain the original untouched score path.
-      // Record both success and failure; silence never masquerades as successful
-      // Auralis analysis. No diagnostic result changes Gemini or production scores.
+      // A2 and unavailable evidence retain the existing deterministic scoring path.
+      // Gemini may use measured context; the diagnostic has no override authority.
       const auralisEvidence = auralisEvidencePromise
         ? await auralisEvidencePromise : null;
       const execution = resolveAuralisExecutionForReport(
@@ -2178,6 +2184,7 @@ export default function App() {
       engineering: ReturnType<typeof prepareAuralisEngineeringEvidence>;
       sourceLineage: ReturnType<typeof prepareAuralisSourceLineage>;
       execution: ReturnType<typeof classifyAuralisExecution>;
+      narrativePacket: ReturnType<typeof prepareAuralisNarrativePacket>;
     } | null> | null = null;
     let queuedEvidenceFile: File | null = null;
     const queuedIsCurrent = () =>
@@ -2248,13 +2255,14 @@ export default function App() {
             return {
               engineering,
               sourceLineage: prepareAuralisSourceLineage(result),
+              narrativePacket: prepareAuralisNarrativePacket(result,engineering),
               execution: classifyAuralisExecution(
                 result.status, engineering,
                 result.status === "UNAVAILABLE" ? result.reason : undefined
               ),
             };
           }).catch(() => ({
-            engineering: null, sourceLineage: null,
+            engineering: null, sourceLineage: null, narrativePacket: null,
             execution: classifyAuralisExecution("FAILED", null),
           }));
         }
@@ -2365,7 +2373,10 @@ export default function App() {
           formData.append("detectedKey", earlyLiveMetrics?.calculatedKey || "");
           formData.append("chordProgressionSummary", chordProgressionSummary || "");
           formData.append("melodySummary", melodySummary || "");
-          
+          const narrativeEvidence = queuedEvidencePromise ? await queuedEvidencePromise : null;
+          if(!queuedIsCurrent())return;
+          if(!a2PilotEnabled && queuedEvidenceFile===cachedFile && narrativeEvidence?.narrativePacket)
+            formData.append("measuredEngineeringContext", JSON.stringify(narrativeEvidence.narrativePacket));
           const res = await fetch("/api/critique-file", {
             method: "POST",
             body: formData,
