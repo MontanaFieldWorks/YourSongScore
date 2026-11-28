@@ -2691,7 +2691,7 @@ test("Stage 2C2B-1B browser hook remains disabled and nonblocking",async()=>{
   assert.match(app,/void analyzeEngineeringDiagnosticsInWorker\(audioBuffer, controller\.signal\)/);
   assert.match(app,/\.catch\(\(\) => \{[\s\S]*?console\.warn\("\[Stage2C2B\] Diagnostic worker unavailable"\)/);
   assert.doesNotMatch(app,/runStage2c2aBrowserDiagnostics\(audioBuffer/);
-  assert.doesNotMatch(app,/await analyzeEngineeringDiagnosticsInWorker/);
+  assert.doesNotMatch(app,/await analyzeEngineeringDiagnosticsInWorker\(audioBuffer, controller\.signal\)/); // The obsolete Stage 2 hook stays nonblocking; the new hybrid path awaits its own evidence.
   assert.doesNotMatch(app,/overriddenCritique\.engineeringEvidence|formData\.append\("engineeringEvidence"/);
 });
 
@@ -2742,7 +2742,7 @@ test("Auralis 2C2B-1D lifecycle guard is isolated from scoring and A2", async ()
   assert.match(app,/analyzeEngineeringDiagnosticsInWorker\(audioBuffer, controller\.signal\)/);
   assert.match(app,/if \(!controller\.signal\.aborted &&[\s\S]*?auralisDiagnosticAbortRef\.current === controller &&[\s\S]*?diagnosticGeneration === auralisDiagnosticGenerationRef\.current\)/);
   assert.match(app,/if \(diagnosticGeneration === auralisDiagnosticGenerationRef\.current\) \{\s*cancelAuralisDiagnostic\(\);\s*setLoading\(false\);\s*\}/);
-  assert.doesNotMatch(app,/await analyzeEngineeringDiagnosticsInWorker/);
+  assert.doesNotMatch(app,/await analyzeEngineeringDiagnosticsInWorker\(audioBuffer, controller\.signal\)/); // The obsolete Stage 2 hook stays nonblocking; the new hybrid path awaits its own evidence.
   assert.doesNotMatch(app,/formData\.append\("auralis|formData\.append\("engineeringEvidence/);
   // Internal Stage 2 diagnostics remain isolated; only the separate normal MP3 numeric packet may be sent.
   assert.equal((app.match(/formData\.append\("measuredEngineeringContext"/g)||[]).length,3);
@@ -3882,7 +3882,7 @@ test("Auralis 2F1: diagnostic hook and worker remain separate from scoring and r
   const bridge=await readFile(new URL("../src/lib/batchAudioWorker.ts",import.meta.url),"utf8");
   assert.match(app,/const STAGE2C2A_DIAGNOSTICS_ENABLED = false;/);
   assert.match(app,/void analyzeEngineeringDiagnosticsInWorker\(audioBuffer, controller\.signal\)/);
-  assert.doesNotMatch(app,/await analyzeEngineeringDiagnosticsInWorker/);
+  assert.doesNotMatch(app,/await analyzeEngineeringDiagnosticsInWorker\(audioBuffer, controller\.signal\)/); // The obsolete Stage 2 hook stays nonblocking; the new hybrid path awaits its own evidence.
   assert.doesNotMatch(app,/formData\.append\(["']engineeringEvidence["']/);
   assert.doesNotMatch(server,/analyzeEngineeringDiagnosticsInWorker|runStage2c2aBrowserDiagnostics/);
   assert.match(worker,/if \(event\.data\.kind === "ENGINEERING_DIAGNOSTICS"\)/);
