@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import FFT from "fft.js";
-import { getLegacyMeterDisplayValue, isValidSonicLensSavedMasterEq, buildSonicLensInteractiveEqPreview, summarizeSonicLensMeasuredOverview, describeSonicLensMeasuredBand, SONICLENS_SIX_BAND_EDGES_HZ, SONICLENS_SIX_BAND_NAMES } from "../lib/liveAudioAnalyzer";
+import { selectAuralisHybridInputs } from "../lib/mudPreventionDiagnostic";
+import { isValidSonicLensSavedMasterEq, buildSonicLensInteractiveEqPreview, summarizeSonicLensMeasuredOverview, describeSonicLensMeasuredBand, SONICLENS_SIX_BAND_EDGES_HZ, SONICLENS_SIX_BAND_NAMES } from "../lib/liveAudioAnalyzer";
 import { 
   ArrowLeft, ArrowRight, Volume2, Sliders, Mic, CheckCircle, Square, Play, Pause, 
   Activity, Sparkles, Cpu, AlertTriangle, Check, RotateCcw, Compass, Layers, CheckSquare,
@@ -335,14 +336,16 @@ export default function EngineeringStudioPage({ onBack, critique, trackInfo, loc
   const audioSourceUrl = localFileBlobUrl || "";
   const finiteMetric = (v: unknown): number | undefined =>
     typeof v === "number" && Number.isFinite(v) ? v : undefined;
-  const studioLufs = getLegacyMeterDisplayValue(critique?.liveMetrics, "calculatedLufs");
-  const studioLra = getLegacyMeterDisplayValue(critique?.liveMetrics, "calculatedLra");
-  const studioPeak = finiteMetric(critique?.liveMetrics?.calculatedTruePeak);
+  const studioInputs=selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics);
+  const studioLufs = studioInputs.integratedLufs.value;
+  const studioLra = studioInputs.loudnessRangeLu.value;
+  const studioPeak = studioInputs.samplePeakDbfs.value;
+  const meterSource=(source:string)=>source==="AURALIS"?"Auralis measured":source==="LEGACY_ESTIMATE"?"Legacy estimate":"Unavailable";
   const studioBass = finiteMetric(critique?.liveMetrics?.calculatedBassEnergy);
   const studioMid = finiteMetric(critique?.liveMetrics?.calculatedMidEnergy);
   const studioHigh = finiteMetric(critique?.liveMetrics?.calculatedHighEnergy);
-  const studioPlr = studioPeak !== undefined && studioLufs !== undefined
-    ? Math.abs(studioPeak - studioLufs) : undefined;
+  const studioPlr = studioPeak !== undefined && studioLufs !== undefined && studioInputs.samplePeakDbfs.source===studioInputs.integratedLufs.source
+    ? studioPeak - studioLufs : undefined;
   const displayMeter = (value: number | undefined, unit: string) =>
     value === undefined ? "Unavailable" : `${value.toFixed(1)} ${unit}`;
   const [cachedSpectrumMeasuring, setCachedSpectrumMeasuring] = useState(false);
@@ -1002,7 +1005,7 @@ const generateHarmonicNodes = () => {
                       {/* Clipping detection */}
                       <div className="bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-xl flex items-center justify-between text-xs text-rose-400">
                         <span className="flex items-center gap-1.5 font-bold">
-                          <ShieldAlert className="w-4 h-4 text-rose-400" /> Legacy sample-peak headroom (approx.)
+                          <ShieldAlert className="w-4 h-4 text-rose-400" /> Sample-peak headroom
                         </span>
                         <span className="font-mono font-bold uppercase text-[10px] tracking-wider px-2 py-0.5 bg-rose-500/15 rounded-md text-glow">
                           {studioPeak !== undefined ? studioPeak > -1.0 ? `Review (${studioPeak} dBFS)` : `Below advisory ceiling (${studioPeak} dBFS)` : "Unavailable"}
@@ -1018,15 +1021,15 @@ const generateHarmonicNodes = () => {
                       <div className="bg-[#0A0B0E] p-4.5 rounded-xl border border-white/5">
                         <span className="text-[9px] font-mono text-slate-500 uppercase font-bold tracking-wider">Integrated Loudness</span>
                         <div className="text-xl font-extrabold text-white mt-1.5 font-mono text-glow">
-                          {displayMeter(studioLufs, "LUFS")}
+                          {displayMeter(studioLufs, "LUFS")} <span className="text-[9px] text-slate-400">{meterSource(studioInputs.integratedLufs.source)}</span>
                         </div>
                         <p className="text-[9.5px] text-slate-400 mt-1 leading-relaxed">
                           {(() => {
                             const b965 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
                             if (studioLufs === undefined) return `Measurement unavailable. YSS target window: ${b965.lufsMin} to ${b965.lufsMax} LUFS.`;
-                            if (studioLufs > b965.lufsMax) return "Legacy estimate is above the YSS genre target; loudness alone cannot establish limiting.";
-                            if (studioLufs < b965.lufsMin) return "Legacy estimate is below the YSS genre target; compare at matched playback level.";
-                            return `Nicely optimized within the ${b965.lufsMin} to ${b965.lufsMax} LUFS target window for ${b965.label}.`;
+                            if (studioLufs > b965.lufsMax) return "Loudness is above the YSS genre target; loudness alone cannot establish limiting.";
+                            if (studioLufs < b965.lufsMin) return "Loudness is below the YSS genre target; compare at matched playback level.";
+                            return `Within the ${b965.lufsMin} to ${b965.lufsMax} LUFS target window for ${b965.label}.`;
                           })()}
                         </p>
                       </div>
@@ -1034,7 +1037,7 @@ const generateHarmonicNodes = () => {
                       <div className="bg-[#0A0B0E] p-4.5 rounded-xl border border-white/5">
                         <span className="text-[9px] font-mono text-slate-500 uppercase font-bold tracking-wider">Loudness Range (LRA)</span>
                         <div className="text-xl font-extrabold text-white mt-1.5 font-mono text-glow text-cyan-400">
-                          {displayMeter(studioLra, "LU")}
+                          {displayMeter(studioLra, "LU")} <span className="text-[9px] text-slate-400">{meterSource(studioInputs.loudnessRangeLu.source)}</span>
                         </div>
                         <p className="text-[9.5px] text-slate-400 mt-1 leading-relaxed">
                           {(() => {
@@ -1043,17 +1046,17 @@ const generateHarmonicNodes = () => {
                             if (lra === undefined) return `Target window for ${lraBucket.label}: ${lraBucket.lraMin}${lraBucket.lraMax !== null ? `-${lraBucket.lraMax}` : "+"} LU.`;
                             if (lra < lraBucket.lraMin) return `Narrower than the ${lraBucket.lraMin}-${lraBucket.lraMax ?? "+"} LU target for ${lraBucket.label} — mix may feel flat, with verses and choruses too close in perceived volume.`;
                             if (lraBucket.lraMax !== null && lra > lraBucket.lraMax) return `Wider than the ${lraBucket.lraMin}-${lraBucket.lraMax} LU target for ${lraBucket.label} — verify choruses hit hard enough on consumer playback systems.`;
-                            return `Healthy dynamic variation, within the ${lraBucket.lraMin}${lraBucket.lraMax !== null ? `-${lraBucket.lraMax}` : "+"} LU target for ${lraBucket.label}.`;
+                            return `Within the ${lraBucket.lraMin}${lraBucket.lraMax !== null ? `-${lraBucket.lraMax}` : "+"} LU target for ${lraBucket.label}.`;
                           })()}
                         </p>
                       </div>
 
                       <div className="bg-[#0A0B0E] p-4.5 rounded-xl border border-white/5">
-                        <span className="text-[9px] font-mono text-slate-500 uppercase font-bold tracking-wider">Peak-to-loudness proxy (legacy)</span>
+                        <span className="text-[9px] font-mono text-slate-500 uppercase font-bold tracking-wider">Sample peak-to-loudness ratio</span>
                         <div className="text-xl font-extrabold text-white mt-1.5 font-mono text-glow text-purple-400">
                           {displayMeter(studioPlr, "dB")}
                         </div>
-                        <p className="text-[9.5px] text-slate-400 mt-1 leading-relaxed">Approximate sample peak minus legacy integrated loudness; not crest factor or proof of compression.</p>
+                        <p className="text-[9.5px] text-slate-400 mt-1 leading-relaxed">Sample peak minus integrated loudness using one measurement source; not crest factor or proof of compression.</p>
                       </div>
 
                       <div className="bg-[#0A0B0E] p-4.5 rounded-xl border border-white/5">
@@ -1101,13 +1104,13 @@ const generateHarmonicNodes = () => {
                       <span className="text-[9.5px] font-mono text-slate-500 uppercase tracking-wider block">Peak-to-Loudness (PLR)</span>
                       <span className="text-2xl font-black text-white mt-1.5 block font-mono text-glow">{displayMeter(studioPlr, "dB")}</span>
                       <span className="text-[9px] text-slate-400 mt-1 block">
-                        {studioPlr === undefined ? "Measurement unavailable." : "Legacy peak-to-loudness proxy; does not establish brickwall limiting."}
+                        {studioPlr === undefined ? "Measurement unavailable." : "Sample peak-to-loudness ratio; does not establish brickwall limiting."}
                       </span>
                     </div>
 
                     <div className="bg-[#0A0B0E] p-4 rounded-xl border border-white/5 text-center">
-                      <span className="text-[9.5px] font-mono text-slate-500 uppercase tracking-wider block">Legacy loudness range (LRA)</span>
-                      <span className="text-2xl font-black text-rose-400 mt-1.5 block font-mono text-glow">{displayMeter(studioLra, "LU")}</span>
+                      <span className="text-[9.5px] font-mono text-slate-500 uppercase tracking-wider block">Loudness range (LRA)</span>
+                      <span className="text-2xl font-black text-rose-400 mt-1.5 block font-mono text-glow">{displayMeter(studioLra, "LU")} <span className="text-[9px] text-slate-400">{meterSource(studioInputs.loudnessRangeLu.source)}</span></span>
                       <span className="text-[9px] text-slate-400 mt-1 block">
                         {(() => {
                           const drBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
@@ -1306,7 +1309,7 @@ const generateHarmonicNodes = () => {
                           })()}
                         </div>
                         <p className="text-[11px] text-slate-400 mt-3.5 leading-relaxed">
-                          Legacy loudness comparison to a YSS genre target, not a measured comparison to a professional reference recording.
+                          Loudness comparison to a YSS genre target, not a measured comparison to a professional reference recording.
                         </p>
                       </div>
                       <div className="bg-lime-500/5 border border-lime-500/15 p-3 rounded-xl mt-4 text-[10.5px] text-lime-400 leading-relaxed font-mono">
@@ -1314,9 +1317,9 @@ const generateHarmonicNodes = () => {
                         {(() => {
                           const b1339 = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
                           if (studioLufs === undefined) return "Measurement unavailable.";
-                          if (studioLufs > b1339.lufsMax) return "Legacy loudness estimate above YSS target.";
-                          if (studioLufs < b1339.lufsMin) return "Legacy loudness estimate below YSS target.";
-                          return "Legacy loudness estimate within YSS target; no spectral quality verdict.";
+                          if (studioLufs > b1339.lufsMax) return "Loudness measurement above YSS target.";
+                          if (studioLufs < b1339.lufsMin) return "Loudness measurement below YSS target.";
+                          return "Loudness measurement within YSS target; no spectral quality verdict.";
                         })()}
                       </div>
                     </div>
