@@ -334,16 +334,11 @@ export default function EngineeringStudioPage({ onBack, critique, trackInfo, loc
   const artistName = trackInfo?.artist || "Independent Songwriter";
   const coverArt = trackInfo?.coverArt;
   const audioSourceUrl = localFileBlobUrl || "";
-  const finiteMetric = (v: unknown): number | undefined =>
-    typeof v === "number" && Number.isFinite(v) ? v : undefined;
   const studioInputs=selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics);
   const studioLufs = studioInputs.integratedLufs.value;
   const studioLra = studioInputs.loudnessRangeLu.value;
   const studioPeak = studioInputs.samplePeakDbfs.value;
   const meterSource=(source:string)=>source==="AURALIS"?"Auralis measured":source==="LEGACY_ESTIMATE"?"Legacy estimate":"Unavailable";
-  const studioBass = finiteMetric(critique?.liveMetrics?.calculatedBassEnergy);
-  const studioMid = finiteMetric(critique?.liveMetrics?.calculatedMidEnergy);
-  const studioHigh = finiteMetric(critique?.liveMetrics?.calculatedHighEnergy);
   const studioPlr = studioPeak !== undefined && studioLufs !== undefined && studioInputs.samplePeakDbfs.source===studioInputs.integratedLufs.source
     ? studioPeak - studioLufs : undefined;
   const displayMeter = (value: number | undefined, unit: string) =>
@@ -453,84 +448,41 @@ export default function EngineeringStudioPage({ onBack, critique, trackInfo, loc
     }
   };
 
-  // 3. Simulated Deep Sweep Core Analyzer
+  // Open the existing report. This action performs no new audio measurement.
   const startAcousticAnalysis = () => {
-    setIsAnalyzing(true);
-    setAnalysisProgress(0);
-    setAnalysisStep("Initializing acoustic sweep parameters...");
-
-    const steps = [
-      { progress: 12, msg: "Allocating FFT spectral frequency bins..." },
-      { progress: 28, msg: "Scanning low-end dc mud and kick-bass transient clashing..." },
-      { progress: 48, msg: "Evaluating mid-range build-up & comb filtering around 200Hz - 600Hz..." },
-      { progress: 68, msg: "Pinpointing sibilance energy and transient harshness peak nodes..." },
-      { progress: 85, msg: "Measuring vocal-to-beat pocket levels and stereo correlations..." },
-      { progress: 100, msg: "Deep analysis complete! Loading laser-precision mixing matrices..." }
-    ];
-
-    steps.forEach((step, idx) => {
-      setTimeout(() => {
-        setAnalysisProgress(step.progress);
-        setAnalysisStep(step.msg);
-
-        if (idx === steps.length - 1) {
-          setTimeout(() => {
-            setIsAnalyzing(false);
-            setIsAnalyzed(true);
-            generateHarmonicNodes();
-          }, 600);
-        }
-      }, (idx + 1) * 600);
-    });
+    setIsAnalyzed(true);
+    generateHarmonicNodes();
   };
 
-  // 4. Generate Realistic Correction Nodes based on critique metrics
+  // Checklist guidance is conditional and uses actual saved spectral regions.
+  // No fixed cut/boost, quality target or severity can be derived from a power share.
 const generateHarmonicNodes = () => {
-    const bass = studioBass, mid = studioMid, high = studioHigh, lufs = studioLufs;
-    if (bass === undefined || mid === undefined || high === undefined || lufs === undefined ||
-        [bass, mid, high].some(v => v < 0 || v > 100)) {
+    const overview = summarizeSonicLensMeasuredOverview(critique?.auralisMasterEqProfile);
+    if (!overview) {
       setHarmonicNodes([]);
       return;
     }
-    // Existing coarse legacy heuristics only; no keyword-triggered severity.
-    const subStatus: HarmonicNode["status"] = bass > 45 ? "critical" : bass < 22 ? "warning" : "optimized";
-    const subDbOffset = bass > 45 ? parseFloat((bass * 0.09).toFixed(1))
-      : bass < 22 ? parseFloat(((22 - bass) * 0.08 * -1).toFixed(1)) : 1.2;
-    const mudSeverity: HarmonicNode["status"] = bass > 38 ? "warning" : "optimized";
-    const mudDb = mudSeverity === "warning" ? 2.1 : 0.8;
-    const mudFreq = bass > 42 ? "220 Hz" : "265 Hz";
-    const boxySeverity: HarmonicNode["status"] = mid > 52 ? "warning" : "optimized";
-    const boxyDb = boxySeverity === "warning" ? parseFloat(((mid - 45) * 0.08).toFixed(1)) : 0.6;
-    const harshSeverity: HarmonicNode["status"] = high > 38 ? "warning" : "optimized";
-    const harshDb = harshSeverity === "warning" ? 2.0 : 0.5;
-    const harshFreq = high > 35 ? "3.8 kHz" : "4.4 kHz";
-    const bucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
-    const isOverLimited = lufs > bucket.lufsMax;
-    const isUnderLimited = lufs < bucket.lufsMin;
-    const airSeverity: HarmonicNode["status"] = isOverLimited || isUnderLimited ? "warning" : "optimized";
-    const airDb = isOverLimited ? parseFloat(((lufs - bucket.lufsMax) * 0.4).toFixed(1)) : isUnderLimited ? -1.8 : -0.5;
-    const subProblem = `Legacy bass estimate: ${bass}%. ${subStatus === "optimized" ? "No legacy heuristic alert." : "Review the low end by ear; excess or insufficient sub-bass is not established."}`;
-    const subSolution = bass > 45 ? "If listening confirms unwanted rumble, audition a 32 Hz high-pass or gentle 2–4 dB low-shelf cut. Compare level-matched."
-      : bass < 22 ? "If listening confirms a lack of weight, audition a small low shelf near 50 Hz."
-      : "Listen before changing the low end; no correction is established.";
-    const mudProblem = `Legacy bass estimate: ${bass}%. ${mudSeverity === "warning" ? "Heuristic low-mid listening check." : "No legacy heuristic alert."} Masking and resonance are not measured here.`;
-    const mudSolution = mudSeverity === "warning" ? `If listening confirms congestion, audition a 1.5–2 dB bell cut near ${mudFreq} (Q around 1.4).` : "Preserve intentional warmth; no correction is established.";
-    const boxyProblem = `Legacy mid estimate: ${mid}%. ${boxySeverity === "warning" ? "Heuristic midrange listening check." : "No legacy heuristic alert."} Instrument separation is not established.`;
-    const boxySolution = boxySeverity === "warning" ? "If listening confirms boxiness, audition a small bell cut near 580 Hz (Q around 1.2)." : "No correction is established; verify by ear.";
-    const harshProblem = `Legacy high-frequency estimate: ${high}%. ${harshSeverity === "warning" ? "Heuristic presence-region listening check." : "No legacy heuristic alert."} Sibilance is not established by this ratio.`;
-    const harshSolution = harshSeverity === "warning" ? `If listening confirms harshness, audition a gentle cut near ${harshFreq}. Do not de-ess solely from band energy.` : "No correction is established; verify by ear.";
-    const airProblem = `Integrated loudness (${meterSource(studioInputs.integratedLufs.source)}): ${lufs} LUFS; YSS genre target ${bucket.lufsMin} to ${bucket.lufsMax} LUFS. Loudness alone cannot establish limiting or air-band loss.`;
-    const airSolution = "Listen for top-end balance and compare level-matched. Audition a small shelf only if needed; loudness does not justify an EQ or limiter change.";
+    const make = (index:number, listeningCheck:string) => {
+      const band=overview.bands[index];
+      return {
+        frequency: `${band.loHz}–${band.hiHz} Hz`,
+        band:band.name, dbOffset:0, problem:describeSonicLensMeasuredBand(overview,index),
+        solution:listeningCheck, detail:"Conditional listening check, not a measured EQ prescription.",
+        xPct:0,yPct:0,status:"optimized" as const,
+      };
+    };
     const derivedNodes: HarmonicNode[] = [
-      { id: "sub-rumble", frequency: bass > 45 ? "32 Hz" : bass < 22 ? "40 Hz" : "28 Hz", band: "Sub-Bass", dbOffset: subDbOffset, problem: subProblem, solution: subSolution, detail: subProblem, xPct: 15, yPct: bass > 45 ? 80 : bass < 22 ? 55 : 65, status: subStatus },
-      { id: "muddy-mids", frequency: mudFreq, band: "Low-Midrange", dbOffset: mudDb, problem: mudProblem, solution: mudSolution, detail: mudProblem, xPct: 35, yPct: mudSeverity === "warning" ? 72 : 55, status: mudSeverity },
-      { id: "boxy-color", frequency: "580 Hz", band: "Midrange", dbOffset: boxyDb, problem: boxyProblem, solution: boxySolution, detail: boxyProblem, xPct: 52, yPct: boxySeverity === "warning" ? 65 : 50, status: boxySeverity },
-      { id: "harsh-presence", frequency: harshFreq, band: "High-Midrange", dbOffset: harshDb, problem: harshProblem, solution: harshSolution, detail: harshProblem, xPct: 72, yPct: harshSeverity === "warning" ? 70 : 48, status: harshSeverity },
-      { id: "air-texture", frequency: "14.5 kHz", band: "Brilliance/Air", dbOffset: airDb, problem: airProblem, solution: airSolution, detail: airProblem, xPct: 88, yPct: isOverLimited ? 68 : isUnderLimited ? 58 : 42, status: airSeverity }
+      { id: "sub-rumble", ...make(0,"Listen for unwanted rumble on a system capable of reproducing sub-bass. If confirmed, audition a high-pass or low shelf and compare at matched loudness; no automatic cut is specified.") },
+      { id: "muddy-mids", ...make(2,"Listen for obscured articulation and low-mid congestion. If confirmed, isolate the responsible source and audition a small EQ change; preserve intentional warmth.") },
+      { id: "boxy-color", ...make(3,"Listen for boxiness or loss of clarity. Identify the responsible source before auditioning an EQ change; compare level-matched.") },
+      { id: "harsh-presence", ...make(4,"Listen for harshness on the actual source. Audition a small change only if confirmed; band power alone does not establish sibilance.") },
+      { id: "air-texture", ...make(5,"Listen for excessive brightness or insufficient air. Compare level-matched before auditioning a shelf; loudness does not justify an EQ or limiter change.") },
     ];
-
     setHarmonicNodes(derivedNodes);
   };
+  useEffect(() => {
+    if (isAnalyzed) generateHarmonicNodes();
+  }, [isAnalyzed, critique?.auralisMasterEqProfile]);
 
   // Read the real saved 96-band Auralis PCM profile. Never start an analysis,
   // fabricate unmeasured FFT bins, or convert measurements into EQ verdicts.
@@ -555,17 +507,16 @@ const generateHarmonicNodes = () => {
       " L "+positions[positions.length-1][1]+" 212"+
       " L "+positions[0][1]+" 212 Z"];
   });
-  // These are legacy YSS critique narratives, not Auralis judgments. Five
-  // existing nodes and their original checklist IDs remain untouched.
+  // Five existing checklist IDs remain; their guidance is conditional, not a measured defect.
   const hsrNodeIds=["sub-rumble",null,"muddy-mids","boxy-color","harsh-presence","air-texture"] as const;
   const selectedHsrNode=harmonicNodes.find(n=>n.id===hsrNodeIds[selectedHsrBand]);
   const selectedHsrRange=hsrBands[selectedHsrBand];
   const hsrMeasuredDescription=describeSonicLensMeasuredBand(hsrOverview,selectedHsrBand);
-  const bassText=typeof critique?.mixQuality?.frequencyBalance?.lowEnd==="string"
-    ? critique.mixQuality.frequencyBalance.lowEnd.trim() : "";
+  const frequencyBalance=critique?.mixQuality?.frequencyBalance;
+  const listeningContext=[frequencyBalance?.lowEnd,frequencyBalance?.lowEnd,frequencyBalance?.lowEnd,frequencyBalance?.midrange,frequencyBalance?.highEnd,frequencyBalance?.highEnd][selectedHsrBand];
   const hsrDescription=selectedHsrBand===1
-    ? bassText || "Bass-region power is measured above; the spectrum alone does not establish a problem."
-    : selectedHsrNode?.problem || "Heuristic guidance unavailable for this frequency region.";
+    ? (typeof listeningContext==="string"&&listeningContext.trim()?listeningContext:"Bass listening commentary unavailable.")
+    : (typeof listeningContext==="string"&&listeningContext.trim()?listeningContext:"Listening commentary unavailable for this frequency region.");
   const hsrRecommendation=selectedHsrBand===1
     ? "Check bass and percussion separation by listening before making any EQ changes."
     : selectedHsrNode?.solution || "";
@@ -911,7 +862,7 @@ const generateHarmonicNodes = () => {
                   <section className="rounded-2xl bg-[#080b11] border border-white/5 p-5 md:p-6"
                     aria-live="polite" aria-label="Selected frequency band analysis">
                     <p className="text-[11px] uppercase tracking-[0.13em] font-bold font-mono text-slate-400">
-                      Target Frequency Zone: {selectedHsrNode?.frequency ??
+                      Frequency Region: {selectedHsrNode?.frequency ??
                         `${selectedHsrRange.loHz}–${selectedHsrRange.hiHz} Hz`}
                       {" "}({selectedHsrNode?.band ?? selectedHsrRange.name})
                     </p>
@@ -919,7 +870,7 @@ const generateHarmonicNodes = () => {
                     <p className="text-white text-[15px] md:text-[16px] leading-[1.6] mt-2">
                       {hsrMeasuredDescription}
                     </p>
-                    <p className="text-slate-400 text-[12px] font-bold mt-5">Legacy heuristic guidance — not measured by Auralis</p>
+                    <p className="text-slate-400 text-[12px] font-bold mt-5">Contextual report commentary and conditional listening guidance</p>
                     <p className="text-white text-[15px] md:text-[16px] leading-[1.6] font-semibold mt-2">
                       {hsrDescription}
                     </p>
