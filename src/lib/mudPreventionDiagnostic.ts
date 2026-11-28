@@ -934,6 +934,20 @@ export function validateAuralisPairedOperatorReviewPolicy(configured:unknown,upl
     p.independentDefect!=="CONFIRMED_REVIEWED_REAL"||p.artisticIntent!=="REVIEWED_NOT_INTENTIONAL_REAL")return null;
   return {...p} as AuralisPairedOperatorReview;
 }
+// Activation is a different server mode from the score-inert paired review.
+export const AURALIS_CARRY_ON_ACTIVATION_MODE="EXACT_PAIRED_SHA_ACTIVATION_ONLY" as const;
+export function validateAuralisCarryOnActivationPolicy(configured:unknown,uploadedSha256:unknown):AuralisPairedOperatorReview|null {
+  const p=validateAuralisPairedOperatorReviewPolicy(configured,uploadedSha256);
+  // Bind the approved pair to the archived source and the verified 2026-11-28
+  // Worker ratios. No operator record, reviewer ID or live activation is shipped.
+  if(!p||p.originalSourceSha256!=="a88427113784aefeb1ea7a8fe9a14b4029e2a6922f6e273a64568906b52983b2"||
+    p.referenceLowToUpperDb!==-2.29||p.candidateLowToUpperDb!==1.36)return null;
+  return p;
+}
+export function resolveAuralisCarryOnActivationPolicy(mode:unknown,configured:unknown,uploadedSha256:unknown,a2Pilot:unknown):AuralisPairedOperatorReview|null {
+  return mode===AURALIS_CARRY_ON_ACTIVATION_MODE&&a2Pilot===false
+    ?validateAuralisCarryOnActivationPolicy(configured,uploadedSha256):null;
+}
 // This checks a trusted server-issued decision against the *current* local
 // source digest and Worker PCM chain. It never accepts a browser review flag.
 // Current identity collection remains OFF until separately authorized.
@@ -1009,6 +1023,17 @@ export function authorizeAuralisReviewed79Execution(
      independentlyComputed.appliedCap===null&&
      independentlyComputed.appliedScoreChange===0&&
      JSON.stringify(independentlyComputed)===JSON.stringify(s);
+}
+// This additional authorization never admits the original single-recording
+// review route, a shadow-only server response, or a synthetic replay.
+export function authorizeAuralisCarryOnPairedExecution(
+  critique:unknown,audit:unknown,shadow:unknown,serverReview:unknown,encodedIdentity:unknown,serverActivation:unknown,
+):boolean {
+  const e=encodedIdentity as any,s=shadow as any;
+  return serverActivation===true&&isAuralisStage3F9ExactEncodedIdentity(e)&&
+    validateAuralisCarryOnActivationPolicy(serverReview,e?.encodedSha256)!==null&&
+    s?.status==="REAL_REVIEW_HYPOTHETICAL_ONLY"&&s.reason==="REVIEWED_REAL_PAIRED_SHADOW_NOT_ACTIVATION"&&
+    authorizeAuralisReviewed79Execution(critique,audit,shadow,serverReview,encodedIdentity);
 }
 // A scoring-order-safe, read-only projection. Stage 3F-5 does not install an
 // executor: actual scoring activation must separately reconcile the existing
