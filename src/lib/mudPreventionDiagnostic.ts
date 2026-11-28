@@ -2126,9 +2126,10 @@ export function validateAuralisNarrativeMeasurements(raw: unknown): AuralisNarra
       Math.abs(10*Math.log10(b[1]/upper)-m.lowToUpperDb)>0.005001)return null;
   }else if(m.lowToUpperDb!==null)return null;
   if(m.loudnessRangeLu!==null&&m.sampleCount<3*m.sampleRate)return null;
-  const trajectory=[m.peakTimeSec,m.peakLufs,m.openingRiseLu];
-  if(trajectory.some(v=>v!==null)&&
-     (trajectory.some(v=>v===null)||m.sampleCount<3*m.sampleRate))return null;
+  // Opening rise may be unavailable independently of the measured peak.
+  if((m.peakTimeSec===null)!==(m.peakLufs===null)||
+     (m.peakTimeSec===null&&m.openingRiseLu!==null)||
+     (m.peakTimeSec!==null&&m.sampleCount<3*m.sampleRate))return null;
   if(m.bandPowerSharePct===null&&m.integratedLufs===null&&m.loudnessRangeLu===null&&
     m.crestFactorDb===null&&m.samplePeakDbfs===null&&m.peakTimeSec===null)return null;
   return {...m,bandPowerSharePct:m.bandPowerSharePct?[...m.bandPowerSharePct]:null};
