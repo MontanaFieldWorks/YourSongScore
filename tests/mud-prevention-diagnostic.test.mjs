@@ -93,8 +93,9 @@ test("unvalidated mud-flux scoring gates are removed without disabling independe
   assert.doesNotMatch(scoringRegion, /mudPrevention\.score\s*=/);
   assert.match(scoringRegion, /midrangeFlatness\s*<=\s*0\.40/);
   assert.match(scoringRegion, /midrangeFlatness\s*<\s*0\.45/);
-  assert.match(scoringRegion, /bassBandEnergy\s*>\s*87/);
-  assert.match(scoringRegion, /lowMidBandEnergy\s*>\s*72/);
+  assert.doesNotMatch(scoringRegion, /bassBandEnergy\s*>\s*87/);
+  assert.doesNotMatch(scoringRegion, /lowMidBandEnergy\s*>\s*72/);
+  assert.match(scoringRegion, /deriveGainInvariantMixCap\(/);
   assert.match(scoringRegion, /if \(spectralCap !== null/);
 });
 
