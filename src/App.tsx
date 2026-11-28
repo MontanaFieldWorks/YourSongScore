@@ -1385,7 +1385,7 @@ export default function App() {
               engineering,
               sourceLineage:prepareAuralisSourceLineage(result),
               narrativePacket:prepareAuralisNarrativePacket(result,engineering),
-              execution:classifyAuralisExecution(result.status, engineering),
+              execution:classifyAuralisExecution(result.status, engineering,result.status==="UNAVAILABLE"?result.reason:undefined),
             };
           })
           .catch(() => ({
@@ -1576,7 +1576,9 @@ export default function App() {
     const elapsed = () => Math.floor((Date.now() - startedAt) / 1000);
 
     onProgress(4, "Decoding audio", elapsed());
-    const audioBuffer = await decodeAudioFile(file);
+    let batchIdentity:Promise<AuralisEncodedSourceIdentity>|undefined;
+    const batchMp3=/\.mp3$/i.test(file.name)&&file.size>0&&file.size<=24*1024*1024;
+    const audioBuffer = await decodeAudioFile(file,batchMp3?identity=>{batchIdentity=identity;}:undefined);
     onProgress(12, "Audio decoded", elapsed());
 
     // The full-track DSP analyzer is CPU-heavy and synchronous. For batch mode only,
@@ -1593,6 +1595,10 @@ export default function App() {
     onProgress(46, "Detecting key", elapsed());
     await applyRealKeyDetection(audioBuffer, liveMetrics);
     onProgress(55, "Preparing AI evidence", elapsed());
+    const batchDiagnostic=batchMp3&&batchIdentity?await analyzeEngineeringDiagnosticsInWorker(audioBuffer,signal,undefined,undefined,true,batchIdentity):null;
+    if(signal.aborted)throw new DOMException("Batch analysis stopped.","AbortError");
+    const batchEngineering=prepareAuralisEngineeringEvidence(batchDiagnostic);
+    const batchPacket=prepareAuralisNarrativePacket(batchDiagnostic,batchEngineering);
 
     const chromagramImage = liveMetrics?.timeResolvedChromagram ? renderChromagramImage(liveMetrics) : null;
     const rhythmImage = liveMetrics?.onsetRhythmTimeline ? renderRhythmImage(liveMetrics) : null;
@@ -1626,6 +1632,7 @@ export default function App() {
     const formData = new FormData();
     formData.append("audio", file);
     formData.append("threeX", threeXMode ? "true" : "false");
+    if(batchPacket)formData.append("measuredEngineeringContext",JSON.stringify(batchPacket));
     // Keep the benchmark analysis fully blind: do not pass filename/title/artist or
     // embedded genre metadata into Gemini. The local filename is used only after analysis
     // as the temporary UI/report label. SEO therefore reports N/A in batch mode by design.
@@ -1720,8 +1727,17 @@ export default function App() {
     const data = await res.json();
     onProgress(98, "Finalizing report", elapsed());
     const critique: CritiqueData = data.critique;
+    const acceptedBatch=validateAuralisNarrativeMeasurements(critique.auralisNarrativeMeasurements);
+    if(batchPacket&&acceptedBatch&&JSON.stringify(acceptedBatch)===JSON.stringify(batchPacket.measurements))critique.auralisNarrativeMeasurements=acceptedBatch;
+    else delete critique.auralisNarrativeMeasurements;
+    (critique as any).auralisExecution=classifyAuralisExecution(batchDiagnostic?.status??"NOT_RUN",batchEngineering,batchDiagnostic?.status==="UNAVAILABLE"?batchDiagnostic.reason:undefined);
+    if(batchEngineering)(critique as any).auralisEngineering=batchEngineering;
+    const batchLineage=prepareAuralisSourceLineage(batchDiagnostic);
+    if(batchLineage)(critique as any).auralisSourceLineage=batchLineage;
+    const batchServerScore=critique.subMetricsCall1?.spectralMatch?.score;
     critique.liveMetrics = liveMetrics;
     applyProductionFinishGuardrail(critique, liveMetrics);
+    (critique as any).auralisBetaScoringAudit=buildAuralisBetaScoringAudit(critique,batchServerScore);
     onProgress(100, "Complete", elapsed());
 
     return {
@@ -1933,6 +1949,7 @@ export default function App() {
       }
 
       const overriddenCritique = applyGenreOverride(data.critique);
+      delete overriddenCritique.auralisNarrativeMeasurements; // Spotify preview has no local bound context
       if (liveMetrics) {
         overriddenCritique.liveMetrics = liveMetrics;
         applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
@@ -1995,27 +2012,12 @@ export default function App() {
       if (liveMetrics) {
         overriddenCritique.liveMetrics = liveMetrics;
       } else {
-        overriddenCritique.liveMetrics = overriddenCritique.liveMetrics || {
-          calculatedLufs: -10.5,
-          calculatedTruePeak: -0.8,
-          calculatedLra: 4.5,
-          calculatedStereoCorrelation: 0.85,
-          calculatedBpm: 120,
-          calculatedKey: "G Major",
-          calculatedBassEnergy: 40,
-          calculatedMidEnergy: 55,
-          calculatedHighEnergy: 35,
-          calculatedWaveformPoints: [20, 45, 60, 55, 40, 35, 65, 80, 50, 40, 30, 25, 45, 60, 55, 40],
-          calculatedWaveformPointsHD: Array.from({ length: 400 }, (_, i) => [20, 45, 60, 55, 40, 35, 65, 80, 50, 40, 30, 25, 45, 60, 55, 40][i % 16])
-        };
+        // A sample that cannot be decoded has no local measurements.
+        delete overriddenCritique.liveMetrics;
       }
-
-      if (sample.key) {
-        overriddenCritique.liveMetrics.calculatedKey = sample.key;
-      }
-      if (sample.bpm) {
-        overriddenCritique.liveMetrics.calculatedBpm = sample.bpm;
-      }
+      delete overriddenCritique.auralisNarrativeMeasurements;
+      if (overriddenCritique.liveMetrics && sample.key) overriddenCritique.liveMetrics.calculatedKey=sample.key;
+      if (overriddenCritique.liveMetrics && sample.bpm) overriddenCritique.liveMetrics.calculatedBpm=sample.bpm;
       if (liveMetrics) {
         applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
       } else {
