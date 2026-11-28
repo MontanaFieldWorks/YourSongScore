@@ -187,6 +187,8 @@ export interface CritiqueData {
   liveMetrics?: LiveAudioMetrics;
   /** Score-inert compact local-PCM spectral profile, captured once and saved with the critique. */
   auralisMasterEqProfile?: SonicLensSavedMasterEqProfile;
+  auralisNarrativeMeasurements?: import("./lib/mudPreventionDiagnostic").AuralisNarrativeMeasurements;
+  auralisHybridInputVersion?: "hybrid-v1";
   userValence?: number;
   userEnergy?: number;
   subMetricsCall1?: any;
