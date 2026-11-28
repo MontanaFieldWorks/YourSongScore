@@ -1087,33 +1087,30 @@ const generateHarmonicNodes = () => {
                   </div>
 
                   <div className="bg-[#0A0B0E] border border-white/5 rounded-2xl p-4.5 flex flex-col gap-3">
-                    <span className="text-[9.5px] font-mono text-slate-500 uppercase font-bold tracking-wider border-b border-white/5 pb-2">Illustrative timeline loudness estimate</span>
-                    <p className="text-[10px] text-slate-500 leading-relaxed">Estimated loudness distribution across the track timeline, derived from waveform envelope analysis.</p>
+                    <span className="text-[9.5px] font-mono text-slate-500 uppercase font-bold tracking-wider border-b border-white/5 pb-2">Waveform envelope by timeline segment</span>
+                    <p className="text-[10px] text-slate-500 leading-relaxed">Relative waveform-envelope illustration across fixed timeline segments, not a loudness measurement.</p>
                     <div className="grid grid-cols-4 gap-2.5 mt-1">
                       {(() => {
                         const points = critique?.liveMetrics?.calculatedWaveformPointsHD ?? critique?.liveMetrics?.calculatedWaveformPoints ?? [];
-                        const lufs = studioLufs;
-                        if (lufs === undefined || !points.length) return <p className="col-span-4 text-xs text-slate-400">Section estimate unavailable.</p>;
+                        if (!points.length) return <p className="col-span-4 text-xs text-slate-400">Waveform envelope unavailable.</p>;
                         const duration = critique?.liveMetrics?.calculatedDuration ?? 0;
                         const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
                         const sections = [
-                          { label: "Intro", startPct: 0, endPct: 0.12, slice: points.slice(0, Math.floor(points.length * 0.12)), color: "text-blue-400" },
-                          { label: "Verse", startPct: 0.12, endPct: 0.45, slice: points.slice(Math.floor(points.length * 0.12), Math.floor(points.length * 0.45)), color: "text-cyan-400" },
-                          { label: "Chorus", startPct: 0.45, endPct: 0.75, slice: points.slice(Math.floor(points.length * 0.45), Math.floor(points.length * 0.75)), color: "text-rose-400" },
-                          { label: "Outro", startPct: 0.75, endPct: 1.0, slice: points.slice(Math.floor(points.length * 0.75)), color: "text-slate-400" }
+                          { label: "0–12%", startPct: 0, endPct: 0.12, slice: points.slice(0, Math.floor(points.length * 0.12)), color: "text-blue-400" },
+                          { label: "12–45%", startPct: 0.12, endPct: 0.45, slice: points.slice(Math.floor(points.length * 0.12), Math.floor(points.length * 0.45)), color: "text-cyan-400" },
+                          { label: "45–75%", startPct: 0.45, endPct: 0.75, slice: points.slice(Math.floor(points.length * 0.45), Math.floor(points.length * 0.75)), color: "text-rose-400" },
+                          { label: "75–100%", startPct: 0.75, endPct: 1.0, slice: points.slice(Math.floor(points.length * 0.75)), color: "text-slate-400" }
                         ];
                         return sections.map((s) => {
                           if (!s.slice.length) return <div key={s.label} className="text-xs text-slate-400">{s.label}: Unavailable</div>;
                           const avg = s.slice.reduce((a: number, b: number) => a + b, 0) / s.slice.length;
-                          const sectionLufs = parseFloat((lufs + ((avg - 50) * 0.12)).toFixed(1));
                           const barHeight = Math.round(20 + (avg * 0.6));
                           const startTime = duration > 0 ? fmt(duration * s.startPct) : null;
                           const endTime = duration > 0 ? fmt(duration * s.endPct) : null;
                           return (
                             <div key={s.label} className="flex flex-col items-center gap-1.5">
-                              <span className={`text-[9px] font-mono font-bold ${s.color}`}>{sectionLufs} L</span>
                               <div className="w-full bg-neutral-900 rounded-lg overflow-hidden" style={{ height: "48px" }}>
-                                <div className={`w-full rounded-lg transition-all`} style={{ height: `${Math.min(100, barHeight)}%`, background: s.label === "Chorus" ? "rgba(244,63,94,0.4)" : "rgba(99,102,241,0.3)" }} />
+                                <div className={`w-full rounded-lg transition-all`} style={{ height: `${Math.min(100, barHeight)}%`, background: s.startPct === 0.45 ? "rgba(244,63,94,0.4)" : "rgba(99,102,241,0.3)" }} />
                               </div>
                               <span className="text-[9px] font-mono text-slate-500 uppercase">{s.label}</span>
                               {startTime && endTime && (

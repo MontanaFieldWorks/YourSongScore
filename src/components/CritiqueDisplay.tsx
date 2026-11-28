@@ -596,8 +596,9 @@ export function computeEchoNestScorecard(critique: any) {
 
   const energyOffset = Math.round(((overallProductionVal || 75) % 15) - 4);
   const energy = (() => {
-    if (liveMetrics?.calculatedLufs !== undefined && liveMetrics?.calculatedHighEnergy !== undefined) {
-      const lufsFactor = Math.min(1, Math.max(0, (liveMetrics.calculatedLufs + 22) / 16));
+    const selectedLufs = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements, liveMetrics).integratedLufs.value;
+    if (selectedLufs !== undefined && liveMetrics?.calculatedHighEnergy !== undefined) {
+      const lufsFactor = Math.min(1, Math.max(0, (selectedLufs + 22) / 16));
       const highFactor = Math.min(1, liveMetrics.calculatedHighEnergy / 50);
       return Math.round(Math.min(96, Math.max(10, (lufsFactor * 0.6 + highFactor * 0.4) * 100)));
     }
@@ -667,9 +668,9 @@ export function computeCategoryScores(critique: any) {
   const commercialReadinessVal = critique?.scores?.commercialReadiness ?? 75;
 
   let liveSkipModifier = 0;
-  if (critique?.liveMetrics) {
-    const { calculatedBpm, calculatedStereoCorrelation } = critique.liveMetrics;
-    const calculatedLufs=selectAuralisHybridInputs(critique.auralisNarrativeMeasurements,critique.liveMetrics).integratedLufs.value;
+  {
+    const calculatedStereoCorrelation = critique?.liveMetrics?.calculatedStereoCorrelation;
+    const calculatedLufs=selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs.value;
     if (calculatedLufs !== undefined && calculatedLufs < -12.5) {
       liveSkipModifier += Math.round(Math.abs(calculatedLufs + 12.5) * 1.8);
     }
@@ -947,9 +948,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   
   const baseSkipProb = (() => {
     let liveSkipModifier = 0;
-    if (critique?.liveMetrics) {
-      const { calculatedBpm, calculatedStereoCorrelation } = critique.liveMetrics;
-    const calculatedLufs=selectAuralisHybridInputs(critique.auralisNarrativeMeasurements,critique.liveMetrics).integratedLufs.value;
+    {
+      const calculatedStereoCorrelation = critique?.liveMetrics?.calculatedStereoCorrelation;
+      const calculatedLufs=selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs.value;
       if (calculatedLufs !== undefined && calculatedLufs < -12.5) {
         liveSkipModifier += Math.round(Math.abs(calculatedLufs + 12.5) * 1.8);
       }
@@ -1053,8 +1054,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   // Energy — driven by LUFS loudness and high-frequency spectral content when live metrics available
   const energyOffset = Math.round(((overallProductionVal || 75) % 15) - 4);
   const energy = (() => {
-    if (liveMetrics?.calculatedLufs !== undefined && liveMetrics?.calculatedHighEnergy !== undefined) {
-      const lufsFactor = Math.min(1, Math.max(0, (liveMetrics.calculatedLufs + 22) / 16));
+    const selectedLufs = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements, liveMetrics).integratedLufs.value;
+    if (selectedLufs !== undefined && liveMetrics?.calculatedHighEnergy !== undefined) {
+      const lufsFactor = Math.min(1, Math.max(0, (selectedLufs + 22) / 16));
       const highFactor = Math.min(1, liveMetrics.calculatedHighEnergy / 50);
       const audioEnergy = Math.round(Math.min(96, Math.max(10, (lufsFactor * 0.6 + highFactor * 0.4) * 100)));
       return audioEnergy;
@@ -1135,7 +1137,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
   // Peak metering comes from live audio metrics. The former readiness-derived
   // placeholder invented dBTP readings; preserve honest unavailable state.
-  const spotifySamplePeak = critique?.liveMetrics?.calculatedTruePeak;
+  const spotifySamplePeak = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements, critique?.liveMetrics).samplePeakDbfs.value;
   const spotifyPeakAvailable = typeof spotifySamplePeak === "number" && Number.isFinite(spotifySamplePeak);
   const spotifyPeakAboveAdvisory = spotifyPeakAvailable && spotifySamplePeak > -1.0;
 
@@ -3298,55 +3300,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     );
   };
 
-  const getSongSpecificLufsRecommendation = () => {
-    const genre = (critique?.vibe?.genre || "").toLowerCase();
-    const subgenre = (critique?.vibe?.subgenre || "").toLowerCase();
-    const name = trackName || "Your Track";
-    
-    if (name.toLowerCase().includes("your hero") || genre.includes("retro") || genre.includes("wave") || genre.includes("synth") || subgenre.includes("synth")) {
-      return (
-        <div className="flex flex-col gap-3 font-sans text-slate-300">
-          <p className="text-xs leading-relaxed">
-            For <strong className="text-white">"{name}"</strong> (an arena-ready synth-rock / retro-wave track), the master level is set at a hot <strong className="text-teal-400">
-              {selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs.value !== undefined ? `${selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs.value} LUFS` : "Unavailable"}
-            </strong>. While this sits nicely in the commercial sweet spot of -9.0 to -7.0 LUFS, the heavy-packed arrangement (guitars, wall-of-sound synths, punching drums) and high-frequency sibilance are triggering limiting artifacts.
-          </p>
-          <span className="text-[12px] font-mono font-bold text-teal-400 uppercase tracking-widest block mt-1">Four-Step Blueprint to Fix Dynamic Balance &amp; LUFS Power:</span>
-          <ol className="list-decimal list-inside flex flex-col gap-2.5 text-xs text-slate-400 pl-1">
-            <li>
-              <strong className="text-slate-200">De-Harsh Upper Midrange:</strong> Use dynamic EQ on the group synth bus and cymbals between <strong className="text-[#cb9fff]">4kHz to 7kHz</strong>. Taming high-end ear fatigue prevents the master limiter from over-compressing these sharp peaks, immediately reclaiming dynamic headroom.
-            </li>
-            <li>
-              <strong className="text-slate-200">Sidechain Ducking on Synths:</strong> Set a sidechain dynamic EQ on the main synth chords, keyed to the lead vocal. Duck the synths by <strong className="text-[#cb9fff]">-1.5dB to -2.0dB</strong> at <strong className="text-[#cb9fff]">1kHz–3kHz</strong> whenever the singer performs. This carves vocal space without boosting vocal volume (which would force you to squash the limiter harder).
-            </li>
-            <li>
-              <strong className="text-slate-200">Abbey Road Reverb Filtering:</strong> Clean up the lush spatial ambience. Apply a high-pass filter up to <strong className="text-[#cb9fff]">350Hz</strong> and a low-pass down to <strong className="text-[#cb9fff]">8kHz</strong> on the vocal and synth reverb sends. This clears out cumulative low-mid muddy energy, allowing the master limiter to focus on punching the core transients.
-            </li>
-            <li>
-              <strong className="text-slate-200">Surgical Transient Preservation:</strong> Slightly slacken the limiter attack time (around <strong className="text-[#cb9fff]">2ms to 5ms</strong>) or use a multi-stage limiter with dynamic clipping. This lets kick and snare transients pass through cleanly, preserving punch while hitting the targeted {selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs.value !== undefined ? `${selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs.value} LUFS` : "Unavailable"}.
-            </li>
-          </ol>
-        </div>
-      );
-    }
-    
-    // Generic fallback for other genres
-    return (
-      <div className="flex flex-col gap-3 font-sans text-slate-350">
-        <p className="text-xs leading-relaxed">
-          To create a balanced LUFS profile for <strong className="text-white">"{name}"</strong> without losing transient impact, follow these master-bus conditioning guidelines:
-        </p>
-        <ol className="list-decimal list-inside flex flex-col gap-2.5 text-xs text-slate-400 pl-1">
-          <li>
-            <strong className="text-slate-200">High-Pass Filtering:</strong> Clean up non-audible frequencies by placing a steep low-cut filter at <strong className="text-[#cb9fff]">20Hz to 30Hz</strong> on low instruments. Sub-bass mud consumes significant headroom without adding audible volume, causing premature limiting.
-          </li>
-          <li>
-            <strong className="text-slate-200">Serial Limiting:</strong> Use two limiters in series rather than single heavy brickwalls. Let the first limiter gently clip outliers by <strong className="text-[#cb9fff]">1dB</strong>, and let the second limiter boost overall density.
-          </li>
-        </ol>
-      </div>
-    );
-  };
+  const getSongSpecificLufsRecommendation = () => (
+    <div className="flex flex-col gap-3 font-sans text-slate-300">
+      <p className="text-xs leading-relaxed">For <strong className="text-white">"{trackName || "Your Track"}"</strong>, compare the master with suitable references at matched listening loudness. Integrated loudness and sample peak describe the signal; they do not establish clipping, limiting artifacts, masking or a need for EQ.</p>
+      <p className="text-xs text-slate-400">If listening confirms unwanted congestion or lost transients, identify the responsible source and audition a small change, then compare level-matched. Preserve intentional dynamics and tonal balance.</p>
+    </div>
+  );
 
   const renderMetricVisualizerFeature = (id: string, score: number) => {
     switch (id) {
@@ -3367,7 +3326,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   </p>
                 </div>
                 <p className="text-[13px] text-slate-500 mt-2 leading-relaxed">
-                  Optimal commercial sweet spot is -9.0 to -7.0 LUFS. Competitive density while preserving key transient response.
+                  Loudness targets are contextual and advisory, not a universal quality standard. Compare suitable references at matched playback loudness.
                 </p>
               </div>
               <div className="bg-[#13161C] p-4 rounded-xl border border-white/5 flex flex-col justify-between">

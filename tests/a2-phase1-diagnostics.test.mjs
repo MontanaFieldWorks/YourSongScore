@@ -6784,3 +6784,21 @@ test("Consolidated hybrid report and Studio avoid invented EQ diagnoses and expo
   assert.doesNotMatch(engineering,/BAND_IDEALS|\?\? 50|SEVERE BRICKWALLING|HEAVY LIMITING/);
   assert.match(engineering,/Sample Peak \(not true peak\)/);
 });
+
+
+test("All loudness summary, Echo Nest and peak displays select the same Auralis evidence",async()=>{
+  const [summary,display,app,lineage,studio]=await Promise.all(["components/CritiqueSummary.tsx","components/CritiqueDisplay.tsx","App.tsx","lib/sourceVerificationDiagnostics.ts","components/EngineeringStudioPage.tsx"].map(path=>readFile(new URL("../src/"+path,import.meta.url),"utf8")));
+  assert.match(summary,/const sel = selectAuralisHybridInputs\(critique.auralisNarrativeMeasurements, critique.liveMetrics\)/);
+  assert.match(summary,/const calculatedLufs = sel.integratedLufs.value/);
+  assert.match(summary,/const lufsRaw = sel.integratedLufs.value/);
+  assert.match(summary,/const lraRaw = sel.loudnessRangeLu.value/);
+  assert.match(summary,/lraRaw === undefined \? "No data"/);
+  assert.doesNotMatch(summary,/critique.liveMetrics\?\.calculatedLu(?:fs)?|critique.liveMetrics\?\.calculatedLra/);
+  assert.equal((display.match(/const selectedLufs = selectAuralisHybridInputs/g)||[]).length,2);
+  assert.match(display,/const spotifySamplePeak = selectAuralisHybridInputs/);
+  assert.match(lineage,/selectedLufs.source === "AURALIS"/);
+  assert.doesNotMatch(display,/triggering limiting artifacts|Optimal commercial sweet spot is -9.0 to -7.0 LUFS/);
+  assert.doesNotMatch(studio,/const sectionLufs|Illustrative timeline loudness estimate/);
+  assert.match(app,/frequencyBalance.highEnd = \(critique.mixQuality.frequencyBalance.highEnd \?\? ""\)/);
+  assert.match(app,/spectralMatch.commentary = \(call1.spectralMatch.commentary \?\? ""\)/);
+});

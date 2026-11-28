@@ -641,7 +641,7 @@ export default function App() {
     // Keep objective measurements separate from listening judgments. A low share
     // or flatness cannot establish masking, separation, or a defective style.
     if (critique.mixQuality?.frequencyBalance && finite(relativeAirPct) && relativeAirPct < 0.50) {
-      critique.mixQuality.frequencyBalance.highEnd +=
+      critique.mixQuality.frequencyBalance.highEnd = (critique.mixQuality.frequencyBalance.highEnd ?? "") +
         ` Relative 6–11 kHz power: ${relativeAirPct.toFixed(2)}% (20–11 kHz denominator; ${selected.airPct.source==="AURALIS"?"Auralis":"legacy estimate"}). This describes tonal balance, not quality.`;
     }
 
@@ -671,7 +671,7 @@ export default function App() {
     if (spectralCap !== null && call1?.spectralMatch && call1.spectralMatch.applicable !== false &&
         typeof call1.spectralMatch.score === "number" && call1.spectralMatch.score > spectralCap) {
       call1.spectralMatch.score = spectralCap;
-      call1.spectralMatch.commentary += ` Existing beta spectral guardrail: ${mixSignals.join("; ")}. Ceiling ${spectralCap}; these are descriptive signals, not proof of a technical defect or artistic failure.`;
+      call1.spectralMatch.commentary = (call1.spectralMatch.commentary ?? "") + ` Existing beta spectral guardrail: ${mixSignals.join("; ")}. Ceiling ${spectralCap}; these are descriptive signals, not proof of a technical defect or artistic failure.`;
       appliedMixCaps.push(`Spectral Match ≤ ${spectralCap}`);
     }
 
