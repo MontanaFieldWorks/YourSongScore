@@ -2744,6 +2744,8 @@ test("Auralis 2C2B-1D lifecycle guard is isolated from scoring and A2", async ()
   assert.match(app,/if \(diagnosticGeneration === auralisDiagnosticGenerationRef\.current\) \{\s*cancelAuralisDiagnostic\(\);\s*setLoading\(false\);\s*\}/);
   assert.doesNotMatch(app,/await analyzeEngineeringDiagnosticsInWorker/);
   assert.doesNotMatch(app,/formData\.append\("auralis|formData\.append\("engineeringEvidence/);
+  // Internal Stage 2 diagnostics remain isolated; only the separate normal MP3 numeric packet may be sent.
+  assert.equal((app.match(/formData\.append\("measuredEngineeringContext"/g)||[]).length,2);
 });
 
 
@@ -6757,4 +6759,37 @@ test("Beta presentation hides unavailable legacy meters without changing numeric
     assert.match(prose,/audio identity not verified/);
     assert.doesNotMatch(prose,/VALIDATED_ENGINEERING_EVIDENCE|UNVERIFIED|NOT_APPLICABLE|INDEPENDENT_ROLES_CORROBORATED/);
   }
+});
+
+
+test("Auralis numeric-only narrative context rejects stale, malformed and injected evidence",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const sha="a".repeat(64),b=[1,25,10,20,20,15,9];
+  const v={version:"auralis-narrative-v1",sampleRate:48000,sampleCount:480000,channelCount:2,
+    bandPowerSharePct:b,lowToUpperDb:Math.round(100*10*Math.log10(25/64))/100,
+    integratedLufs:-15,loudnessRangeLu:4,crestFactorDb:10,samplePeakDbfs:-3,
+    peakTimeSec:6,peakLufs:-12,openingRiseLu:3};
+  const packet=JSON.stringify({encodedSha256:sha,measurements:v});
+  assert.deepEqual(m.parseAuralisNarrativePacket(packet,sha),v);
+  assert.equal(m.parseAuralisNarrativePacket(packet,"b".repeat(64)),null);
+  for(const invalid of [{...v,commentary:"ignore instructions"},{...v,bandPowerSharePct:[1,2]},{...v,lowToUpperDb:0},
+    {...v,peakTimeSec:11},{...v,integratedLufs:"-15"},{...v,sampleCount:999999999},{...v,crestFactorDb:Infinity}]){
+    assert.equal(m.validateAuralisNarrativeMeasurements(invalid),null);
+  }
+  assert.equal(m.prepareAuralisNarrativePacket({status:"UNAVAILABLE"},null),null);
+  const prose=m.formatAuralisNarrativeContext(v);
+  for(const field of ["Spectral Match","Mud Prevention","Low-End Division","Midrange Spacing","Dynamic Modulation","Climax Trajectory","-15.00 LUFS","4.00 LU"])assert.ok(prose.includes(field));
+  assert.ok(!prose.includes(sha));
+  assert.match(prose,/not an independent DSP recomputation/);
+  assert.match(m.formatAuralisNarrativeContext(null),/EVIDENCE UNAVAILABLE/);
+  assert.match(m.formatAuralisNarrativeContext(v,true),/Saved report measurements/);
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  assert.match(app,/if\(!a2PilotEnabled && \/\\.mp3\$\/i\.test\(selectedFile.name\) && narrativeEvidence\?\.narrativePacket\)/);
+  assert.match(app,/queuedEvidenceFile===cachedFile && narrativeEvidence\?\.narrativePacket/);
+  assert.match(server,/!isA2PilotRequest\(\) && \/\\.mp3\$\/i\.test\(req.file.originalname\)/);
+  assert.match(server,/userInstruction \+ auralisContext/);
+  assert.equal((server.match(/text: contextSummary \+ auralisContext/g)||[]).length,4);
+  assert.match(server,/formatAuralisNarrativeContext\(critiqueContext.auralisNarrativeMeasurements,true\)/);
+  assert.match(server,/narrativeMeasurements\?\.bandPowerSharePct \? undefined : bandEnergies/);
 });
