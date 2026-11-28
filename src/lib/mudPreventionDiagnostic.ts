@@ -1989,12 +1989,12 @@ export function formatAuralisObjectiveEngineeringFindings(critique:unknown):stri
   const f=getAuralisObjectiveEngineeringFindings(critique);
   const pct=(v:number|null)=>v===null?"unavailable":v>0&&v<0.1?"less than 0.1%":v.toFixed(1)+"%";
   const ratio=f.spectralMatch.lowToUpperDb;
-  return "Auralis objective evidence (not scored; PCM identity "+f.sourceIdentity+"): "+
+  return "Auralis measurements (not scored; "+(f.sourceIdentity==="VERIFIED"?"audio identity verified":"audio identity not verified")+"): "+
     "Spectral Match: "+(ratio===null?"insufficient measurement evidence":ratio.toFixed(2)+" dB (60–250 Hz / 500–20,000 Hz)")+
     (f.spectralMatch.concernBasis==="RECORDED_REVIEWED_SHADOW_ONLY"?"; recorded reviewed shadow concern, not a new diagnosis or score authority. ": "; no supported quality verdict. ")+
     "Mud Prevention: 250–500 Hz power share "+pct(f.mudPrevention.lowMidPowerPct)+
     "; a master spectrum cannot establish masking. Low-End Division: 20–60 Hz "+pct(f.lowEndDivision.subPowerPct)+
-    ", 60–250 Hz "+pct(f.lowEndDivision.bassPowerPct)+"; source roles "+f.lowEndDivision.roleStatus+
+    ", 60–250 Hz "+pct(f.lowEndDivision.bassPowerPct)+"; source roles "+(f.lowEndDivision.roleStatus==="INDEPENDENT_ROLES_CORROBORATED"?"corroborated":f.lowEndDivision.roleStatus==="NOT_APPLICABLE"?"not applicable":"not verified")+
     "; separation defect evidence insufficient. Shares are of represented 20–20,000 Hz Worker power.";
 }
 
@@ -2056,7 +2056,7 @@ export function getAuralisDynamicsFindings(critique:unknown) {
 export function formatAuralisDynamicsFindings(critique:unknown):string {
   const f=getAuralisDynamicsFindings(critique),d=f.dynamicModulation,t=f.climaxTrajectory;
   const val=(v:number|null,unit:string)=>v===null?"unavailable":v.toFixed(1)+" "+unit;
-  return "Auralis objective dynamics (not scored; PCM identity "+f.sourceIdentity+"): "+
+  return "Auralis dynamics measurements (not scored; "+(f.sourceIdentity==="VERIFIED"?"audio identity verified":"audio identity not verified")+"): "+
     "Dynamic Modulation: gated loudness range "+val(d.loudnessRangeLu,"LU")+
     "; full-channel crest factor "+val(d.crestFactorDb,"dB")+
     ". Climax Trajectory: highest measured 3-second programme loudness window centred at "+
