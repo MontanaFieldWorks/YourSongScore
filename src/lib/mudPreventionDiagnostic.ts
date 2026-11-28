@@ -1720,9 +1720,26 @@ export function getAuralisBetaAuditReportRows(critique:unknown):AuralisBetaExcel
     rows.push({section,field,value});
   add("Export Policy","Scope","READ_ONLY_CURRENT_CRITIQUE; NO NEW SCORING");
   add("Export Policy","Gemini responsibility","ARTISTIC_AND_EXISTING_TIER_ASSESSMENT");
-  add("Export Policy","Auralis responsibility","MEASURED_ENGINEERING_EVIDENCE_ONLY");
+  add("Export Policy","Auralis responsibility",c?.auralisHybridInputVersion==="hybrid-v1"?"MEASUREMENT_AND_EXISTING_ENGINEERING_INPUTS":"MEASURED_ENGINEERING_EVIDENCE_ONLY");
   const narrativeMeasurements=validateAuralisNarrativeMeasurements(c?.auralisNarrativeMeasurements);
   add("Narrative Evidence","Gemini engineering context",narrativeMeasurements?"AURALIS_MEASUREMENTS_SUPPLIED":"NOT_CAPTURED");
+  if(c?.auralisHybridInputVersion==="hybrid-v1"){
+    const inputs=selectAuralisHybridInputs(narrativeMeasurements,c?.liveMetrics);
+    for(const [label,measurement,legacy] of [
+      ["Integrated LUFS",inputs.integratedLufs,c?.liveMetrics?.calculatedLufs],
+      ["LRA (LU)",inputs.loudnessRangeLu,c?.liveMetrics?.calculatedLra],
+      ["Crest (dB)",inputs.crestFactorDb,c?.liveMetrics?.calculatedCrestFactorDb],
+      ["Sample peak (dBFS)",inputs.samplePeakDbfs,c?.liveMetrics?.calculatedTruePeak],
+      ["Sub share (20–11k denominator)",inputs.subPct,c?.liveMetrics?.calculatedFinishSubPct],
+      ["Mid share (20–11k denominator)",inputs.midPct,c?.liveMetrics?.calculatedFinishMidPct],
+      ["Air share (20–11k denominator)",inputs.airPct,c?.liveMetrics?.calculatedFinishAirPct],
+    ] as const){
+      add("Hybrid Inputs",label+" legacy",number(legacy));
+      add("Hybrid Inputs",label+" selected",number(measurement.value));
+      add("Hybrid Inputs",label+" source",measurement.source);
+    }
+    add("Hybrid Inputs","Low-to-upper ratio (descriptive, dB)",number(inputs.lowToUpperDb));
+  }
   add("Export Policy","Quality verdict from band ratio","NOT_INFERRED");
   add("Execution","Worker status",code(e?.status,["AVAILABLE","UNAVAILABLE","NOT_RUN"]));
   add("Execution","Worker reason",code(e?.reason,[
@@ -2168,4 +2185,47 @@ export function formatAuralisNarrativeContext(raw:unknown,savedReport=false):str
     ". Climax Trajectory: highest three-second programme loudness window centered at "+val(m.peakTimeSec,"s")+
     ", peak "+val(m.peakLufs,"LUFS")+", opening-to-peak rise "+val(m.openingRiseLu,"LU")+
     ". This does not establish musical climax or artistic payoff. "+instruction;
+}
+
+// Hybrid beta: retain compatible existing thresholds; never translate absolute
+// FFT magnitude indices into relative-power thresholds. Historical trial helpers
+// above remain for archived audit interpretation and synthetic tests only.
+export function selectAuralisHybridInputs(raw:unknown,legacy:unknown) {
+  const m=validateAuralisNarrativeMeasurements(raw), l=legacy as any;
+  const finite=(v:unknown):v is number=>typeof v==="number"&&Number.isFinite(v);
+  const choose=(measured:number|null|undefined,old:unknown,available?:boolean,ambiguous?:number)=>{
+    if(finite(measured))return {value:measured,source:"AURALIS" as const};
+    if(m)return {value:undefined,source:"UNAVAILABLE" as const};
+    if(finite(old)&&available!==false&&(available===true||old!==ambiguous))
+      return {value:old,source:"LEGACY_ESTIMATE" as const};
+    return {value:undefined,source:"UNAVAILABLE" as const};
+  };
+  const b=m?.bandPowerSharePct;
+  // Legacy finish targets used 20–11,000 Hz as denominator, not 20–20,000.
+  // Re-normalize the matching six Auralis bands. Stereo/FFT sampling differs;
+  // the thresholds remain provisional pending real-recording beta review.
+  const denominator=b?b.slice(0,6).reduce((s,v)=>s+v,0):0;
+  const band=(i:number,old:unknown)=>choose(b&&denominator>0?100*b[i]/denominator:null,old);
+  return {
+    integratedLufs:choose(m?.integratedLufs,l?.calculatedLufs,l?.legacyLufsAvailable,-14),
+    loudnessRangeLu:choose(m?.loudnessRangeLu,l?.calculatedLra,l?.legacyLraAvailable,5.4),
+    crestFactorDb:choose(m?.crestFactorDb,l?.calculatedCrestFactorDb),
+    samplePeakDbfs:choose(m?.samplePeakDbfs,l?.calculatedTruePeak),
+    subPct:band(0,l?.calculatedFinishSubPct),
+    midPct:band(3,l?.calculatedFinishMidPct),
+    airPct:band(5,l?.calculatedFinishAirPct),
+    lowToUpperDb:m?.lowToUpperDb??null,
+    bandPowerSharePct:b??null,
+  };
+}
+export function deriveGainInvariantMixCap(flatness:unknown,airPct:unknown) {
+  const signals:string[]=[];
+  if(typeof flatness==="number"&&Number.isFinite(flatness)&&flatness>=0&&flatness<=1&&flatness<0.45)
+    signals.push("low legacy midrange spectral flatness ("+flatness.toFixed(3)+")");
+  if(typeof airPct==="number"&&Number.isFinite(airPct)&&airPct>=0&&airPct<=100&&airPct<0.50)
+    signals.push("very low relative 6–11 kHz power ("+airPct.toFixed(2)+"%)");
+  // Existing ladder retained. Only the two compatible gain-invariant signals
+  // are eligible, so the four unsupported lower rungs cannot currently fire.
+  const ladder=[null,86,82,76,72,68];
+  return {signals,cap:ladder[Math.min(5,signals.length)]};
 }
