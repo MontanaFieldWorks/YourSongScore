@@ -6327,7 +6327,7 @@ test("Boston HSR displays exactly one plotted master spectrum, six inside-plot c
   assert.match(view,/hsrBands\.map\(\(band,index\)=>\(/);
   assert.match(view,/onClick=\{\(\)=>setSelectedHsrBand\(index\)\}/);
   assert.match(view,/selectedHsrBand===index/);
-  assert.match(view,/Target Frequency Zone:/);
+  assert.match(view,/Frequency Region:/);
   assert.match(view,/aria-live="polite" aria-label="Selected frequency band analysis"/);
   assert.match(view,/\{hsrDescription\}/);
   assert.match(view,/\{hsrRecommendation\}/);
@@ -6635,7 +6635,7 @@ test("Auralis selected-band narratives use validated recording-specific shares a
   const studio=await readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8");
   assert.match(studio,/describeSonicLensMeasuredBand\(hsrOverview,selectedHsrBand\)/);
   assert.ok(studio.indexOf("{hsrMeasuredDescription}")<studio.indexOf("{hsrDescription}"));
-  assert.match(studio,/Legacy heuristic guidance — not measured by Auralis/);
+  assert.match(studio,/Contextual report commentary and conditional listening guidance/);
 });
 
 test("Auralis Phase 1 uses measured Worker band shares without changing assessments or scoring authority",async()=>{
@@ -6779,7 +6779,7 @@ test("Auralis numeric-only narrative context rejects stale, malformed and inject
   assert.ok(!prose.includes(sha));
   assert.match(prose,/not an independent DSP recomputation/);
   assert.match(m.formatAuralisNarrativeContext(null),/EVIDENCE UNAVAILABLE/);
-  assert.match(m.formatAuralisNarrativeContext(v,true),/Saved report measurements/);
+  assert.match(m.formatAuralisNarrativeContext(v,true),/Saved client-reported measurements/);
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
   assert.match(app,/if\(!a2PilotEnabled && \/\\.mp3\$\/i\.test\(selectedFile.name\) && narrativeEvidence\?\.narrativePacket\)/);
@@ -6789,4 +6789,21 @@ test("Auralis numeric-only narrative context rejects stale, malformed and inject
   assert.equal((server.match(/text: contextSummary \+ auralisContext/g)||[]).length,4);
   assert.match(server,/formatAuralisNarrativeContext\(critiqueContext.auralisNarrativeMeasurements,true\)/);
   assert.match(server,/isA2PilotRequest\(\)\?bandEnergies:undefined/);
+});
+
+
+test("Consolidated hybrid report and Studio avoid invented EQ diagnoses and expose measurement source",async()=>{
+  const studio=await readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8");
+  const display=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
+  const gen=studio.split("const generateHarmonicNodes = () => {")[1].split("setHarmonicNodes(derivedNodes);")[0];
+  assert.match(gen,/summarizeSonicLensMeasuredOverview/);
+  assert.match(gen,/describeSonicLensMeasuredBand\(overview,index\)/);
+  assert.doesNotMatch(gen,/studioBass|studioMid|studioHigh|bass > 45|isOverLimited/);
+  assert.doesNotMatch(studio,/Run on-demand deep-spectrum analysis|Scanning low-end dc mud|Launch Precision Mix Diagnostic/);
+  const engineering=display.slice(display.indexOf("const engInputs ="),display.indexOf("if (wsGenreDiagnostics && critique?.genrePipelineDiagnostics)"));
+  assert.match(engineering,/Auralis share \(%\)/);
+  assert.match(engineering,/Legacy level index \(0–100; not %\)/);
+  assert.match(engineering,/row.val===undefined\?"Unavailable":row.val/);
+  assert.doesNotMatch(engineering,/BAND_IDEALS|\?\? 50|SEVERE BRICKWALLING|HEAVY LIMITING/);
+  assert.match(engineering,/Sample Peak \(not true peak\)/);
 });
