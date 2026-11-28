@@ -63,10 +63,10 @@ export interface TitleSearchabilityCritique {
 }
 
 export interface LiveAudioMetrics {
-  calculatedLufs: number;
+  calculatedLufs?: number;
   calculatedTruePeak: number;
-  calculatedLra: number;
-  // Presentation-only availability; legacy numeric compatibility is unchanged.
+  calculatedLra?: number;
+  // Legacy estimate availability; missing readings never acquire synthetic numbers.
   legacyLufsAvailable?: boolean;
   legacyLraAvailable?: boolean;
   calculatedRmsDbfs?: number;
