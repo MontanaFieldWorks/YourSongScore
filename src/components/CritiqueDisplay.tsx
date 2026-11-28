@@ -1731,7 +1731,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ],
       callout: "This Metric secures clear frequency separations so that your low and high ends decode without clipping.",
       description: "Audits decibel levels, EQ notches, sibilance de-essing, low frequency separation, and relative placement in the stereo panning field.",
-      feedback: `${critique?.mixQuality?.stereoField ?? "Solid width."} Low frequencies: ${critique?.mixQuality?.frequencyBalance?.lowEnd ?? "Balanced"}. Midrange: ${critique?.mixQuality?.frequencyBalance?.midrange ?? "Clear"}. High-end sibilance: ${critique?.mixQuality?.frequencyBalance?.highEnd ?? "Contained"}. Frequency issues: ${critique?.mixQuality?.dominanceIssues ?? "No bloating present."} ${(critique as any)?.auralisExecution?.status === "AVAILABLE" ? "Auralis measurement evidence available. " : "Auralis measurement evidence unavailable. "} ${formatAuralisObjectiveEngineeringFindings(critique)}`
+      feedback: `${critique?.mixQuality?.stereoField ?? "Stereo listening commentary unavailable."} Low frequencies: ${critique?.mixQuality?.frequencyBalance?.lowEnd ?? "Low-frequency listening commentary unavailable."}. Midrange: ${critique?.mixQuality?.frequencyBalance?.midrange ?? "Midrange listening commentary unavailable."}. High-end sibilance: ${critique?.mixQuality?.frequencyBalance?.highEnd ?? "High-frequency listening commentary unavailable."}. Frequency issues: ${critique?.mixQuality?.dominanceIssues ?? "Frequency-issue listening commentary unavailable."} ${(critique as any)?.auralisExecution?.status === "AVAILABLE" ? "Auralis measurement evidence available. " : "Auralis measurement evidence unavailable. "} ${formatAuralisObjectiveEngineeringFindings(critique)}`
     },
     {
       id: "vocals",
@@ -2331,8 +2331,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         name: "Dynamic Modulation",
         score: dynamicModulationQualityScore ?? 75,
         feedback: liveMetrics?.calculatedDynamicRangeDb != null
-          ? `${liveMetrics.calculatedDynamicRangeDb} dB of measured dynamic range between the track's quietest and loudest sustained sections (85th pct: ${liveMetrics?.calculatedDynamicHighPercentileDb ?? "--"} dB, 15th pct: ${liveMetrics?.calculatedDynamicLowPercentileDb ?? "--"} dB).`
-          : "Real dynamic range data unavailable for this track.",
+          ? `${liveMetrics.calculatedDynamicRangeDb} dB legacy sustained contrast between the track's quiet and loud sections (85th pct: ${liveMetrics?.calculatedDynamicHighPercentileDb ?? "--"} dB, 15th pct: ${liveMetrics?.calculatedDynamicLowPercentileDb ?? "--"} dB).`
+          : "Legacy sustained contrast unavailable for this track.",
         subParams: []
       },
       {
@@ -2492,10 +2492,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     wsEngineering.getCell("B3").font = { name: "Calibri", size: 10, italic: true, color: { argb: "FF888888" } };
 
     const lm = critique?.liveMetrics;
-    const engLufs = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,lm).integratedLufs.value;
-    const engLra = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,lm).loudnessRangeLu.value;
-    const engTruePeak = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,lm).samplePeakDbfs.value;
-    const engPlr = (engTruePeak !== undefined && engLufs !== undefined) ? Math.abs(engTruePeak - engLufs) : undefined;
+    const engInputs = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,lm);
+    const engLufs = engInputs.integratedLufs.value;
+    const engLra = engInputs.loudnessRangeLu.value;
+    const engSamplePeak = engInputs.samplePeakDbfs.value;
+    const engPlr = engSamplePeak !== undefined && engLufs !== undefined &&
+      engInputs.samplePeakDbfs.source===engInputs.integratedLufs.source ? engSamplePeak - engLufs : undefined;
+    const engSource=(source:string)=>source==="AURALIS"?"Auralis (client Worker)":source==="LEGACY_ESTIMATE"?"Legacy estimate":"Unavailable";
 
     const engSectionHeader = (row: number, title: string) => {
       const cell = wsEngineering.getCell(row, 2);
@@ -2517,28 +2520,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     });
     engRow += 1;
 
-    const engRows: Array<{ name: string; value: string; target: string; status: string; pass: boolean }> = [];
-
-    if (engLufs !== undefined) {
-      const lufsPass = engLufs >= engBucket.lufsMin && engLufs <= engBucket.lufsMax;
-      engRows.push({ name: "Integrated Loudness (LUFS)", value: `${engLufs} LUFS`, target: `${engBucket.lufsMin} to ${engBucket.lufsMax} LUFS`, status: lufsPass ? "PASS" : "OUT OF RANGE", pass: lufsPass });
-    }
-    if (engLra !== undefined) {
-      const lraPass = engLra >= engBucket.lraMin && (engBucket.lraMax === null || engLra <= engBucket.lraMax);
-      engRows.push({ name: "Loudness Range (LRA)", value: `${engLra} LU`, target: `${engBucket.lraMin}${engBucket.lraMax !== null ? `-${engBucket.lraMax}` : "+"} LU`, status: lraPass ? "PASS" : "OUT OF RANGE", pass: lraPass });
-    }
-    if (engTruePeak !== undefined) {
-      const tpPass = engTruePeak <= -1.0;
-      engRows.push({ name: "Sample Peak (estimated)", value: `${engTruePeak} dBFS`, target: "-1.0 dBFS advisory headroom", status: tpPass ? "MEETS ADVISORY" : "ABOVE ADVISORY (NOT CLIPPING)", pass: tpPass });
-    }
-    if (engPlr !== undefined) {
-      const plrStatus = engPlr < 5 ? "SEVERE BRICKWALLING" : engPlr < 8 ? "MODERATE COMPRESSION" : "IDEAL";
-      engRows.push({ name: "Peak-to-Loudness Ratio (PLR)", value: `${engPlr.toFixed(1)} PLR`, target: "8+ PLR ideal", status: plrStatus, pass: engPlr >= 8 });
-    }
-    if (engLufs !== undefined) {
-      const compStatus = engLufs > engBucket.lufsMax ? "HEAVY LIMITING" : engLufs > engBucket.lufsMin ? "MODERATE" : "CLEAN";
-      engRows.push({ name: "Compression Artifacts", value: compStatus, target: `Genre window: ${engBucket.lufsMin} to ${engBucket.lufsMax} LUFS`, status: compStatus === "HEAVY LIMITING" ? "CAUTION" : "OK", pass: compStatus !== "HEAVY LIMITING" });
-    }
+    const engRows: Array<{ name: string; value: string; target: string; status: string; pass: boolean|null }> = [
+      {name:"Integrated Loudness (LUFS)",value:engLufs===undefined?"Unavailable":`${engLufs} LUFS`,target:`YSS advisory: ${engBucket.lufsMin} to ${engBucket.lufsMax} LUFS`,status:engSource(engInputs.integratedLufs.source),pass:null},
+      {name:"Loudness Range (LRA)",value:engLra===undefined?"Unavailable":`${engLra} LU`,target:"Descriptive; no universal quality target",status:engSource(engInputs.loudnessRangeLu.source),pass:null},
+      {name:"Sample Peak (not true peak)",value:engSamplePeak===undefined?"Unavailable":`${engSamplePeak} dBFS`,target:"Does not establish intersample clipping",status:engSource(engInputs.samplePeakDbfs.source),pass:null},
+      {name:"Sample peak minus loudness",value:engPlr===undefined?"Unavailable":`${engPlr.toFixed(1)} dB`,target:"Descriptive; does not establish compression history",status:engPlr===undefined?"Unavailable":engSource(engInputs.samplePeakDbfs.source),pass:null},
+      {name:"Compression Artifacts",value:"Not established by loudness or peak measurements",target:"Listen to the audio for artifacts",status:"CONTEXTUAL LISTENING REQUIRED",pass:null}
+    ];
 
     engRows.forEach((row) => {
       wsEngineering.getCell(engRow, 2).value = row.name;
@@ -2551,16 +2539,16 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       wsEngineering.getCell(engRow, 4).font = { name: "Calibri", size: 10, color: { argb: "FF888888" } };
       wsEngineering.getCell(engRow, 4).border = fullBorder;
       wsEngineering.getCell(engRow, 5).value = row.status;
-      wsEngineering.getCell(engRow, 5).font = { name: "Calibri", size: 10, bold: true, color: { argb: row.pass ? "FF1ED760" : "FFF59E0B" } };
+      wsEngineering.getCell(engRow, 5).font = { name: "Calibri", size: 10, bold: true, color: { argb: row.pass === null ? "FF888888" : row.pass ? "FF1ED760" : "FFF59E0B" } };
       wsEngineering.getCell(engRow, 5).border = fullBorder;
       engRow += 1;
     });
 
     engRow += 1;
-    engSectionHeader(engRow, "FREQUENCY BALANCE (6-BAND NORMALIZED LEVELS, NOT %)");
+    engSectionHeader(engRow, "FREQUENCY BALANCE — MEASURED SHARES OR LEGACY INDICES");
     engRow += 1;
 
-    ["Band", "Frequency Range", "Level (0-100)", "Vs Genre Target"].forEach((h, i) => {
+    ["Band", "Frequency Range", "Value", "Source / Scope"].forEach((h, i) => {
       const cell = wsEngineering.getCell(engRow, i + 2);
       cell.value = h;
       cell.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
@@ -2568,44 +2556,36 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     });
     engRow += 1;
 
-    const BAND_IDEALS: Record<string, number[]> = {
-      hiphop:     [65, 62, 55, 50, 48, 42],
-      mainstream: [55, 60, 60, 55, 55, 50],
-      indie:      [45, 50, 55, 58, 52, 45],
-      classical:  [35, 40, 45, 48, 40, 35],
-    };
-    const ideals = BAND_IDEALS[engBucket.key] ?? BAND_IDEALS.mainstream;
-    const subBassVal = lm?.calculatedSubBassBandEnergy ?? 50;
-    const bassCorridorVal = lm?.calculatedBassBandEnergy ?? 50;
-    const lowMidVal = lm?.calculatedLowMidsBandEnergy ?? 50;
-    const coreMidVal = lm?.calculatedCoreMidsBandEnergy ?? 50;
-    const presenceVal = lm?.calculatedPresenceBandEnergy ?? 50;
-    const airVal = lm?.calculatedAirBandEnergy ?? 50;
-    const getBandStatus = (v: number, ideal: number) =>
-      v > ideal + 15 ? "ABOVE TARGET" : v > ideal + 7 ? "SLIGHTLY ABOVE" : v < ideal - 15 ? "BELOW TARGET" : v < ideal - 7 ? "SLIGHTLY BELOW" : "NEAR TARGET";
-
-    const bandRows = [
-      { band: "Sub-Bass", range: "20-64Hz", val: subBassVal, ideal: ideals[0] },
-      { band: "Bass", range: "64-250Hz", val: bassCorridorVal, ideal: ideals[1] },
-      { band: "Low-Mids", range: "250Hz-1kHz", val: lowMidVal, ideal: ideals[2] },
-      { band: "Core Mids", range: "1-4kHz", val: coreMidVal, ideal: ideals[3] },
-      { band: "Presence", range: "4-8kHz", val: presenceVal, ideal: ideals[4] },
-      { band: "Air", range: "8-20kHz", val: airVal, ideal: ideals[5] },
-    ];
+    // Auralis power shares have different boundaries and units from the legacy
+    // independent FFT magnitude indices. Never apply the legacy genre ideals to them.
+    const shares=engInputs.bandPowerSharePct;
+    const legacyIndex=(v:unknown)=>typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=100?v:undefined;
+    const bandRows: Array<{band:string;range:string;val:number|undefined;source:string}> = shares
+      ? ["Sub-Bass","Bass","Low-Mids","Midrange","Upper Mids","Highs","Air"].map((band,i)=>({
+          band,range:["20–60 Hz","60–250 Hz","250–500 Hz","500–2000 Hz","2000–6000 Hz","6000–11000 Hz","11000–20000 Hz"][i],
+          val:shares[i],source:"Auralis share (%) of represented 20–20kHz power"}))
+      : [
+        {band:"Sub-Bass",range:"20–64 Hz",val:legacyIndex(lm?.calculatedSubBassBandEnergy)},
+        {band:"Bass",range:"64–250 Hz",val:legacyIndex(lm?.calculatedBassBandEnergy)},
+        {band:"Low-Mids",range:"250–1000 Hz",val:legacyIndex(lm?.calculatedLowMidsBandEnergy)},
+        {band:"Core Mids",range:"1000–4000 Hz",val:legacyIndex(lm?.calculatedCoreMidsBandEnergy)},
+        {band:"Presence",range:"4000–8000 Hz",val:legacyIndex(lm?.calculatedPresenceBandEnergy)},
+        {band:"Air",range:"8000–20000 Hz",val:legacyIndex(lm?.calculatedAirBandEnergy)}
+      ].map(row=>({...row,source:row.val===undefined?"Unavailable":"Legacy level index (0–100; not %)"}));
 
     bandRows.forEach((row) => {
-      const status = getBandStatus(row.val, row.ideal);
+      const status = row.source;
       wsEngineering.getCell(engRow, 2).value = row.band;
       wsEngineering.getCell(engRow, 2).font = { name: "Calibri", size: 10, bold: true };
       wsEngineering.getCell(engRow, 2).border = fullBorder;
       wsEngineering.getCell(engRow, 3).value = row.range;
       wsEngineering.getCell(engRow, 3).font = { name: "Calibri", size: 10, color: { argb: "FF888888" } };
       wsEngineering.getCell(engRow, 3).border = fullBorder;
-      wsEngineering.getCell(engRow, 4).value = String(row.val);
+      wsEngineering.getCell(engRow, 4).value = row.val===undefined?"Unavailable":row.val;
       wsEngineering.getCell(engRow, 4).font = { name: "Calibri", size: 10 };
       wsEngineering.getCell(engRow, 4).border = fullBorder;
       wsEngineering.getCell(engRow, 5).value = status;
-      wsEngineering.getCell(engRow, 5).font = { name: "Calibri", size: 10, bold: true, color: { argb: status === "NEAR TARGET" ? "FF1ED760" : "FFF59E0B" } };
+      wsEngineering.getCell(engRow, 5).font = { name: "Calibri", size: 10, bold: true, color: { argb: "FF888888" } };
       wsEngineering.getCell(engRow, 5).border = fullBorder;
       engRow += 1;
     });
@@ -5951,7 +5931,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <p className="text-[12px] text-slate-400 leading-normal">
                     {azimuthRefMode === "benchmark" 
                       ? "Flawless panning limits. Instruments are spread to absolute limits (+/-90°) with correct high shelf level curves."
-                      : `${critique?.mixQuality?.stereoField ?? "Solid width."}. Side acoustic elements could be panned wider from +/-35° out to +/-70° to open up the center lane.`
+                      : `${critique?.mixQuality?.stereoField ?? "Stereo listening commentary unavailable."}. Side acoustic elements could be panned wider from +/-35° out to +/-70° to open up the center lane.`
                     }
                   </p>
                 </div>
