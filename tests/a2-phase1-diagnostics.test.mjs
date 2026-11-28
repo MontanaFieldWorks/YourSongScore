@@ -5085,25 +5085,12 @@ test("Stage 3D-2L frozen real-file identity mode is opt-in, manifest-bound and s
   assert.doesNotMatch(app,/\bAURALIS_SPECTRAL_TRIAL_THRESHOLD_DB\b/);
 });
 
-test("Stage 3F-9 opt-in identity trial refuses every other source and preserves score-disabled controls",async()=>{
-  const {isAuralisStage3F9IdentityCandidate,isAuralisStage3F9ExactEncodedIdentity}=
+test("Historical exact identity validation survives retirement of the filename-selected trial",async()=>{
+  const {isAuralisStage3F9ExactEncodedIdentity}=
     await import("../src/lib/mudPreventionDiagnostic.ts");
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
-  const ref={name:"carry-on-01-reference.wav",size:11520056};
-  const altered={name:"carry-on-03-muddy-dark.wav",size:11520056};
-  assert.equal(isAuralisStage3F9IdentityCandidate(altered,false,false,true),false);
-  assert.equal(isAuralisStage3F9IdentityCandidate(altered,true,true,true),false);
-  assert.equal(isAuralisStage3F9IdentityCandidate(altered,true,false,false),false);
-  assert.equal(isAuralisStage3F9IdentityCandidate(altered,true,false,true),true);
-  for(const file of [ref,
-    {...altered,size:11520055},
-    {...altered,name:"carry-on-03-muddy-dark.mp3"},
-    {...altered,name:"just-me-and-you-03-muddy-dark.wav"},
-    {...altered,name:"CARRY-ON-03-MUDDY-DARK.WAV"},
-    null,{},[]]){
-    assert.equal(isAuralisStage3F9IdentityCandidate(file,true,false,true),false);
-  }
+  assert.equal((await import("../src/lib/mudPreventionDiagnostic.ts")).isAuralisStage3F9IdentityCandidate,undefined);
   const approved={status:"VERIFIED",
     encodedSha256:"19526bc02de79cbc3690357f5e1ae720f11999e95739a7b99358900f39448799",
     encodedBytes:11520056,format:"WAV_FLOAT",sourceRateStatus:"VERIFIED_WAV_HEADER",
@@ -5132,31 +5119,21 @@ test("Stage 3F-9 opt-in identity trial refuses every other source and preserves 
   assert.doesNotMatch(server,/\bvalidateAuralisOperatorReviewPolicy\b/);
 });
 
-test("Stage 3F-10 controlled activation keeps exact Carry On-only identity and every score switch OFF",async()=>{
-  const {isAuralisStage3F9IdentityCandidate,isAuralisStage3F9ExactEncodedIdentity}=
+test("Historical identity record validation has no production activation path",async()=>{
+  const {isAuralisStage3F9ExactEncodedIdentity}=
     await import("../src/lib/mudPreventionDiagnostic.ts");
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
   const sha="19526bc02de79cbc3690357f5e1ae720f11999e95739a7b99358900f39448799";
-  const file={name:"carry-on-03-muddy-dark.wav",size:11520056};
   const identity={status:"VERIFIED",encodedSha256:sha,encodedBytes:11520056,
     format:"WAV_PCM",sourceRateStatus:"VERIFIED_WAV_HEADER",sourceSampleRate:48000};
-  assert.equal(isAuralisStage3F9IdentityCandidate(file,true,false,true),true);
   assert.equal(isAuralisStage3F9ExactEncodedIdentity(identity),true);
-  for(const f of [
-    {...file,name:"carry-on-01-reference.wav"},
-    {...file,name:"just-me-and-you-03-muddy-dark.wav"},
-    {...file,size:11520055},
-    null
-  ])assert.equal(isAuralisStage3F9IdentityCandidate(f,true,false,true),false);
   for(const i of [
     {...identity,encodedSha256:"7a61db814087ef280c05f7db99095f74c4deb30b954c7756ee685cd8cc9f2d61"},
     {...identity,status:"UNAVAILABLE"},
     {...identity,sourceSampleRate:44100},
     {...identity,encodedBytes:11520055}
   ])assert.equal(isAuralisStage3F9ExactEncodedIdentity(i),false);
-  assert.equal(isAuralisStage3F9IdentityCandidate(file,true,true,true),false);
-  assert.equal(isAuralisStage3F9IdentityCandidate(file,true,false,false),false);
   assert.doesNotMatch(app,/\bSTAGE3D2L1_IDENTITY_ENABLED\b/);
   assert.match(app,/const STAGE3D1_AURALIS_EVIDENCE_ENABLED = true;/);
   assert.doesNotMatch(app,/\bisAuralisStage3F9ExactEncodedIdentity\b/);

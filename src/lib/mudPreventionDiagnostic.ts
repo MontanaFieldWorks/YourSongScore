@@ -934,20 +934,7 @@ export function validateAuralisPairedOperatorReviewPolicy(configured:unknown,upl
     p.independentDefect!=="CONFIRMED_REVIEWED_REAL"||p.artisticIntent!=="REVIEWED_NOT_INTENTIONAL_REAL")return null;
   return {...p} as AuralisPairedOperatorReview;
 }
-// Activation is a different server mode from the score-inert paired review.
-export const AURALIS_CARRY_ON_ACTIVATION_MODE="EXACT_PAIRED_SHA_ACTIVATION_ONLY" as const;
-export function validateAuralisCarryOnActivationPolicy(configured:unknown,uploadedSha256:unknown):AuralisPairedOperatorReview|null {
-  const p=validateAuralisPairedOperatorReviewPolicy(configured,uploadedSha256);
-  // Bind the approved pair to the archived source and the verified 2026-11-28
-  // Worker ratios. No operator record, reviewer ID or live activation is shipped.
-  if(!p||p.originalSourceSha256!=="a88427113784aefeb1ea7a8fe9a14b4029e2a6922f6e273a64568906b52983b2"||
-    p.referenceLowToUpperDb!==-2.29||p.candidateLowToUpperDb!==1.36)return null;
-  return p;
-}
-export function resolveAuralisCarryOnActivationPolicy(mode:unknown,configured:unknown,uploadedSha256:unknown,a2Pilot:unknown):AuralisPairedOperatorReview|null {
-  return mode===AURALIS_CARRY_ON_ACTIVATION_MODE&&a2Pilot===false
-    ?validateAuralisCarryOnActivationPolicy(configured,uploadedSha256):null;
-}
+// Historical shadow-policy interpretation only. No activation mode is supported.
 // This checks a trusted server-issued decision against the *current* local
 // source digest and Worker PCM chain. It never accepts a browser review flag.
 // Current identity collection remains OFF until separately authorized.
@@ -977,17 +964,7 @@ export function resolveAuralisReviewedRealShadowContext(
     artisticIntent:"REVIEWED_NOT_INTENTIONAL_REAL",
     reviewEvidence:"EXTERNAL_REVIEW_RECORD_ASSERTED",...(pairedPolicy?{pairedPolicy}:{})};
 }
-// Stage 3F-9: single-fixture, default-OFF identity trial preparation.
-// File name and size only select a candidate for hashing; they never
-// establish trust. An exact archived encoded SHA is required separately
-// before the Worker can receive the identity-capture option.
-export function isAuralisStage3F9IdentityCandidate(
-  file:unknown, enabled:boolean, a2Pilot:boolean, evidenceEnabled:boolean,
-):boolean {
-  const f=file as any;
-  return enabled===true && a2Pilot===false && evidenceEnabled===true &&
-    f?.name==="carry-on-03-muddy-dark.wav" && f?.size===11520056;
-}
+// Historical reviewed-pair identity validation, used only by the read-only shadow tests.
 export function isAuralisStage3F9ExactEncodedIdentity(identity:unknown):boolean {
   const i=identity as any;
   return i?.status==="VERIFIED" &&
@@ -997,44 +974,7 @@ export function isAuralisStage3F9ExactEncodedIdentity(identity:unknown):boolean 
     i.sourceRateStatus==="VERIFIED_WAV_HEADER" &&
     i.sourceSampleRate===48000;
 }
-// Stage 3F-8: this is the production trust boundary for a reviewed-real 79
-// trial. Never infer approval from a shadow result or a browser-supplied flag.
-// The server's exact encoded-byte review, the current decoded/Worker PCM
-// lineage and a freshly recomputed real-only shadow must all agree.
-export function authorizeAuralisReviewed79Execution(
-  critique:unknown, audit:unknown, shadow:unknown,
-  serverReview:unknown, encodedIdentity:unknown,
-):boolean {
-  const c=critique as any,a=audit as any,s=shadow as any;
-  if(!c||!a||!s||c.auralisBetaScoringAudit!==a||
-     c.auralisStage3F1SpectralShadow!==s||
-     a.sourceIdentity!=="CURRENT_UPLOAD_PCM_VERIFIED"||
-     c.auralisSourceLineage?.status!=="VERIFIED"||
-     c.auralisSourceLineage?.pcmIdentityStatus!=="VERIFIED"||
-     c.auralisSourceLineage?.scoringImpact!=="NONE")return false;
-  const context=resolveAuralisReviewedRealShadowContext(
-    serverReview,encodedIdentity,a);
-  if(!context)return false;
-  const independentlyComputed=evaluateAuralisStage3F1SpectralShadow(c,a,context);
-  return independentlyComputed.status==="REAL_REVIEW_HYPOTHETICAL_ONLY"&&
-     independentlyComputed.reason===(context.pairedPolicy?"REVIEWED_REAL_PAIRED_SHADOW_NOT_ACTIVATION":"REVIEWED_REAL_SHADOW_NOT_ACTIVATION")&&
-     independentlyComputed.candidateCap===79&&
-     independentlyComputed.scoringImpact==="NONE"&&
-     independentlyComputed.appliedCap===null&&
-     independentlyComputed.appliedScoreChange===0&&
-     JSON.stringify(independentlyComputed)===JSON.stringify(s);
-}
-// This additional authorization never admits the original single-recording
-// review route, a shadow-only server response, or a synthetic replay.
-export function authorizeAuralisCarryOnPairedExecution(
-  critique:unknown,audit:unknown,shadow:unknown,serverReview:unknown,encodedIdentity:unknown,serverActivation:unknown,
-):boolean {
-  const e=encodedIdentity as any,s=shadow as any;
-  return serverActivation===true&&isAuralisStage3F9ExactEncodedIdentity(e)&&
-    validateAuralisCarryOnActivationPolicy(serverReview,e?.encodedSha256)!==null&&
-    s?.status==="REAL_REVIEW_HYPOTHETICAL_ONLY"&&s.reason==="REVIEWED_REAL_PAIRED_SHADOW_NOT_ACTIVATION"&&
-    authorizeAuralisReviewed79Execution(critique,audit,shadow,serverReview,encodedIdentity);
-}
+// The executable review authorization path is retired. Archived projections remain read-only.
 // A scoring-order-safe, read-only projection. Stage 3F-5 does not install an
 // executor: actual scoring activation must separately reconcile the existing
 // A2 final snapshot, parent score, reports and downstream scores.
@@ -1070,10 +1010,7 @@ export function planAuralisReviewed79ScoreIntegration(
     hypotheticalSpectralScore:score,hypotheticalCommercialReadiness:parent};
 }
 
-// Stage 3F-6: narrowly scoped final-score executor. The App integration
-// permanently supplies false until separate activation approval. Historical
-// Gemini/server/browser provenance is immutable; this records a NEW post-Auralis
-// overlay rather than rewriting the pre-Auralis A2 snapshots.
+// Archived overlay format retained solely for historical report consistency validation.
 export const AURALIS_REVIEWED_79_EXECUTION_VERSION =
   "auralis-stage3f6-reviewed79-execution-v1" as const;
 export type AuralisReviewed79Execution = {
@@ -1089,92 +1026,7 @@ export type AuralisReviewed79Execution = {
   afterCommercialReadiness:number|null;
   preAuralisScoreLineage:"A2_RECONCILED"|null;
 };
-export function executeAuralisReviewed79Score(
-  critique:unknown,audit:unknown,shadow:unknown,plan:unknown,
-  scoringEnabled:boolean,
-):AuralisReviewed79Execution {
-  const c=critique as any,a=audit as any,s=shadow as any,p=plan as any;
-  const finiteScore=(v:unknown):v is number=>
-    typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=100;
-  const result=(status:AuralisReviewed79Execution["status"],reason:string,
-    before:number|null=null,after:number|null=null,
-    parentBefore:number|null=null,parentAfter:number|null=null):
-    AuralisReviewed79Execution=>({
-      version:AURALIS_REVIEWED_79_EXECUTION_VERSION,status,reason,
-      scoringImpact:status==="APPLIED"?"DOWNWARD_ONLY":"NONE",
-      appliedCap:status==="APPLIED"?79:null,
-      appliedScoreChange:status==="APPLIED"&&before!==null&&after!==null?
-        after-before:0,
-      beforeSpectralScore:before,afterSpectralScore:after,
-      beforeCommercialReadiness:parentBefore,
-      afterCommercialReadiness:parentAfter,
-      preAuralisScoreLineage:status==="APPLIED"?"A2_RECONCILED":null,
-    });
-  // Disabled means absolutely no score, commentary or provenance mutation.
-  if(scoringEnabled!==true)return result("DISABLED","ACTIVATION_OFF");
-  const metric=c?.subMetricsCall1?.spectralMatch;
-  const dyn=c?.subMetricsCall1?.dynamicVariety;
-  const hook=c?.subMetricsCall3?.compositionFlowSubs?.hookPlacement;
-  const contrast=c?.subMetricsCall3?.compositionFlowSubs?.sectionalContrast;
-  const old=metric?.score,readiness=c?.scores?.commercialReadiness;
-  const legacy=c?.mixBalanceEvidence?.spectralCap;
-  // The Stage 3F-5 planner cannot be made to apply a score. Recompute its
-  // read-only proposal using the disabled policy; accept no supplied shortcut.
-  const fresh=planAuralisReviewed79ScoreIntegration(c,a,s,false);
-  if(c?.auralisStage3F6Execution!==undefined||
-     a!==c?.auralisBetaScoringAudit||
-     c?.auralisStage3F1SpectralShadow!==s||
-     !p||p.status!=="PROJECTION_ONLY"||
-     fresh.status!=="PROJECTION_ONLY"||
-     p.reason!==fresh.reason||
-     p.scoringImpact!=="NONE"||
-     p.appliedCap!==null||p.appliedScoreChange!==0||
-     !Array.isArray(p.adjustments)||p.adjustments.length!==0||
-     p.hypotheticalSpectralScore!==fresh.hypotheticalSpectralScore||
-     p.hypotheticalCommercialReadiness!==fresh.hypotheticalCommercialReadiness||
-     a?.scoreLineage!=="A2_RECONCILED"||
-     a?.scoringImpact!=="NONE"||
-     !Array.isArray(a.adjustments)||a.adjustments.length!==0||
-     a.appliedCap!==null||a.appliedScoreChange!==0||
-     !finiteScore(a.geminiMappedSpectralScore)||
-     !finiteScore(a.serverReturnedSpectralScore)||
-     a.observedFinalSpectralScore!==old||
-     a.observedCommercialReadiness!==readiness||
-     a.legacyDspCap!==legacy||
-     !(legacy===null||finiteScore(legacy))||
-     legacy!==null&&legacy<=79||
-     !finiteScore(old)||old<=79||
-     !finiteScore(readiness)||
-     [dyn,hook,contrast].some(x=>x?.applicable===false||
-       !finiteScore(x?.score))||
-     metric?.applicable===false||
-     s?.candidateCap!==79||
-     s?.existingFinalScore!==old||
-     s?.existingLegacyCap!==legacy||
-     s?.hypotheticalSpectralScore!==79||
-     s?.hypotheticalCommercialReadiness!==fresh.hypotheticalCommercialReadiness)
-    return result("ABSTAIN","INCOMPLETE_OR_STALE_RECONCILED_AUTHORIZATION");
-  const compute=(spectral:number)=>Math.round(
-    (hook.score*60+dyn.score*20+spectral*10+contrast.score*10)/100);
-  const nextScore=Math.min(old,79),nextParent=compute(nextScore);
-  if(compute(old)!==readiness||
-     nextScore!==fresh.hypotheticalSpectralScore||
-     nextParent!==fresh.hypotheticalCommercialReadiness||
-     nextParent>readiness)
-    return result("ABSTAIN","INCONSISTENT_DOWNSTREAM_SCORE");
-  // All checks complete; one narrow commit point. Preserve legacy DSP and
-  // canonical A2 traces so the separate post-Auralis record is auditable.
-  const execution=result("APPLIED","REVIEWED_TECHNICAL_CAP",
-    old,nextScore,readiness,nextParent);
-  metric.score=nextScore;
-  c.scores.commercialReadiness=nextParent;
-  metric.commentary=typeof metric.commentary==="string"?
-    metric.commentary+" Auralis: a separately operator-reviewed, independently corroborated technical issue constrained this Spectral Match result to 79.":
-    "Auralis: an operator-reviewed, independently corroborated technical issue constrained Spectral Match to 79.";
-  c.auralisStage3F6Execution=execution;
-  return execution;
-}
-
+// The 79-point score mutator has been removed. Only archived overlay validation follows.
 // Stage 3F-7: shared report/Excel consistency check. It never supplies
 // scoring authorization, recalculates scores or rewrites the historical A2
 // record. Only an actual applied overlay produces a review row.
