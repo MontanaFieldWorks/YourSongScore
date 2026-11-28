@@ -381,8 +381,8 @@ test("Stage 3D-3 synthetic-only paired shadow decision distinguishes candidate f
   for(const code of [app,server,display])
     assert.doesNotMatch(code,/recordAuralisPairedSpectralShadowDecision/,
       "Shadow record must remain disconnected from production and export");
-  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false/);
-  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \| null = null/);
+  assert.doesNotMatch(app,/\bAURALIS_SPECTRAL_TRIAL_ENABLED\b/);
+  assert.doesNotMatch(app,/\bAURALIS_SPECTRAL_TRIAL_THRESHOLD_DB\b/);
 });
 
 test("Stage 3D-2A reconciles existing caps without new numeric policies or writes",async()=>{
@@ -853,8 +853,8 @@ test("Stage 3E audit fails closed on missing/contradictory scoring lineage and u
 test("Stage 3E integration is post-scoring and retains disabled independent cap",async()=>{
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
-  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
-  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \\| null = null;/);
+  assert.doesNotMatch(app,/\bAURALIS_SPECTRAL_TRIAL_ENABLED\b/);
+  assert.doesNotMatch(app,/\bAURALIS_SPECTRAL_TRIAL_THRESHOLD_DB\b/);
   assert.ok(app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)") >
     app.indexOf("applyProductionFinishGuardrail(overriddenCritique, liveMetrics)"));
   assert.ok(app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)") <
@@ -1150,12 +1150,11 @@ test("Stage 3F-1 app remains score-inert and carries no real-world activation po
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
   const lib=await readFile(new URL("../src/lib/mudPreventionDiagnostic.ts",import.meta.url),"utf8");
-  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
-  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \\| null = null;/);
-  assert.ok(app.indexOf("evaluateAuralisStage3F1SpectralShadow(")>
-    app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)"));
-  assert.ok(app.indexOf("evaluateAuralisStage3F1SpectralShadow(")<
-    app.indexOf("setCritiqueResult({"));
+  assert.doesNotMatch(app,/\bAURALIS_SPECTRAL_TRIAL_ENABLED\b/);
+  assert.doesNotMatch(app,/\bAURALIS_SPECTRAL_TRIAL_THRESHOLD_DB\b/);
+  assert.doesNotMatch(app,/\b(?:executeAuralisReviewed79Score|evaluateAuralisStage3F1SpectralShadow|resolveAuralisReviewedRealShadowContext|planAuralisReviewed79ScoreIntegration|authorizeAuralisReviewed79Execution)\s*\(/);
+  assert.ok(app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)")>=0);
+  assert.doesNotMatch(app,/\b(?:executeAuralisReviewed79Score|evaluateAuralisStage3F1SpectralShadow|resolveAuralisReviewedRealShadowContext|planAuralisReviewed79ScoreIntegration|authorizeAuralisReviewed79Execution)\s*\(/);
   assert.doesNotMatch(app,/SYNTHETIC_VERIFIED_FIXTURE_ONLY/);
   assert.doesNotMatch(server,/evaluateAuralisStage3F1SpectralShadow/);
   const gateSource=lib.slice(lib.indexOf("export function evaluateAuralisStage3F1SpectralShadow("),
@@ -1241,18 +1240,17 @@ test("Stage 3F-5 always leaves the score executor unavailable and preserves snap
 test("Stage 3F-5 upload trust boundary is server controlled and activation OFF",async()=>{
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
-  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = true;/);
-  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
-  assert.match(app,/resolveAuralisReviewedRealShadowContext\(/);
-  assert.match(app,/planAuralisReviewed79ScoreIntegration\(/);
-  assert.match(server,/YSS_AURALIS_REVIEW_POLICY_JSON/);
-  assert.match(server,/createHash\("sha256"\)\.update\(req\.file!\.buffer\)/);
-  assert.match(server,/validateAuralisOperatorReviewPolicy\(review,sha\)/);
+  assert.doesNotMatch(app,/\bSTAGE3D2L1_IDENTITY_ENABLED\b/);
+  assert.doesNotMatch(app,/\bAURALIS_REVIEWED_79_SCORING_ENABLED\b/);
+  assert.doesNotMatch(app,/\bresolveAuralisReviewedRealShadowContext\b/);
+  assert.doesNotMatch(app,/\bplanAuralisReviewed79ScoreIntegration\b/);
+  assert.doesNotMatch(server,/YSS_AURALIS_/);
+  assert.match(server,/createHash\("sha256"\)\.update\(req\.file\.buffer\)/);
+  assert.doesNotMatch(server,/\bvalidateAuralisOperatorReviewPolicy\b/);
   assert.doesNotMatch(server,/req\.body\.auralisReviewedRecordingPolicy/);
-  assert.ok(app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)")<
-    app.indexOf("resolveAuralisReviewedRealShadowContext("));
-  assert.ok(app.indexOf("planAuralisReviewed79ScoreIntegration(")<
-    app.indexOf("setCritiqueResult({"));
+  assert.doesNotMatch(app,/\b(?:executeAuralisReviewed79Score|evaluateAuralisStage3F1SpectralShadow|resolveAuralisReviewedRealShadowContext|planAuralisReviewed79ScoreIntegration|authorizeAuralisReviewed79Execution)\s*\(/);
+  assert.ok(app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)")>=0);
+  assert.doesNotMatch(app,/\b(?:executeAuralisReviewed79Score|evaluateAuralisStage3F1SpectralShadow|resolveAuralisReviewedRealShadowContext|planAuralisReviewed79ScoreIntegration|authorizeAuralisReviewed79Execution)\s*\(/);
 });
 
 test("Stage 3F-6 executor is OFF by default and never rewrites historical A2 evidence",async()=>{
@@ -1337,17 +1335,16 @@ test("Stage 3F-6 executor is OFF by default and never rewrites historical A2 evi
 test("Stage 3F-6 live execution remains disabled and appears after audit before reporting",async()=>{
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const lib=await readFile(new URL("../src/lib/mudPreventionDiagnostic.ts",import.meta.url),"utf8");
-  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
-  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = true;/);
-  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
-  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number \\| null = null;/);
+  assert.doesNotMatch(app,/\bAURALIS_REVIEWED_79_SCORING_ENABLED\b/);
+  assert.doesNotMatch(app,/\bSTAGE3D2L1_IDENTITY_ENABLED\b/);
+  assert.doesNotMatch(app,/\bAURALIS_SPECTRAL_TRIAL_ENABLED\b/);
+  assert.doesNotMatch(app,/\bAURALIS_SPECTRAL_TRIAL_THRESHOLD_DB\b/);
   const audit=app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)");
-  const shadow=app.indexOf("evaluateAuralisStage3F1SpectralShadow(");
-  const executor=app.indexOf("executeAuralisReviewed79Score(");
   const output=app.indexOf("setCritiqueResult({");
-  assert.ok(audit>=0 && audit<shadow && shadow<executor && executor<output);
-  assert.match(app,/reviewedShadow,false\)/);
-  assert.match(app,/const reviewed79Authorized = AURALIS_REVIEWED_79_SCORING_ENABLED &&/);
+  assert.ok(audit>=0 && audit<output);
+  assert.doesNotMatch(app,/\b(?:evaluateAuralisStage3F1SpectralShadow|executeAuralisReviewed79Score)\s*\(/);
+  assert.doesNotMatch(app,/\breviewedShadow\b/);
+  assert.doesNotMatch(app,/\breviewed79Authorized\b/);
   const source=lib.slice(lib.indexOf("export function executeAuralisReviewed79Score("),
     lib.indexOf("// Stage 3F-1/3F-3: current-upload evidence audit"));
   assert.match(source,/if\(scoringEnabled!==true\)return result\("DISABLED","ACTIVATION_OFF"\)/);
@@ -1358,13 +1355,13 @@ test("Stage 3F-7 operator shutoff defaults OFF and retains double-locked scoring
   const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const display=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
-  assert.match(server,/process\.env\.YSS_AURALIS_BETA_ARMED!=="EXACT_SHA_REVIEW_ONLY"/);
-  assert.match(server,/validateAuralisOperatorReviewPolicy\(review,sha\)/);
-  assert.match(server,/createHash\("sha256"\)\.update\(req\.file!\.buffer\)/);
+  assert.doesNotMatch(server,/YSS_AURALIS_/);
+  assert.doesNotMatch(server,/\bvalidateAuralisOperatorReviewPolicy\b/);
+  assert.match(server,/createHash\("sha256"\)\.update\(req\.file\.buffer\)/);
   assert.doesNotMatch(server,/req\.body\.auralisReviewedRecordingPolicy/);
-  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = true;/);
-  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
-  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.doesNotMatch(app,/\bSTAGE3D2L1_IDENTITY_ENABLED\b/);
+  assert.doesNotMatch(app,/\bAURALIS_REVIEWED_79_SCORING_ENABLED\b/);
+  assert.doesNotMatch(app,/\bAURALIS_SPECTRAL_TRIAL_ENABLED\b/);
   assert.match(display,/getAuralisReviewed79ReportRows\(critique\)/);
   assert.match(display,/wsSourceDiagnostics\.addRow\(diagnostic\)/);
   assert.ok(display.indexOf("getAuralisReviewed79ReportRows(critique)")<
@@ -1449,22 +1446,19 @@ test("Stage 3F-8 production activation requires reviewed real authorization whil
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
   const report=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
-  assert.match(app,/const STAGE3D2L1_IDENTITY_ENABLED = true;/);
-  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
-  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
-  assert.match(app,/reviewedShadow,false\);/);
-  assert.match(app,/const reviewed79Authorized = AURALIS_REVIEWED_79_SCORING_ENABLED &&/);
-  assert.match(app,/authorizeAuralisReviewed79Execution\(/);
-  assert.match(app,/reviewedShadow,data\.auralisReviewedRecordingPolicy,encodedIdentity\);/);
-  assert.match(app,/reviewedShadow,\(overriddenCritique as any\)\.auralisStage3F5IntegrationPlan,\s*reviewed79Authorized \|\| paired79Authorized\);/);
-  assert.match(server,/process\.env\.YSS_AURALIS_BETA_ARMED!=="EXACT_SHA_REVIEW_ONLY"/);
-  assert.match(server,/validateAuralisOperatorReviewPolicy\(review,sha\)/);
-  assert.match(server,/createHash\("sha256"\)\.update\(req\.file!\.buffer\)/);
+  assert.doesNotMatch(app,/\bSTAGE3D2L1_IDENTITY_ENABLED\b/);
+  assert.doesNotMatch(app,/\bAURALIS_REVIEWED_79_SCORING_ENABLED\b/);
+  assert.doesNotMatch(app,/\bAURALIS_SPECTRAL_TRIAL_ENABLED\b/);
+  assert.doesNotMatch(app,/\breviewedShadow\b/);
+  assert.doesNotMatch(app,/\breviewed79Authorized\b/);
+  assert.doesNotMatch(app,/\bauthorizeAuralisReviewed79Execution\b/);
+  assert.doesNotMatch(server,/YSS_AURALIS_/);
+  assert.doesNotMatch(server,/\bvalidateAuralisOperatorReviewPolicy\b/);
+  assert.match(server,/createHash\("sha256"\)\.update\(req\.file\.buffer\)/);
   assert.match(report,/getAuralisReviewed79ReportRows\(critique\)/);
-  assert.ok(app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)")<
-    app.indexOf("authorizeAuralisReviewed79Execution("));
-  assert.ok(app.indexOf("executeAuralisReviewed79Score(")<
-    app.indexOf("setCritiqueResult({"));
+  assert.doesNotMatch(app,/\b(?:executeAuralisReviewed79Score|evaluateAuralisStage3F1SpectralShadow|resolveAuralisReviewedRealShadowContext|planAuralisReviewed79ScoreIntegration|authorizeAuralisReviewed79Execution)\s*\(/);
+  assert.ok(app.indexOf("buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore)")>=0);
+  assert.doesNotMatch(app,/\b(?:executeAuralisReviewed79Score|evaluateAuralisStage3F1SpectralShadow|resolveAuralisReviewedRealShadowContext|planAuralisReviewed79ScoreIntegration|authorizeAuralisReviewed79Execution)\s*\(/);
 });
 
 
@@ -1501,15 +1495,16 @@ test("Stage 3F-11 queued path uses submitted MP3 and disabled shadow executor",a
   const i=app.indexOf("const handleAuditQueuedTrack");
   const q=app.slice(i,app.indexOf("const handleStartReview",i));
   assert.match(q,/cancelAuralisDiagnostic\(\)/);
-  assert.match(q,/cachedFileForAnalysis\.name\.endsWith\("_Mastered320\.mp3"\)/);
+  assert.match(q,/cachedFileForAnalysis\.size <= 24 \* 1024 \* 1024/);
+  assert.match(q,/\/\\\.mp3\$\/i\.test\(cachedFileForAnalysis\.name\)/);
   assert.match(q,/queuedEvidenceFile = cachedFileForAnalysis/);
   assert.match(q,/let cachedFile: File \| null = queuedEvidenceFile \|\| localTrackFiles/);
   assert.match(q,/analyzeEngineeringDiagnosticsInWorker\(/);
   assert.match(q,/prepareAuralisSourceLineage\(/);
   assert.match(q,/buildAuralisBetaScoringAudit\(/);
-  assert.match(q,/evaluateAuralisStage3F1SpectralShadow\(/);
-  assert.match(q,/summarizeAuralisQueuedMp3Shadow\(/);
-  assert.match(q,/queuedShadow,\(overriddenFinalCritique as any\)\.auralisStage3F5IntegrationPlan,\s*false\)/);
+  assert.doesNotMatch(q,/\bevaluateAuralisStage3F1SpectralShadow\b/);
+  assert.doesNotMatch(q,/\bsummarizeAuralisQueuedMp3Shadow\b/);
+  assert.doesNotMatch(q,/\bqueuedShadow\b/);
   assert.doesNotMatch(q,/authorizeAuralisReviewed79Execution\(/);
   assert.doesNotMatch(q,/resolveAuralisReviewedRealShadowContext\(/);
 });
@@ -1738,9 +1733,9 @@ test("Stage 3F-12 Excel reports sanitized queued-MP3 Worker reasons without scor
   assert.match(q,/result\.status === "UNAVAILABLE" \? result\.reason : undefined/);
   assert.match(q,/classifyAuralisExecution\(\s*result\.status, engineering,/);
   assert.match(q,/resolveAuralisExecutionForReport\(/);
-  assert.match(q,/queuedShadow,\(overriddenFinalCritique as any\)\.auralisStage3F5IntegrationPlan,\s*false\)/);
+  assert.doesNotMatch(q,/\bqueuedShadow\b/);
   assert.doesNotMatch(q,/authorizeAuralisReviewed79Execution\(/);
-  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
+  assert.doesNotMatch(app,/\bAURALIS_REVIEWED_79_SCORING_ENABLED\b/);
   assert.match(display,/getAuralisWorkerFailureCodeForReport\(execution\)/);
   assert.match(display,/workerFailureCode "\+workerCode/);
   assert.match(display,/Engineering Worker execution status/);
@@ -1982,8 +1977,8 @@ test("Stage 3F-18 fail-closed paired shadow: real/archive untrusted, materiality
     assert.doesNotMatch(x,/evaluateAuralisStage3F18PairedA2Shadow/,
       "Stage 3F-18 cannot reach production scoring or export");
   }
-  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
-  assert.match(app,/const AURALIS_SPECTRAL_TRIAL_ENABLED = false;/);
+  assert.doesNotMatch(app,/\bAURALIS_REVIEWED_79_SCORING_ENABLED\b/);
+  assert.doesNotMatch(app,/\bAURALIS_SPECTRAL_TRIAL_ENABLED\b/);
   assert.ok(!app.includes("SYNTHETIC_VERIFIED_FIXTURE_ONLY"));
   assert.deepEqual({c,audit,ref,ctx,strong,strongAudit},before);
 });
@@ -2113,14 +2108,13 @@ test("Controlled paired authority uses exact WAV identity, trusted review and ze
   assert.ok(!JSON.stringify({c,rows}).includes(policy.reviewerId));
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
   const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
-  assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
-  assert.match(server,/process\.env\.YSS_AURALIS_BETA_ARMED==="EXACT_PAIRED_SHA_REVIEW_ONLY"/);
-  assert.match(server,/validateAuralisPairedOperatorReviewPolicy\(review,sha\)/);
-  assert.match(server,/const pairedActivationMode=process\.env\.YSS_AURALIS_BETA_ARMED===AURALIS_CARRY_ON_ACTIVATION_MODE/);
-  assert.match(server,/pairedActivationMode&&auralisReviewedRecordingPolicy \? \{auralisPairedScoringAuthorized:true\}/);
+  assert.doesNotMatch(app,/\bAURALIS_REVIEWED_79_SCORING_ENABLED\b/);
+  assert.doesNotMatch(server,/YSS_AURALIS_/);
+  assert.doesNotMatch(server,/\bvalidateAuralisPairedOperatorReviewPolicy\b/);
+  assert.doesNotMatch(server,/\bpairedActivationMode\b/);
   assert.doesNotMatch(server,/req\.body\.auralisPairedScoringAuthorized/);
-  assert.match(app,/const paired79Authorized = !a2PilotEnabled && authorizeAuralisCarryOnPairedExecution\(/);
-  assert.match(app,/reviewed79Authorized \|\| paired79Authorized\);/);
+  assert.doesNotMatch(app,/\bpaired79Authorized\b/);
+  assert.doesNotMatch(app,/\breviewed79Authorized\b/);
 });
 
 
@@ -2139,4 +2133,30 @@ test("Production UI housekeeping removes internal test controls and keeps the Mi
   assert.match(expanded,/return <RoseChart data=\{visibleRoseData.length > 0 \? visibleRoseData : roseData\} \/>;/);
   assert.match(expanded,/weight: diagnosticMud \? 0 : parsedWeight/);
   assert.match(expanded,/const visibleRoseData = roseData.filter/);
+});
+
+
+test("Hybrid Auralis inputs prefer validated measured quantities, retain comparable band denominator and abstain on unavailable readings",async()=>{
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const bands=[1,25,10,20,20,15,9];
+  const v={version:"auralis-narrative-v1",sampleRate:48000,sampleCount:480000,channelCount:2,bandPowerSharePct:bands,lowToUpperDb:Math.round(100*10*Math.log10(25/64))/100,integratedLufs:-16.5,loudnessRangeLu:0,crestFactorDb:12,samplePeakDbfs:-3,peakTimeSec:6,peakLufs:-12,openingRiseLu:3};
+  const legacy={calculatedLufs:-9.2,calculatedLra:5.4,legacyLraAvailable:false,calculatedCrestFactorDb:20,calculatedTruePeak:-2,calculatedFinishAirPct:0.2,calculatedFinishSubPct:0.1};
+  const chosen=m.selectAuralisHybridInputs(v,legacy);
+  assert.deepEqual(chosen.integratedLufs,{value:-16.5,source:"AURALIS"});
+  assert.deepEqual(chosen.loudnessRangeLu,{value:0,source:"AURALIS"});
+  assert.deepEqual(chosen.crestFactorDb,{value:12,source:"AURALIS"});
+  assert.ok(Math.abs(chosen.airPct.value-1500/91)<1e-12);
+  assert.ok(Math.abs(chosen.subPct.value-100/91)<1e-12);
+  assert.deepEqual(m.selectAuralisHybridInputs(null,legacy).loudnessRangeLu,{value:undefined,source:"UNAVAILABLE"});
+  assert.deepEqual(m.selectAuralisHybridInputs({...v,loudnessRangeLu:null},legacy).loudnessRangeLu,{value:undefined,source:"UNAVAILABLE"});
+  assert.deepEqual(m.selectAuralisHybridInputs(null,legacy).integratedLufs,{value:-9.2,source:"LEGACY_ESTIMATE"});
+  for(const [flatness,air,expected] of [[0.8,10,null],[0.4,10,86],[0.8,0.1,86],[0.4,0.1,82],[undefined,undefined,null]])assert.equal(m.deriveGainInvariantMixCap(flatness,air).cap,expected);
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const server=await readFile(new URL("../server.ts",import.meta.url),"utf8");
+  assert.doesNotMatch(server,/process\.env\.YSS_AURALIS_/);
+  assert.doesNotMatch(app,/\b(?:executeAuralisReviewed79Score|authorizeAuralisCarryOnPairedExecution|resolveAuralisReviewedRealShadowContext)\s*\(/);
+  assert.match(app,/deriveGainInvariantMixCap\(midrangeFlatness,relativeAirPct\)/);
+  assert.doesNotMatch(app,/bassBandEnergy\s*>\s*87|lowMidBandEnergy\s*>\s*75|coreMidBandEnergy\s*<=\s*50|airBandEnergy\s*<\s*22/);
+  assert.match(app,/const measuredLra = selected.loudnessRangeLu.value/);
+  assert.match(server,/const selectedFinish=selectAuralisHybridInputs\(narrativeMeasurements/);
 });
