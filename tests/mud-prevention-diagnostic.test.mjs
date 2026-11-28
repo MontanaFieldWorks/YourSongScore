@@ -1455,7 +1455,7 @@ test("Stage 3F-8 production activation requires reviewed real authorization whil
   assert.match(app,/const reviewed79Authorized = AURALIS_REVIEWED_79_SCORING_ENABLED &&/);
   assert.match(app,/authorizeAuralisReviewed79Execution\(/);
   assert.match(app,/reviewedShadow,data\.auralisReviewedRecordingPolicy,encodedIdentity\);/);
-  assert.match(app,/reviewedShadow,\(overriddenCritique as any\)\.auralisStage3F5IntegrationPlan,\s*reviewed79Authorized\);/);
+  assert.match(app,/reviewedShadow,\(overriddenCritique as any\)\.auralisStage3F5IntegrationPlan,\s*reviewed79Authorized \|\| paired79Authorized\);/);
   assert.match(server,/process\.env\.YSS_AURALIS_BETA_ARMED!=="EXACT_SHA_REVIEW_ONLY"/);
   assert.match(server,/validateAuralisOperatorReviewPolicy\(review,sha\)/);
   assert.match(server,/createHash\("sha256"\)\.update\(req\.file!\.buffer\)/);
@@ -2072,6 +2072,41 @@ test("Controlled paired authority uses exact WAV identity, trusted review and ze
   assert.deepEqual(a,before.auralisBetaScoringAudit);
   assert.equal(m.getAuralisReviewed79ReportRows(c)[0].value,"VERIFIED_POST_AURALIS_SCORE_LINEAGE");
   assert.equal(m.executeAuralisReviewed79Score(c,a,shadow,plan,true).status,"ABSTAIN");
+  // Restricted activation test uses synthetic critique/score state and the
+  // pinned verified ratios; no real audio or operator policy is installed.
+  const activated=make();
+  activated.c.auralisEngineering.metrics.lowToUpperDb=1.36;
+  activated.a=m.buildAuralisBetaScoringAudit(activated.c,88);
+  activated.c.auralisBetaScoringAudit=activated.a;
+  const exactPolicy={...policy,originalSourceSha256:"a88427113784aefeb1ea7a8fe9a14b4029e2a6922f6e273a64568906b52983b2",
+    referenceLowToUpperDb:-2.29,candidateLowToUpperDb:1.36};
+  const exactShadow=evaluate(exactPolicy,encoded,activated.c,activated.a);
+  activated.c.auralisStage3F1SpectralShadow=exactShadow;
+  assert.equal(exactShadow.reason,"REVIEWED_REAL_PAIRED_SHADOW_NOT_ACTIVATION");
+  const authorize=(p=exactPolicy,id=encoded,flag=true,sh=exactShadow)=>
+    m.authorizeAuralisCarryOnPairedExecution(activated.c,activated.a,sh,p,id,flag);
+  assert.equal(authorize(),true);
+  for(const flag of [false,null,undefined,"true",1])assert.equal(
+    m.authorizeAuralisCarryOnPairedExecution(activated.c,activated.a,exactShadow,exactPolicy,encoded,flag),false);
+  for(const p of [null,policy,{...exactPolicy,referenceLowToUpperDb:-2.30},
+    {...exactPolicy,candidateLowToUpperDb:1.35},{...exactPolicy,originalSourceSha256:"b".repeat(64)},
+    {...exactPolicy,artisticIntent:"UNKNOWN"}])assert.equal(authorize(p),false);
+  assert.equal(authorize(exactPolicy,{...encoded,encodedSha256:"b".repeat(64)}),false);
+  assert.equal(authorize(exactPolicy,encoded,true,{...exactShadow}),false);
+  const mode=m.AURALIS_CARRY_ON_ACTIVATION_MODE;
+  assert.deepEqual(m.resolveAuralisCarryOnActivationPolicy(mode,exactPolicy,candidateSha256,false),exactPolicy);
+  for(const off of [undefined,"OFF","EXACT_SHA_REVIEW_ONLY","EXACT_PAIRED_SHA_REVIEW_ONLY"])
+    assert.equal(m.resolveAuralisCarryOnActivationPolicy(off,exactPolicy,candidateSha256,false),null);
+  for(const pilot of [true,undefined,null])assert.equal(m.resolveAuralisCarryOnActivationPolicy(mode,exactPolicy,candidateSha256,pilot),null);
+  assert.equal(m.resolveAuralisCarryOnActivationPolicy(mode,exactPolicy,referenceSha256,false),null);
+  assert.equal(m.resolveAuralisCarryOnActivationPolicy(mode,policy,candidateSha256,false),null);
+  const exactPlan=m.planAuralisReviewed79ScoreIntegration(activated.c,activated.a,exactShadow,false);
+  assert.equal(m.executeAuralisReviewed79Score(activated.c,activated.a,exactShadow,exactPlan,false).status,"DISABLED");
+  assert.equal(m.executeAuralisReviewed79Score(activated.c,activated.a,exactShadow,exactPlan,authorize()).status,"APPLIED");
+  assert.equal(activated.c.subMetricsCall1.spectralMatch.score,79);
+  assert.equal(activated.c.scores.commercialReadiness,88);
+  assert.equal(activated.c.scores.overallProduction,93);
+  assert.equal(authorize(),false,"Cannot reuse pre-execution authorization after mutation");
   const rows=m.getAuralisBetaAuditReportRows(c);
   assert.ok(rows.some(row=>row.value==="REVIEWED_REAL_PAIRED_SHADOW_NOT_ACTIVATION"));
   assert.ok(!JSON.stringify({c,rows}).includes(candidateSha256));
@@ -2081,4 +2116,9 @@ test("Controlled paired authority uses exact WAV identity, trusted review and ze
   assert.match(app,/const AURALIS_REVIEWED_79_SCORING_ENABLED = false;/);
   assert.match(server,/process\.env\.YSS_AURALIS_BETA_ARMED==="EXACT_PAIRED_SHA_REVIEW_ONLY"/);
   assert.match(server,/validateAuralisPairedOperatorReviewPolicy\(review,sha\)/);
+  assert.match(server,/const pairedActivationMode=process\.env\.YSS_AURALIS_BETA_ARMED===AURALIS_CARRY_ON_ACTIVATION_MODE/);
+  assert.match(server,/pairedActivationMode&&auralisReviewedRecordingPolicy \? \{auralisPairedScoringAuthorized:true\}/);
+  assert.doesNotMatch(server,/req\.body\.auralisPairedScoringAuthorized/);
+  assert.match(app,/const paired79Authorized = !a2PilotEnabled && authorizeAuralisCarryOnPairedExecution\(/);
+  assert.match(app,/reviewed79Authorized \|\| paired79Authorized\);/);
 });

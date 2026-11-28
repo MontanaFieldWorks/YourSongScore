@@ -5,7 +5,7 @@ import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, 
 import type { SonicLensSavedMasterEqProfile } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey, measureSonicLensSavedMasterEq, isValidSonicLensSavedMasterEq } from "./lib/liveAudioAnalyzer";
 import type { AuralisEncodedSourceIdentity } from "./lib/liveAudioAnalyzer";
-import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow, resolveAuralisReviewedRealShadowContext, planAuralisReviewed79ScoreIntegration, executeAuralisReviewed79Score, authorizeAuralisReviewed79Execution, isAuralisStage3F9IdentityCandidate, isAuralisStage3F9ExactEncodedIdentity, summarizeAuralisQueuedMp3Shadow } from "./lib/mudPreventionDiagnostic";
+import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow, resolveAuralisReviewedRealShadowContext, planAuralisReviewed79ScoreIntegration, executeAuralisReviewed79Score, authorizeAuralisReviewed79Execution, authorizeAuralisCarryOnPairedExecution, isAuralisStage3F9IdentityCandidate, isAuralisStage3F9ExactEncodedIdentity, summarizeAuralisQueuedMp3Shadow } from "./lib/mudPreventionDiagnostic";
 
 // Disabled by default: internal opt-in diagnostic computation only, no report/scoring data.
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
@@ -1600,15 +1600,19 @@ export default function App() {
         authorizeAuralisReviewed79Execution(
           overriddenCritique,(overriddenCritique as any).auralisBetaScoringAudit,
           reviewedShadow,data.auralisReviewedRecordingPolicy,encodedIdentity);
-      // Stage 3F-6: one final-score executor call, AFTER the trusted review
-      // audit and BEFORE the report/Locker consume the critique. The hardcoded
-      // false switch means this currently records DISABLED with no mutation.
-      // A2 canonical and pre-Auralis snapshots remain historical evidence.
+      // Carry On only: the separate server activation mode must issue a
+      // positive authorization for this response, not just a shadow review.
+      // The general reviewed-79 switch above stays OFF.
+      const paired79Authorized = !a2PilotEnabled && authorizeAuralisCarryOnPairedExecution(
+        overriddenCritique,(overriddenCritique as any).auralisBetaScoringAudit,
+        reviewedShadow,data.auralisReviewedRecordingPolicy,encodedIdentity,data.auralisPairedScoringAuthorized);
+      // One final-score executor call, after the audit and before report/Locker.
+      // Both routes fail closed; canonical and pre-Auralis snapshots stay historical.
       (overriddenCritique as any).auralisStage3F6Execution =
         executeAuralisReviewed79Score(
           overriddenCritique,(overriddenCritique as any).auralisBetaScoringAudit,
           reviewedShadow,(overriddenCritique as any).auralisStage3F5IntegrationPlan,
-          reviewed79Authorized);
+          reviewed79Authorized || paired79Authorized);
 
       // Attach only AFTER all scoring/caps/A2 audit decisions and the disabled executor.
       // Saved in Artist Locker to support a genuinely static (non-audio) report display.
