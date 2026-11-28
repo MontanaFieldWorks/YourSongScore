@@ -1723,6 +1723,7 @@ export function getAuralisBetaAuditReportRows(critique:unknown):AuralisBetaExcel
   add("Export Policy","Auralis responsibility",c?.auralisHybridInputVersion==="hybrid-v1"?"MEASUREMENT_AND_EXISTING_ENGINEERING_INPUTS":"MEASURED_ENGINEERING_EVIDENCE_ONLY");
   const narrativeMeasurements=validateAuralisNarrativeMeasurements(c?.auralisNarrativeMeasurements);
   add("Narrative Evidence","Gemini engineering context",narrativeMeasurements?"AURALIS_MEASUREMENTS_SUPPLIED":"NOT_CAPTURED");
+  add("Narrative Evidence","Measurement trust",narrativeMeasurements?"CLIENT_WORKER_VALUES; UPLOAD_HASH_CHECKED; SERVER_DSP_NOT_RECOMPUTED":"NOT_CAPTURED");
   if(c?.auralisHybridInputVersion==="hybrid-v1"){
     const inputs=selectAuralisHybridInputs(narrativeMeasurements,c?.liveMetrics);
     for(const [label,measurement,legacy] of [
@@ -1739,6 +1740,10 @@ export function getAuralisBetaAuditReportRows(critique:unknown):AuralisBetaExcel
       add("Hybrid Inputs",label+" source",measurement.source);
     }
     add("Hybrid Inputs","Low-to-upper ratio (descriptive, dB)",number(inputs.lowToUpperDb));
+    add("Hybrid Inputs","Sustained contrast (distinct legacy dB metric)",number(inputs.sustainedContrastDb.value));
+    add("Hybrid Inputs","Sustained contrast source",inputs.sustainedContrastDb.source);
+    add("Hybrid Inputs","Midrange flatness (distinct legacy metric)",number(inputs.midrangeFlatness.value));
+    add("Hybrid Inputs","Midrange flatness source",inputs.midrangeFlatness.source);
   }
   add("Export Policy","Quality verdict from band ratio","NOT_INFERRED");
   add("Execution","Worker status",code(e?.status,["AVAILABLE","UNAVAILABLE","NOT_RUN"]));
@@ -2008,7 +2013,7 @@ export function formatAuralisObjectiveEngineeringFindings(critique:unknown):stri
   const f=getAuralisObjectiveEngineeringFindings(critique);
   const pct=(v:number|null)=>v===null?"unavailable":v>0&&v<0.1?"less than 0.1%":v.toFixed(1)+"%";
   const ratio=f.spectralMatch.lowToUpperDb;
-  return "Auralis measurements (not scored; "+(f.sourceIdentity==="VERIFIED"?"audio identity verified":"audio identity not verified")+"): "+
+  return "Auralis measurements ("+( (critique as any)?.auralisHybridInputVersion==="hybrid-v1"?"selected values may feed existing engineering guardrails; ":"measurement-only report; ")+(f.sourceIdentity==="VERIFIED"?"audio identity verified":"audio identity not verified")+"): "+
     "Spectral Match: "+(ratio===null?"insufficient measurement evidence":ratio.toFixed(2)+" dB (60–250 Hz / 500–20,000 Hz)")+
     (f.spectralMatch.concernBasis==="RECORDED_REVIEWED_SHADOW_ONLY"?"; recorded reviewed shadow concern, not a new diagnosis or score authority. ": "; no supported quality verdict. ")+
     "Mud Prevention: 250–500 Hz power share "+pct(f.mudPrevention.lowMidPowerPct)+
@@ -2075,7 +2080,7 @@ export function getAuralisDynamicsFindings(critique:unknown) {
 export function formatAuralisDynamicsFindings(critique:unknown):string {
   const f=getAuralisDynamicsFindings(critique),d=f.dynamicModulation,t=f.climaxTrajectory;
   const val=(v:number|null,unit:string)=>v===null?"unavailable":v.toFixed(1)+" "+unit;
-  return "Auralis dynamics measurements (not scored; "+(f.sourceIdentity==="VERIFIED"?"audio identity verified":"audio identity not verified")+"): "+
+  return "Auralis dynamics measurements ("+((critique as any)?.auralisHybridInputVersion==="hybrid-v1"?"LRA may feed existing dynamics guardrails; ":"measurement-only report; ")+(f.sourceIdentity==="VERIFIED"?"audio identity verified":"audio identity not verified")+"): "+
     "Dynamic Modulation: gated loudness range "+val(d.loudnessRangeLu,"LU")+
     "; full-channel crest factor "+val(d.crestFactorDb,"dB")+
     ". Climax Trajectory: highest measured 3-second programme loudness window centred at "+
@@ -2168,13 +2173,13 @@ export function parseAuralisNarrativePacket(raw:unknown,uploadSha256:string): Au
 }
 export function formatAuralisNarrativeContext(raw:unknown,savedReport=false):string {
   const m=validateAuralisNarrativeMeasurements(raw);
-  const instruction="For every engineering narrative and DAW recommendation, distinguish objective measurements from listening-based interpretation. Auralis is the source for physical engineering measurements; explicitly respect its reported values and unavailable fields throughout all main and submetric narratives, action items, feedback, frequency balance, dynamics and climax commentary. Do not restate a conflicting legacy estimate as a measured fact. Auralis supplies physical signal measurements; Gemini supplies contextual listening, musical interpretation and practical explanation. Do not invent a measured value, infer source separation, masking, instrument identity, compression history or artistic intent solely from aggregate spectrum, loudness or crest factor. A loudness or spectral characteristic alone is not a defect. Interpret the existing tiers from audio and applicable evidence; do not override deterministic scores or declare an unmeasured quality verdict. Preserve independent low-end role listening checks. Use plain English and conditional listening checks, not universal genre targets or mandatory EQ from band shares.";
+  const instruction="For every engineering narrative and DAW recommendation, distinguish objective measurements from listening-based interpretation. Auralis is the source for physical engineering measurements; explicitly respect its reported values and unavailable fields throughout all main and submetric narratives, action items, feedback, frequency balance, dynamics and climax commentary. Do not restate a conflicting legacy estimate as a measured fact. Auralis supplies physical signal measurements; Gemini supplies contextual listening, musical interpretation and practical explanation. Do not invent a measured value, infer source separation, masking, instrument identity, compression history or artistic intent solely from aggregate spectrum, loudness or crest factor. A loudness or spectral characteristic alone is not a defect. Interpret the existing tiers from audio and applicable evidence; do not override deterministic scores or declare an unmeasured quality verdict. Preserve independent low-end role listening checks. Separate legacy estimates of sustained contrast, spectral flatness, flux, stereo phase, and source-role diagnostics from Auralis quantities; these are different metrics, not substitutes or independent server verification. Use plain English and conditional listening checks, not universal genre targets or mandatory EQ from band shares.";
   if(!m)return "\n\n[AURALIS ENGINEERING EVIDENCE UNAVAILABLE]\n"+instruction+
     " No Auralis numerical findings are available for this analysis; state uncertainty rather than inventing them.";
   const val=(v:number|null,unit:string)=>v===null?"unavailable":v.toFixed(2)+" "+unit;
   const bands=["20–60","60–250","250–500","500–2000","2000–6000","6000–11000","11000–20000"];
   return "\n\n[AURALIS MEASURED ENGINEERING CONTEXT]\n"+
-    (savedReport?"Saved report measurements, not a fresh audio measurement. ":"Browser-validated Worker PCM measurements associated with the uploaded encoded bytes. The server checks file identity and numeric structure, not an independent DSP recomputation. ")+
+    (savedReport?"Saved client-reported measurements, not a fresh audio measurement. Do not assume independent server verification. ":"Client-reported, browser-validated Worker PCM measurements associated with the uploaded encoded bytes. The server checks file identity and numeric structure, not an independent DSP recomputation. ")+
     "Use these values as the engineering measurement source rather than estimating the same quantities by ear or treating legacy absolute band indices as relative power. "+
     "Decoded duration "+(m.sampleCount/m.sampleRate).toFixed(2)+" s; "+m.channelCount+" channel(s). "+
     "Spectral Match: 60–250 vs 500–20,000 Hz "+val(m.lowToUpperDb,"dB")+". "+
@@ -2200,6 +2205,9 @@ export function selectAuralisHybridInputs(raw:unknown,legacy:unknown) {
       return {value:old,source:"LEGACY_ESTIMATE" as const};
     return {value:undefined,source:"UNAVAILABLE" as const};
   };
+  // Distinct legacy quantities are not interchangeable with LRA or band power.
+  const distinctLegacy=(v:unknown,min:number,max:number)=>finite(v)&&v>=min&&v<=max
+    ? {value:v,source:"LEGACY_ESTIMATE" as const} : {value:undefined,source:"UNAVAILABLE" as const};
   const b=m?.bandPowerSharePct;
   // Legacy finish targets used 20–11,000 Hz as denominator, not 20–20,000.
   // Re-normalize the matching six Auralis bands. Stereo/FFT sampling differs;
@@ -2214,6 +2222,8 @@ export function selectAuralisHybridInputs(raw:unknown,legacy:unknown) {
     subPct:band(0,l?.calculatedFinishSubPct),
     midPct:band(3,l?.calculatedFinishMidPct),
     airPct:band(5,l?.calculatedFinishAirPct),
+    sustainedContrastDb:distinctLegacy(l?.calculatedDynamicRangeDb,0,200),
+    midrangeFlatness:distinctLegacy(l?.calculatedMidrangeFlatness,0,1),
     lowToUpperDb:m?.lowToUpperDb??null,
     bandPowerSharePct:b??null,
   };
