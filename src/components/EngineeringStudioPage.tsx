@@ -362,9 +362,6 @@ export default function EngineeringStudioPage({ onBack, critique, trackInfo, loc
   };
 
   // 1. Core State Managers
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisProgress, setAnalysisProgress] = useState(0);
-  const [analysisStep, setAnalysisStep] = useState("");
   const [isAnalyzed, setIsAnalyzed] = useState(false);
 
   // Playback monitor simulation
@@ -612,7 +609,7 @@ const generateHarmonicNodes = () => {
       </div>
 
       {/* 3. High-Precision Run/Trigger Interface */}
-      {!isAnalyzed && !isAnalyzing && (
+      {!isAnalyzed && (
         <div className="bg-[#13161C] border border-[#2563EB]/25 rounded-3xl p-10 shadow-2xl text-center relative overflow-hidden flex flex-col items-center justify-center min-h-[380px]">
           <div className="absolute inset-0 bg-gradient-to-br from-[#2563EB]/5 via-transparent to-transparent pointer-events-none" />
           <div className="absolute -top-12 -right-12 width-[200px] height-[200px] bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
@@ -625,7 +622,7 @@ const generateHarmonicNodes = () => {
             Harmonic Core Resolution Analyzer
           </h2>
           <p className="text-xs text-slate-400 mt-2 max-w-lg leading-relaxed">
-            Run on-demand deep-spectrum analysis on <span className="text-slate-300 font-bold">"{trackName}"</span> to find surgical EQ problems. This runs localized multi-point FFT bins to discover phase, gain resonance, and dynamic transients issues without loading overall report limits.
+            Open the saved Engineering Studio report for <span className="text-slate-300 font-bold">"{trackName}"</span>. This displays existing measurements and listening guidance; it does not run a new analysis.
           </p>
 
           <button
@@ -633,38 +630,8 @@ const generateHarmonicNodes = () => {
             className="mt-8 px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs font-bold uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_35px_rgba(37,99,235,0.5)] cursor-pointer select-none flex items-center gap-2.5"
           >
             <Sparkles className="w-4 h-4 animate-pulse text-yellow-300" />
-            <span>Launch Precision Mix Diagnostic</span>
+            <span>Open Engineering Report</span>
           </button>
-        </div>
-      )}
-
-      {/* 4. Live Running Sweep Interface */}
-      {isAnalyzing && (
-        <div className="bg-[#13161C] border border-blue-500/20 rounded-3xl p-10 shadow-2xl text-center flex flex-col items-center justify-center min-h-[380px] animate-fadeIn">
-          <div className="relative w-20 h-20 flex items-center justify-center mb-6">
-            <div className="absolute inset-0 w-20 h-20 border-4 border-blue-500/10 rounded-full" />
-            <div className="absolute inset-0 w-20 h-20 border-4 border-t-blue-500 rounded-full animate-[spin_1.2s_linear_infinite]" />
-            <Activity className="w-8 h-8 text-blue-400 animate-pulse" />
-          </div>
-
-          <div className="max-w-md w-full">
-            <div className="flex justify-between text-xs text-slate-400 mb-1.5 font-mono">
-              <span>ACOUSTIC SPECTRUM SWEEP</span>
-              <span>{analysisProgress}%</span>
-            </div>
-            
-            {/* Progress line */}
-            <div className="w-full h-1.5 bg-neutral-900 rounded-full overflow-hidden border border-white/5 p-[1px]">
-              <div 
-                className="h-full bg-blue-500 rounded-full transition-all duration-300 shadow-[0_0_12px_#3b82f6]" 
-                style={{ width: `${analysisProgress}%` }}
-              />
-            </div>
-
-            <p className="text-xs font-mono text-blue-400 font-bold mt-4 animate-pulse uppercase tracking-wider">
-              {analysisStep}
-            </p>
-          </div>
         </div>
       )}
 
