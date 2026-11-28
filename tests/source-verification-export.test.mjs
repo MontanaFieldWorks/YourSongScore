@@ -1,13 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { transform } from "esbuild";
-
-const helperSource = await readFile("src/lib/sourceVerificationDiagnostics.ts", "utf8");
-const compiled = await transform(helperSource, { loader: "ts", format: "esm" });
-const { getSourceVerificationRows } = await import(
-  "data:text/javascript;base64," + Buffer.from(compiled.code).toString("base64")
-);
+import { getSourceVerificationRows } from "../src/lib/sourceVerificationDiagnostics.ts";
 const displaySource = await readFile("src/components/CritiqueDisplay.tsx", "utf8");
 const values = (rows) => Object.fromEntries(rows.map(row => [row.section + "/" + row.field, row.value]));
 

@@ -2,7 +2,7 @@
  * Read-only diagnostic rows for source-presence investigations.
  * Never modifies critique data, scores, or applicability.
  */
-import { selectAuralisHybridInputs } from "./mudPreventionDiagnostic";
+import { selectAuralisHybridInputs } from "./mudPreventionDiagnostic.ts";
 
 export interface SourceDiagnosticRow {
   section: string;
