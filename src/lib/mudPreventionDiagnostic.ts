@@ -1721,6 +1721,8 @@ export function getAuralisBetaAuditReportRows(critique:unknown):AuralisBetaExcel
   add("Export Policy","Scope","READ_ONLY_CURRENT_CRITIQUE; NO NEW SCORING");
   add("Export Policy","Gemini responsibility","ARTISTIC_AND_EXISTING_TIER_ASSESSMENT");
   add("Export Policy","Auralis responsibility","MEASURED_ENGINEERING_EVIDENCE_ONLY");
+  const narrativeMeasurements=validateAuralisNarrativeMeasurements(c?.auralisNarrativeMeasurements);
+  add("Narrative Evidence","Gemini engineering context",narrativeMeasurements?"AURALIS_MEASUREMENTS_SUPPLIED":"NOT_CAPTURED");
   add("Export Policy","Quality verdict from band ratio","NOT_INFERRED");
   add("Execution","Worker status",code(e?.status,["AVAILABLE","UNAVAILABLE","NOT_RUN"]));
   add("Execution","Worker reason",code(e?.reason,[
@@ -2063,4 +2065,107 @@ export function formatAuralisDynamicsFindings(critique:unknown):string {
     val(t.peakTimeSec,"s")+" ("+val(t.peakPositionPct,"% of decoded duration")+")"+
     "; peak "+val(t.peakLufs,"LUFS")+"; rise above mean opening-window power "+val(t.openingRiseLu,"LU")+
     ". This is the first highest window if tied, not proof of a unique musical climax or effective artistic payoff.";
+}
+
+
+/** Compact numeric-only context for the existing Gemini narrative calls.
+ * Browser-validated PCM is not a server-side independent DSP measurement.
+ * The encoded hash binds context to this upload and is never sent to Gemini or saved.
+ * Neither this packet nor its acceptance grants any score override authorization.
+ */
+export type AuralisNarrativeMeasurements = {
+  version: "auralis-narrative-v1";
+  sampleRate: number; sampleCount: number; channelCount: number;
+  bandPowerSharePct: number[] | null; lowToUpperDb: number | null;
+  integratedLufs: number | null; loudnessRangeLu: number | null;
+  crestFactorDb: number | null; samplePeakDbfs: number | null;
+  peakTimeSec: number | null; peakLufs: number | null; openingRiseLu: number | null;
+};
+const NARRATIVE_MEASUREMENT_KEYS = [
+  "version","sampleRate","sampleCount","channelCount","bandPowerSharePct","lowToUpperDb",
+  "integratedLufs","loudnessRangeLu","crestFactorDb","samplePeakDbfs","peakTimeSec","peakLufs","openingRiseLu",
+];
+export function validateAuralisNarrativeMeasurements(raw: unknown): AuralisNarrativeMeasurements | null {
+  if(!raw || typeof raw!=="object" || Array.isArray(raw))return null;
+  const m=raw as AuralisNarrativeMeasurements;
+  const finite=(v:unknown,min:number,max:number):v is number=>
+    typeof v==="number"&&Number.isFinite(v)&&v>=min&&v<=max;
+  const nullable=(v:unknown,min:number,max:number)=>v===null||finite(v,min,max);
+  if(Object.keys(m).sort().join(",")!==[...NARRATIVE_MEASUREMENT_KEYS].sort().join(",")||
+    m.version!=="auralis-narrative-v1"||!Number.isSafeInteger(m.sampleRate)||
+    !finite(m.sampleRate,8000,192000)||!Number.isSafeInteger(m.sampleCount)||m.sampleCount<1||
+    ![1,2].includes(m.channelCount)||m.sampleCount*m.channelCount*4>128*1024*1024||
+    !nullable(m.lowToUpperDb,-200,200)||!nullable(m.integratedLufs,-100,30)||
+    !nullable(m.loudnessRangeLu,0,100)||!nullable(m.crestFactorDb,0,150)||
+    !nullable(m.samplePeakDbfs,-200,30)||!nullable(m.peakTimeSec,0,m.sampleCount/m.sampleRate)||
+    !nullable(m.peakLufs,-200,30)||!nullable(m.openingRiseLu,-200,200))return null;
+  if(m.bandPowerSharePct!==null){
+    const b=m.bandPowerSharePct;
+    if(m.sampleRate<40000||m.sampleCount<4096||!Array.isArray(b)||b.length!==7||
+      !Array.from(b).every(v=>finite(v,0,100))||
+      Math.abs(b.reduce((s,v)=>s+v,0)-100)>1e-6)return null;
+    const upper=b.slice(3).reduce((s,v)=>s+v,0);
+    if(b[1]<=0||upper<=0||m.lowToUpperDb===null||
+      Math.abs(10*Math.log10(b[1]/upper)-m.lowToUpperDb)>0.005001)return null;
+  }else if(m.lowToUpperDb!==null)return null;
+  if(m.loudnessRangeLu!==null&&m.sampleCount<3*m.sampleRate)return null;
+  const trajectory=[m.peakTimeSec,m.peakLufs,m.openingRiseLu];
+  if(trajectory.some(v=>v!==null)&&
+     (trajectory.some(v=>v===null)||m.sampleCount<3*m.sampleRate))return null;
+  if(m.bandPowerSharePct===null&&m.integratedLufs===null&&m.loudnessRangeLu===null&&
+    m.crestFactorDb===null&&m.samplePeakDbfs===null&&m.peakTimeSec===null)return null;
+  return {...m,bandPowerSharePct:m.bandPowerSharePct?[...m.bandPowerSharePct]:null};
+}
+export function prepareAuralisNarrativePacket(diagnostic:unknown,
+    engineering:ReturnType<typeof prepareAuralisEngineeringEvidence>) {
+  const d=diagnostic as any;
+  const l=prepareAuralisSourceLineage(diagnostic);
+  if(!l||l.sourceFormat!=="UNVERIFIED"||!engineering||
+    classifyAuralisExecution("AVAILABLE",engineering).status!=="AVAILABLE"||
+    d.identity.encodedBytes>24*1024*1024)return null;
+  const g=engineering.metrics,m=g.dynamics;
+  const meter=d.referenceMeters;
+  // The reference meter adapter checked schema, method and exact PCM geometry.
+  const numericMeter=(key:string)=>m&&typeof meter?.measurements?.[key]==="number"&&
+    Number.isFinite(meter.measurements[key])?meter.measurements[key]:null;
+  const trajectory=m?.trajectory;
+  const measurements=validateAuralisNarrativeMeasurements({
+    version:"auralis-narrative-v1",sampleRate:l.workerSampleRate,
+    sampleCount:l.workerSamples,channelCount:l.workerChannels,
+    bandPowerSharePct:g.bandPowerSharePct,lowToUpperDb:g.bandPowerSharePct?g.lowToUpperDb:null,
+    integratedLufs:numericMeter("integratedLufs"),samplePeakDbfs:numericMeter("samplePeakDbfs"),
+    loudnessRangeLu:m?.loudnessRangeLu??null,crestFactorDb:m?.crestFactorDb??null,
+    peakTimeSec:trajectory?(15+trajectory.peakWindowIndex)/10:null,
+    peakLufs:trajectory?.peakLufs??null,openingRiseLu:trajectory?.openingRiseLu??null,
+  });
+  return measurements?{encodedSha256:d.identity.encodedSha256 as string,measurements}:null;
+}
+export function parseAuralisNarrativePacket(raw:unknown,uploadSha256:string): AuralisNarrativeMeasurements|null {
+  if(typeof raw!=="string"||raw.length>4096||!/^[a-f0-9]{64}$/.test(uploadSha256))return null;
+  try {
+    const packet=JSON.parse(raw);
+    if(!packet||Object.keys(packet).sort().join(",")!=="encodedSha256,measurements"||
+      packet.encodedSha256!==uploadSha256)return null;
+    return validateAuralisNarrativeMeasurements(packet.measurements);
+  }catch{return null;}
+}
+export function formatAuralisNarrativeContext(raw:unknown,savedReport=false):string {
+  const m=validateAuralisNarrativeMeasurements(raw);
+  const instruction="For every engineering narrative and DAW recommendation, distinguish objective measurements from listening-based interpretation. Auralis supplies physical signal measurements; Gemini supplies contextual listening, musical interpretation and practical explanation. Do not invent a measured value, infer source separation, masking, instrument identity, compression history or artistic intent solely from aggregate spectrum, loudness or crest factor. A loudness or spectral characteristic alone is not a defect. Interpret the existing tiers from audio and applicable evidence; do not override deterministic scores or declare an unmeasured quality verdict. Preserve independent low-end role listening checks. Use plain English and conditional listening checks, not universal genre targets or mandatory EQ from band shares.";
+  if(!m)return "\n\n[AURALIS ENGINEERING EVIDENCE UNAVAILABLE]\n"+instruction+
+    " No Auralis numerical findings are available for this analysis; state uncertainty rather than inventing them.";
+  const val=(v:number|null,unit:string)=>v===null?"unavailable":v.toFixed(2)+" "+unit;
+  const bands=["20–60","60–250","250–500","500–2000","2000–6000","6000–11000","11000–20000"];
+  return "\n\n[AURALIS MEASURED ENGINEERING CONTEXT]\n"+
+    (savedReport?"Saved report measurements, not a fresh audio measurement. ":"Browser-validated Worker PCM measurements associated with the uploaded encoded bytes. The server checks file identity and numeric structure, not an independent DSP recomputation. ")+
+    "Use these values as the engineering measurement source rather than estimating the same quantities by ear or treating legacy absolute band indices as relative power. "+
+    "Decoded duration "+(m.sampleCount/m.sampleRate).toFixed(2)+" s; "+m.channelCount+" channel(s). "+
+    "Spectral Match: 60–250 vs 500–20,000 Hz "+val(m.lowToUpperDb,"dB")+". "+
+    "Mud Prevention, Low-End Division and Midrange Spacing: represented 20–20,000 Hz power shares "+
+    (m.bandPowerSharePct?m.bandPowerSharePct.map((v,i)=>bands[i]+" Hz "+v.toFixed(3)+"%").join("; "):"unavailable")+". "+
+    "Integrated loudness "+val(m.integratedLufs,"LUFS")+"; sample peak "+val(m.samplePeakDbfs,"dBFS")+
+    "; Dynamic Modulation: gated LRA "+val(m.loudnessRangeLu,"LU")+", full-channel crest factor "+val(m.crestFactorDb,"dB")+
+    ". Climax Trajectory: highest three-second programme loudness window centered at "+val(m.peakTimeSec,"s")+
+    ", peak "+val(m.peakLufs,"LUFS")+", opening-to-peak rise "+val(m.openingRiseLu,"LU")+
+    ". This does not establish musical climax or artistic payoff. "+instruction;
 }
