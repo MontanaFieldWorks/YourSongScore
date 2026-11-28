@@ -2161,3 +2161,27 @@ test("Hybrid Auralis inputs prefer validated measured quantities, retain compara
   assert.match(app,/const measuredLra = selected.loudnessRangeLu.value/);
   assert.match(server,/const selectedFinish=selectAuralisHybridInputs\(narrativeMeasurements/);
 });
+
+test("Auralis reference loudness measures stereo synthetic tones and relative spectral shares survive attenuation",async()=>{
+  const {analyzeStage1aMeterReference,runStage2c2aBrowserDiagnostics}=await import("../src/lib/liveAudioAnalyzer.ts");
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  const sr=48000,n=sr*4;
+  for(const [hz,expected] of [[1000,-12.03],[6000,-8.70]]){
+    const ch=Float32Array.from({length:n},(_,i)=>0.25*Math.sin(2*Math.PI*hz*i/sr));
+    const meter=analyzeStage1aMeterReference([ch,ch],sr);
+    assert.ok(Math.abs(meter.measurements.integratedLufs-expected)<0.35,`reference loudness at ${hz} Hz: ${meter.measurements.integratedLufs}`);
+  }
+  const ch=Float32Array.from({length:sr},(_,i)=>0.1*Math.sin(2*Math.PI*120*i/sr)+0.08*Math.sin(2*Math.PI*1000*i/sr)+0.004*Math.sin(2*Math.PI*8000*i/sr));
+  function measured(gain){
+    const pcm=Float32Array.from(ch,x=>x*gain);
+    const d=runStage2c2aBrowserDiagnostics({sampleRate:sr,numberOfChannels:2,length:pcm.length,getChannelData:()=>pcm},true,true);
+    const e=m.prepareAuralisEngineeringEvidence(d);
+    assert.ok(e?.metrics?.bandPowerSharePct);
+    const b=e.metrics.bandPowerSharePct;
+    return {ratio:e.metrics.lowToUpperDb,air:100*b[5]/b.slice(0,6).reduce((a,v)=>a+v,0)};
+  }
+  const a=measured(1),b=measured(10**(-6/20));
+  assert.ok(Math.abs(a.ratio-b.ratio)<0.02);
+  assert.ok(Math.abs(a.air-b.air)<0.001);
+  assert.equal(m.deriveGainInvariantMixCap(0.4,a.air).cap,m.deriveGainInvariantMixCap(0.4,b.air).cap);
+});
