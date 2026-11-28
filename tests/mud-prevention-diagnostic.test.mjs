@@ -1027,10 +1027,10 @@ test("Stage 3F-1 synthetic shadow requires independent evidence and never mutate
   const m=await import("../src/lib/mudPreventionDiagnostic.ts");
   realC.auralisBetaScoringAudit=realAudit;
   realC.auralisStage3F1SpectralShadow=real;
-  const before=structuredClone(realC);
+  const historicalBefore=structuredClone(realC);
   assert.equal(m.planAuralisReviewed79ScoreIntegration(realC,realAudit,real,false).status,"PROJECTION_ONLY");
   assert.equal(m.planAuralisReviewed79ScoreIntegration(realC,realAudit,real,true).status,"BLOCKED");
-  assert.deepEqual(realC,before);
+  assert.deepEqual(realC,historicalBefore);
   assert.deepEqual(m.getAuralisReviewed79ReportRows(realC),[]);
   assert.equal(m.executeAuralisReviewed79Score,undefined);
 
