@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { CritiqueData, TrackInfo, LiveAudioMetrics } from "../types";
-import { getLegacyMeterDisplayValue, isValidSonicLensSavedMasterEq } from "../lib/liveAudioAnalyzer";
+import { isValidSonicLensSavedMasterEq } from "../lib/liveAudioAnalyzer";
 import { getSubgenreProfile, getVectorTargets, getCritiqueAndFix } from "../data/musicData";
 import { updateTrackFields } from "../firebase";
 import ExcelJS from "exceljs";
@@ -1580,16 +1580,16 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
   // Fallbacks to avoid crashes on older or incomplete structures returned by standard API routes
   const lyricsScore = critique?.lyricalImpact?.score ?? 78;
-  const lyricsClarity = critique?.lyricalImpact?.meaningClarity ?? "Metaphorical, themed phrasing";
-  const lyricsFeedback = critique?.lyricalImpact?.feedback ?? "Strong phrasing with rich themes. The hook builds high emotional depth, avoiding basic clichés beautifully.";
+  const lyricsClarity = critique?.lyricalImpact?.meaningClarity ?? "Lyric assessment unavailable.";
+  const lyricsFeedback = critique?.lyricalImpact?.feedback ?? "No saved lyrical assessment.";
 
   const theoryScore = critique?.musicTheory?.score ?? 84;
-  const theoryStructures = critique?.musicTheory?.chordStructures ?? "vi - IV - I - V progression in G major";
-  const theoryFeedback = critique?.musicTheory?.feedback ?? "Solid understanding of leading tones. Transitions are smooth and resolve harmonically with a pleasing tension arc.";
+  const theoryStructures = critique?.musicTheory?.chordStructures ?? "Chord structure unavailable.";
+  const theoryFeedback = critique?.musicTheory?.feedback ?? "No saved music-theory assessment.";
 
   const searchScore = critique?.titleSearchability?.score ?? 68;
-  const searchLevel = critique?.titleSearchability?.uniquenessLevel ?? "Moderately Unique Phrase";
-  const searchFeedback = critique?.titleSearchability?.feedback ?? "Your song title is moderately unique. It avoids high-level congestion but should be paired with consistent meta tagging across streaming platforms.";
+  const searchLevel = critique?.titleSearchability?.uniquenessLevel ?? "Title assessment unavailable.";
+  const searchFeedback = critique?.titleSearchability?.feedback ?? "No saved title-searchability assessment.";
 
   const artisticScore = critique?.subMetricsCall2?.artisticAnalysis?.score ?? Math.min(100, Math.round(theoryScore * 0.40 + (critique?.scores?.overallProduction ?? 75) * 0.60));
 
@@ -3394,7 +3394,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div>
                   <span className="text-[12px] font-mono text-slate-400 uppercase">Sample Peak (Approx.)</span>
                   <p className="text-xl font-mono font-black text-white mt-1">
-                    {critique?.liveMetrics ? `${critique.liveMetrics.calculatedTruePeak} dBFS` : "--"}
+                    {critique?.liveMetrics ? `${selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).samplePeakDbfs.value ?? "Unavailable"} dBFS` : "--"}
                   </p>
                 </div>
                 <p className="text-[13px] text-slate-500 mt-2 leading-relaxed">
@@ -10092,7 +10092,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         });
 
                         // Calculate LUFS estimates per section
-                        const lufs = liveMetrics?.calculatedLufs ?? -12;
+                        const lufs = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,liveMetrics).integratedLufs.value;
+                        if(lufs===undefined)return <p className="text-xs text-slate-400">Loudness measurement unavailable.</p>;
                         const sections = labeled.map(s => {
                           const sectionLufs = parseFloat((lufs + ((s.avgAmp - 50) * 0.18)).toFixed(1));
                           return { ...s, sectionLufs };
@@ -10249,11 +10250,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                               <Layers className="w-3.5 h-3.5" />
                               Dynamic Arc Lift
                             </span>
-                            <span className="text-[11px] font-mono text-slate-500">Chorus vs. Verse Delta</span>
+                            <span className="text-[11px] font-mono text-slate-500">Waveform-window estimate (not measured section LUFS)</span>
                           </div>
                           {(() => {
                             const points = liveMetrics?.calculatedWaveformPointsHD ?? liveMetrics?.calculatedWaveformPoints ?? [];
-                            const lufs = liveMetrics?.calculatedLufs ?? -12;
+                            const lufs = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,liveMetrics).integratedLufs.value;
+                        if(lufs===undefined)return <p className="text-xs text-slate-400">Loudness measurement unavailable.</p>;
                             if (points.length === 0) {
                               return <div className="text-[12px] text-slate-600 font-mono py-4">Upload a track to analyze dynamics.</div>;
                             }
