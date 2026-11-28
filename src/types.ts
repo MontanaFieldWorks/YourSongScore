@@ -63,9 +63,12 @@ export interface TitleSearchabilityCritique {
 }
 
 export interface LiveAudioMetrics {
-  calculatedLufs: number;
+  calculatedLufs?: number;
   calculatedTruePeak: number;
-  calculatedLra: number;
+  calculatedLra?: number;
+  // Legacy estimate availability; missing readings never acquire synthetic numbers.
+  legacyLufsAvailable?: boolean;
+  legacyLraAvailable?: boolean;
   calculatedRmsDbfs?: number;
   calculatedCrestFactorDb?: number;
   calculatedFinishSubPct?: number;
@@ -184,6 +187,8 @@ export interface CritiqueData {
   liveMetrics?: LiveAudioMetrics;
   /** Score-inert compact local-PCM spectral profile, captured once and saved with the critique. */
   auralisMasterEqProfile?: SonicLensSavedMasterEqProfile;
+  auralisNarrativeMeasurements?: import("./lib/mudPreventionDiagnostic").AuralisNarrativeMeasurements;
+  auralisHybridInputVersion?: "hybrid-v1";
   userValence?: number;
   userEnergy?: number;
   subMetricsCall1?: any;

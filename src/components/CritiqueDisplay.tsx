@@ -10,7 +10,7 @@ import { analyzeClimaxPeakCompetition, formatClimaxPeakDiagnostic } from "../lib
 import { getClimaxTrajectoryEvidenceRows } from "../lib/climaxEvidenceExport";
 import { appendA2ProvenanceToSourceDiagnostics } from "../lib/a2ScoringProvenance";
 import { getMudPreventionPublicCommentary } from "../lib/mudPreventionReporting";
-import { getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS, getAuralisReviewed79ReportRows, getAuralisWorkerFailureCodeForReport, getAuralisBetaAuditReportRows, formatAuralisObjectiveEngineeringFindings, formatAuralisDynamicsFindings } from "../lib/mudPreventionDiagnostic";
+import { selectAuralisHybridInputs, getMixBalanceEffectiveWeight, isMudDiagnosticCritique, MUD_DIAGNOSTIC_STATUS, getAuralisReviewed79ReportRows, getAuralisWorkerFailureCodeForReport, getAuralisBetaAuditReportRows, formatAuralisObjectiveEngineeringFindings, formatAuralisDynamicsFindings } from "../lib/mudPreventionDiagnostic";
 import { 
   Play, Pause, RefreshCw, Layers, Sliders, Mic,
   Volume2, Disc, ArrowLeft, ArrowRight, CheckCircle, Flame, Sparkles, CheckSquare, Square,
@@ -596,8 +596,9 @@ export function computeEchoNestScorecard(critique: any) {
 
   const energyOffset = Math.round(((overallProductionVal || 75) % 15) - 4);
   const energy = (() => {
-    if (liveMetrics?.calculatedLufs !== undefined && liveMetrics?.calculatedHighEnergy !== undefined) {
-      const lufsFactor = Math.min(1, Math.max(0, (liveMetrics.calculatedLufs + 22) / 16));
+    const selectedLufs = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements, liveMetrics).integratedLufs.value;
+    if (selectedLufs !== undefined && liveMetrics?.calculatedHighEnergy !== undefined) {
+      const lufsFactor = Math.min(1, Math.max(0, (selectedLufs + 22) / 16));
       const highFactor = Math.min(1, liveMetrics.calculatedHighEnergy / 50);
       return Math.round(Math.min(96, Math.max(10, (lufsFactor * 0.6 + highFactor * 0.4) * 100)));
     }
@@ -667,8 +668,9 @@ export function computeCategoryScores(critique: any) {
   const commercialReadinessVal = critique?.scores?.commercialReadiness ?? 75;
 
   let liveSkipModifier = 0;
-  if (critique?.liveMetrics) {
-    const { calculatedLufs, calculatedBpm, calculatedStereoCorrelation } = critique.liveMetrics;
+  {
+    const calculatedStereoCorrelation = critique?.liveMetrics?.calculatedStereoCorrelation;
+    const calculatedLufs=selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs.value;
     if (calculatedLufs !== undefined && calculatedLufs < -12.5) {
       liveSkipModifier += Math.round(Math.abs(calculatedLufs + 12.5) * 1.8);
     }
@@ -719,8 +721,8 @@ export function computeCategoryScores(critique: any) {
     critique
   );
 
-  const lufsRaw = critique?.liveMetrics?.calculatedLufs;
-  const lraRaw = critique?.liveMetrics?.calculatedLra;
+  const lufsRaw = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs.value;
+  const lraRaw = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).loudnessRangeLu.value;
   const loudnessBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
   const lufsPass = lufsRaw !== undefined && lufsRaw >= loudnessBucket.lufsMin && lufsRaw <= loudnessBucket.lufsMax;
   const lraPass = lraRaw !== undefined && lraRaw >= loudnessBucket.lraMin && (loudnessBucket.lraMax === null || lraRaw <= loudnessBucket.lraMax);
@@ -911,8 +913,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
   React.useEffect(() => {
     if (critique?.liveMetrics) {
-      const liveLufs = critique.liveMetrics.calculatedLufs;
-      const liveLra = critique.liveMetrics.calculatedLra;
+      const liveLufs = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs.value;
+      const liveLra = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).loudnessRangeLu.value;
       const bucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
       const lufsPass = liveLufs >= bucket.lufsMin && liveLufs <= bucket.lufsMax;
       const lraPass = liveLra >= bucket.lraMin && (bucket.lraMax === null || liveLra <= bucket.lraMax);
@@ -946,8 +948,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   
   const baseSkipProb = (() => {
     let liveSkipModifier = 0;
-    if (critique?.liveMetrics) {
-      const { calculatedLufs, calculatedBpm, calculatedStereoCorrelation } = critique.liveMetrics;
+    {
+      const calculatedStereoCorrelation = critique?.liveMetrics?.calculatedStereoCorrelation;
+      const calculatedLufs=selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs.value;
       if (calculatedLufs !== undefined && calculatedLufs < -12.5) {
         liveSkipModifier += Math.round(Math.abs(calculatedLufs + 12.5) * 1.8);
       }
@@ -1051,8 +1054,9 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
   // Energy — driven by LUFS loudness and high-frequency spectral content when live metrics available
   const energyOffset = Math.round(((overallProductionVal || 75) % 15) - 4);
   const energy = (() => {
-    if (liveMetrics?.calculatedLufs !== undefined && liveMetrics?.calculatedHighEnergy !== undefined) {
-      const lufsFactor = Math.min(1, Math.max(0, (liveMetrics.calculatedLufs + 22) / 16));
+    const selectedLufs = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements, liveMetrics).integratedLufs.value;
+    if (selectedLufs !== undefined && liveMetrics?.calculatedHighEnergy !== undefined) {
+      const lufsFactor = Math.min(1, Math.max(0, (selectedLufs + 22) / 16));
       const highFactor = Math.min(1, liveMetrics.calculatedHighEnergy / 50);
       const audioEnergy = Math.round(Math.min(96, Math.max(10, (lufsFactor * 0.6 + highFactor * 0.4) * 100)));
       return audioEnergy;
@@ -1133,7 +1137,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
   // Peak metering comes from live audio metrics. The former readiness-derived
   // placeholder invented dBTP readings; preserve honest unavailable state.
-  const spotifySamplePeak = critique?.liveMetrics?.calculatedTruePeak;
+  const spotifySamplePeak = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements, critique?.liveMetrics).samplePeakDbfs.value;
   const spotifyPeakAvailable = typeof spotifySamplePeak === "number" && Number.isFinite(spotifySamplePeak);
   const spotifyPeakAboveAdvisory = spotifyPeakAvailable && spotifySamplePeak > -1.0;
 
@@ -1578,16 +1582,16 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
   // Fallbacks to avoid crashes on older or incomplete structures returned by standard API routes
   const lyricsScore = critique?.lyricalImpact?.score ?? 78;
-  const lyricsClarity = critique?.lyricalImpact?.meaningClarity ?? "Metaphorical, themed phrasing";
-  const lyricsFeedback = critique?.lyricalImpact?.feedback ?? "Strong phrasing with rich themes. The hook builds high emotional depth, avoiding basic clichés beautifully.";
+  const lyricsClarity = critique?.lyricalImpact?.meaningClarity ?? "Lyric assessment unavailable.";
+  const lyricsFeedback = critique?.lyricalImpact?.feedback ?? "No saved lyrical assessment.";
 
   const theoryScore = critique?.musicTheory?.score ?? 84;
-  const theoryStructures = critique?.musicTheory?.chordStructures ?? "vi - IV - I - V progression in G major";
-  const theoryFeedback = critique?.musicTheory?.feedback ?? "Solid understanding of leading tones. Transitions are smooth and resolve harmonically with a pleasing tension arc.";
+  const theoryStructures = critique?.musicTheory?.chordStructures ?? "Chord structure unavailable.";
+  const theoryFeedback = critique?.musicTheory?.feedback ?? "No saved music-theory assessment.";
 
   const searchScore = critique?.titleSearchability?.score ?? 68;
-  const searchLevel = critique?.titleSearchability?.uniquenessLevel ?? "Moderately Unique Phrase";
-  const searchFeedback = critique?.titleSearchability?.feedback ?? "Your song title is moderately unique. It avoids high-level congestion but should be paired with consistent meta tagging across streaming platforms.";
+  const searchLevel = critique?.titleSearchability?.uniquenessLevel ?? "Title assessment unavailable.";
+  const searchFeedback = critique?.titleSearchability?.feedback ?? "No saved title-searchability assessment.";
 
   const artisticScore = critique?.subMetricsCall2?.artisticAnalysis?.score ?? Math.min(100, Math.round(theoryScore * 0.40 + (critique?.scores?.overallProduction ?? 75) * 0.60));
 
@@ -1729,7 +1733,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       ],
       callout: "This Metric secures clear frequency separations so that your low and high ends decode without clipping.",
       description: "Audits decibel levels, EQ notches, sibilance de-essing, low frequency separation, and relative placement in the stereo panning field.",
-      feedback: `${critique?.mixQuality?.stereoField ?? "Solid width."} Low frequencies: ${critique?.mixQuality?.frequencyBalance?.lowEnd ?? "Balanced"}. Midrange: ${critique?.mixQuality?.frequencyBalance?.midrange ?? "Clear"}. High-end sibilance: ${critique?.mixQuality?.frequencyBalance?.highEnd ?? "Contained"}. Frequency issues: ${critique?.mixQuality?.dominanceIssues ?? "No bloating present."} ${(critique as any)?.auralisExecution ? "Auralis engineering (NOT SCORED): " + (critique as any).auralisExecution.status + " (" + (critique as any).auralisExecution.reason + "). " : ""}${(critique as any)?.auralisEngineering?.scoringAdapter?.status === "DISABLED_PENDING_STAGE_3D_2" ? "Auralis observations (not scored): " + ((critique as any).auralisEngineering.observations ?? []).join(" ") : ""} ${formatAuralisObjectiveEngineeringFindings(critique)}`
+      feedback: `${critique?.mixQuality?.stereoField ?? "Stereo listening commentary unavailable."} Low frequencies: ${critique?.mixQuality?.frequencyBalance?.lowEnd ?? "Low-frequency listening commentary unavailable."}. Midrange: ${critique?.mixQuality?.frequencyBalance?.midrange ?? "Midrange listening commentary unavailable."}. High-end sibilance: ${critique?.mixQuality?.frequencyBalance?.highEnd ?? "High-frequency listening commentary unavailable."}. Frequency issues: ${critique?.mixQuality?.dominanceIssues ?? "Frequency-issue listening commentary unavailable."} ${(critique as any)?.auralisExecution?.status === "AVAILABLE" ? "Auralis measurement evidence available. " : "Auralis measurement evidence unavailable. "} ${formatAuralisObjectiveEngineeringFindings(critique)}`
     },
     {
       id: "vocals",
@@ -2329,8 +2333,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         name: "Dynamic Modulation",
         score: dynamicModulationQualityScore ?? 75,
         feedback: liveMetrics?.calculatedDynamicRangeDb != null
-          ? `${liveMetrics.calculatedDynamicRangeDb} dB of measured dynamic range between the track's quietest and loudest sustained sections (85th pct: ${liveMetrics?.calculatedDynamicHighPercentileDb ?? "--"} dB, 15th pct: ${liveMetrics?.calculatedDynamicLowPercentileDb ?? "--"} dB).`
-          : "Real dynamic range data unavailable for this track.",
+          ? `${liveMetrics.calculatedDynamicRangeDb} dB legacy sustained contrast between the track's quiet and loud sections (85th pct: ${liveMetrics?.calculatedDynamicHighPercentileDb ?? "--"} dB, 15th pct: ${liveMetrics?.calculatedDynamicLowPercentileDb ?? "--"} dB).`
+          : "Legacy sustained contrast unavailable for this track.",
         subParams: []
       },
       {
@@ -2490,10 +2494,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     wsEngineering.getCell("B3").font = { name: "Calibri", size: 10, italic: true, color: { argb: "FF888888" } };
 
     const lm = critique?.liveMetrics;
-    const engLufs = lm?.calculatedLufs;
-    const engLra = lm?.calculatedLra;
-    const engTruePeak = lm?.calculatedTruePeak;
-    const engPlr = (engTruePeak !== undefined && engLufs !== undefined) ? Math.abs(engTruePeak - engLufs) : undefined;
+    const engInputs = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,lm);
+    const engLufs = engInputs.integratedLufs.value;
+    const engLra = engInputs.loudnessRangeLu.value;
+    const engSamplePeak = engInputs.samplePeakDbfs.value;
+    const engPlr = engSamplePeak !== undefined && engLufs !== undefined &&
+      engInputs.samplePeakDbfs.source===engInputs.integratedLufs.source ? engSamplePeak - engLufs : undefined;
+    const engSource=(source:string)=>source==="AURALIS"?"Auralis (client Worker)":source==="LEGACY_ESTIMATE"?"Legacy estimate":"Unavailable";
 
     const engSectionHeader = (row: number, title: string) => {
       const cell = wsEngineering.getCell(row, 2);
@@ -2515,28 +2522,13 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     });
     engRow += 1;
 
-    const engRows: Array<{ name: string; value: string; target: string; status: string; pass: boolean }> = [];
-
-    if (engLufs !== undefined) {
-      const lufsPass = engLufs >= engBucket.lufsMin && engLufs <= engBucket.lufsMax;
-      engRows.push({ name: "Integrated Loudness (LUFS)", value: `${engLufs} LUFS`, target: `${engBucket.lufsMin} to ${engBucket.lufsMax} LUFS`, status: lufsPass ? "PASS" : "OUT OF RANGE", pass: lufsPass });
-    }
-    if (engLra !== undefined) {
-      const lraPass = engLra >= engBucket.lraMin && (engBucket.lraMax === null || engLra <= engBucket.lraMax);
-      engRows.push({ name: "Loudness Range (LRA)", value: `${engLra} LU`, target: `${engBucket.lraMin}${engBucket.lraMax !== null ? `-${engBucket.lraMax}` : "+"} LU`, status: lraPass ? "PASS" : "OUT OF RANGE", pass: lraPass });
-    }
-    if (engTruePeak !== undefined) {
-      const tpPass = engTruePeak <= -1.0;
-      engRows.push({ name: "Sample Peak (estimated)", value: `${engTruePeak} dBFS`, target: "-1.0 dBFS advisory headroom", status: tpPass ? "MEETS ADVISORY" : "ABOVE ADVISORY (NOT CLIPPING)", pass: tpPass });
-    }
-    if (engPlr !== undefined) {
-      const plrStatus = engPlr < 5 ? "SEVERE BRICKWALLING" : engPlr < 8 ? "MODERATE COMPRESSION" : "IDEAL";
-      engRows.push({ name: "Peak-to-Loudness Ratio (PLR)", value: `${engPlr.toFixed(1)} PLR`, target: "8+ PLR ideal", status: plrStatus, pass: engPlr >= 8 });
-    }
-    if (engLufs !== undefined) {
-      const compStatus = engLufs > engBucket.lufsMax ? "HEAVY LIMITING" : engLufs > engBucket.lufsMin ? "MODERATE" : "CLEAN";
-      engRows.push({ name: "Compression Artifacts", value: compStatus, target: `Genre window: ${engBucket.lufsMin} to ${engBucket.lufsMax} LUFS`, status: compStatus === "HEAVY LIMITING" ? "CAUTION" : "OK", pass: compStatus !== "HEAVY LIMITING" });
-    }
+    const engRows: Array<{ name: string; value: string; target: string; status: string; pass: boolean|null }> = [
+      {name:"Integrated Loudness (LUFS)",value:engLufs===undefined?"Unavailable":`${engLufs} LUFS`,target:`YSS advisory: ${engBucket.lufsMin} to ${engBucket.lufsMax} LUFS`,status:engSource(engInputs.integratedLufs.source),pass:null},
+      {name:"Loudness Range (LRA)",value:engLra===undefined?"Unavailable":`${engLra} LU`,target:"Descriptive; no universal quality target",status:engSource(engInputs.loudnessRangeLu.source),pass:null},
+      {name:"Sample Peak (not true peak)",value:engSamplePeak===undefined?"Unavailable":`${engSamplePeak} dBFS`,target:"Does not establish intersample clipping",status:engSource(engInputs.samplePeakDbfs.source),pass:null},
+      {name:"Sample peak minus loudness",value:engPlr===undefined?"Unavailable":`${engPlr.toFixed(1)} dB`,target:"Descriptive; does not establish compression history",status:engPlr===undefined?"Unavailable":engSource(engInputs.samplePeakDbfs.source),pass:null},
+      {name:"Compression Artifacts",value:"Not established by loudness or peak measurements",target:"Listen to the audio for artifacts",status:"CONTEXTUAL LISTENING REQUIRED",pass:null}
+    ];
 
     engRows.forEach((row) => {
       wsEngineering.getCell(engRow, 2).value = row.name;
@@ -2549,16 +2541,16 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
       wsEngineering.getCell(engRow, 4).font = { name: "Calibri", size: 10, color: { argb: "FF888888" } };
       wsEngineering.getCell(engRow, 4).border = fullBorder;
       wsEngineering.getCell(engRow, 5).value = row.status;
-      wsEngineering.getCell(engRow, 5).font = { name: "Calibri", size: 10, bold: true, color: { argb: row.pass ? "FF1ED760" : "FFF59E0B" } };
+      wsEngineering.getCell(engRow, 5).font = { name: "Calibri", size: 10, bold: true, color: { argb: row.pass === null ? "FF888888" : row.pass ? "FF1ED760" : "FFF59E0B" } };
       wsEngineering.getCell(engRow, 5).border = fullBorder;
       engRow += 1;
     });
 
     engRow += 1;
-    engSectionHeader(engRow, "FREQUENCY BALANCE (6-BAND NORMALIZED LEVELS, NOT %)");
+    engSectionHeader(engRow, "FREQUENCY BALANCE — MEASURED SHARES OR LEGACY INDICES");
     engRow += 1;
 
-    ["Band", "Frequency Range", "Level (0-100)", "Vs Genre Target"].forEach((h, i) => {
+    ["Band", "Frequency Range", "Value", "Source / Scope"].forEach((h, i) => {
       const cell = wsEngineering.getCell(engRow, i + 2);
       cell.value = h;
       cell.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
@@ -2566,44 +2558,36 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     });
     engRow += 1;
 
-    const BAND_IDEALS: Record<string, number[]> = {
-      hiphop:     [65, 62, 55, 50, 48, 42],
-      mainstream: [55, 60, 60, 55, 55, 50],
-      indie:      [45, 50, 55, 58, 52, 45],
-      classical:  [35, 40, 45, 48, 40, 35],
-    };
-    const ideals = BAND_IDEALS[engBucket.key] ?? BAND_IDEALS.mainstream;
-    const subBassVal = lm?.calculatedSubBassBandEnergy ?? 50;
-    const bassCorridorVal = lm?.calculatedBassBandEnergy ?? 50;
-    const lowMidVal = lm?.calculatedLowMidsBandEnergy ?? 50;
-    const coreMidVal = lm?.calculatedCoreMidsBandEnergy ?? 50;
-    const presenceVal = lm?.calculatedPresenceBandEnergy ?? 50;
-    const airVal = lm?.calculatedAirBandEnergy ?? 50;
-    const getBandStatus = (v: number, ideal: number) =>
-      v > ideal + 15 ? "ABOVE TARGET" : v > ideal + 7 ? "SLIGHTLY ABOVE" : v < ideal - 15 ? "BELOW TARGET" : v < ideal - 7 ? "SLIGHTLY BELOW" : "NEAR TARGET";
-
-    const bandRows = [
-      { band: "Sub-Bass", range: "20-64Hz", val: subBassVal, ideal: ideals[0] },
-      { band: "Bass", range: "64-250Hz", val: bassCorridorVal, ideal: ideals[1] },
-      { band: "Low-Mids", range: "250Hz-1kHz", val: lowMidVal, ideal: ideals[2] },
-      { band: "Core Mids", range: "1-4kHz", val: coreMidVal, ideal: ideals[3] },
-      { band: "Presence", range: "4-8kHz", val: presenceVal, ideal: ideals[4] },
-      { band: "Air", range: "8-20kHz", val: airVal, ideal: ideals[5] },
-    ];
+    // Auralis power shares have different boundaries and units from the legacy
+    // independent FFT magnitude indices. Never apply the legacy genre ideals to them.
+    const shares=engInputs.bandPowerSharePct;
+    const legacyIndex=(v:unknown)=>typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=100?v:undefined;
+    const bandRows: Array<{band:string;range:string;val:number|undefined;source:string}> = shares
+      ? ["Sub-Bass","Bass","Low-Mids","Midrange","Upper Mids","Highs","Air"].map((band,i)=>({
+          band,range:["20–60 Hz","60–250 Hz","250–500 Hz","500–2000 Hz","2000–6000 Hz","6000–11000 Hz","11000–20000 Hz"][i],
+          val:shares[i],source:"Auralis share (%) of represented 20–20kHz power"}))
+      : [
+        {band:"Sub-Bass",range:"20–64 Hz",val:legacyIndex(lm?.calculatedSubBassBandEnergy)},
+        {band:"Bass",range:"64–250 Hz",val:legacyIndex(lm?.calculatedBassBandEnergy)},
+        {band:"Low-Mids",range:"250–1000 Hz",val:legacyIndex(lm?.calculatedLowMidsBandEnergy)},
+        {band:"Core Mids",range:"1000–4000 Hz",val:legacyIndex(lm?.calculatedCoreMidsBandEnergy)},
+        {band:"Presence",range:"4000–8000 Hz",val:legacyIndex(lm?.calculatedPresenceBandEnergy)},
+        {band:"Air",range:"8000–20000 Hz",val:legacyIndex(lm?.calculatedAirBandEnergy)}
+      ].map(row=>({...row,source:row.val===undefined?"Unavailable":"Legacy level index (0–100; not %)"}));
 
     bandRows.forEach((row) => {
-      const status = getBandStatus(row.val, row.ideal);
+      const status = row.source;
       wsEngineering.getCell(engRow, 2).value = row.band;
       wsEngineering.getCell(engRow, 2).font = { name: "Calibri", size: 10, bold: true };
       wsEngineering.getCell(engRow, 2).border = fullBorder;
       wsEngineering.getCell(engRow, 3).value = row.range;
       wsEngineering.getCell(engRow, 3).font = { name: "Calibri", size: 10, color: { argb: "FF888888" } };
       wsEngineering.getCell(engRow, 3).border = fullBorder;
-      wsEngineering.getCell(engRow, 4).value = String(row.val);
+      wsEngineering.getCell(engRow, 4).value = row.val===undefined?"Unavailable":row.val;
       wsEngineering.getCell(engRow, 4).font = { name: "Calibri", size: 10 };
       wsEngineering.getCell(engRow, 4).border = fullBorder;
       wsEngineering.getCell(engRow, 5).value = status;
-      wsEngineering.getCell(engRow, 5).font = { name: "Calibri", size: 10, bold: true, color: { argb: status === "NEAR TARGET" ? "FF1ED760" : "FFF59E0B" } };
+      wsEngineering.getCell(engRow, 5).font = { name: "Calibri", size: 10, bold: true, color: { argb: "FF888888" } };
       wsEngineering.getCell(engRow, 5).border = fullBorder;
       engRow += 1;
     });
@@ -3316,55 +3300,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
     );
   };
 
-  const getSongSpecificLufsRecommendation = () => {
-    const genre = (critique?.vibe?.genre || "").toLowerCase();
-    const subgenre = (critique?.vibe?.subgenre || "").toLowerCase();
-    const name = trackName || "Your Track";
-    
-    if (name.toLowerCase().includes("your hero") || genre.includes("retro") || genre.includes("wave") || genre.includes("synth") || subgenre.includes("synth")) {
-      return (
-        <div className="flex flex-col gap-3 font-sans text-slate-300">
-          <p className="text-xs leading-relaxed">
-            For <strong className="text-white">"{name}"</strong> (an arena-ready synth-rock / retro-wave track), the master level is set at a hot <strong className="text-teal-400">
-              {critique?.liveMetrics ? `${critique.liveMetrics.calculatedLufs} LUFS` : "--"}
-            </strong>. While this sits nicely in the commercial sweet spot of -9.0 to -7.0 LUFS, the heavy-packed arrangement (guitars, wall-of-sound synths, punching drums) and high-frequency sibilance are triggering limiting artifacts.
-          </p>
-          <span className="text-[12px] font-mono font-bold text-teal-400 uppercase tracking-widest block mt-1">Four-Step Blueprint to Fix Dynamic Balance &amp; LUFS Power:</span>
-          <ol className="list-decimal list-inside flex flex-col gap-2.5 text-xs text-slate-400 pl-1">
-            <li>
-              <strong className="text-slate-200">De-Harsh Upper Midrange:</strong> Use dynamic EQ on the group synth bus and cymbals between <strong className="text-[#cb9fff]">4kHz to 7kHz</strong>. Taming high-end ear fatigue prevents the master limiter from over-compressing these sharp peaks, immediately reclaiming dynamic headroom.
-            </li>
-            <li>
-              <strong className="text-slate-200">Sidechain Ducking on Synths:</strong> Set a sidechain dynamic EQ on the main synth chords, keyed to the lead vocal. Duck the synths by <strong className="text-[#cb9fff]">-1.5dB to -2.0dB</strong> at <strong className="text-[#cb9fff]">1kHz–3kHz</strong> whenever the singer performs. This carves vocal space without boosting vocal volume (which would force you to squash the limiter harder).
-            </li>
-            <li>
-              <strong className="text-slate-200">Abbey Road Reverb Filtering:</strong> Clean up the lush spatial ambience. Apply a high-pass filter up to <strong className="text-[#cb9fff]">350Hz</strong> and a low-pass down to <strong className="text-[#cb9fff]">8kHz</strong> on the vocal and synth reverb sends. This clears out cumulative low-mid muddy energy, allowing the master limiter to focus on punching the core transients.
-            </li>
-            <li>
-              <strong className="text-slate-200">Surgical Transient Preservation:</strong> Slightly slacken the limiter attack time (around <strong className="text-[#cb9fff]">2ms to 5ms</strong>) or use a multi-stage limiter with dynamic clipping. This lets kick and snare transients pass through cleanly, preserving punch while hitting the targeted {critique?.liveMetrics ? `${critique.liveMetrics.calculatedLufs} LUFS` : "--"}.
-            </li>
-          </ol>
-        </div>
-      );
-    }
-    
-    // Generic fallback for other genres
-    return (
-      <div className="flex flex-col gap-3 font-sans text-slate-350">
-        <p className="text-xs leading-relaxed">
-          To create a balanced LUFS profile for <strong className="text-white">"{name}"</strong> without losing transient impact, follow these master-bus conditioning guidelines:
-        </p>
-        <ol className="list-decimal list-inside flex flex-col gap-2.5 text-xs text-slate-400 pl-1">
-          <li>
-            <strong className="text-slate-200">High-Pass Filtering:</strong> Clean up non-audible frequencies by placing a steep low-cut filter at <strong className="text-[#cb9fff]">20Hz to 30Hz</strong> on low instruments. Sub-bass mud consumes significant headroom without adding audible volume, causing premature limiting.
-          </li>
-          <li>
-            <strong className="text-slate-200">Serial Limiting:</strong> Use two limiters in series rather than single heavy brickwalls. Let the first limiter gently clip outliers by <strong className="text-[#cb9fff]">1dB</strong>, and let the second limiter boost overall density.
-          </li>
-        </ol>
-      </div>
-    );
-  };
+  const getSongSpecificLufsRecommendation = () => (
+    <div className="flex flex-col gap-3 font-sans text-slate-300">
+      <p className="text-xs leading-relaxed">For <strong className="text-white">"{trackName || "Your Track"}"</strong>, compare the master with suitable references at matched listening loudness. Integrated loudness and sample peak describe the signal; they do not establish clipping, limiting artifacts, masking or a need for EQ.</p>
+      <p className="text-xs text-slate-400">If listening confirms unwanted congestion or lost transients, identify the responsible source and audition a small change, then compare level-matched. Preserve intentional dynamics and tonal balance.</p>
+    </div>
+  );
 
   const renderMetricVisualizerFeature = (id: string, score: number) => {
     switch (id) {
@@ -3381,18 +3322,18 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div>
                   <span className="text-[12px] font-mono text-slate-400 uppercase">Integrated Loudness</span>
                   <p className="text-xl font-mono font-black text-white mt-1">
-                    {critique?.liveMetrics ? `${critique.liveMetrics.calculatedLufs} LUFS` : "--"}
+                    {selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs.value !== undefined ? `${selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs.value} LUFS` : "Unavailable"}
                   </p>
                 </div>
                 <p className="text-[13px] text-slate-500 mt-2 leading-relaxed">
-                  Optimal commercial sweet spot is -9.0 to -7.0 LUFS. Competitive density while preserving key transient response.
+                  Loudness targets are contextual and advisory, not a universal quality standard. Compare suitable references at matched playback loudness.
                 </p>
               </div>
               <div className="bg-[#13161C] p-4 rounded-xl border border-white/5 flex flex-col justify-between">
                 <div>
                   <span className="text-[12px] font-mono text-slate-400 uppercase">Sample Peak (Approx.)</span>
                   <p className="text-xl font-mono font-black text-white mt-1">
-                    {critique?.liveMetrics ? `${critique.liveMetrics.calculatedTruePeak} dBFS` : "--"}
+                    {critique?.liveMetrics ? `${selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).samplePeakDbfs.value ?? "Unavailable"} dBFS` : "--"}
                   </p>
                 </div>
                 <p className="text-[13px] text-slate-500 mt-2 leading-relaxed">
@@ -3403,7 +3344,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 <div>
                   <span className="text-[12px] font-mono text-slate-400 uppercase">Loudness Range (LRA)</span>
                   <p className="text-xl font-mono font-black text-white mt-1">
-                    {critique?.liveMetrics ? `${critique.liveMetrics.calculatedLra} LU` : "--"}
+                    {selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).loudnessRangeLu.value !== undefined ? `${selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).loudnessRangeLu.value} LU` : "Unavailable"}
                   </p>
                 </div>
                 <p className="text-[13px] text-slate-500 mt-2 leading-relaxed">
@@ -3692,13 +3633,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
     // --- Commercial Readiness Subscores ---
     if (cleanName === "LUFS Loudness") {
-      if (score >= 90) {
-        return `Perfect volume footprint (${critique?.liveMetrics ? critique.liveMetrics.calculatedLufs + " LUFS" : "-8.4 LUFS"})! It’s competitively loud and punchy, matching the output level of commercial radio standard tracks without squishing or distorting your dynamic details.`;
-      } else if (score >= 80) {
-        return `The master volume level is solid (${score}/100). However, a tiny bit of extra limiter push or master compressor threshold adjustment could gain you that last 1dB of power to stand equal with radio heavyweights.`;
-      } else {
-        return `The track is a bit too quiet compared to modern streaming standards. Try gently boosting the output limiter while backing off on pre-compressor gain to raise the perceived volume without causing sound clipping.`;
-      }
+      const selected=selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs;
+      return selected.value===undefined?"Integrated loudness unavailable.":`Integrated loudness ${selected.value.toFixed(1)} LUFS (${selected.source==="AURALIS"?"Auralis measured":"legacy estimate"}). Compare with the genre target; loudness alone does not establish compression or quality.`;
     }
     if (cleanName === "Spectral Match") {
       if (score >= 90) {
@@ -4188,8 +4124,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
 
             {selectedObj.id === "readiness" && critique?.liveMetrics && (() => {
               const bucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
-              const lufs = critique.liveMetrics.calculatedLufs;
-              const lra = critique.liveMetrics.calculatedLra;
+              const lufs = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs.value;
+              const lra = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).loudnessRangeLu.value;
               const lufsPass = lufs !== undefined && lufs >= bucket.lufsMin && lufs <= bucket.lufsMax;
               const lraPass = lra !== undefined && lra >= bucket.lraMin && (bucket.lraMax === null || lra <= bucket.lraMax);
               return (
@@ -5347,8 +5283,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
               <div className="pt-2 border-t border-[#1DB954]/15 text-slate-300/90 font-normal">
                 {(() => {
                   const bucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
-                  const lufs = critique?.liveMetrics?.calculatedLufs;
-                  const lra = critique?.liveMetrics?.calculatedLra;
+                  const lufs = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs.value;
+                  const lra = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).loudnessRangeLu.value;
                   const lufsPass = lufs !== undefined && lufs >= bucket.lufsMin && lufs <= bucket.lufsMax;
                   const lraPass = lra !== undefined && lra >= bucket.lraMin && (bucket.lraMax === null || lra <= bucket.lraMax);
                   return (
@@ -5399,12 +5335,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                 const bucketForDesc = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
                 const displayDesc = check.id === "lufsConformity"
                   ? (checked 
-                      ? `Loudness (${critique?.liveMetrics?.calculatedLufs ?? "--"} LUFS) is within the ${bucketForDesc.lufsMin} to ${bucketForDesc.lufsMax} LUFS target window for ${bucketForDesc.label}.` 
-                      : `Loudness (${critique?.liveMetrics?.calculatedLufs ?? "--"} LUFS) falls outside the ${bucketForDesc.lufsMin} to ${bucketForDesc.lufsMax} LUFS target window for ${bucketForDesc.label}.`)
+                      ? `Loudness (${selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs.value ?? "--"} LUFS) is within the ${bucketForDesc.lufsMin} to ${bucketForDesc.lufsMax} LUFS target window for ${bucketForDesc.label}.` 
+                      : `Loudness (${selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs.value ?? "--"} LUFS) falls outside the ${bucketForDesc.lufsMin} to ${bucketForDesc.lufsMax} LUFS target window for ${bucketForDesc.label}.`)
                   : check.id === "lraConformity"
                   ? (checked
-                      ? `Dynamic range (${critique?.liveMetrics?.calculatedLra ?? "--"} LU) is within the ${bucketForDesc.lraMin}${bucketForDesc.lraMax !== null ? `-${bucketForDesc.lraMax}` : "+"} LU target window for ${bucketForDesc.label}.`
-                      : `Dynamic range (${critique?.liveMetrics?.calculatedLra ?? "--"} LU) falls outside the ${bucketForDesc.lraMin}${bucketForDesc.lraMax !== null ? `-${bucketForDesc.lraMax}` : "+"} LU target window for ${bucketForDesc.label}.`)
+                      ? `Dynamic range (${selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).loudnessRangeLu.value ?? "--"} LU) is within the ${bucketForDesc.lraMin}${bucketForDesc.lraMax !== null ? `-${bucketForDesc.lraMax}` : "+"} LU target window for ${bucketForDesc.label}.`
+                      : `Dynamic range (${selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).loudnessRangeLu.value ?? "--"} LU) falls outside the ${bucketForDesc.lraMin}${bucketForDesc.lraMax !== null ? `-${bucketForDesc.lraMax}` : "+"} LU target window for ${bucketForDesc.label}.`)
                   : check.desc;
 
                 return (
@@ -5954,7 +5890,7 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                   <p className="text-[12px] text-slate-400 leading-normal">
                     {azimuthRefMode === "benchmark" 
                       ? "Flawless panning limits. Instruments are spread to absolute limits (+/-90°) with correct high shelf level curves."
-                      : `${critique?.mixQuality?.stereoField ?? "Solid width."}. Side acoustic elements could be panned wider from +/-35° out to +/-70° to open up the center lane.`
+                      : `${critique?.mixQuality?.stereoField ?? "Stereo listening commentary unavailable."}. Side acoustic elements could be panned wider from +/-35° out to +/-70° to open up the center lane.`
                     }
                   </p>
                 </div>
@@ -7864,8 +7800,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
         <div className="flex flex-col w-full gap-4" id="sidebar-link-sonic-loudness">
           {(() => {
             const lcBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
-            const lcLufsRaw = critique?.liveMetrics?.calculatedLufs;
-            const lcLraRaw = critique?.liveMetrics?.calculatedLra;
+            const lcLufsRaw = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).integratedLufs.value;
+            const lcLraRaw = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,critique?.liveMetrics).loudnessRangeLu.value;
             const lcLufsPass = lcLufsRaw !== undefined && lcLufsRaw >= lcBucket.lufsMin && lcLufsRaw <= lcBucket.lufsMax;
             const lcLraPass = lcLraRaw !== undefined && lcLraRaw >= lcBucket.lraMin && (lcBucket.lraMax === null || lcLraRaw <= lcBucket.lraMax);
             const lcBothPass = lcLufsPass && lcLraPass;
@@ -10095,7 +10031,8 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                         });
 
                         // Calculate LUFS estimates per section
-                        const lufs = liveMetrics?.calculatedLufs ?? -12;
+                        const lufs = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,liveMetrics).integratedLufs.value;
+                        if(lufs===undefined)return <p className="text-xs text-slate-400">Loudness measurement unavailable.</p>;
                         const sections = labeled.map(s => {
                           const sectionLufs = parseFloat((lufs + ((s.avgAmp - 50) * 0.18)).toFixed(1));
                           return { ...s, sectionLufs };
@@ -10252,11 +10189,12 @@ export default function CritiqueDisplay({ critique, trackInfo, onClear, localFil
                               <Layers className="w-3.5 h-3.5" />
                               Dynamic Arc Lift
                             </span>
-                            <span className="text-[11px] font-mono text-slate-500">Chorus vs. Verse Delta</span>
+                            <span className="text-[11px] font-mono text-slate-500">Waveform-window estimate (not measured section LUFS)</span>
                           </div>
                           {(() => {
                             const points = liveMetrics?.calculatedWaveformPointsHD ?? liveMetrics?.calculatedWaveformPoints ?? [];
-                            const lufs = liveMetrics?.calculatedLufs ?? -12;
+                            const lufs = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements,liveMetrics).integratedLufs.value;
+                        if(lufs===undefined)return <p className="text-xs text-slate-400">Loudness measurement unavailable.</p>;
                             if (points.length === 0) {
                               return <div className="text-[12px] text-slate-600 font-mono py-4">Upload a track to analyze dynamics.</div>;
                             }

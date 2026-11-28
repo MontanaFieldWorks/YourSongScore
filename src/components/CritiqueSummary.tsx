@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { getGenreLoudnessBucket, getEchoNestTier, computeEchoNestScorecard, computeCategoryScores } from "./CritiqueDisplay";
 import { CritiqueData, TrackInfo } from "../types";
+import { selectAuralisHybridInputs } from "../lib/mudPreventionDiagnostic";
 
 interface CritiqueSummaryProps {
   critique: CritiqueData;
@@ -41,9 +42,11 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
   const overallProductionVal = critique?.scores?.overallProduction ?? 75;
   const commercialReadinessVal = critique?.scores?.commercialReadiness ?? 75;
 
+  const sel = selectAuralisHybridInputs(critique.auralisNarrativeMeasurements, critique.liveMetrics);
   let liveSkipModifier = 0;
-  if (critique?.liveMetrics) {
-    const { calculatedLufs, calculatedStereoCorrelation } = critique.liveMetrics;
+  {
+    const calculatedLufs = sel.integratedLufs.value;
+    const calculatedStereoCorrelation = critique.liveMetrics?.calculatedStereoCorrelation;
     if (calculatedLufs !== undefined && calculatedLufs < -12.5) {
       liveSkipModifier += Math.round(Math.abs(calculatedLufs + 12.5) * 1.8);
     }
@@ -64,10 +67,11 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
   const completionRateText = completionRate >= 75 ? "OPTIMIZED" : completionRate >= 60 ? "STANDARD" : "LOW";
 
   // Dynamic values for Section 2 (Loudness Assessment)
-  const lufsRaw = critique.liveMetrics?.calculatedLufs;
-  const lraRaw = critique.liveMetrics?.calculatedLra;
-  const lufs = lufsRaw !== undefined ? lufsRaw.toFixed(1) : "--";
-  const dynamicRange = lraRaw !== undefined ? lraRaw.toFixed(1) : "--";
+  const lufsRaw = sel.integratedLufs.value;
+  const lraRaw = sel.loudnessRangeLu.value;
+  const lufs = lufsRaw !== undefined ? lufsRaw.toFixed(1) : "Unavailable";
+  const dynamicRange = lraRaw !== undefined ? `${lraRaw.toFixed(1)} LU` : "Unavailable";
+  const sourceLabel = (source: string) => source === "AURALIS" ? "Auralis (client Worker)" : source === "LEGACY_ESTIMATE" ? "Legacy estimate" : "Unavailable";
 
   const loudnessBucket = getGenreLoudnessBucket(critique?.vibe?.genre, critique?.vibe?.subgenre);
   const lufsPass = lufsRaw !== undefined && lufsRaw >= loudnessBucket.lufsMin && lufsRaw <= loudnessBucket.lufsMax;
@@ -506,24 +510,26 @@ export default function CritiqueSummary({ critique, trackInfo, onViewFullAudit, 
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div className={`border rounded-xl p-3 text-[11px] font-mono flex flex-col gap-1 shadow-inner ${lufsPass ? "border-emerald-500/20 bg-emerald-500/[0.03] text-emerald-400/90" : "border-amber-500/20 bg-amber-500/[0.03] text-amber-400/90"}`}>
+                <div className={`border rounded-xl p-3 text-[11px] font-mono flex flex-col gap-1 shadow-inner ${lufsRaw === undefined ? "border-white/10 text-slate-400" : lufsPass ? "border-emerald-500/20 bg-emerald-500/[0.03] text-emerald-400/90" : "border-amber-500/20 bg-amber-500/[0.03] text-amber-400/90"}`}>
                   <div className="flex items-center justify-between">
-                    <span className={`font-black text-xs flex items-center gap-1 ${lufsPass ? "text-emerald-400" : "text-amber-400"}`}>
-                      {lufsPass ? <CheckCircle2 className="w-4 h-4" /> : lufsArrow} {lufsPass ? "PASS" : "Outside"} – LUFS Loudness
+                    <span className={`font-black text-xs flex items-center gap-1 ${lufsRaw === undefined ? "text-slate-400" : lufsPass ? "text-emerald-400" : "text-amber-400"}`}>
+                      {lufsRaw === undefined ? null : lufsPass ? <CheckCircle2 className="w-4 h-4" /> : lufsArrow} {lufsRaw === undefined ? "No data" : lufsPass ? "PASS" : "Outside"} – LUFS Loudness
                     </span>
                     <span className="font-black text-white text-xs">{lufs}</span>
                   </div>
                   <span className="text-[9px] text-slate-500 uppercase mt-0.5">Target Range: {loudnessBucket.lufsMin} to {loudnessBucket.lufsMax}</span>
+                  <span className="text-[9px] text-slate-500">Source: {sourceLabel(sel.integratedLufs.source)}</span>
                 </div>
 
-                <div className={`border rounded-xl p-3 text-[11px] font-mono flex flex-col gap-1 shadow-inner ${lraPass ? "border-emerald-500/20 bg-emerald-500/[0.03] text-emerald-400/90" : "border-amber-500/20 bg-amber-500/[0.03] text-amber-400/90"}`}>
+                <div className={`border rounded-xl p-3 text-[11px] font-mono flex flex-col gap-1 shadow-inner ${lraRaw === undefined ? "border-white/10 text-slate-400" : lraPass ? "border-emerald-500/20 bg-emerald-500/[0.03] text-emerald-400/90" : "border-amber-500/20 bg-amber-500/[0.03] text-amber-400/90"}`}>
                   <div className="flex items-center justify-between">
-                    <span className={`font-black text-xs flex items-center gap-1 ${lraPass ? "text-emerald-400" : "text-amber-400"}`}>
-                      {lraPass ? <CheckCircle2 className="w-4 h-4" /> : lraArrow} {lraPass ? "PASS" : "Outside"} – Dynamic Range
+                    <span className={`font-black text-xs flex items-center gap-1 ${lraRaw === undefined ? "text-slate-400" : lraPass ? "text-emerald-400" : "text-amber-400"}`}>
+                      {lraRaw === undefined ? null : lraPass ? <CheckCircle2 className="w-4 h-4" /> : lraArrow} {lraRaw === undefined ? "No data" : lraPass ? "PASS" : "Outside"} – Dynamic Range
                     </span>
-                    <span className="font-black text-white text-xs">{dynamicRange} LU</span>
+                    <span className="font-black text-white text-xs">{dynamicRange}</span>
                   </div>
                   <span className="text-[9px] text-slate-500 uppercase mt-0.5">Target Range: {lraTargetText}</span>
+                  <span className="text-[9px] text-slate-500">Source: {sourceLabel(sel.loudnessRangeLu.source)}</span>
                 </div>
               </div>
             </div>

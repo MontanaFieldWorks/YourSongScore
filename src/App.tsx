@@ -5,24 +5,15 @@ import { CritiqueResponse, SampleSong, SAMPLE_SONGS, StoredTrack, CritiqueData, 
 import type { SonicLensSavedMasterEqProfile } from "./types";
 import { decodeAudioFile, decodeAudioUrl, analyzeAudioBuffer, detectMusicalKey, measureSonicLensSavedMasterEq, isValidSonicLensSavedMasterEq } from "./lib/liveAudioAnalyzer";
 import type { AuralisEncodedSourceIdentity } from "./lib/liveAudioAnalyzer";
-import { prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, evaluateAuralisStage3F1SpectralShadow, resolveAuralisReviewedRealShadowContext, planAuralisReviewed79ScoreIntegration, executeAuralisReviewed79Score, authorizeAuralisReviewed79Execution, authorizeAuralisCarryOnPairedExecution, isAuralisStage3F9IdentityCandidate, isAuralisStage3F9ExactEncodedIdentity, summarizeAuralisQueuedMp3Shadow } from "./lib/mudPreventionDiagnostic";
+import { prepareAuralisNarrativePacket, prepareAuralisSourceLineage, buildAuralisBetaScoringAudit, selectAuralisHybridInputs, deriveGainInvariantMixCap, validateAuralisNarrativeMeasurements } from "./lib/mudPreventionDiagnostic";
 
 // Disabled by default: internal opt-in diagnostic computation only, no report/scoring data.
 const STAGE2C2A_DIAGNOSTICS_ENABLED = false;
 // Stage 3D-1 collects evidence during normal file analysis; scoring remains disabled.
 const STAGE3D1_AURALIS_EVIDENCE_ENABLED = true;
-// Stage 3F-10 controlled single-fixture identity trial. The Stage 3F-9
-// filename/size + exact encoded SHA-256 gate prevents hashing or Worker PCM
-// identity capture for other uploads; scoring and server review stay OFF.
-const STAGE3D2L1_IDENTITY_ENABLED = true;
-// Stage 3D integration trial: intentionally OFF; requires independent frozen
-// reference distribution to set an explicit threshold before score authority.
-const AURALIS_SPECTRAL_TRIAL_ENABLED = false;
-const AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB: number | null = null;
-// Stage 3F-5 integrates trusted review in shadow only: no executor installed.
-const AURALIS_REVIEWED_79_SCORING_ENABLED = false;
+// Recording-specific scoring authorization has been retired from production.
 import { analyzeAudioBufferInWorker, analyzeEngineeringDiagnosticsInWorker } from "./lib/batchAudioWorker";
-import { computeMixBalanceScore, isMudDiagnosticCritique, markMudPreventionDiagnosticOnly, prepareAuralisEngineeringEvidence, assessAuralisSpectralTrialEvidence, classifyAuralisExecution, resolveAuralisExecutionForReport } from "./lib/mudPreventionDiagnostic";
+import { computeMixBalanceScore, isMudDiagnosticCritique, markMudPreventionDiagnosticOnly, prepareAuralisEngineeringEvidence, classifyAuralisExecution, resolveAuralisExecutionForReport } from "./lib/mudPreventionDiagnostic";
 import { captureA2BeforeClient, captureA2AfterClient, captureA2BrowserUnavailable, captureA2SpectralAfterBrowserMix, captureA2SpectralAfterFinish } from "./lib/a2ScoringProvenance";
 
 // Runs the new, validated essentia.js key detection and overwrites the old,
@@ -496,19 +487,21 @@ export default function App() {
   // Final production-finish guardrail runs on the same liveMetrics object that feeds
   // Engineering Studio, eliminating the separate client->server evidence handoff.
   const applyProductionFinishGuardrail = (critique: CritiqueData, liveMetrics: any): CritiqueData => {
-    if (!critique || !liveMetrics) return critique;
+    if (!critique || (!liveMetrics && !validateAuralisNarrativeMeasurements(critique.auralisNarrativeMeasurements))) return critique;
+    // A validated Worker packet does not require the separate legacy analyzer to succeed.
+    liveMetrics = liveMetrics ?? {};
     // Record server-returned child scores before browser corrections, for internal audit only.
     captureA2BeforeClient(critique);
     const finite = (v: any): v is number => typeof v === "number" && Number.isFinite(v);
-    const crest = finite(liveMetrics.calculatedCrestFactorDb)
-      ? liveMetrics.calculatedCrestFactorDb
-      : (finite(liveMetrics.calculatedTruePeak) && finite(liveMetrics.calculatedRmsDbfs)
-          ? liveMetrics.calculatedTruePeak - liveMetrics.calculatedRmsDbfs
-          : undefined);
-    const lufs = finite(liveMetrics.calculatedLufs) ? liveMetrics.calculatedLufs : undefined;
-    const subPct = finite(liveMetrics.calculatedFinishSubPct) ? liveMetrics.calculatedFinishSubPct : undefined;
-    const midPct = finite(liveMetrics.calculatedFinishMidPct) ? liveMetrics.calculatedFinishMidPct : undefined;
-    const airPct = finite(liveMetrics.calculatedFinishAirPct) ? liveMetrics.calculatedFinishAirPct : undefined;
+    // Preserve historical legacy measurements separately; use validated Auralis
+    // quantities where definitions match. Do not substitute crest for sustained range.
+    const selected = selectAuralisHybridInputs(critique.auralisNarrativeMeasurements,liveMetrics);
+    critique.auralisHybridInputVersion = "hybrid-v1";
+    const crest = selected.crestFactorDb.value;
+    const lufs = selected.integratedLufs.value;
+    const subPct = selected.subPct.value;
+    const midPct = selected.midPct.value;
+    const airPct = selected.airPct.value;
 
     const flags: string[] = [];
     const spectralFlags: string[] = [];
@@ -579,12 +572,8 @@ export default function App() {
     // whole production "bad" because some professional genres intentionally use dense,
     // low-range masters. This prevents a flat delivered master from receiving 90+ for
     // Dynamic Variety / Dynamic Modulation while preserving unrelated artistic scores.
-    const measuredDynamicRange = finite(liveMetrics.calculatedDynamicRangeDb)
-      ? liveMetrics.calculatedDynamicRangeDb
-      : undefined;
-    const measuredLra = finite(liveMetrics.calculatedLra)
-      ? liveMetrics.calculatedLra
-      : undefined;
+    const measuredDynamicRange = selected.sustainedContrastDb.value;
+    const measuredLra = selected.loudnessRangeLu.value;
 
     const dynamicRangeCap = (() => {
       if (!finite(measuredDynamicRange)) return null;
@@ -620,8 +609,8 @@ export default function App() {
       if (typeof metric.score === "number" && metric.score > modulationCap) {
         metric.score = modulationCap;
         metric.commentary =
-          `The delivered audio has only ${finite(measuredDynamicRange) ? measuredDynamicRange.toFixed(1) + " dB" : "limited"} sustained loud/quiet contrast` +
-          `${finite(measuredLra) ? " and " + measuredLra.toFixed(1) + " LU LRA" : ""}. The arrangement may still create perceived lift, but the master itself is dynamically constrained, so a top-band Dynamic Modulation score is not supported.`;
+          `Existing dynamics guardrail: ${finite(measuredDynamicRange) ? "legacy sustained loud/quiet contrast " + measuredDynamicRange.toFixed(1) + " dB" : "sustained contrast unavailable"}` +
+          `${finite(measuredLra) ? "; " + (selected.loudnessRangeLu.source==="AURALIS"?"Auralis gated":"legacy estimated") + " LRA " + measuredLra.toFixed(1) + " LU" : "; LRA unavailable"}. This limits the score under the existing policy; it does not establish the musical effect or processing history.`;
       }
     }
 
@@ -630,8 +619,8 @@ export default function App() {
       if (typeof metric.score === "number" && metric.score > varietyCap) {
         metric.score = varietyCap;
         metric.commentary =
-          `Sectional arrangement changes may still be audible, but the delivered audio shows only ${finite(measuredDynamicRange) ? measuredDynamicRange.toFixed(1) + " dB" : "limited"} sustained loud/quiet contrast` +
-          `${finite(measuredLra) ? " and " + measuredLra.toFixed(1) + " LU LRA" : ""}. That limits how much actual dynamic variety survives in the final master.`;
+          `Existing dynamics guardrail: ${finite(measuredDynamicRange) ? "legacy sustained loud/quiet contrast " + measuredDynamicRange.toFixed(1) + " dB" : "sustained contrast unavailable"}` +
+          `${finite(measuredLra) ? "; " + (selected.loudnessRangeLu.source==="AURALIS"?"Auralis gated":"legacy estimated") + " LRA " + measuredLra.toFixed(1) + " LU" : "; LRA unavailable"}. This is a score-policy ceiling, not a verdict on the arrangement.`;
       }
     }
 
@@ -642,33 +631,18 @@ export default function App() {
     // punish a naturally warm/dark genre signature, but to stop clear multi-signal mix
     // anomalies from being overwritten by an optimistic model judgment.
     const mudFlux = finite(liveMetrics.calculatedMudFlux) ? liveMetrics.calculatedMudFlux : undefined;
-    const midrangeFlatness = finite(liveMetrics.calculatedMidrangeFlatness) ? liveMetrics.calculatedMidrangeFlatness : undefined;
+    const midrangeFlatness = selected.midrangeFlatness.value;
     const bassBandEnergy = finite(liveMetrics.calculatedBassBandEnergy) ? liveMetrics.calculatedBassBandEnergy : undefined;
     const lowMidBandEnergy = finite(liveMetrics.calculatedLowMidsBandEnergy) ? liveMetrics.calculatedLowMidsBandEnergy : undefined;
     const coreMidBandEnergy = finite(liveMetrics.calculatedCoreMidsBandEnergy) ? liveMetrics.calculatedCoreMidsBandEnergy : undefined;
     const airBandEnergy = finite(liveMetrics.calculatedAirBandEnergy) ? liveMetrics.calculatedAirBandEnergy : undefined;
-    const relativeAirPct = finite(liveMetrics.calculatedFinishAirPct) ? liveMetrics.calculatedFinishAirPct : undefined;
+    const relativeAirPct = selected.airPct.value;
 
-    // Keep the parent Mix Balance narrative aligned with the same measured evidence
-    // used by the deterministic guardrails. This prevents prose such as "airy high end"
-    // or "fully clear mids" from surviving next to objective evidence that says the
-    // opposite.
-    if (critique.mixQuality?.frequencyBalance) {
-      if (finite(relativeAirPct) && relativeAirPct < 0.50) {
-        critique.mixQuality.frequencyBalance.highEnd =
-          `Measured high-frequency evidence shows very low relative air energy (${relativeAirPct.toFixed(2)}%). The delivered master is dark above the presence range, so an "airy" or extended top-end description is not supported.`;
-      }
-      if (
-        finite(midrangeFlatness) && finite(coreMidBandEnergy) &&
-        midrangeFlatness < 0.45 && coreMidBandEnergy <= 50
-      ) {
-        critique.mixQuality.frequencyBalance.midrange =
-          `Measured midrange structure is compressed into a relatively narrow spectral shape (flatness ${midrangeFlatness.toFixed(3)}; core-mid energy ${coreMidBandEnergy}). The central range is usable, but the data does not support describing it as exceptionally open or fully separated.`;
-      }
-      if (finite(subPct) && subPct < 0.15) {
-        critique.mixQuality.frequencyBalance.lowEnd =
-          `The low-frequency balance is concentrated above true sub-bass: relative sub-band energy is only ${subPct.toFixed(2)}%. The delivered master therefore lacks deep sub extension even if upper-bass/low-mid body remains audible.`;
-      }
+    // Keep objective measurements separate from listening judgments. A low share
+    // or flatness cannot establish masking, separation, or a defective style.
+    if (critique.mixQuality?.frequencyBalance && finite(relativeAirPct) && relativeAirPct < 0.50) {
+      critique.mixQuality.frequencyBalance.highEnd = (critique.mixQuality.frequencyBalance.highEnd ?? "") +
+        ` Relative 6–11 kHz power: ${relativeAirPct.toFixed(2)}% (20–11 kHz denominator; ${selected.airPct.source==="AURALIS"?"Auralis":"legacy estimate"}). This describes tonal balance, not quality.`;
     }
 
     // Mud flux is retained as DSP evidence only. Its gain-dependent thresholds
@@ -682,94 +656,32 @@ export default function App() {
       midrangeCap = 76;
     }
 
-    const mixSignals: string[] = [];
-    if (finite(midrangeFlatness) && midrangeFlatness < 0.45) {
-      mixSignals.push(`collapsed midrange spectral structure (flatness ${midrangeFlatness.toFixed(3)})`);
-    }
-    if (
-      finite(bassBandEnergy) && finite(lowMidBandEnergy) &&
-      bassBandEnergy > 87 && lowMidBandEnergy > 72
-    ) {
-      mixSignals.push(`extreme bass/low-mid magnitude pair (${bassBandEnergy}/${lowMidBandEnergy})`);
-    }
-    if (finite(lowMidBandEnergy) && lowMidBandEnergy > 75) {
-      mixSignals.push(`extreme low-mid magnitude (${lowMidBandEnergy})`);
-    }
-    if (finite(relativeAirPct) && relativeAirPct < 0.50) {
-      mixSignals.push(`very low relative air energy (${relativeAirPct.toFixed(2)}%)`);
-    }
-    if (
-      finite(midrangeFlatness) && finite(coreMidBandEnergy) &&
-      midrangeFlatness < 0.45 && coreMidBandEnergy <= 50
-    ) {
-      mixSignals.push(`midrange clarity collapse (${coreMidBandEnergy} core-mid energy)`);
-    }
-    if (
-      finite(airBandEnergy) && airBandEnergy < 22 &&
-      finite(midrangeFlatness) && midrangeFlatness < 0.45
-    ) {
-      mixSignals.push(`dark-spectrum collapse (${airBandEnergy} air energy)`);
-    }
-
-    let spectralCap: number | null = null;
-    if (mixSignals.length >= 5) spectralCap = 68;
-    else if (mixSignals.length === 4) spectralCap = 72;
-    else if (mixSignals.length === 3) spectralCap = 76;
-    else if (mixSignals.length === 2) spectralCap = 82;
-    else if (mixSignals.length === 1) spectralCap = 86;
-
-    // Auralis reports measured concern / inconclusive / unavailable separately
-    // from score authority. It cannot silently override Gemini or legacy DSP.
-    // The rejected universal threshold has NOT been installed: null means
-    // every valid measurement is INCONCLUSIVE for absolute quality scoring.
-    const auralisTrial = assessAuralisSpectralTrialEvidence(
-      (critique as any).auralisEngineering,
-      AURALIS_SPECTRAL_TRIAL_ENABLED,
-      AURALIS_SPECTRAL_TRIAL_THRESHOLD_DB,
-    );
-    const legacySpectralCap = spectralCap;
-    const auralisTrialCap = auralisTrial.candidateCap;
-    if (auralisTrialCap !== null) {
-      spectralCap = spectralCap === null
-        ? auralisTrialCap : Math.min(spectralCap, auralisTrialCap);
-    }
-    const originalSpectralScore = call1?.spectralMatch?.score;
+    const mixResult = deriveGainInvariantMixCap(midrangeFlatness,relativeAirPct);
+    const mixSignals = mixResult.signals;
+    const spectralCap = mixResult.cap;
     const appliedMixCaps: string[] = [];
     if (midrangeCap !== null && call1?.midrangeSpacing && typeof call1.midrangeSpacing.score === "number" && call1.midrangeSpacing.score > midrangeCap) {
       call1.midrangeSpacing.score = midrangeCap;
       call1.midrangeSpacing.commentary =
-        `Measured midrange structure does not support a top-band spacing score. Midrange flatness is ${finite(midrangeFlatness) ? midrangeFlatness.toFixed(3) : "N/A"}` +
-        `${finite(coreMidBandEnergy) ? ` with core-mid energy ${coreMidBandEnergy}` : ""}; this indicates reduced spectral distinction through the central mix range.`;
+        `Existing midrange spacing ceiling: legacy midrange flatness ${finite(midrangeFlatness) ? midrangeFlatness.toFixed(3) : "N/A"}` +
+        `; this is a legacy spectral-flatness guardrail, not a measurement of instrument separation.`;
       appliedMixCaps.push(`Midrange Spacing ≤ ${midrangeCap}`);
     }
 
-    const auralisWasDecisive = auralisTrialCap !== null &&
-      (legacySpectralCap === null || legacySpectralCap > auralisTrialCap) &&
-      typeof originalSpectralScore === "number" &&
-      originalSpectralScore > auralisTrialCap;
-    if (spectralCap !== null && call1?.spectralMatch && typeof call1.spectralMatch.score === "number" && call1.spectralMatch.score > spectralCap) {
+    if (spectralCap !== null && call1?.spectralMatch && call1.spectralMatch.applicable !== false &&
+        typeof call1.spectralMatch.score === "number" && call1.spectralMatch.score > spectralCap) {
       call1.spectralMatch.score = spectralCap;
-      call1.spectralMatch.commentary = auralisWasDecisive
-        ? `Auralis measured elevated 60–250 Hz energy relative to 500–20,000 Hz under the explicitly enabled provisional technical scoring rule. This is not proof of masking, a defective mix, or inappropriate artistic intent; the bounded Spectral Match ceiling is ${spectralCap}.`
-        : `The measured spectrum contains ${mixSignals.length} independent outlier signal${mixSignals.length === 1 ? "" : "s"} relative to the calibrated professional-master reference set: ${mixSignals.join("; ")}. A top-band Spectral Match score is therefore not supported.`;
+      call1.spectralMatch.commentary = (call1.spectralMatch.commentary ?? "") + ` Existing beta spectral guardrail: ${mixSignals.join("; ")}. Ceiling ${spectralCap}; these are descriptive signals, not proof of a technical defect or artistic failure.`;
       appliedMixCaps.push(`Spectral Match ≤ ${spectralCap}`);
     }
-    // Diagnostic status is retained even when no score cap was applied.
-    // "CANDIDATE_ONLY" identifies the policy outcome, not a score delta.
-    (critique as any).auralisSpectralTrial = {
-      ...auralisTrial,
-      effectiveCap: spectralCap,
-      appliedScoreChange: auralisWasDecisive &&
-        call1?.spectralMatch?.score === auralisTrialCap,
-    };
 
     // Freeze the existing spectral correction separately from the later finish ceiling.
     captureA2SpectralAfterBrowserMix(critique, spectralCap);
 
     const mixEvidenceSummary =
-      `Mix evidence: mud flux ${finite(mudFlux) ? mudFlux.toFixed(1) : "N/A"} (diagnostic only, not a score gate); midrange flatness ${finite(midrangeFlatness) ? midrangeFlatness.toFixed(3) : "N/A"}; ` +
-      `bass/low-mid/core-mid/air energy ${finite(bassBandEnergy) ? bassBandEnergy : "N/A"}/${finite(lowMidBandEnergy) ? lowMidBandEnergy : "N/A"}/${finite(coreMidBandEnergy) ? coreMidBandEnergy : "N/A"}/${finite(airBandEnergy) ? airBandEnergy : "N/A"}; ` +
-      `relative air ${finite(relativeAirPct) ? relativeAirPct.toFixed(2) + "%" : "N/A"}. ` +
+      `Mix evidence: legacy mud flux ${finite(mudFlux) ? mudFlux.toFixed(1) : "N/A"} (diagnostic only, not a score gate); legacy midrange flatness ${finite(midrangeFlatness) ? midrangeFlatness.toFixed(3) : "N/A"}; ` +
+      `legacy normalized bass/low-mid/core-mid/air indices ${finite(bassBandEnergy) ? bassBandEnergy : "N/A"}/${finite(lowMidBandEnergy) ? lowMidBandEnergy : "N/A"}/${finite(coreMidBandEnergy) ? coreMidBandEnergy : "N/A"}/${finite(airBandEnergy) ? airBandEnergy : "N/A"}; ` +
+      `relative air ${finite(relativeAirPct) ? relativeAirPct.toFixed(2) + "% (" + selected.airPct.source + ")" : "N/A"}. ` +
       (appliedMixCaps.length > 0 ? `Measured corrections: ${appliedMixCaps.join(", ")}.` : "No calibrated mix correction applied.");
 
     critique.mixBalanceEvidence = {
@@ -793,9 +705,7 @@ export default function App() {
       if (isMudDiagnosticCritique(critique)) markMudPreventionDiagnosticOnly(critique);
       const correctedMix = computeMixBalanceScore(call1, isMudDiagnosticCritique(critique));
       if (correctedMix !== null) critique.mixQuality.score = correctedMix;
-      if (appliedMixCaps.length > 0) {
-        critique.mixQuality.dominanceIssues = mixEvidenceSummary;
-      }
+      // Preserve Gemini listening context; the separate evidence record carries deterministic caps.
     }
 
     // Recompute the two affected parents after the measured caps are applied.
@@ -848,10 +758,9 @@ export default function App() {
       }
     }
 
-    const measuredPlr =
-      finite(liveMetrics.calculatedTruePeak) && finite(liveMetrics.calculatedLufs)
-        ? liveMetrics.calculatedTruePeak - liveMetrics.calculatedLufs
-        : undefined;
+    const measuredPeak = selected.samplePeakDbfs.value;
+    const measuredPlr = finite(measuredPeak) && finite(lufs) && selected.samplePeakDbfs.source===selected.integratedLufs.source
+      ? measuredPeak-lufs : undefined;
 
     // Brickwall/clipping family. Calibrated against the frozen professional-master set:
     // the lowest professional PLR in that set is ~6.7 dB. An EXTREMELY low PLR (<=3.5)
@@ -880,7 +789,7 @@ export default function App() {
     ) {
       call3.instrumentalStagingSubs.transientPunch.score = transientPunchCap;
       call3.instrumentalStagingSubs.transientPunch.commentary =
-        `The delivered master shows severe peak-density/brickwall evidence (PLR ${finite(measuredPlr) ? measuredPlr.toFixed(1) : "N/A"} dB; LRA ${finite(measuredLra) ? measuredLra.toFixed(1) : "N/A"} LU). Even if individual hits remain audible, the final master does not preserve enough transient headroom to support a top-band Transient Punch score.`;
+        `Existing peak-density score guardrail: sample peak minus loudness ${finite(measuredPlr) ? measuredPlr.toFixed(1) : "N/A"} dB; ${selected.loudnessRangeLu.source==="AURALIS"?"Auralis gated":"legacy estimated"} LRA ${finite(measuredLra) ? measuredLra.toFixed(1) : "N/A"} LU. These values do not establish clipping, limiter settings or audible transient damage; confirm by listening.`;
     }
 
     // Recompute Instrumental Staging if one child was constrained.
@@ -929,12 +838,12 @@ export default function App() {
         const reasons: string[] = [];
         if (dynamicFinishPenalty > 0) {
           reasons.push(
-            `genre-inappropriate dynamic flattening (${finite(measuredDynamicRange) ? measuredDynamicRange.toFixed(1) : "N/A"} dB sustained range; ${finite(measuredLra) ? measuredLra.toFixed(1) : "N/A"} LU LRA)`
+            `existing genre-conditioned dynamics policy (legacy sustained contrast ${finite(measuredDynamicRange) ? measuredDynamicRange.toFixed(1) : "N/A"} dB; ${finite(measuredLra) ? measuredLra.toFixed(1) : "N/A"} LU LRA; not proof of processing)`
           );
         }
         if (brickwallFinishPenalty > 0) {
           reasons.push(
-            `severe brickwall/peak-density evidence (PLR ${finite(measuredPlr) ? measuredPlr.toFixed(1) : "N/A"} dB; LRA ${finite(measuredLra) ? measuredLra.toFixed(1) : "N/A"} LU)`
+            `existing peak-density policy (sample peak minus loudness ${finite(measuredPlr) ? measuredPlr.toFixed(1) : "N/A"} dB; LRA ${finite(measuredLra) ? measuredLra.toFixed(1) : "N/A"} LU; not proof of clipping or limiting)`
           );
         }
 
@@ -1393,6 +1302,7 @@ export default function App() {
       engineering:ReturnType<typeof prepareAuralisEngineeringEvidence>;
       sourceLineage:ReturnType<typeof prepareAuralisSourceLineage>;
       execution:ReturnType<typeof classifyAuralisExecution>;
+      narrativePacket: ReturnType<typeof prepareAuralisNarrativePacket>;
     } | null> | null = null;
     let auralisEncodedIdentity: Promise<AuralisEncodedSourceIdentity> | undefined;
     setLoading(true);
@@ -1416,22 +1326,14 @@ export default function App() {
     // Compact display-only observation, never sent to Gemini or scoring.
     let savedMasterEq: SonicLensSavedMasterEqProfile | null = null;
     try {
-      // Stage 3F-14: capture current encoded identity for bounded MP3 uploads.
-      // Retain the original exact-WAV fixture gate. Identity enables engineering
-      // provenance only; it never authorizes scoring or server review.
-      const stage3f9IdentityCandidate = isAuralisStage3F9IdentityCandidate(
-        selectedFile,STAGE3D2L1_IDENTITY_ENABLED,a2PilotEnabled,
-        STAGE3D1_AURALIS_EVIDENCE_ENABLED);
+      // Identity is for every bounded MP3, not a particular recording.
       const stage3f14Mp3IdentityCandidate =
         STAGE3D1_AURALIS_EVIDENCE_ENABLED && !a2PilotEnabled &&
         /\.mp3$/i.test(selectedFile.name) &&
         selectedFile.size > 0 && selectedFile.size <= 24 * 1024 * 1024;
       const audioBuffer = await decodeAudioFile(selectedFile,
-        stage3f9IdentityCandidate || stage3f14Mp3IdentityCandidate
+        stage3f14Mp3IdentityCandidate
           ? identity => { auralisEncodedIdentity = identity; } : undefined);
-      if(stage3f9IdentityCandidate && auralisEncodedIdentity &&
-         !isAuralisStage3F9ExactEncodedIdentity(await auralisEncodedIdentity))
-        auralisEncodedIdentity=undefined;
       preAnalysisLiveMetrics = analyzeAudioBuffer(audioBuffer);
       if (!a2PilotEnabled) {
         try {
@@ -1466,7 +1368,7 @@ export default function App() {
           });
       }
       // Optional score-inert engineering evidence. The Worker validates the
-      // envelope and PCM provenance. Never pass this to Gemini or the scoring guards.
+      // envelope and PCM provenance. A compact numeric context may inform Gemini; no override authority.
       if (STAGE3D1_AURALIS_EVIDENCE_ENABLED && !a2PilotEnabled &&
           diagnosticGeneration === auralisDiagnosticGenerationRef.current) {
         const controller = new AbortController();
@@ -1480,11 +1382,12 @@ export default function App() {
             return {
               engineering,
               sourceLineage:prepareAuralisSourceLineage(result),
-              execution:classifyAuralisExecution(result.status, engineering),
+              narrativePacket:prepareAuralisNarrativePacket(result,engineering),
+              execution:classifyAuralisExecution(result.status, engineering,result.status==="UNAVAILABLE"?result.reason:undefined),
             };
           })
           .catch(() => ({
-            engineering:null,sourceLineage:null,
+            engineering:null,sourceLineage:null,narrativePacket:null,
             execution:classifyAuralisExecution("FAILED",null),
           }));
       }
@@ -1500,6 +1403,11 @@ export default function App() {
     }
 
     try {
+      // Await the already-running bounded Worker; never launch a second analysis.
+      const narrativeEvidence = auralisEvidencePromise ? await auralisEvidencePromise : null;
+      if(diagnosticGeneration !== auralisDiagnosticGenerationRef.current)return;
+      if(!a2PilotEnabled && /\.mp3$/i.test(selectedFile.name) && narrativeEvidence?.narrativePacket)
+        formData.append("measuredEngineeringContext", JSON.stringify(narrativeEvidence.narrativePacket));
       // Step A: Upload and trigger Gemini analysis
       setLoadingStatus(threeXMode ? "Multi-pass analysis starting up..." : "Gemini is listening to your transients and harmonics...");
       const res = await fetch("/api/critique-file", {
@@ -1540,10 +1448,15 @@ export default function App() {
       if (liveMetrics) console.log("[App] Live Metrics analyzed:", liveMetrics);
 
       const overriddenCritique = applyGenreOverride(data.critique);
+      // Accept only the context actually produced for this upload, not model-returned fields.
+      const acceptedNarrative=validateAuralisNarrativeMeasurements(overriddenCritique.auralisNarrativeMeasurements);
+      if(!a2PilotEnabled && narrativeEvidence?.narrativePacket && acceptedNarrative &&
+         JSON.stringify(acceptedNarrative)===JSON.stringify(narrativeEvidence.narrativePacket.measurements))
+        overriddenCritique.auralisNarrativeMeasurements=acceptedNarrative;
+      else delete overriddenCritique.auralisNarrativeMeasurements;
       // Attach only validated compact observations, not PCM or full frame arrays.
-      // Failures and A2 pilots retain the original untouched score path.
-      // Record both success and failure; silence never masquerades as successful
-      // Auralis analysis. No diagnostic result changes Gemini or production scores.
+      // A2 and unavailable evidence retain the existing deterministic scoring path.
+      // Gemini may use measured context; the diagnostic has no override authority.
       const auralisEvidence = auralisEvidencePromise
         ? await auralisEvidencePromise : null;
       const execution = resolveAuralisExecutionForReport(
@@ -1562,8 +1475,8 @@ export default function App() {
       // This is not necessarily the uncapped canonical Gemini tier.
       const serverReturnedSpectralScore =
         overriddenCritique.subMetricsCall1?.spectralMatch?.score;
-      if (liveMetrics) {
-        overriddenCritique.liveMetrics = liveMetrics;
+      if (liveMetrics || overriddenCritique.auralisNarrativeMeasurements) {
+        if (liveMetrics) overriddenCritique.liveMetrics = liveMetrics;
         applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
       } else {
         captureA2BrowserUnavailable(overriddenCritique);
@@ -1573,49 +1486,8 @@ export default function App() {
       // corrections and A2 snapshots. Never change a score, cap or model tier.
       (overriddenCritique as any).auralisBetaScoringAudit =
         buildAuralisBetaScoringAudit(overriddenCritique, serverReturnedSpectralScore);
-      // Stage 3F-5: the server may return an operator-owned, exact-upload
-      // review policy. Reconcile it with private per-upload encoded identity
-      // and the validated Worker PCM chain. Do not store hashes, reviewer IDs
-      // or the server approval record in critique/report/locker output.
-      const encodedIdentity = auralisEncodedIdentity
-        ? await auralisEncodedIdentity : null;
-      const reviewedContext = resolveAuralisReviewedRealShadowContext(
-        data.auralisReviewedRecordingPolicy, encodedIdentity,
-        (overriddenCritique as any).auralisBetaScoringAudit);
-      const reviewedShadow = evaluateAuralisStage3F1SpectralShadow(
-        overriddenCritique,(overriddenCritique as any).auralisBetaScoringAudit,
-        reviewedContext ?? undefined);
-      (overriddenCritique as any).auralisStage3F1SpectralShadow = reviewedShadow;
-      // Stage 3F-8: the planner is ALWAYS a score-inert projection. Never
-      // turn it into a scoring switch: the executor alone decides whether to
-      // apply a strictly downward change after independent authorization.
-      (overriddenCritique as any).auralisStage3F5IntegrationPlan =
-        planAuralisReviewed79ScoreIntegration(
-          overriddenCritique,(overriddenCritique as any).auralisBetaScoringAudit,
-          reviewedShadow,false);
-      // The disabled default short-circuits authorization. If separately
-      // enabled in a later approved deployment, require the server-owned
-      // exact-upload review, verified Worker PCM and a recomputed real shadow.
-      const reviewed79Authorized = AURALIS_REVIEWED_79_SCORING_ENABLED &&
-        authorizeAuralisReviewed79Execution(
-          overriddenCritique,(overriddenCritique as any).auralisBetaScoringAudit,
-          reviewedShadow,data.auralisReviewedRecordingPolicy,encodedIdentity);
-      // Carry On only: the separate server activation mode must issue a
-      // positive authorization for this response, not just a shadow review.
-      // The general reviewed-79 switch above stays OFF.
-      const paired79Authorized = !a2PilotEnabled && authorizeAuralisCarryOnPairedExecution(
-        overriddenCritique,(overriddenCritique as any).auralisBetaScoringAudit,
-        reviewedShadow,data.auralisReviewedRecordingPolicy,encodedIdentity,data.auralisPairedScoringAuthorized);
-      // One final-score executor call, after the audit and before report/Locker.
-      // Both routes fail closed; canonical and pre-Auralis snapshots stay historical.
-      (overriddenCritique as any).auralisStage3F6Execution =
-        executeAuralisReviewed79Score(
-          overriddenCritique,(overriddenCritique as any).auralisBetaScoringAudit,
-          reviewedShadow,(overriddenCritique as any).auralisStage3F5IntegrationPlan,
-          reviewed79Authorized || paired79Authorized);
-
-      // Attach only AFTER all scoring/caps/A2 audit decisions and the disabled executor.
-      // Saved in Artist Locker to support a genuinely static (non-audio) report display.
+      // No per-recording review, planner, or score executor remains in the production path.
+      // Save the measured spectrum after normal scoring and reconciliation.
       if (savedMasterEq) overriddenCritique.auralisMasterEqProfile = savedMasterEq;
       if (overriddenCritique.liveMetrics) {
         renderAnalysisImages(overriddenCritique.liveMetrics);
@@ -1702,7 +1574,9 @@ export default function App() {
     const elapsed = () => Math.floor((Date.now() - startedAt) / 1000);
 
     onProgress(4, "Decoding audio", elapsed());
-    const audioBuffer = await decodeAudioFile(file);
+    let batchIdentity:Promise<AuralisEncodedSourceIdentity>|undefined;
+    const batchMp3=/\.mp3$/i.test(file.name)&&file.size>0&&file.size<=24*1024*1024;
+    const audioBuffer = await decodeAudioFile(file,batchMp3?identity=>{batchIdentity=identity;}:undefined);
     onProgress(12, "Audio decoded", elapsed());
 
     // The full-track DSP analyzer is CPU-heavy and synchronous. For batch mode only,
@@ -1719,6 +1593,10 @@ export default function App() {
     onProgress(46, "Detecting key", elapsed());
     await applyRealKeyDetection(audioBuffer, liveMetrics);
     onProgress(55, "Preparing AI evidence", elapsed());
+    const batchDiagnostic=batchMp3&&batchIdentity?await analyzeEngineeringDiagnosticsInWorker(audioBuffer,signal,undefined,undefined,true,batchIdentity):null;
+    if(signal.aborted)throw new DOMException("Batch analysis stopped.","AbortError");
+    const batchEngineering=prepareAuralisEngineeringEvidence(batchDiagnostic);
+    const batchPacket=prepareAuralisNarrativePacket(batchDiagnostic,batchEngineering);
 
     const chromagramImage = liveMetrics?.timeResolvedChromagram ? renderChromagramImage(liveMetrics) : null;
     const rhythmImage = liveMetrics?.onsetRhythmTimeline ? renderRhythmImage(liveMetrics) : null;
@@ -1752,6 +1630,7 @@ export default function App() {
     const formData = new FormData();
     formData.append("audio", file);
     formData.append("threeX", threeXMode ? "true" : "false");
+    if(batchPacket)formData.append("measuredEngineeringContext",JSON.stringify(batchPacket));
     // Keep the benchmark analysis fully blind: do not pass filename/title/artist or
     // embedded genre metadata into Gemini. The local filename is used only after analysis
     // as the temporary UI/report label. SEO therefore reports N/A in batch mode by design.
@@ -1846,8 +1725,17 @@ export default function App() {
     const data = await res.json();
     onProgress(98, "Finalizing report", elapsed());
     const critique: CritiqueData = data.critique;
+    const acceptedBatch=validateAuralisNarrativeMeasurements(critique.auralisNarrativeMeasurements);
+    if(batchPacket&&acceptedBatch&&JSON.stringify(acceptedBatch)===JSON.stringify(batchPacket.measurements))critique.auralisNarrativeMeasurements=acceptedBatch;
+    else delete critique.auralisNarrativeMeasurements;
+    (critique as any).auralisExecution=classifyAuralisExecution(batchDiagnostic?.status??"NOT_RUN",batchEngineering,batchDiagnostic?.status==="UNAVAILABLE"?batchDiagnostic.reason:undefined);
+    if(batchEngineering)(critique as any).auralisEngineering=batchEngineering;
+    const batchLineage=prepareAuralisSourceLineage(batchDiagnostic);
+    if(batchLineage)(critique as any).auralisSourceLineage=batchLineage;
+    const batchServerScore=critique.subMetricsCall1?.spectralMatch?.score;
     critique.liveMetrics = liveMetrics;
     applyProductionFinishGuardrail(critique, liveMetrics);
+    (critique as any).auralisBetaScoringAudit=buildAuralisBetaScoringAudit(critique,batchServerScore);
     onProgress(100, "Complete", elapsed());
 
     return {
@@ -2059,6 +1947,7 @@ export default function App() {
       }
 
       const overriddenCritique = applyGenreOverride(data.critique);
+      delete overriddenCritique.auralisNarrativeMeasurements; // Spotify preview has no local bound context
       if (liveMetrics) {
         overriddenCritique.liveMetrics = liveMetrics;
         applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
@@ -2121,27 +2010,12 @@ export default function App() {
       if (liveMetrics) {
         overriddenCritique.liveMetrics = liveMetrics;
       } else {
-        overriddenCritique.liveMetrics = overriddenCritique.liveMetrics || {
-          calculatedLufs: -10.5,
-          calculatedTruePeak: -0.8,
-          calculatedLra: 4.5,
-          calculatedStereoCorrelation: 0.85,
-          calculatedBpm: 120,
-          calculatedKey: "G Major",
-          calculatedBassEnergy: 40,
-          calculatedMidEnergy: 55,
-          calculatedHighEnergy: 35,
-          calculatedWaveformPoints: [20, 45, 60, 55, 40, 35, 65, 80, 50, 40, 30, 25, 45, 60, 55, 40],
-          calculatedWaveformPointsHD: Array.from({ length: 400 }, (_, i) => [20, 45, 60, 55, 40, 35, 65, 80, 50, 40, 30, 25, 45, 60, 55, 40][i % 16])
-        };
+        // A sample that cannot be decoded has no local measurements.
+        delete overriddenCritique.liveMetrics;
       }
-
-      if (sample.key) {
-        overriddenCritique.liveMetrics.calculatedKey = sample.key;
-      }
-      if (sample.bpm) {
-        overriddenCritique.liveMetrics.calculatedBpm = sample.bpm;
-      }
+      delete overriddenCritique.auralisNarrativeMeasurements;
+      if (overriddenCritique.liveMetrics && sample.key) overriddenCritique.liveMetrics.calculatedKey=sample.key;
+      if (overriddenCritique.liveMetrics && sample.bpm) overriddenCritique.liveMetrics.calculatedBpm=sample.bpm;
       if (liveMetrics) {
         applyProductionFinishGuardrail(overriddenCritique, liveMetrics);
       } else {
@@ -2178,6 +2052,7 @@ export default function App() {
       engineering: ReturnType<typeof prepareAuralisEngineeringEvidence>;
       sourceLineage: ReturnType<typeof prepareAuralisSourceLineage>;
       execution: ReturnType<typeof classifyAuralisExecution>;
+      narrativePacket: ReturnType<typeof prepareAuralisNarrativePacket>;
     } | null> | null = null;
     let queuedEvidenceFile: File | null = null;
     const queuedIsCurrent = () =>
@@ -2225,8 +2100,8 @@ export default function App() {
         // The original WAV and MP3-encoded source rate remain UNVERIFIED.
         const queuedMp3Candidate = STAGE3D1_AURALIS_EVIDENCE_ENABLED &&
           !a2PilotEnabled && track.format === "MP3" &&
-          cachedFileForAnalysis.name.endsWith("_Mastered320.mp3") &&
-          cachedFileForAnalysis.size > 0;
+          /\.mp3$/i.test(cachedFileForAnalysis.name) &&
+          cachedFileForAnalysis.size > 0 && cachedFileForAnalysis.size <= 24 * 1024 * 1024;
         let encodedMp3Identity: Promise<AuralisEncodedSourceIdentity> | undefined;
         const audioBuffer = await decodeAudioFile(cachedFileForAnalysis,
           queuedMp3Candidate
@@ -2248,13 +2123,14 @@ export default function App() {
             return {
               engineering,
               sourceLineage: prepareAuralisSourceLineage(result),
+              narrativePacket: prepareAuralisNarrativePacket(result,engineering),
               execution: classifyAuralisExecution(
                 result.status, engineering,
                 result.status === "UNAVAILABLE" ? result.reason : undefined
               ),
             };
           }).catch(() => ({
-            engineering: null, sourceLineage: null,
+            engineering: null, sourceLineage: null, narrativePacket: null,
             execution: classifyAuralisExecution("FAILED", null),
           }));
         }
@@ -2365,7 +2241,10 @@ export default function App() {
           formData.append("detectedKey", earlyLiveMetrics?.calculatedKey || "");
           formData.append("chordProgressionSummary", chordProgressionSummary || "");
           formData.append("melodySummary", melodySummary || "");
-          
+          const narrativeEvidence = queuedEvidencePromise ? await queuedEvidencePromise : null;
+          if(!queuedIsCurrent())return;
+          if(!a2PilotEnabled && queuedEvidenceFile===cachedFile && narrativeEvidence?.narrativePacket)
+            formData.append("measuredEngineeringContext", JSON.stringify(narrativeEvidence.narrativePacket));
           const res = await fetch("/api/critique-file", {
             method: "POST",
             body: formData,
@@ -2374,7 +2253,11 @@ export default function App() {
           if (res.ok) {
             const data = await res.json();
             finalCritique = data.critique;
-            
+            const acceptedNarrative=validateAuralisNarrativeMeasurements(finalCritique.auralisNarrativeMeasurements);
+            if(queuedEvidenceFile===cachedFile && narrativeEvidence?.narrativePacket && acceptedNarrative &&
+               JSON.stringify(acceptedNarrative)===JSON.stringify(narrativeEvidence.narrativePacket.measurements))
+              finalCritique.auralisNarrativeMeasurements=acceptedNarrative;
+            else delete finalCritique.auralisNarrativeMeasurements;
             // Also run live local programmatic audio frequency audit
             setLoadingStatus("Running live local programmatic audio frequency audit...");
             try {
@@ -2444,6 +2327,7 @@ export default function App() {
           if (res.ok) {
             const data = await res.json();
             finalCritique = data.critique;
+            delete finalCritique.auralisNarrativeMeasurements; // remote bytes not independently bound
           } else {
             const errorData = await res.json().catch(() => ({}));
             throw new Error(errorData.error || "A&R pipeline did not complete successfully on the server.");
@@ -2492,14 +2376,13 @@ export default function App() {
       if (liveMetrics) {
         overriddenFinalCritique.liveMetrics = liveMetrics;
       }
-      if (overriddenFinalCritique.liveMetrics) {
+      if (overriddenFinalCritique.liveMetrics || overriddenFinalCritique.auralisNarrativeMeasurements) {
         applyProductionFinishGuardrail(overriddenFinalCritique, overriddenFinalCritique.liveMetrics);
       } else {
         captureA2BrowserUnavailable(overriddenFinalCritique);
       }
 
-      // Reuse the existing Auralis adapters, with no trusted review context
-      // and an explicitly disabled scoring executor.
+      // Reuse the existing Auralis adapters for the saved report.
       const queuedEvidence = queuedEvidencePromise
         ? await queuedEvidencePromise : null;
       const queuedExecution = resolveAuralisExecutionForReport(
@@ -2515,24 +2398,7 @@ export default function App() {
         (overriddenFinalCritique as any).auralisSourceLineage = queuedEvidence.sourceLineage;
       (overriddenFinalCritique as any).auralisBetaScoringAudit =
         buildAuralisBetaScoringAudit(overriddenFinalCritique, queuedServerReturnedSpectralScore);
-      const queuedShadow = evaluateAuralisStage3F1SpectralShadow(
-        overriddenFinalCritique,(overriddenFinalCritique as any).auralisBetaScoringAudit);
-      (overriddenFinalCritique as any).auralisStage3F1SpectralShadow = queuedShadow;
-      (overriddenFinalCritique as any).auralisStage3F5IntegrationPlan =
-        planAuralisReviewed79ScoreIntegration(
-          overriddenFinalCritique,(overriddenFinalCritique as any).auralisBetaScoringAudit,
-          queuedShadow,false);
-      (overriddenFinalCritique as any).auralisStage3F6Execution =
-        executeAuralisReviewed79Score(
-          overriddenFinalCritique,(overriddenFinalCritique as any).auralisBetaScoringAudit,
-          queuedShadow,(overriddenFinalCritique as any).auralisStage3F5IntegrationPlan,
-          false);
-      (overriddenFinalCritique as any).auralisQueuedMp3ShadowStatus =
-        summarizeAuralisQueuedMp3Shadow(
-          queuedEvidenceFile !== null,queuedEvidence?.sourceLineage,
-          (overriddenFinalCritique as any).auralisBetaScoringAudit,queuedShadow);
-
-      // Report-only. No scoring, A2, Gemini or executor mutation.
+      // Historic paired trial rows remain readable; no new trial records are created.
       if (queuedMasterEq) overriddenFinalCritique.auralisMasterEqProfile = queuedMasterEq;
       const updatedTrack: StoredTrack = {
         ...track,

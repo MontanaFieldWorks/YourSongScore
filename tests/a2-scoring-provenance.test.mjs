@@ -733,11 +733,13 @@ test("Stage B six-band contract uses original normalized magnitudes, not relativ
   // Level changes alter evidence prose, never the raw measurement fields or their serialization.
 });
 
-test("Stage B Excel six-band levels display raw normalized values, not invented percentages", () => {
+test("Engineering Excel distinguishes Auralis power shares and raw legacy indices, without invented values", () => {
   const report=readFileSync(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
-  assert.match(report,/FREQUENCY BALANCE \(6-BAND NORMALIZED LEVELS, NOT %\)/);
-  assert.match(report,/\["Band", "Frequency Range", "Level \(0-100\)", "Vs Genre Target"\]/);
-  assert.match(report,/wsEngineering\.getCell\(engRow, 4\)\.value = String\(row\.val\);/);
+  assert.match(report,/FREQUENCY BALANCE — MEASURED SHARES OR LEGACY INDICES/);
+  assert.match(report,/\["Band", "Frequency Range", "Value", "Source \/ Scope"\]/);
+  assert.match(report,/wsEngineering\.getCell\(engRow, 4\)\.value = row\.val===undefined\?"Unavailable":row\.val;/);
+  assert.match(report,/Auralis share \(%\) of represented 20–20kHz power/);
+  assert.match(report,/Legacy level index \(0–100; not %\)/);
   assert.doesNotMatch(report,/wsEngineering\.getCell\(engRow, 4\)\.value = \x60\$\{row\.val\}%\x60;/);
   for(const name of ["calculatedSubBassBandEnergy","calculatedBassBandEnergy","calculatedLowMidsBandEnergy",
     "calculatedCoreMidsBandEnergy","calculatedPresenceBandEnergy","calculatedAirBandEnergy"])

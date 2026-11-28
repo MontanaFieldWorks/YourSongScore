@@ -8,7 +8,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { GoogleGenAI as A2PilotGoogleGenAI } from "@google/genai-a2-pilot";
 import dotenv from "dotenv";
 import { GENRE_MAP } from "./src/data/musicData";
-import { computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC_SCORING_VERSION, validateAuralisOperatorReviewPolicy, validateAuralisPairedOperatorReviewPolicy, AURALIS_CARRY_ON_ACTIVATION_MODE, resolveAuralisCarryOnActivationPolicy } from "./src/lib/mudPreventionDiagnostic";
+import { parseAuralisNarrativePacket, formatAuralisNarrativeContext, selectAuralisHybridInputs, computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC_SCORING_VERSION } from "./src/lib/mudPreventionDiagnostic";
 import { captureA2ServerProductionInputs, captureA2ServerMixInputs, captureA2ServerSpectralScore } from "./src/lib/a2ScoringProvenance";
 import { withholdA2RawEvidence, getRestrictedA2RawEvidence } from "./src/lib/a2InternalEvidence";
 import { describeLowEndGateFactors, captureA2OriginalAssertionSnapshot } from "./src/lib/sourceVerificationDiagnostics";
@@ -597,7 +597,8 @@ async function performSubMetricsCall1(
   },
   measuredLowEndEvidence?: { subBassCorrelation?: number; subBassCrestFactor?: number; bassCrestFactor?: number },
   measuredMudEvidence?: { flatness?: number; flux?: number },
-  measuredMidrangeEvidence?: { flatness?: number; flux?: number }
+  measuredMidrangeEvidence?: { flatness?: number; flux?: number },
+  auralisContext = formatAuralisNarrativeContext(null)
 ): Promise<any> {
   const bandEnergySummary = measuredBandEnergies
     ? `Sub-Bass (20-64Hz): ${measuredBandEnergies.subBass ?? 'N/A'}, Bass (64-250Hz): ${measuredBandEnergies.bass ?? 'N/A'}, Low-Mids (250Hz-1kHz): ${measuredBandEnergies.lowMids ?? 'N/A'}, Core Mids (1-4kHz): ${measuredBandEnergies.coreMids ?? 'N/A'}, Presence (4-8kHz): ${measuredBandEnergies.presence ?? 'N/A'}, Air (8-20kHz): ${measuredBandEnergies.air ?? 'N/A'}`
@@ -637,7 +638,7 @@ IMPORTANT SPECTROGRAM INTERPRETATION RULE: Strong brightness in the low and lowe
   const response = await generateContentWithRetry({
     model: "gemini-2.5-flash",
     contents: {
-      parts: spectrogramImagePart ? [audioPart, spectrogramImagePart, { text: contextSummary }] : [audioPart, { text: contextSummary }],
+      parts: spectrogramImagePart ? [audioPart, spectrogramImagePart, { text: contextSummary + auralisContext }] : [audioPart, { text: contextSummary + auralisContext }],
     },
     config: {
       systemInstruction: SUBMETRIC_SYSTEM_PROMPT,
@@ -882,7 +883,8 @@ async function performSubMetricsCall2(
   audioPart: any,
   parsedCritique: any,
   chordProgressionSummary?: string,
-  melodySummary?: string
+  melodySummary?: string,
+  auralisContext = formatAuralisNarrativeContext(null)
 ): Promise<any> {
   const contextSummary = `
 INDEPENDENT ARTISTIC / SONGWRITING SCORING PASS.
@@ -896,7 +898,7 @@ Listen to the actual audio again and generate specific, evidence-based scores, f
   const response = await generateContentWithRetry({
     model: "gemini-2.5-flash",
     contents: {
-      parts: [audioPart, { text: contextSummary }],
+      parts: [audioPart, { text: contextSummary + auralisContext }],
     },
     config: {
       systemInstruction: SUBMETRIC_SYSTEM_PROMPT_2,
@@ -1100,7 +1102,8 @@ async function performSubMetricsCall3(
   measuredInstrumentalWarmth?: number,
   chordProgressionSummary?: string,
   melodySummary?: string,
-  measuredVocalDynamics?: number
+  measuredVocalDynamics?: number,
+  auralisContext = formatAuralisNarrativeContext(null)
 ): Promise<any> {
   const contextSummary = `
 INDEPENDENT STRUCTURE / PERFORMANCE / THEORY SCORING PASS.
@@ -1137,7 +1140,7 @@ Listen to the actual audio again and generate specific, evidence-based scores an
         audioPart,
         ...(chromagramImagePart ? [chromagramImagePart] : []),
         ...(rhythmImagePart ? [rhythmImagePart] : []),
-        { text: contextSummary },
+        { text: contextSummary + auralisContext },
       ],
     },
     config: {
@@ -2284,6 +2287,11 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
     }
 
     const mimeType = req.file.mimetype;
+    // Only the normal MP3 upload may supply this numeric context. A2 remains blind.
+    const narrativeMeasurements = !isA2PilotRequest() && /\.mp3$/i.test(req.file.originalname) &&
+      typeof req.body.measuredEngineeringContext==="string" && req.file.size<=24*1024*1024
+      ? parseAuralisNarrativePacket(req.body.measuredEngineeringContext,createHash("sha256").update(req.file.buffer).digest("hex")) : null;
+    const auralisContext = isA2PilotRequest()?"":formatAuralisNarrativeContext(narrativeMeasurements);
     const base64Data = req.file.buffer.toString("base64");
     const threeX = req.body.threeX === "true";
     const metaTitle = req.body.metaTitle || "";
@@ -2423,12 +2431,17 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
     } : undefined;
     const mudEvidence = (mudFlatness !== undefined || mudFlux !== undefined) ? { flatness: mudFlatness, flux: mudFlux } : undefined;
     const midrangeEvidence = (midrangeFlatness !== undefined || midrangeFlux !== undefined) ? { flatness: midrangeFlatness, flux: midrangeFlux } : undefined;
+    const selectedFinish=selectAuralisHybridInputs(narrativeMeasurements,{
+      calculatedCrestFactorDb:productionFinishCrestFactorDb,calculatedLufs:productionFinishLufs,
+      calculatedFinishSubPct:productionFinishSubPct,calculatedFinishMidPct:productionFinishMidPct,
+      calculatedFinishAirPct:productionFinishAirPct,
+    });
     const productionFinishEvidence = buildProductionFinishEvidence({
-      crestFactorDb: productionFinishCrestFactorDb,
-      integratedLufs: productionFinishLufs,
-      subPct: productionFinishSubPct,
-      midPct: productionFinishMidPct,
-      airPct: productionFinishAirPct,
+      crestFactorDb: selectedFinish.crestFactorDb.value,
+      integratedLufs: selectedFinish.integratedLufs.value,
+      subPct: selectedFinish.subPct.value,
+      midPct: selectedFinish.midPct.value,
+      airPct: selectedFinish.airPct.value,
     });
 
     const detectedKey = typeof req.body.detectedKey === "string" && req.body.detectedKey.trim()
@@ -2462,7 +2475,7 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
     const parsedCritique = await performCritiqueAnalysis(
       [
         audioPart,
-        userInstruction,
+        userInstruction + auralisContext,
       ],
       SYSTEM_PROMPT,
       threeX
@@ -2488,7 +2501,7 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
     await verifyInstrumentalGenreIfNeeded(audioPart, parsedCritique, !!metaGenre);
     validateGenrePair(parsedCritique);
       console.log("[Call 1] Starting Sub-Metrics Call 1...");
-      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, isA2PilotRequest()?bandEnergies:undefined, lowEndEvidence, mudEvidence, midrangeEvidence, auralisContext);
       parsedCritique.subMetricsCall1 = subMetricsCall1;
       parsedCritique.subMetricsCall1Failed = false;
       console.log("[Call 1] Sub-Metrics Call 1 completed successfully.");
@@ -2525,7 +2538,7 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
 
     try {
       console.log("[Call 2] Starting Sub-Metrics Call 2...");
-      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique, inferredChordSummary ?? chordProgressionSummary, melodySummary);
+      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique, inferredChordSummary ?? chordProgressionSummary, melodySummary, auralisContext);
       parsedCritique.subMetricsCall2 = subMetricsCall2;
       parsedCritique.subMetricsCall2Failed = false;
       console.log("[Call 2] Sub-Metrics Call 2 completed successfully.");
@@ -2548,7 +2561,8 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
         instrumentalWarmth,
         chordProgressionSummary,
         melodySummary,
-        vocalDynamics
+        vocalDynamics,
+        auralisContext
       );
       parsedCritique.subMetricsCall3 = subMetricsCall3;
       parsedCritique.subMetricsCall3Failed = false;
@@ -2574,33 +2588,10 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
     // Ordinary API responses and Excel reports never contain raw A2 commentary.
     await finishA2PilotIfActive();
     withholdA2RawEvidence(parsedCritique);
-    // Stage 3F-5: optional operator-approved single-recording policy.
-    // An HTTP caller cannot supply review approval. The only source is a
-    // private deployment environment entry, matched to the exact uploaded
-    // encoded bytes. OFF / absent / malformed config yields no authorization.
-    // The reply is a score-inert candidate, not an activation capability.
-    const pairedActivationMode=process.env.YSS_AURALIS_BETA_ARMED===AURALIS_CARRY_ON_ACTIVATION_MODE;
-    const auralisReviewedRecordingPolicy=(()=>{
-      // A separate server-side, default-OFF shutoff for the single-file beta.
-      // Clearing this private setting stops issuing NEW review candidates.
-      // The client scoring switch and PCM identity capture remain OFF.
-      if(isA2PilotRequest()||
-         (process.env.YSS_AURALIS_BETA_ARMED!=="EXACT_SHA_REVIEW_ONLY"&&
-          process.env.YSS_AURALIS_BETA_ARMED!=="EXACT_PAIRED_SHA_REVIEW_ONLY"&&!pairedActivationMode)||
-         !process.env.YSS_AURALIS_REVIEW_POLICY_JSON)return null;
-      try {
-        const review=JSON.parse(process.env.YSS_AURALIS_REVIEW_POLICY_JSON);
-        const sha=createHash("sha256").update(req.file!.buffer).digest("hex");
-        if(pairedActivationMode)return resolveAuralisCarryOnActivationPolicy(
-          process.env.YSS_AURALIS_BETA_ARMED,review,sha,false);
-        return process.env.YSS_AURALIS_BETA_ARMED==="EXACT_PAIRED_SHA_REVIEW_ONLY"
-          ? validateAuralisPairedOperatorReviewPolicy(review,sha)
-          : validateAuralisOperatorReviewPolicy(review,sha);
-      }catch{return null;}
-    })();
-    res.json({ critique: parsedCritique,
-      ...(auralisReviewedRecordingPolicy ? {auralisReviewedRecordingPolicy} : {}),
-      ...(pairedActivationMode&&auralisReviewedRecordingPolicy ? {auralisPairedScoringAuthorized:true} : {}) });
+    // Only numeric narrative context is saved, never the digest or review policy.
+    if(narrativeMeasurements)parsedCritique.auralisNarrativeMeasurements=narrativeMeasurements;
+    else delete parsedCritique.auralisNarrativeMeasurements;
+    res.json({ critique: parsedCritique });
   } catch (error: any) {
     const a2Context = a2PilotContext.getStore();
     if (a2Context) await a2PilotOnError(a2Context);
@@ -2787,7 +2778,7 @@ app.post("/api/critique-url", async (req, res) => {
     const parsedCritique = await performCritiqueAnalysis(
       [
         audioPart,
-        userInstruction,
+        userInstruction + formatAuralisNarrativeContext(null),
       ],
       SYSTEM_PROMPT,
       !!threeX
@@ -2804,7 +2795,7 @@ app.post("/api/critique-url", async (req, res) => {
     await verifyInstrumentalGenreIfNeeded(audioPart, parsedCritique, !!metaGenre);
     validateGenrePair(parsedCritique);
       console.log("[Call 1] Starting Sub-Metrics Call 1 (URL route)...");
-      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, bandEnergies, lowEndEvidence, mudEvidence, midrangeEvidence);
+      const subMetricsCall1 = await performSubMetricsCall1(audioPart, parsedCritique, spectrogramImagePart, stereoCorrelation, sibilanceSeverity, timbralConsistency, undefined, lowEndEvidence, mudEvidence, midrangeEvidence,formatAuralisNarrativeContext(null));
       parsedCritique.subMetricsCall1 = subMetricsCall1;
       parsedCritique.subMetricsCall1Failed = false;
     } catch (subErr: any) {
@@ -2832,7 +2823,7 @@ app.post("/api/critique-url", async (req, res) => {
 
     try {
       console.log("[Call 2] Starting Sub-Metrics Call 2 (URL route)...");
-      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique, inferredChordSummary ?? chordProgressionSummary, melodySummary);
+      const subMetricsCall2 = await performSubMetricsCall2(audioPart, parsedCritique, inferredChordSummary ?? chordProgressionSummary, melodySummary,formatAuralisNarrativeContext(null));
       parsedCritique.subMetricsCall2 = subMetricsCall2;
       parsedCritique.subMetricsCall2Failed = false;
     } catch (subErr: any) {
@@ -2854,7 +2845,8 @@ app.post("/api/critique-url", async (req, res) => {
         instrumentalWarmth,
         chordProgressionSummary,
         melodySummary,
-        vocalDynamics
+        vocalDynamics,
+        formatAuralisNarrativeContext(null)
       );
       parsedCritique.subMetricsCall3 = subMetricsCall3;
       parsedCritique.subMetricsCall3Failed = false;
@@ -2872,6 +2864,7 @@ app.post("/api/critique-url", async (req, res) => {
     // Withhold unfiltered Gemini text in a process-local, authenticated vault.
     // Ordinary API responses and Excel reports never contain raw A2 commentary.
     withholdA2RawEvidence(parsedCritique);
+    delete parsedCritique.auralisNarrativeMeasurements;
     res.json({ critique: parsedCritique });
   } catch (error: any) {
     console.error("Error processing URL critique:", error);
@@ -3115,7 +3108,8 @@ app.post("/api/ar-consult", async (req, res) => {
     systemInstruction += `You have complete, seasoned and advanced knowledge about standard recording metrics, Spotify's algotorial playlisting, loudness Normalization, and acoustic engineering. Do not act like a generic AI companion; speak from your deep music industry identity. Always sign off or reply in character. Keep formatting clean using simple Markdown, using bulleted short guides where useful.\n\n`;
 
     if (critiqueContext) {
-      systemInstruction += `ACTIVE CLIENT SONG DIRECTORY FOR CONTEXT:\n`;
+      systemInstruction += formatAuralisNarrativeContext(critiqueContext.auralisNarrativeMeasurements,true);
+      systemInstruction += `\nACTIVE CLIENT SONG DIRECTORY FOR CONTEXT:\n`;
       if (trackInfo) {
         systemInstruction += `- Track Name: "${trackInfo.name}"\n`;
         systemInstruction += `- Artist Name: "${trackInfo.artist || "Independent Artist"}"\n`;

@@ -227,6 +227,17 @@ export async function decodeAudioUrl(url: string): Promise<AudioBuffer> {
 /**
  * Performs high-precision, real programmatic audio analysis on any AudioBuffer.
  */
+// Presentation only; the existing numeric guardrails remain unchanged.
+// Historical values equal to a fallback are ambiguous without provenance.
+export function getLegacyMeterDisplayValue(metrics: unknown, key: "calculatedLufs" | "calculatedLra"): number | undefined {
+  const m = metrics as Partial<LiveAudioMetrics> | null | undefined;
+  const value = m?.[key];
+  const available = key === "calculatedLufs" ? m?.legacyLufsAvailable : m?.legacyLraAvailable;
+  if (typeof value !== "number" || !Number.isFinite(value) || available === false) return undefined;
+  if (available !== true && value === (key === "calculatedLufs" ? -14 : 5.4)) return undefined;
+  return value;
+}
+
 export function analyzeAudioBuffer(audioBuffer: AudioBuffer): LiveAudioMetrics {
   const ch0 = audioBuffer.getChannelData(0);
   const ch1 = audioBuffer.numberOfChannels > 1 ? audioBuffer.getChannelData(1) : ch0;
@@ -696,7 +707,8 @@ export function analyzePcmData(
   // Gate power outputs to determine Integrated LUFS
   // Absolute gate at -70 LUFS
   const absoluteGated = blockPowers.filter(p => p > -70);
-  let lufsValue = -14.0; // fallback standard
+  let lufsValue: number | undefined; // no gated blocks means unavailable
+  const legacyLufsAvailable = absoluteGated.length > 0;
   if (absoluteGated.length > 0) {
     // Relative gate: find average power then gate out blocks -10 dB below that average
     const sumAbsolute = absoluteGated.reduce((acc, v) => acc + Math.pow(10, v / 10), 0);
@@ -712,8 +724,7 @@ export function analyzePcmData(
   }
 
   // Clamp LUFS to reasonable bounds
-  if (lufsValue < -40) lufsValue = -40;
-  if (lufsValue > 0) lufsValue = 0;
+  if (lufsValue !== undefined) lufsValue = Math.min(0,Math.max(-40,lufsValue));
 
   // 3. Compute Loudness Range (LRA)
   // Fixed: previously only applied the absolute gate (-70), missing the relative gate
@@ -723,7 +734,8 @@ export function analyzePcmData(
   // genuinely quiet blocks (sparse verses, near-silence) inflate the reported range -
   // one real test track went from an implausible 20.7 LU down to a real 12.5 LU once
   // this gate was correctly applied.
-  let lra = 5.4; // standard fallback
+  let lra: number | undefined; // no valid gated range means unavailable
+  let legacyLraAvailable = false;
   if (blockPowers.length > 5) {
     const absoluteGatedForLra = blockPowers.filter(p => p > -70);
     if (absoluteGatedForLra.length > 5) {
@@ -737,10 +749,11 @@ export function analyzePcmData(
         const idx10 = Math.floor(sortedPowers.length * 0.1);
         const idx95 = Math.floor(sortedPowers.length * 0.95);
         lra = sortedPowers[idx95] - sortedPowers[idx10];
+        legacyLraAvailable = Number.isFinite(lra);
       }
     }
   }
-  lra = Math.min(25, Math.max(1.0, parseFloat(lra.toFixed(1))));
+  if(lra!==undefined)lra = Math.min(25, Math.max(0, parseFloat(lra.toFixed(1))));
 
   // 4. Stereo Correlation Coefficient (-1 to +1)
   let correlationSumNum = 0;
@@ -2283,9 +2296,11 @@ export function analyzePcmData(
   }
 
   return {
-    calculatedLufs: parseFloat(lufsValue.toFixed(1)),
+    ...(lufsValue===undefined?{}:{calculatedLufs:parseFloat(lufsValue.toFixed(1))}),
     calculatedTruePeak: parseFloat(truePeak.toFixed(2)),
-    calculatedLra: lra,
+    ...(lra===undefined?{}:{calculatedLra:lra}),
+    legacyLufsAvailable,
+    legacyLraAvailable,
     calculatedRmsDbfs: parseFloat(finishRmsDbfs.toFixed(2)),
     calculatedCrestFactorDb: parseFloat(finishCrestFactorDb.toFixed(2)),
     calculatedFinishSubPct: parseFloat(finishSubPct.toFixed(3)),

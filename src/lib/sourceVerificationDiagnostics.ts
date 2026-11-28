@@ -2,6 +2,8 @@
  * Read-only diagnostic rows for source-presence investigations.
  * Never modifies critique data, scores, or applicability.
  */
+import { selectAuralisHybridInputs } from "./mudPreventionDiagnostic.ts";
+
 export interface SourceDiagnosticRow {
   section: string;
   field: string;
@@ -438,12 +440,14 @@ export function getStreamingReadinessLineageRows(
     "round(((instrumentalScore || 70) % 15) - 7); clamp(base + offset, 5, 95)",
     acousticSource === "FALLBACK_INSTRUMENTAL_MOD15" ? acousticOffset : null,
     "instrumentalScore=" + n(critique?.performance?.instrumentalScore) + "; effective=" + instrumental);
-  const energySource = live?.calculatedLufs !== undefined &&
+  const selectedLufs = selectAuralisHybridInputs(critique?.auralisNarrativeMeasurements, live).integratedLufs;
+  const energySource = selectedLufs.value !== undefined &&
     live?.calculatedHighEnergy !== undefined && !!live
     ? "DSP_LUFS_HIGH_ENERGY" : "FALLBACK_PRODUCTION_MOD15";
   push("Energy", energySource,
     energySource === "DSP_LUFS_HIGH_ENERGY"
-      ? "liveMetrics.calculatedLufs=" + n(live?.calculatedLufs) +
+      ? (selectedLufs.source === "AURALIS" ? "auralisNarrativeMeasurements.integratedLufs=" : "liveMetrics.calculatedLufs=") + n(selectedLufs.value) +
+        "; loudnessSource=" + selectedLufs.source +
         "; calculatedHighEnergy=" + n(live?.calculatedHighEnergy)
       : "scores.overallProduction=" + n(scores?.overallProduction),
     base("energyMin", "energyMax"),
@@ -546,12 +550,10 @@ export function getStreamingReadinessLineageRows(
   // Replicate for PROVENANCE ONLY, never supply these values to computeCategoryScores.
   const commercial = scores?.commercialReadiness ?? 75;
   let skipModifier = 0;
-  if (live) {
-    if (live.calculatedLufs !== undefined && live.calculatedLufs < -12.5)
-      skipModifier += Math.round(Math.abs(live.calculatedLufs + 12.5) * 1.8);
-    if (live.calculatedStereoCorrelation !== undefined && live.calculatedStereoCorrelation < -0.15)
-      skipModifier += 14;
-  }
+  if (selectedLufs.value !== undefined && selectedLufs.value < -12.5)
+    skipModifier += Math.round(Math.abs(selectedLufs.value + 12.5) * 1.8);
+  if (live?.calculatedStereoCorrelation !== undefined && live.calculatedStereoCorrelation < -0.15)
+    skipModifier += 14;
   const skip = Math.min(85, Math.max(0, 91 - Math.round(commercial * 0.70 + production * 0.20) + skipModifier));
   const completion = Math.min(100, Math.max(15, 100 - skip));
   const validMatches = actualScorecard.map(x => x.matchPercent ?? 0);

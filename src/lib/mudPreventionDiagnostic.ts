@@ -934,20 +934,7 @@ export function validateAuralisPairedOperatorReviewPolicy(configured:unknown,upl
     p.independentDefect!=="CONFIRMED_REVIEWED_REAL"||p.artisticIntent!=="REVIEWED_NOT_INTENTIONAL_REAL")return null;
   return {...p} as AuralisPairedOperatorReview;
 }
-// Activation is a different server mode from the score-inert paired review.
-export const AURALIS_CARRY_ON_ACTIVATION_MODE="EXACT_PAIRED_SHA_ACTIVATION_ONLY" as const;
-export function validateAuralisCarryOnActivationPolicy(configured:unknown,uploadedSha256:unknown):AuralisPairedOperatorReview|null {
-  const p=validateAuralisPairedOperatorReviewPolicy(configured,uploadedSha256);
-  // Bind the approved pair to the archived source and the verified 2026-11-28
-  // Worker ratios. No operator record, reviewer ID or live activation is shipped.
-  if(!p||p.originalSourceSha256!=="a88427113784aefeb1ea7a8fe9a14b4029e2a6922f6e273a64568906b52983b2"||
-    p.referenceLowToUpperDb!==-2.29||p.candidateLowToUpperDb!==1.36)return null;
-  return p;
-}
-export function resolveAuralisCarryOnActivationPolicy(mode:unknown,configured:unknown,uploadedSha256:unknown,a2Pilot:unknown):AuralisPairedOperatorReview|null {
-  return mode===AURALIS_CARRY_ON_ACTIVATION_MODE&&a2Pilot===false
-    ?validateAuralisCarryOnActivationPolicy(configured,uploadedSha256):null;
-}
+// Historical shadow-policy interpretation only. No activation mode is supported.
 // This checks a trusted server-issued decision against the *current* local
 // source digest and Worker PCM chain. It never accepts a browser review flag.
 // Current identity collection remains OFF until separately authorized.
@@ -977,17 +964,7 @@ export function resolveAuralisReviewedRealShadowContext(
     artisticIntent:"REVIEWED_NOT_INTENTIONAL_REAL",
     reviewEvidence:"EXTERNAL_REVIEW_RECORD_ASSERTED",...(pairedPolicy?{pairedPolicy}:{})};
 }
-// Stage 3F-9: single-fixture, default-OFF identity trial preparation.
-// File name and size only select a candidate for hashing; they never
-// establish trust. An exact archived encoded SHA is required separately
-// before the Worker can receive the identity-capture option.
-export function isAuralisStage3F9IdentityCandidate(
-  file:unknown, enabled:boolean, a2Pilot:boolean, evidenceEnabled:boolean,
-):boolean {
-  const f=file as any;
-  return enabled===true && a2Pilot===false && evidenceEnabled===true &&
-    f?.name==="carry-on-03-muddy-dark.wav" && f?.size===11520056;
-}
+// Historical reviewed-pair identity validation, used only by the read-only shadow tests.
 export function isAuralisStage3F9ExactEncodedIdentity(identity:unknown):boolean {
   const i=identity as any;
   return i?.status==="VERIFIED" &&
@@ -997,44 +974,7 @@ export function isAuralisStage3F9ExactEncodedIdentity(identity:unknown):boolean 
     i.sourceRateStatus==="VERIFIED_WAV_HEADER" &&
     i.sourceSampleRate===48000;
 }
-// Stage 3F-8: this is the production trust boundary for a reviewed-real 79
-// trial. Never infer approval from a shadow result or a browser-supplied flag.
-// The server's exact encoded-byte review, the current decoded/Worker PCM
-// lineage and a freshly recomputed real-only shadow must all agree.
-export function authorizeAuralisReviewed79Execution(
-  critique:unknown, audit:unknown, shadow:unknown,
-  serverReview:unknown, encodedIdentity:unknown,
-):boolean {
-  const c=critique as any,a=audit as any,s=shadow as any;
-  if(!c||!a||!s||c.auralisBetaScoringAudit!==a||
-     c.auralisStage3F1SpectralShadow!==s||
-     a.sourceIdentity!=="CURRENT_UPLOAD_PCM_VERIFIED"||
-     c.auralisSourceLineage?.status!=="VERIFIED"||
-     c.auralisSourceLineage?.pcmIdentityStatus!=="VERIFIED"||
-     c.auralisSourceLineage?.scoringImpact!=="NONE")return false;
-  const context=resolveAuralisReviewedRealShadowContext(
-    serverReview,encodedIdentity,a);
-  if(!context)return false;
-  const independentlyComputed=evaluateAuralisStage3F1SpectralShadow(c,a,context);
-  return independentlyComputed.status==="REAL_REVIEW_HYPOTHETICAL_ONLY"&&
-     independentlyComputed.reason===(context.pairedPolicy?"REVIEWED_REAL_PAIRED_SHADOW_NOT_ACTIVATION":"REVIEWED_REAL_SHADOW_NOT_ACTIVATION")&&
-     independentlyComputed.candidateCap===79&&
-     independentlyComputed.scoringImpact==="NONE"&&
-     independentlyComputed.appliedCap===null&&
-     independentlyComputed.appliedScoreChange===0&&
-     JSON.stringify(independentlyComputed)===JSON.stringify(s);
-}
-// This additional authorization never admits the original single-recording
-// review route, a shadow-only server response, or a synthetic replay.
-export function authorizeAuralisCarryOnPairedExecution(
-  critique:unknown,audit:unknown,shadow:unknown,serverReview:unknown,encodedIdentity:unknown,serverActivation:unknown,
-):boolean {
-  const e=encodedIdentity as any,s=shadow as any;
-  return serverActivation===true&&isAuralisStage3F9ExactEncodedIdentity(e)&&
-    validateAuralisCarryOnActivationPolicy(serverReview,e?.encodedSha256)!==null&&
-    s?.status==="REAL_REVIEW_HYPOTHETICAL_ONLY"&&s.reason==="REVIEWED_REAL_PAIRED_SHADOW_NOT_ACTIVATION"&&
-    authorizeAuralisReviewed79Execution(critique,audit,shadow,serverReview,encodedIdentity);
-}
+// The executable review authorization path is retired. Archived projections remain read-only.
 // A scoring-order-safe, read-only projection. Stage 3F-5 does not install an
 // executor: actual scoring activation must separately reconcile the existing
 // A2 final snapshot, parent score, reports and downstream scores.
@@ -1070,10 +1010,7 @@ export function planAuralisReviewed79ScoreIntegration(
     hypotheticalSpectralScore:score,hypotheticalCommercialReadiness:parent};
 }
 
-// Stage 3F-6: narrowly scoped final-score executor. The App integration
-// permanently supplies false until separate activation approval. Historical
-// Gemini/server/browser provenance is immutable; this records a NEW post-Auralis
-// overlay rather than rewriting the pre-Auralis A2 snapshots.
+// Archived overlay format retained solely for historical report consistency validation.
 export const AURALIS_REVIEWED_79_EXECUTION_VERSION =
   "auralis-stage3f6-reviewed79-execution-v1" as const;
 export type AuralisReviewed79Execution = {
@@ -1089,92 +1026,7 @@ export type AuralisReviewed79Execution = {
   afterCommercialReadiness:number|null;
   preAuralisScoreLineage:"A2_RECONCILED"|null;
 };
-export function executeAuralisReviewed79Score(
-  critique:unknown,audit:unknown,shadow:unknown,plan:unknown,
-  scoringEnabled:boolean,
-):AuralisReviewed79Execution {
-  const c=critique as any,a=audit as any,s=shadow as any,p=plan as any;
-  const finiteScore=(v:unknown):v is number=>
-    typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=100;
-  const result=(status:AuralisReviewed79Execution["status"],reason:string,
-    before:number|null=null,after:number|null=null,
-    parentBefore:number|null=null,parentAfter:number|null=null):
-    AuralisReviewed79Execution=>({
-      version:AURALIS_REVIEWED_79_EXECUTION_VERSION,status,reason,
-      scoringImpact:status==="APPLIED"?"DOWNWARD_ONLY":"NONE",
-      appliedCap:status==="APPLIED"?79:null,
-      appliedScoreChange:status==="APPLIED"&&before!==null&&after!==null?
-        after-before:0,
-      beforeSpectralScore:before,afterSpectralScore:after,
-      beforeCommercialReadiness:parentBefore,
-      afterCommercialReadiness:parentAfter,
-      preAuralisScoreLineage:status==="APPLIED"?"A2_RECONCILED":null,
-    });
-  // Disabled means absolutely no score, commentary or provenance mutation.
-  if(scoringEnabled!==true)return result("DISABLED","ACTIVATION_OFF");
-  const metric=c?.subMetricsCall1?.spectralMatch;
-  const dyn=c?.subMetricsCall1?.dynamicVariety;
-  const hook=c?.subMetricsCall3?.compositionFlowSubs?.hookPlacement;
-  const contrast=c?.subMetricsCall3?.compositionFlowSubs?.sectionalContrast;
-  const old=metric?.score,readiness=c?.scores?.commercialReadiness;
-  const legacy=c?.mixBalanceEvidence?.spectralCap;
-  // The Stage 3F-5 planner cannot be made to apply a score. Recompute its
-  // read-only proposal using the disabled policy; accept no supplied shortcut.
-  const fresh=planAuralisReviewed79ScoreIntegration(c,a,s,false);
-  if(c?.auralisStage3F6Execution!==undefined||
-     a!==c?.auralisBetaScoringAudit||
-     c?.auralisStage3F1SpectralShadow!==s||
-     !p||p.status!=="PROJECTION_ONLY"||
-     fresh.status!=="PROJECTION_ONLY"||
-     p.reason!==fresh.reason||
-     p.scoringImpact!=="NONE"||
-     p.appliedCap!==null||p.appliedScoreChange!==0||
-     !Array.isArray(p.adjustments)||p.adjustments.length!==0||
-     p.hypotheticalSpectralScore!==fresh.hypotheticalSpectralScore||
-     p.hypotheticalCommercialReadiness!==fresh.hypotheticalCommercialReadiness||
-     a?.scoreLineage!=="A2_RECONCILED"||
-     a?.scoringImpact!=="NONE"||
-     !Array.isArray(a.adjustments)||a.adjustments.length!==0||
-     a.appliedCap!==null||a.appliedScoreChange!==0||
-     !finiteScore(a.geminiMappedSpectralScore)||
-     !finiteScore(a.serverReturnedSpectralScore)||
-     a.observedFinalSpectralScore!==old||
-     a.observedCommercialReadiness!==readiness||
-     a.legacyDspCap!==legacy||
-     !(legacy===null||finiteScore(legacy))||
-     legacy!==null&&legacy<=79||
-     !finiteScore(old)||old<=79||
-     !finiteScore(readiness)||
-     [dyn,hook,contrast].some(x=>x?.applicable===false||
-       !finiteScore(x?.score))||
-     metric?.applicable===false||
-     s?.candidateCap!==79||
-     s?.existingFinalScore!==old||
-     s?.existingLegacyCap!==legacy||
-     s?.hypotheticalSpectralScore!==79||
-     s?.hypotheticalCommercialReadiness!==fresh.hypotheticalCommercialReadiness)
-    return result("ABSTAIN","INCOMPLETE_OR_STALE_RECONCILED_AUTHORIZATION");
-  const compute=(spectral:number)=>Math.round(
-    (hook.score*60+dyn.score*20+spectral*10+contrast.score*10)/100);
-  const nextScore=Math.min(old,79),nextParent=compute(nextScore);
-  if(compute(old)!==readiness||
-     nextScore!==fresh.hypotheticalSpectralScore||
-     nextParent!==fresh.hypotheticalCommercialReadiness||
-     nextParent>readiness)
-    return result("ABSTAIN","INCONSISTENT_DOWNSTREAM_SCORE");
-  // All checks complete; one narrow commit point. Preserve legacy DSP and
-  // canonical A2 traces so the separate post-Auralis record is auditable.
-  const execution=result("APPLIED","REVIEWED_TECHNICAL_CAP",
-    old,nextScore,readiness,nextParent);
-  metric.score=nextScore;
-  c.scores.commercialReadiness=nextParent;
-  metric.commentary=typeof metric.commentary==="string"?
-    metric.commentary+" Auralis: a separately operator-reviewed, independently corroborated technical issue constrained this Spectral Match result to 79.":
-    "Auralis: an operator-reviewed, independently corroborated technical issue constrained Spectral Match to 79.";
-  c.auralisStage3F6Execution=execution;
-  return execution;
-}
-
+// The 79-point score mutator has been removed. Only archived overlay validation follows.
 // Stage 3F-7: shared report/Excel consistency check. It never supplies
 // scoring authorization, recalculates scores or rewrites the historical A2
 // record. Only an actual applied overlay produces a review row.
@@ -1720,7 +1572,31 @@ export function getAuralisBetaAuditReportRows(critique:unknown):AuralisBetaExcel
     rows.push({section,field,value});
   add("Export Policy","Scope","READ_ONLY_CURRENT_CRITIQUE; NO NEW SCORING");
   add("Export Policy","Gemini responsibility","ARTISTIC_AND_EXISTING_TIER_ASSESSMENT");
-  add("Export Policy","Auralis responsibility","MEASURED_ENGINEERING_EVIDENCE_ONLY");
+  add("Export Policy","Auralis responsibility",c?.auralisHybridInputVersion==="hybrid-v1"?"MEASUREMENT_AND_EXISTING_ENGINEERING_INPUTS":"MEASURED_ENGINEERING_EVIDENCE_ONLY");
+  const narrativeMeasurements=validateAuralisNarrativeMeasurements(c?.auralisNarrativeMeasurements);
+  add("Narrative Evidence","Gemini engineering context",narrativeMeasurements?"AURALIS_MEASUREMENTS_SUPPLIED":"NOT_CAPTURED");
+  add("Narrative Evidence","Measurement trust",narrativeMeasurements?"CLIENT_WORKER_VALUES; NORMAL_UPLOAD_FLOW_CHECKS_HASH; SAVED_VALUES_NOT_REVERIFIED; SERVER_DSP_NOT_RECOMPUTED":"NOT_CAPTURED");
+  if(c?.auralisHybridInputVersion==="hybrid-v1"){
+    const inputs=selectAuralisHybridInputs(narrativeMeasurements,c?.liveMetrics);
+    for(const [label,measurement,legacy] of [
+      ["Integrated LUFS",inputs.integratedLufs,c?.liveMetrics?.calculatedLufs],
+      ["LRA (LU)",inputs.loudnessRangeLu,c?.liveMetrics?.calculatedLra],
+      ["Crest (dB)",inputs.crestFactorDb,c?.liveMetrics?.calculatedCrestFactorDb],
+      ["Sample peak (dBFS)",inputs.samplePeakDbfs,c?.liveMetrics?.calculatedTruePeak],
+      ["Sub share (20–11k denominator)",inputs.subPct,c?.liveMetrics?.calculatedFinishSubPct],
+      ["Mid share (20–11k denominator)",inputs.midPct,c?.liveMetrics?.calculatedFinishMidPct],
+      ["Air share (20–11k denominator)",inputs.airPct,c?.liveMetrics?.calculatedFinishAirPct],
+    ] as const){
+      add("Hybrid Inputs",label+" legacy",number(legacy));
+      add("Hybrid Inputs",label+" selected",number(measurement.value));
+      add("Hybrid Inputs",label+" source",measurement.source);
+    }
+    add("Hybrid Inputs","Low-to-upper ratio (descriptive, dB)",number(inputs.lowToUpperDb));
+    add("Hybrid Inputs","Sustained contrast (distinct legacy dB metric)",number(inputs.sustainedContrastDb.value));
+    add("Hybrid Inputs","Sustained contrast source",inputs.sustainedContrastDb.source);
+    add("Hybrid Inputs","Midrange flatness (distinct legacy metric)",number(inputs.midrangeFlatness.value));
+    add("Hybrid Inputs","Midrange flatness source",inputs.midrangeFlatness.source);
+  }
   add("Export Policy","Quality verdict from band ratio","NOT_INFERRED");
   add("Execution","Worker status",code(e?.status,["AVAILABLE","UNAVAILABLE","NOT_RUN"]));
   add("Execution","Worker reason",code(e?.reason,[
@@ -1989,12 +1865,12 @@ export function formatAuralisObjectiveEngineeringFindings(critique:unknown):stri
   const f=getAuralisObjectiveEngineeringFindings(critique);
   const pct=(v:number|null)=>v===null?"unavailable":v>0&&v<0.1?"less than 0.1%":v.toFixed(1)+"%";
   const ratio=f.spectralMatch.lowToUpperDb;
-  return "Auralis objective evidence (not scored; PCM identity "+f.sourceIdentity+"): "+
+  return "Auralis measurements ("+( (critique as any)?.auralisHybridInputVersion==="hybrid-v1"?"selected values may feed existing engineering guardrails; ":"measurement-only report; ")+(f.sourceIdentity==="VERIFIED"?"audio identity verified":"audio identity not verified")+"): "+
     "Spectral Match: "+(ratio===null?"insufficient measurement evidence":ratio.toFixed(2)+" dB (60–250 Hz / 500–20,000 Hz)")+
     (f.spectralMatch.concernBasis==="RECORDED_REVIEWED_SHADOW_ONLY"?"; recorded reviewed shadow concern, not a new diagnosis or score authority. ": "; no supported quality verdict. ")+
     "Mud Prevention: 250–500 Hz power share "+pct(f.mudPrevention.lowMidPowerPct)+
     "; a master spectrum cannot establish masking. Low-End Division: 20–60 Hz "+pct(f.lowEndDivision.subPowerPct)+
-    ", 60–250 Hz "+pct(f.lowEndDivision.bassPowerPct)+"; source roles "+f.lowEndDivision.roleStatus+
+    ", 60–250 Hz "+pct(f.lowEndDivision.bassPowerPct)+"; source roles "+(f.lowEndDivision.roleStatus==="INDEPENDENT_ROLES_CORROBORATED"?"corroborated":f.lowEndDivision.roleStatus==="NOT_APPLICABLE"?"not applicable":"not verified")+
     "; separation defect evidence insufficient. Shares are of represented 20–20,000 Hz Worker power.";
 }
 
@@ -2056,11 +1932,162 @@ export function getAuralisDynamicsFindings(critique:unknown) {
 export function formatAuralisDynamicsFindings(critique:unknown):string {
   const f=getAuralisDynamicsFindings(critique),d=f.dynamicModulation,t=f.climaxTrajectory;
   const val=(v:number|null,unit:string)=>v===null?"unavailable":v.toFixed(1)+" "+unit;
-  return "Auralis objective dynamics (not scored; PCM identity "+f.sourceIdentity+"): "+
+  return "Auralis dynamics measurements ("+((critique as any)?.auralisHybridInputVersion==="hybrid-v1"?"LRA may feed existing dynamics guardrails; ":"measurement-only report; ")+(f.sourceIdentity==="VERIFIED"?"audio identity verified":"audio identity not verified")+"): "+
     "Dynamic Modulation: gated loudness range "+val(d.loudnessRangeLu,"LU")+
     "; full-channel crest factor "+val(d.crestFactorDb,"dB")+
     ". Climax Trajectory: highest measured 3-second programme loudness window centred at "+
     val(t.peakTimeSec,"s")+" ("+val(t.peakPositionPct,"% of decoded duration")+")"+
     "; peak "+val(t.peakLufs,"LUFS")+"; rise above mean opening-window power "+val(t.openingRiseLu,"LU")+
     ". This is the first highest window if tied, not proof of a unique musical climax or effective artistic payoff.";
+}
+
+
+/** Compact numeric-only context for the existing Gemini narrative calls.
+ * Browser-validated PCM is not a server-side independent DSP measurement.
+ * The encoded hash binds context to this upload and is never sent to Gemini or saved.
+ * Neither this packet nor its acceptance grants any score override authorization.
+ */
+export type AuralisNarrativeMeasurements = {
+  version: "auralis-narrative-v1";
+  sampleRate: number; sampleCount: number; channelCount: number;
+  bandPowerSharePct: number[] | null; lowToUpperDb: number | null;
+  integratedLufs: number | null; loudnessRangeLu: number | null;
+  crestFactorDb: number | null; samplePeakDbfs: number | null;
+  peakTimeSec: number | null; peakLufs: number | null; openingRiseLu: number | null;
+};
+const NARRATIVE_MEASUREMENT_KEYS = [
+  "version","sampleRate","sampleCount","channelCount","bandPowerSharePct","lowToUpperDb",
+  "integratedLufs","loudnessRangeLu","crestFactorDb","samplePeakDbfs","peakTimeSec","peakLufs","openingRiseLu",
+];
+export function validateAuralisNarrativeMeasurements(raw: unknown): AuralisNarrativeMeasurements | null {
+  if(!raw || typeof raw!=="object" || Array.isArray(raw))return null;
+  const m=raw as AuralisNarrativeMeasurements;
+  const finite=(v:unknown,min:number,max:number):v is number=>
+    typeof v==="number"&&Number.isFinite(v)&&v>=min&&v<=max;
+  const nullable=(v:unknown,min:number,max:number)=>v===null||finite(v,min,max);
+  if(Object.keys(m).sort().join(",")!==[...NARRATIVE_MEASUREMENT_KEYS].sort().join(",")||
+    m.version!=="auralis-narrative-v1"||!Number.isSafeInteger(m.sampleRate)||
+    !finite(m.sampleRate,8000,192000)||!Number.isSafeInteger(m.sampleCount)||m.sampleCount<1||
+    ![1,2].includes(m.channelCount)||m.sampleCount*m.channelCount*4>128*1024*1024||
+    !nullable(m.lowToUpperDb,-200,200)||!nullable(m.integratedLufs,-100,30)||
+    !nullable(m.loudnessRangeLu,0,100)||!nullable(m.crestFactorDb,0,150)||
+    !nullable(m.samplePeakDbfs,-200,30)||!nullable(m.peakTimeSec,0,m.sampleCount/m.sampleRate)||
+    !nullable(m.peakLufs,-200,30)||!nullable(m.openingRiseLu,-200,200))return null;
+  if(m.bandPowerSharePct!==null){
+    const b=m.bandPowerSharePct;
+    if(m.sampleRate<40000||m.sampleCount<4096||!Array.isArray(b)||b.length!==7||
+      !Array.from(b).every(v=>finite(v,0,100))||
+      Math.abs(b.reduce((s,v)=>s+v,0)-100)>1e-6)return null;
+    const upper=b.slice(3).reduce((s,v)=>s+v,0);
+    if(b[1]<=0||upper<=0||m.lowToUpperDb===null||
+      Math.abs(10*Math.log10(b[1]/upper)-m.lowToUpperDb)>0.005001)return null;
+  }else if(m.lowToUpperDb!==null)return null;
+  if(m.loudnessRangeLu!==null&&m.sampleCount<3*m.sampleRate)return null;
+  // Opening rise may be unavailable independently of the measured peak.
+  if((m.peakTimeSec===null)!==(m.peakLufs===null)||
+     (m.peakTimeSec===null&&m.openingRiseLu!==null)||
+     (m.peakTimeSec!==null&&m.sampleCount<3*m.sampleRate))return null;
+  if(m.bandPowerSharePct===null&&m.integratedLufs===null&&m.loudnessRangeLu===null&&
+    m.crestFactorDb===null&&m.samplePeakDbfs===null&&m.peakTimeSec===null)return null;
+  return {...m,bandPowerSharePct:m.bandPowerSharePct?[...m.bandPowerSharePct]:null};
+}
+export function prepareAuralisNarrativePacket(diagnostic:unknown,
+    engineering:ReturnType<typeof prepareAuralisEngineeringEvidence>) {
+  const d=diagnostic as any;
+  const l=prepareAuralisSourceLineage(diagnostic);
+  if(!l||l.sourceFormat!=="UNVERIFIED"||d.identity.encodedBytes>24*1024*1024)return null;
+  const g=classifyAuralisExecution("AVAILABLE",engineering).status==="AVAILABLE"?engineering?.metrics:null;
+  const meter=d.referenceMeters;
+  const m=prepareAuralisDynamicsEvidence(meter,l.workerSampleRate,l.workerChannels,l.workerSamples);
+  // The reference meter adapter checked schema, method and exact PCM geometry.
+  const numericMeter=(key:string)=>m&&typeof meter?.measurements?.[key]==="number"&&
+    Number.isFinite(meter.measurements[key])?meter.measurements[key]:null;
+  const trajectory=m?.trajectory;
+  const measurements=validateAuralisNarrativeMeasurements({
+    version:"auralis-narrative-v1",sampleRate:l.workerSampleRate,
+    sampleCount:l.workerSamples,channelCount:l.workerChannels,
+    bandPowerSharePct:g?.bandPowerSharePct??null,lowToUpperDb:g?.bandPowerSharePct?g.lowToUpperDb:null,
+    integratedLufs:numericMeter("integratedLufs"),samplePeakDbfs:numericMeter("samplePeakDbfs"),
+    loudnessRangeLu:m?.loudnessRangeLu??null,crestFactorDb:m?.crestFactorDb??null,
+    peakTimeSec:trajectory?(15+trajectory.peakWindowIndex)/10:null,
+    peakLufs:trajectory?.peakLufs??null,openingRiseLu:trajectory?.openingRiseLu??null,
+  });
+  return measurements?{encodedSha256:d.identity.encodedSha256 as string,measurements}:null;
+}
+export function parseAuralisNarrativePacket(raw:unknown,uploadSha256:string): AuralisNarrativeMeasurements|null {
+  if(typeof raw!=="string"||raw.length>4096||!/^[a-f0-9]{64}$/.test(uploadSha256))return null;
+  try {
+    const packet=JSON.parse(raw);
+    if(!packet||Object.keys(packet).sort().join(",")!=="encodedSha256,measurements"||
+      packet.encodedSha256!==uploadSha256)return null;
+    return validateAuralisNarrativeMeasurements(packet.measurements);
+  }catch{return null;}
+}
+export function formatAuralisNarrativeContext(raw:unknown,savedReport=false):string {
+  const m=validateAuralisNarrativeMeasurements(raw);
+  const instruction="For every engineering narrative and DAW recommendation, distinguish objective measurements from listening-based interpretation. Auralis is the source for physical engineering measurements; explicitly respect its reported values and unavailable fields throughout all main and submetric narratives, action items, feedback, frequency balance, dynamics and climax commentary. Do not restate a conflicting legacy estimate as a measured fact. Auralis supplies physical signal measurements; Gemini supplies contextual listening, musical interpretation and practical explanation. Do not invent a measured value, infer source separation, masking, instrument identity, compression history or artistic intent solely from aggregate spectrum, loudness or crest factor. A loudness or spectral characteristic alone is not a defect. Interpret the existing tiers from audio and applicable evidence; do not override deterministic scores or declare an unmeasured quality verdict. Preserve independent low-end role listening checks. Separate legacy estimates of sustained contrast, spectral flatness, flux, stereo phase, and source-role diagnostics from Auralis quantities; these are different metrics, not substitutes or independent server verification. Use plain English and conditional listening checks, not universal genre targets or mandatory EQ from band shares.";
+  if(!m)return "\n\n[AURALIS ENGINEERING EVIDENCE UNAVAILABLE]\n"+instruction+
+    " No Auralis numerical findings are available for this analysis; state uncertainty rather than inventing them.";
+  const val=(v:number|null,unit:string)=>v===null?"unavailable":v.toFixed(2)+" "+unit;
+  const bands=["20–60","60–250","250–500","500–2000","2000–6000","6000–11000","11000–20000"];
+  return "\n\n[AURALIS MEASURED ENGINEERING CONTEXT]\n"+
+    (savedReport?"Saved client-reported measurements, not a fresh audio measurement. Do not assume independent server verification. ":"Client-reported, browser-validated Worker PCM measurements associated with the uploaded encoded bytes. The server checks file identity and numeric structure, not an independent DSP recomputation. ")+
+    "Use these values as the engineering measurement source rather than estimating the same quantities by ear or treating legacy absolute band indices as relative power. "+
+    "Decoded duration "+(m.sampleCount/m.sampleRate).toFixed(2)+" s; "+m.channelCount+" channel(s). "+
+    "Spectral Match: 60–250 vs 500–20,000 Hz "+val(m.lowToUpperDb,"dB")+". "+
+    "Mud Prevention, Low-End Division and Midrange Spacing: represented 20–20,000 Hz power shares "+
+    (m.bandPowerSharePct?m.bandPowerSharePct.map((v,i)=>bands[i]+" Hz "+v.toFixed(3)+"%").join("; "):"unavailable")+". "+
+    "Integrated loudness "+val(m.integratedLufs,"LUFS")+"; sample peak "+val(m.samplePeakDbfs,"dBFS")+
+    "; Dynamic Modulation: gated LRA "+val(m.loudnessRangeLu,"LU")+", full-channel crest factor "+val(m.crestFactorDb,"dB")+
+    ". Climax Trajectory: highest three-second programme loudness window centered at "+val(m.peakTimeSec,"s")+
+    ", peak "+val(m.peakLufs,"LUFS")+", opening-to-peak rise "+val(m.openingRiseLu,"LU")+
+    ". This does not establish musical climax or artistic payoff. "+instruction;
+}
+
+// Hybrid beta: retain compatible existing thresholds; never translate absolute
+// FFT magnitude indices into relative-power thresholds. Historical trial helpers
+// above remain for archived audit interpretation and synthetic tests only.
+export function selectAuralisHybridInputs(raw:unknown,legacy:unknown) {
+  const m=validateAuralisNarrativeMeasurements(raw), l=legacy as any;
+  const finite=(v:unknown):v is number=>typeof v==="number"&&Number.isFinite(v);
+  const choose=(measured:number|null|undefined,old:unknown,available?:boolean,ambiguous?:number)=>{
+    if(finite(measured))return {value:measured,source:"AURALIS" as const};
+    if(m)return {value:undefined,source:"UNAVAILABLE" as const};
+    if(finite(old)&&available!==false&&(available===true||old!==ambiguous))
+      return {value:old,source:"LEGACY_ESTIMATE" as const};
+    return {value:undefined,source:"UNAVAILABLE" as const};
+  };
+  // Distinct legacy quantities are not interchangeable with LRA or band power.
+  const distinctLegacy=(v:unknown,min:number,max:number)=>finite(v)&&v>=min&&v<=max
+    ? {value:v,source:"LEGACY_ESTIMATE" as const} : {value:undefined,source:"UNAVAILABLE" as const};
+  const b=m?.bandPowerSharePct;
+  // Legacy finish targets used 20–11,000 Hz as denominator, not 20–20,000.
+  // Re-normalize the matching six Auralis bands. Stereo/FFT sampling differs;
+  // the thresholds remain provisional pending real-recording beta review.
+  const denominator=b?b.slice(0,6).reduce((s,v)=>s+v,0):0;
+  const band=(i:number,old:unknown)=>choose(b&&denominator>0?100*b[i]/denominator:null,old);
+  return {
+    integratedLufs:choose(m?.integratedLufs,l?.calculatedLufs,l?.legacyLufsAvailable,-14),
+    loudnessRangeLu:choose(m?.loudnessRangeLu,l?.calculatedLra,l?.legacyLraAvailable,5.4),
+    crestFactorDb:choose(m?.crestFactorDb,l?.calculatedCrestFactorDb),
+    samplePeakDbfs:choose(m?.samplePeakDbfs,l?.calculatedTruePeak),
+    subPct:band(0,l?.calculatedFinishSubPct),
+    midPct:band(3,l?.calculatedFinishMidPct),
+    airPct:band(5,l?.calculatedFinishAirPct),
+    sustainedContrastDb:distinctLegacy(l?.calculatedDynamicRangeDb,0,200),
+    midrangeFlatness:distinctLegacy(l?.calculatedMidrangeFlatness,0,1),
+    lowToUpperDb:m?.lowToUpperDb??null,
+    bandPowerSharePct:b??null,
+  };
+}
+export function deriveGainInvariantMixCap(flatness:unknown,airPct:unknown) {
+  const signals:string[]=[];
+  if(typeof flatness==="number"&&Number.isFinite(flatness)&&flatness>=0&&flatness<=1&&flatness<0.45)
+    signals.push("low legacy midrange spectral flatness ("+flatness.toFixed(3)+")");
+  if(typeof airPct==="number"&&Number.isFinite(airPct)&&airPct>=0&&airPct<=100&&airPct<0.50)
+    signals.push("very low relative 6–11 kHz power ("+airPct.toFixed(2)+"%)");
+  // Existing ladder retained. Only the two compatible gain-invariant signals
+  // are eligible, so the four unsupported lower rungs cannot currently fire.
+  const ladder=[null,86,82,76,72,68];
+  return {signals,cap:ladder[Math.min(5,signals.length)]};
 }
