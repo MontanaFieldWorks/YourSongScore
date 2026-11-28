@@ -570,9 +570,7 @@ export default function App() {
     // whole production "bad" because some professional genres intentionally use dense,
     // low-range masters. This prevents a flat delivered master from receiving 90+ for
     // Dynamic Variety / Dynamic Modulation while preserving unrelated artistic scores.
-    const measuredDynamicRange = finite(liveMetrics.calculatedDynamicRangeDb)
-      ? liveMetrics.calculatedDynamicRangeDb
-      : undefined;
+    const measuredDynamicRange = selected.sustainedContrastDb.value;
     const measuredLra = selected.loudnessRangeLu.value;
 
     const dynamicRangeCap = (() => {
@@ -609,8 +607,8 @@ export default function App() {
       if (typeof metric.score === "number" && metric.score > modulationCap) {
         metric.score = modulationCap;
         metric.commentary =
-          `The delivered audio has only ${finite(measuredDynamicRange) ? measuredDynamicRange.toFixed(1) + " dB" : "limited"} sustained loud/quiet contrast` +
-          `${finite(measuredLra) ? " and " + measuredLra.toFixed(1) + " LU LRA" : ""}. The arrangement may still create perceived lift, but the master itself is dynamically constrained, so a top-band Dynamic Modulation score is not supported.`;
+          `Existing dynamics guardrail: ${finite(measuredDynamicRange) ? "legacy sustained loud/quiet contrast " + measuredDynamicRange.toFixed(1) + " dB" : "sustained contrast unavailable"}` +
+          `${finite(measuredLra) ? "; " + (selected.loudnessRangeLu.source==="AURALIS"?"Auralis gated":"legacy estimated") + " LRA " + measuredLra.toFixed(1) + " LU" : "; LRA unavailable"}. This limits the score under the existing policy; it does not establish the musical effect or processing history.`;
       }
     }
 
@@ -619,8 +617,8 @@ export default function App() {
       if (typeof metric.score === "number" && metric.score > varietyCap) {
         metric.score = varietyCap;
         metric.commentary =
-          `Sectional arrangement changes may still be audible, but the delivered audio shows only ${finite(measuredDynamicRange) ? measuredDynamicRange.toFixed(1) + " dB" : "limited"} sustained loud/quiet contrast` +
-          `${finite(measuredLra) ? " and " + measuredLra.toFixed(1) + " LU LRA" : ""}. That limits how much actual dynamic variety survives in the final master.`;
+          `Existing dynamics guardrail: ${finite(measuredDynamicRange) ? "legacy sustained loud/quiet contrast " + measuredDynamicRange.toFixed(1) + " dB" : "sustained contrast unavailable"}` +
+          `${finite(measuredLra) ? "; " + (selected.loudnessRangeLu.source==="AURALIS"?"Auralis gated":"legacy estimated") + " LRA " + measuredLra.toFixed(1) + " LU" : "; LRA unavailable"}. This is a score-policy ceiling, not a verdict on the arrangement.`;
       }
     }
 
@@ -631,7 +629,7 @@ export default function App() {
     // punish a naturally warm/dark genre signature, but to stop clear multi-signal mix
     // anomalies from being overwritten by an optimistic model judgment.
     const mudFlux = finite(liveMetrics.calculatedMudFlux) ? liveMetrics.calculatedMudFlux : undefined;
-    const midrangeFlatness = finite(liveMetrics.calculatedMidrangeFlatness) ? liveMetrics.calculatedMidrangeFlatness : undefined;
+    const midrangeFlatness = selected.midrangeFlatness.value;
     const bassBandEnergy = finite(liveMetrics.calculatedBassBandEnergy) ? liveMetrics.calculatedBassBandEnergy : undefined;
     const lowMidBandEnergy = finite(liveMetrics.calculatedLowMidsBandEnergy) ? liveMetrics.calculatedLowMidsBandEnergy : undefined;
     const coreMidBandEnergy = finite(liveMetrics.calculatedCoreMidsBandEnergy) ? liveMetrics.calculatedCoreMidsBandEnergy : undefined;
@@ -663,7 +661,7 @@ export default function App() {
     if (midrangeCap !== null && call1?.midrangeSpacing && typeof call1.midrangeSpacing.score === "number" && call1.midrangeSpacing.score > midrangeCap) {
       call1.midrangeSpacing.score = midrangeCap;
       call1.midrangeSpacing.commentary =
-        `Measured midrange structure does not support a top-band spacing score. Midrange flatness is ${finite(midrangeFlatness) ? midrangeFlatness.toFixed(3) : "N/A"}` +
+        `Existing midrange spacing ceiling: legacy midrange flatness ${finite(midrangeFlatness) ? midrangeFlatness.toFixed(3) : "N/A"}` +
         `; this is a legacy spectral-flatness guardrail, not a measurement of instrument separation.`;
       appliedMixCaps.push(`Midrange Spacing ≤ ${midrangeCap}`);
     }
@@ -679,9 +677,9 @@ export default function App() {
     captureA2SpectralAfterBrowserMix(critique, spectralCap);
 
     const mixEvidenceSummary =
-      `Mix evidence: mud flux ${finite(mudFlux) ? mudFlux.toFixed(1) : "N/A"} (diagnostic only, not a score gate); midrange flatness ${finite(midrangeFlatness) ? midrangeFlatness.toFixed(3) : "N/A"}; ` +
-      `bass/low-mid/core-mid/air energy ${finite(bassBandEnergy) ? bassBandEnergy : "N/A"}/${finite(lowMidBandEnergy) ? lowMidBandEnergy : "N/A"}/${finite(coreMidBandEnergy) ? coreMidBandEnergy : "N/A"}/${finite(airBandEnergy) ? airBandEnergy : "N/A"}; ` +
-      `relative air ${finite(relativeAirPct) ? relativeAirPct.toFixed(2) + "%" : "N/A"}. ` +
+      `Mix evidence: legacy mud flux ${finite(mudFlux) ? mudFlux.toFixed(1) : "N/A"} (diagnostic only, not a score gate); legacy midrange flatness ${finite(midrangeFlatness) ? midrangeFlatness.toFixed(3) : "N/A"}; ` +
+      `legacy normalized bass/low-mid/core-mid/air indices ${finite(bassBandEnergy) ? bassBandEnergy : "N/A"}/${finite(lowMidBandEnergy) ? lowMidBandEnergy : "N/A"}/${finite(coreMidBandEnergy) ? coreMidBandEnergy : "N/A"}/${finite(airBandEnergy) ? airBandEnergy : "N/A"}; ` +
+      `relative air ${finite(relativeAirPct) ? relativeAirPct.toFixed(2) + "% (" + selected.airPct.source + ")" : "N/A"}. ` +
       (appliedMixCaps.length > 0 ? `Measured corrections: ${appliedMixCaps.join(", ")}.` : "No calibrated mix correction applied.");
 
     critique.mixBalanceEvidence = {
@@ -705,9 +703,7 @@ export default function App() {
       if (isMudDiagnosticCritique(critique)) markMudPreventionDiagnosticOnly(critique);
       const correctedMix = computeMixBalanceScore(call1, isMudDiagnosticCritique(critique));
       if (correctedMix !== null) critique.mixQuality.score = correctedMix;
-      if (appliedMixCaps.length > 0) {
-        critique.mixQuality.dominanceIssues = mixEvidenceSummary;
-      }
+      // Preserve Gemini listening context; the separate evidence record carries deterministic caps.
     }
 
     // Recompute the two affected parents after the measured caps are applied.
