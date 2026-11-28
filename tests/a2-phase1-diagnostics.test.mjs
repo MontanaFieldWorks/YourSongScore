@@ -6635,7 +6635,7 @@ test("Auralis selected-band narratives use validated recording-specific shares a
   const studio=await readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8");
   assert.match(studio,/describeSonicLensMeasuredBand\(hsrOverview,selectedHsrBand\)/);
   assert.ok(studio.indexOf("{hsrMeasuredDescription}")<studio.indexOf("{hsrDescription}"));
-  assert.match(studio,/Existing YSS \/ Gemini guidance \(not an Auralis diagnosis\)/);
+  assert.match(studio,/Legacy heuristic guidance — not measured by Auralis/);
 });
 
 test("Auralis Phase 1 uses measured Worker band shares without changing assessments or scoring authority",async()=>{
@@ -6730,4 +6730,30 @@ test("Auralis Phase 2 reuses programme-only K-weighted windows and meters withou
   assert.equal(analyzeStage1aMeterReference([new Float32Array(2*sr)],sr).programmeTrajectory,null);
   const display=await readFile(new URL("../src/components/CritiqueDisplay.tsx",import.meta.url),"utf8");
   assert.match(display,/formatAuralisDynamicsFindings\(critique\)/);
+});
+
+
+test("Beta presentation hides unavailable legacy meters without changing numeric compatibility inputs",async()=>{
+  const {getLegacyMeterDisplayValue}=await import("../src/lib/liveAudioAnalyzer.ts");
+  assert.equal(getLegacyMeterDisplayValue(undefined,"calculatedLra"),undefined);
+  assert.equal(getLegacyMeterDisplayValue({calculatedLra:5.4},"calculatedLra"),undefined);
+  assert.equal(getLegacyMeterDisplayValue({calculatedLra:5.4,legacyLraAvailable:true},"calculatedLra"),5.4);
+  assert.equal(getLegacyMeterDisplayValue({calculatedLra:5.4,legacyLraAvailable:false},"calculatedLra"),undefined);
+  assert.equal(getLegacyMeterDisplayValue({calculatedLufs:-14},"calculatedLufs"),undefined);
+  assert.equal(getLegacyMeterDisplayValue({calculatedLufs:-14,legacyLufsAvailable:true},"calculatedLufs"),-14);
+  for(const v of [null,NaN,Infinity,"5.4"])assert.equal(getLegacyMeterDisplayValue({calculatedLra:v},"calculatedLra"),undefined);
+  assert.equal(getLegacyMeterDisplayValue({calculatedLra:0,legacyLraAvailable:true},"calculatedLra"),0);
+  const studio=await readFile(new URL("../src/components/EngineeringStudioPage.tsx",import.meta.url),"utf8");
+  const gen=studio.split("const generateHarmonicNodes = () => {")[1].split("setHarmonicNodes(derivedNodes);")[0];
+  assert.match(gen,/setHarmonicNodes\(\[\]\);\s*return;/);
+  assert.doesNotMatch(gen,/mentionsMud|mentionsMask|mentionsHarsh|mentionsNarrow|lowEndText|midText|highEndText|dominanceText|stereoText/);
+  assert.doesNotMatch(studio,/-11\.4 LUFS|6\.2 LU|9\.5 PLR|DR9|-1\.8 dB Target GR|AI critique confirms mud buildup|compressor breathing/);
+  assert.match(studio,/displayMeter\(studioLufs, "LUFS"\)/);
+  assert.match(studio,/displayMeter\(studioLra, "LU"\)/);
+  assert.match(studio,/value === undefined \? "Unavailable"/);
+  const m=await import("../src/lib/mudPreventionDiagnostic.ts");
+  for(const prose of [m.formatAuralisObjectiveEngineeringFindings({}),m.formatAuralisDynamicsFindings({})]){
+    assert.match(prose,/audio identity not verified/);
+    assert.doesNotMatch(prose,/VALIDATED_ENGINEERING_EVIDENCE|UNVERIFIED|NOT_APPLICABLE|INDEPENDENT_ROLES_CORROBORATED/);
+  }
 });
