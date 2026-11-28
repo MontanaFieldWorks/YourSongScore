@@ -707,7 +707,7 @@ export function analyzePcmData(
   // Gate power outputs to determine Integrated LUFS
   // Absolute gate at -70 LUFS
   const absoluteGated = blockPowers.filter(p => p > -70);
-  let lufsValue = -14.0; // legacy scoring compatibility only, not measured
+  let lufsValue: number | undefined; // no gated blocks means unavailable
   const legacyLufsAvailable = absoluteGated.length > 0;
   if (absoluteGated.length > 0) {
     // Relative gate: find average power then gate out blocks -10 dB below that average
@@ -724,8 +724,7 @@ export function analyzePcmData(
   }
 
   // Clamp LUFS to reasonable bounds
-  if (lufsValue < -40) lufsValue = -40;
-  if (lufsValue > 0) lufsValue = 0;
+  if (lufsValue !== undefined) lufsValue = Math.min(0,Math.max(-40,lufsValue));
 
   // 3. Compute Loudness Range (LRA)
   // Fixed: previously only applied the absolute gate (-70), missing the relative gate
@@ -735,7 +734,7 @@ export function analyzePcmData(
   // genuinely quiet blocks (sparse verses, near-silence) inflate the reported range -
   // one real test track went from an implausible 20.7 LU down to a real 12.5 LU once
   // this gate was correctly applied.
-  let lra = 5.4; // legacy scoring compatibility only, not measured
+  let lra: number | undefined; // no valid gated range means unavailable
   let legacyLraAvailable = false;
   if (blockPowers.length > 5) {
     const absoluteGatedForLra = blockPowers.filter(p => p > -70);
@@ -754,7 +753,7 @@ export function analyzePcmData(
       }
     }
   }
-  lra = Math.min(25, Math.max(1.0, parseFloat(lra.toFixed(1))));
+  if(lra!==undefined)lra = Math.min(25, Math.max(0, parseFloat(lra.toFixed(1))));
 
   // 4. Stereo Correlation Coefficient (-1 to +1)
   let correlationSumNum = 0;
@@ -2297,9 +2296,9 @@ export function analyzePcmData(
   }
 
   return {
-    calculatedLufs: parseFloat(lufsValue.toFixed(1)),
+    ...(lufsValue===undefined?{}:{calculatedLufs:parseFloat(lufsValue.toFixed(1))}),
     calculatedTruePeak: parseFloat(truePeak.toFixed(2)),
-    calculatedLra: lra,
+    ...(lra===undefined?{}:{calculatedLra:lra}),
     legacyLufsAvailable,
     legacyLraAvailable,
     calculatedRmsDbfs: parseFloat(finishRmsDbfs.toFixed(2)),
