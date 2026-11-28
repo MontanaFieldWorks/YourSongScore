@@ -8,7 +8,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { GoogleGenAI as A2PilotGoogleGenAI } from "@google/genai-a2-pilot";
 import dotenv from "dotenv";
 import { GENRE_MAP } from "./src/data/musicData";
-import { parseAuralisNarrativePacket, formatAuralisNarrativeContext, computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC_SCORING_VERSION, validateAuralisOperatorReviewPolicy, validateAuralisPairedOperatorReviewPolicy, AURALIS_CARRY_ON_ACTIVATION_MODE, resolveAuralisCarryOnActivationPolicy } from "./src/lib/mudPreventionDiagnostic";
+import { parseAuralisNarrativePacket, formatAuralisNarrativeContext, selectAuralisHybridInputs, computeMixBalanceScore, markMudPreventionDiagnosticOnly, MUD_DIAGNOSTIC_SCORING_VERSION } from "./src/lib/mudPreventionDiagnostic";
 import { captureA2ServerProductionInputs, captureA2ServerMixInputs, captureA2ServerSpectralScore } from "./src/lib/a2ScoringProvenance";
 import { withholdA2RawEvidence, getRestrictedA2RawEvidence } from "./src/lib/a2InternalEvidence";
 import { describeLowEndGateFactors, captureA2OriginalAssertionSnapshot } from "./src/lib/sourceVerificationDiagnostics";
@@ -2431,12 +2431,17 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
     } : undefined;
     const mudEvidence = (mudFlatness !== undefined || mudFlux !== undefined) ? { flatness: mudFlatness, flux: mudFlux } : undefined;
     const midrangeEvidence = (midrangeFlatness !== undefined || midrangeFlux !== undefined) ? { flatness: midrangeFlatness, flux: midrangeFlux } : undefined;
+    const selectedFinish=selectAuralisHybridInputs(narrativeMeasurements,{
+      calculatedCrestFactorDb:productionFinishCrestFactorDb,calculatedLufs:productionFinishLufs,
+      calculatedFinishSubPct:productionFinishSubPct,calculatedFinishMidPct:productionFinishMidPct,
+      calculatedFinishAirPct:productionFinishAirPct,
+    });
     const productionFinishEvidence = buildProductionFinishEvidence({
-      crestFactorDb: productionFinishCrestFactorDb,
-      integratedLufs: productionFinishLufs,
-      subPct: productionFinishSubPct,
-      midPct: productionFinishMidPct,
-      airPct: productionFinishAirPct,
+      crestFactorDb: selectedFinish.crestFactorDb.value,
+      integratedLufs: selectedFinish.integratedLufs.value,
+      subPct: selectedFinish.subPct.value,
+      midPct: selectedFinish.midPct.value,
+      airPct: selectedFinish.airPct.value,
     });
 
     const detectedKey = typeof req.body.detectedKey === "string" && req.body.detectedKey.trim()
@@ -2583,36 +2588,10 @@ app.post("/api/critique-file", upload.single("audio"), beginA2Pilot, async (req,
     // Ordinary API responses and Excel reports never contain raw A2 commentary.
     await finishA2PilotIfActive();
     withholdA2RawEvidence(parsedCritique);
-    // Stage 3F-5: optional operator-approved single-recording policy.
-    // An HTTP caller cannot supply review approval. The only source is a
-    // private deployment environment entry, matched to the exact uploaded
-    // encoded bytes. OFF / absent / malformed config yields no authorization.
-    // The reply is a score-inert candidate, not an activation capability.
-    const pairedActivationMode=process.env.YSS_AURALIS_BETA_ARMED===AURALIS_CARRY_ON_ACTIVATION_MODE;
-    const auralisReviewedRecordingPolicy=(()=>{
-      // A separate server-side, default-OFF shutoff for the single-file beta.
-      // Clearing this private setting stops issuing NEW review candidates.
-      // The client scoring switch and PCM identity capture remain OFF.
-      if(isA2PilotRequest()||
-         (process.env.YSS_AURALIS_BETA_ARMED!=="EXACT_SHA_REVIEW_ONLY"&&
-          process.env.YSS_AURALIS_BETA_ARMED!=="EXACT_PAIRED_SHA_REVIEW_ONLY"&&!pairedActivationMode)||
-         !process.env.YSS_AURALIS_REVIEW_POLICY_JSON)return null;
-      try {
-        const review=JSON.parse(process.env.YSS_AURALIS_REVIEW_POLICY_JSON);
-        const sha=createHash("sha256").update(req.file!.buffer).digest("hex");
-        if(pairedActivationMode)return resolveAuralisCarryOnActivationPolicy(
-          process.env.YSS_AURALIS_BETA_ARMED,review,sha,false);
-        return process.env.YSS_AURALIS_BETA_ARMED==="EXACT_PAIRED_SHA_REVIEW_ONLY"
-          ? validateAuralisPairedOperatorReviewPolicy(review,sha)
-          : validateAuralisOperatorReviewPolicy(review,sha);
-      }catch{return null;}
-    })();
-    // Save only the numeric measurements used in Gemini prompts; never the digest.
+    // Only numeric narrative context is saved, never the digest or review policy.
     if(narrativeMeasurements)parsedCritique.auralisNarrativeMeasurements=narrativeMeasurements;
     else delete parsedCritique.auralisNarrativeMeasurements;
-    res.json({ critique: parsedCritique,
-      ...(auralisReviewedRecordingPolicy ? {auralisReviewedRecordingPolicy} : {}),
-      ...(pairedActivationMode&&auralisReviewedRecordingPolicy ? {auralisPairedScoringAuthorized:true} : {}) });
+    res.json({ critique: parsedCritique });
   } catch (error: any) {
     const a2Context = a2PilotContext.getStore();
     if (a2Context) await a2PilotOnError(a2Context);
